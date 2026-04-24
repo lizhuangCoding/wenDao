@@ -34,10 +34,36 @@ export default defineConfig({
   build: {
     rollupOptions: {
       output: {
-        manualChunks: {
-          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
-          'ui-vendor': ['zustand', '@tanstack/react-query', 'framer-motion'],
-          'markdown': ['react-markdown', 'rehype-highlight', 'rehype-raw', 'remark-gfm'],
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            if (id.includes('/react/') || id.includes('/react-dom/') || id.includes('/react-router-dom/')) {
+              return 'react-vendor'
+            }
+            if (id.includes('/zustand/') || id.includes('/@tanstack/react-query/') || id.includes('/framer-motion/')) {
+              return 'ui-vendor'
+            }
+            if (
+              id.includes('/react-markdown/') ||
+              id.includes('/remark-gfm/') ||
+              id.includes('/rehype-raw/') ||
+              id.includes('/remark-parse/') ||
+              id.includes('/remark-rehype/') ||
+              id.includes('/micromark/') ||
+              id.includes('/mdast-util-') ||
+              id.includes('/hast-util-') ||
+              id.includes('/unist-util-')
+            ) {
+              return 'markdown-core'
+            }
+            if (
+              id.includes('/rehype-highlight/') ||
+              id.includes('/highlight.js/') ||
+              id.includes('/lowlight/') ||
+              id.includes('/fault/')
+            ) {
+              return 'markdown-highlight'
+            }
+          }
         },
       },
     },

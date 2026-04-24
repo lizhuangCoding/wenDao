@@ -1,16 +1,15 @@
-import { useState, useEffect, useRef } from 'react';
+import { Suspense, lazy, useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { Select } from 'tdesign-react';
 import { articleApi, categoryApi, uploadApi, chatApi } from '@/api';
 import { Loading } from '@/components/common';
 import { useUIStore } from '@/store';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-import rehypeHighlight from 'rehype-highlight';
-import rehypeRaw from 'rehype-raw';
-import 'highlight.js/styles/github-dark.css';
 import 'tdesign-react/es/style/index.css';
+
+const ArticlePreview = lazy(() =>
+  import('./ArticlePreview').then((module) => ({ default: module.ArticlePreview }))
+);
 
 export const ArticleEditor = () => {
   const { id } = useParams<{ id: string }>();
@@ -420,12 +419,9 @@ export const ArticleEditor = () => {
             </div>
             <div className="flex flex-col">
               <div className="flex-1 bg-neutral-50 dark:bg-neutral-800/50 rounded-lg p-6 overflow-y-auto h-[500px] border border-neutral-200 dark:border-neutral-700 prose dark:prose-invert prose-neutral max-w-none">
-                <ReactMarkdown
-                  remarkPlugins={[remarkGfm]}
-                  rehypePlugins={[rehypeHighlight, rehypeRaw]}
-                >
-                  {formData.content}
-                </ReactMarkdown>
+                <Suspense fallback={<div className="h-full animate-pulse rounded-xl bg-neutral-100 dark:bg-neutral-800" />}>
+                  <ArticlePreview content={formData.content} />
+                </Suspense>
               </div>
             </div>
           </div>
