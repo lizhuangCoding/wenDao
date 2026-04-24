@@ -6,7 +6,60 @@ import (
 	"strings"
 
 	"github.com/cloudwego/eino/schema"
+
+	"wenDao/internal/model"
 )
+
+type thinkTankStreamEmitter struct{}
+
+func newThinkTankStreamEmitter() *thinkTankStreamEmitter {
+	return &thinkTankStreamEmitter{}
+}
+
+func (e *thinkTankStreamEmitter) emitStage(eventCh chan<- StreamEvent, stage string, label string) {
+	if eventCh == nil {
+		return
+	}
+	eventCh <- StreamEvent{Type: StreamEventStage, Stage: stage, Label: label}
+}
+
+func (e *thinkTankStreamEmitter) emitQuestion(eventCh chan<- StreamEvent, stage string, question string) {
+	if eventCh == nil {
+		return
+	}
+	eventCh <- StreamEvent{Type: StreamEventQuestion, Stage: stage, Message: question}
+}
+
+func (e *thinkTankStreamEmitter) emitChunk(eventCh chan<- StreamEvent, message string, sources []string) {
+	if eventCh == nil {
+		return
+	}
+	eventCh <- StreamEvent{Type: StreamEventChunk, Message: message, Sources: sources}
+}
+
+func (e *thinkTankStreamEmitter) emitStep(eventCh chan<- StreamEvent, step *model.ConversationRunStep) {
+	if eventCh == nil || step == nil {
+		return
+	}
+	eventCh <- StreamEvent{
+		Type:      StreamEventStep,
+		StepID:    step.ID,
+		AgentName: step.AgentName,
+		Status:    step.Status,
+		Summary:   step.Summary,
+		Detail:    step.Detail,
+	}
+}
+
+func (e *thinkTankStreamEmitter) emitDone(eventCh chan<- StreamEvent, stage string, label string) {
+	if eventCh == nil {
+		return
+	}
+	if strings.TrimSpace(label) != "" {
+		e.emitStage(eventCh, stage, label)
+	}
+	eventCh <- StreamEvent{Type: StreamEventDone, Stage: stage}
+}
 
 func formatADKMessageDetail(msg *schema.Message) string {
 	if msg == nil {

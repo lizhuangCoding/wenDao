@@ -5,24 +5,43 @@ import (
 	"strings"
 
 	"wenDao/internal/model"
+	"wenDao/internal/repository"
 )
 
-func (s *thinkTankService) loadConversationMemories(conversationID int64) []model.ConversationMemory {
-	if s.memoryRepo == nil || conversationID <= 0 {
+type thinkTankMemoryManager struct {
+	memoryRepo       repository.ConversationMemoryRepository
+	memorySummarizer ConversationMemorySummarizer
+	logger           AILogger
+}
+
+func newThinkTankMemoryManager(
+	memoryRepo repository.ConversationMemoryRepository,
+	memorySummarizer ConversationMemorySummarizer,
+	logger AILogger,
+) *thinkTankMemoryManager {
+	return &thinkTankMemoryManager{
+		memoryRepo:       memoryRepo,
+		memorySummarizer: memorySummarizer,
+		logger:           logger,
+	}
+}
+
+func (m *thinkTankMemoryManager) loadConversationMemories(conversationID int64) []model.ConversationMemory {
+	if m == nil || m.memoryRepo == nil || conversationID <= 0 {
 		return nil
 	}
-	memories, err := s.memoryRepo.GetByConversationID(conversationID)
+	memories, err := m.memoryRepo.GetByConversationID(conversationID)
 	if err != nil {
-		if s.logger != nil {
-			s.logger.LogError(AILogEntry{ConversationID: conversationID, Stage: "memory", Message: "Failed to load conversation memory", Detail: err.Error()})
+		if m.logger != nil {
+			m.logger.LogError(AILogEntry{ConversationID: conversationID, Stage: "memory", Message: "Failed to load conversation memory", Detail: err.Error()})
 		}
 		return nil
 	}
 	return memories
 }
 
-func (s *thinkTankService) updateConversationMemoryWithWarning(conversationID int64, userID int64, history []model.ChatMessage) {
-	if s.memoryRepo == nil || conversationID <= 0 {
+func (m *thinkTankMemoryManager) updateConversationMemoryWithWarning(conversationID int64, userID int64, history []model.ChatMessage) {
+	if m == nil || m.memoryRepo == nil || conversationID <= 0 {
 		return
 	}
 	olderEnd := len(history) - recentMemoryMessageCount
@@ -30,10 +49,10 @@ func (s *thinkTankService) updateConversationMemoryWithWarning(conversationID in
 		return
 	}
 	older := history[:olderEnd]
-	existing := s.loadConversationMemories(conversationID)
-	drafts, err := s.summarizeConversationMemory(context.Background(), older, existing)
-	if err != nil && s.logger != nil {
-		s.logger.LogError(AILogEntry{ConversationID: conversationID, UserID: userID, Stage: "memory", Message: "Dynamic memory summarizer failed; using fallback", Detail: err.Error()})
+	existing := m.loadConversationMemories(conversationID)
+	drafts, err := m.summarizeConversationMemory(context.Background(), older, existing)
+	if err != nil && m.logger != nil {
+		m.logger.LogError(AILogEntry{ConversationID: conversationID, UserID: userID, Stage: "memory", Message: "Dynamic memory summarizer failed; using fallback", Detail: err.Error()})
 	}
 	if len(drafts) == 0 {
 		return
@@ -55,15 +74,15 @@ func (s *thinkTankService) updateConversationMemoryWithWarning(conversationID in
 			SourceMessageIDEnd:   lastMessageID(older),
 			Importance:           importance,
 		}
-		if err := s.memoryRepo.Upsert(memory); err != nil && s.logger != nil {
-			s.logger.LogError(AILogEntry{ConversationID: conversationID, UserID: userID, Stage: "memory", Message: "Failed to update conversation memory", Detail: err.Error()})
+		if err := m.memoryRepo.Upsert(memory); err != nil && m.logger != nil {
+			m.logger.LogError(AILogEntry{ConversationID: conversationID, UserID: userID, Stage: "memory", Message: "Failed to update conversation memory", Detail: err.Error()})
 		}
 	}
 }
 
-func (s *thinkTankService) summarizeConversationMemory(ctx context.Context, older []model.ChatMessage, existing []model.ConversationMemory) ([]ConversationMemoryDraft, error) {
-	if s.memorySummarizer != nil {
-		drafts, err := s.memorySummarizer.Summarize(ctx, older, existing)
+func (m *thinkTankMemoryManager) summarizeConversationMemory(ctx context.Context, older []model.ChatMessage, existing []model.ConversationMemory) ([]ConversationMemoryDraft, error) {
+	if m != nil && m.memorySummarizer != nil {
+		drafts, err := m.memorySummarizer.Summarize(ctx, older, existing)
 		if err == nil && len(drafts) > 0 {
 			return drafts, nil
 		}
@@ -72,6 +91,18 @@ func (s *thinkTankService) summarizeConversationMemory(ctx context.Context, olde
 		}
 	}
 	return fallbackMemoryDrafts(older), nil
+}
+
+func (s *thinkTankService) loadConversationMemories(conversationID int64) []model.ConversationMemory {
+	return s.memories.loadConversationMemories(conversationID)
+}
+
+func (s *thinkTankService) updateConversationMemoryWithWarning(conversationID int64, userID int64, history []model.ChatMessage) {
+	s.memories.updateConversationMemoryWithWarning(conversationID, userID, history)
+}
+
+func (s *thinkTankService) summarizeConversationMemory(ctx context.Context, older []model.ChatMessage, existing []model.ConversationMemory) ([]ConversationMemoryDraft, error) {
+	return s.memories.summarizeConversationMemory(ctx, older, existing)
 }
 
 func fallbackMemoryDrafts(history []model.ChatMessage) []ConversationMemoryDraft {
