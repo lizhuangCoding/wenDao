@@ -10,7 +10,7 @@ server:
 # 网站信息配置
 site:
   slogan: "我不在执着于得到，而是享受走到"  # 首页显示的网站标语
-  url: "http://localhost:3000"              # 前端站点地址，用于 OAuth 登录回跳
+  url: ""                                  # 前端站点地址，建议通过环境变量 SITE_URL 注入
 
 # MySQL 数据库配置
 database:
@@ -48,14 +48,14 @@ jwt:
 # AI / RAG (检索增强生成) 配置
 ai:
   api_key: ""            # 火山引擎 Ark API Key (Doubao)
-  endpoint: "https://ark.cn-beijing.volces.com/api/v3" # AI 接口请求地址
-  embedding_model: "doubao-embedding-large-text-240915" # 向量化模型名称
-  llm_model: "doubao-1.5-pro-32k-250115"        # 对话大语言模型名称
+  endpoint: ""           # AI 接口请求地址，建议通过环境变量 DOUBAO_ENDPOINT 注入
+  embedding_model: ""    # 向量化模型名称，建议通过环境变量 DOUBAO_EMBEDDING_MODEL 注入
+  llm_model: ""          # 对话大语言模型名称，建议通过环境变量 DOUBAO_CHAT_MODEL 注入
   temperature: 0.7       # 模型发散度 (0.0-1.0)，越高越随机，越低越严谨
   max_tokens: 500        # AI 单次回答的最大 Token 数量
   top_k: 3               # RAG 检索时，从向量库中提取的相关文章片段数量
   rag_min_score: 0.30    # RAG 检索的最小相似度分数阈值 (0.0-1.0)，低于此分数的片段将被忽略
-  research_endpoint: "https://google.serper.dev/search" # 多 Agent Journalist 调研服务地址
+  research_endpoint: ""  # 多 Agent Journalist 调研服务地址，建议通过环境变量 RESEARCH_ENDPOINT 注入
   research_api_key: ""   # 多 Agent Journalist 调研服务鉴权 Key，建议通过环境变量 RESEARCH_API_KEY 注入
   research_max_results: 5 # 单次联网调研最多拉取的来源数量
   research_timeout_seconds: 15 # 单次联网调研请求超时时间（秒）
@@ -65,7 +65,7 @@ oauth:
   github:
     client_id: ""        # GitHub OAuth App 的 Client ID，建议通过环境变量 GITHUB_CLIENT_ID 注入
     client_secret: ""    # GitHub OAuth App 的 Client Secret，建议通过环境变量 GITHUB_CLIENT_SECRET 注入
-    callback_url: "http://localhost:8089/api/auth/github/callback"     # GitHub 登录后的回调地址，本地开发默认使用后端 8089
+    callback_url: ""     # GitHub 登录后的回调地址，建议通过环境变量 GITHUB_CALLBACK_URL 注入
 
 # 文件上传配置
 upload:

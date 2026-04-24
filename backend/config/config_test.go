@@ -219,3 +219,109 @@ oauth:
 		t.Fatalf("expected default research timeout seconds 15, got %d", cfg.AI.ResearchTimeoutSeconds)
 	}
 }
+
+func TestLoadConfig_BindsAIAndOAuthEndpointsFromEnv(t *testing.T) {
+	viper.Reset()
+	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+	defer viper.Reset()
+
+	tempDir := t.TempDir()
+	configDir := filepath.Join(tempDir, "config")
+	if err := os.MkdirAll(configDir, 0o755); err != nil {
+		t.Fatalf("failed to create config dir: %v", err)
+	}
+
+	configContent := `server:
+  port: "8089"
+  mode: "debug"
+site:
+  slogan: "test"
+  url: ""
+jwt:
+  secret: "real-test-secret"
+  access_expire_hours: 1
+  refresh_expire_days: 7
+ai:
+  api_key: ""
+  endpoint: ""
+  embedding_model: ""
+  llm_model: ""
+  temperature: 0.7
+  max_tokens: 500
+  top_k: 3
+  rag_min_score: 0.30
+upload:
+  max_size: 10485760
+  allowed_types:
+    - "image/jpeg"
+  storage_path: "./uploads"
+oauth:
+  github:
+    client_id: ""
+    client_secret: ""
+    callback_url: ""
+`
+	if err := os.WriteFile(filepath.Join(configDir, "config.yaml"), []byte(configContent), 0o644); err != nil {
+		t.Fatalf("failed to write config file: %v", err)
+	}
+
+	oldWD, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("failed to get working directory: %v", err)
+	}
+	defer func() {
+		_ = os.Chdir(oldWD)
+	}()
+
+	oldDoubaoEndpoint, hadDoubaoEndpoint := os.LookupEnv("DOUBAO_ENDPOINT")
+	oldDoubaoChatModel, hadDoubaoChatModel := os.LookupEnv("DOUBAO_CHAT_MODEL")
+	oldDoubaoEmbeddingModel, hadDoubaoEmbeddingModel := os.LookupEnv("DOUBAO_EMBEDDING_MODEL")
+	oldGitHubCallbackURL, hadGitHubCallbackURL := os.LookupEnv("GITHUB_CALLBACK_URL")
+	_ = os.Setenv("DOUBAO_ENDPOINT", "https://ark.example.com/api/v3")
+	_ = os.Setenv("DOUBAO_CHAT_MODEL", "chat-model-from-env")
+	_ = os.Setenv("DOUBAO_EMBEDDING_MODEL", "embedding-model-from-env")
+	_ = os.Setenv("GITHUB_CALLBACK_URL", "https://backend.example.com/api/auth/github/callback")
+	defer func() {
+		if hadDoubaoEndpoint {
+			_ = os.Setenv("DOUBAO_ENDPOINT", oldDoubaoEndpoint)
+		} else {
+			_ = os.Unsetenv("DOUBAO_ENDPOINT")
+		}
+		if hadDoubaoChatModel {
+			_ = os.Setenv("DOUBAO_CHAT_MODEL", oldDoubaoChatModel)
+		} else {
+			_ = os.Unsetenv("DOUBAO_CHAT_MODEL")
+		}
+		if hadDoubaoEmbeddingModel {
+			_ = os.Setenv("DOUBAO_EMBEDDING_MODEL", oldDoubaoEmbeddingModel)
+		} else {
+			_ = os.Unsetenv("DOUBAO_EMBEDDING_MODEL")
+		}
+		if hadGitHubCallbackURL {
+			_ = os.Setenv("GITHUB_CALLBACK_URL", oldGitHubCallbackURL)
+		} else {
+			_ = os.Unsetenv("GITHUB_CALLBACK_URL")
+		}
+	}()
+
+	if err := os.Chdir(tempDir); err != nil {
+		t.Fatalf("failed to change working directory: %v", err)
+	}
+
+	cfg, err := LoadConfig()
+	if err != nil {
+		t.Fatalf("expected config to load, got %v", err)
+	}
+	if cfg.AI.Endpoint != "https://ark.example.com/api/v3" {
+		t.Fatalf("expected ai endpoint from env binding, got %q", cfg.AI.Endpoint)
+	}
+	if cfg.AI.LLMModel != "chat-model-from-env" {
+		t.Fatalf("expected llm model from env binding, got %q", cfg.AI.LLMModel)
+	}
+	if cfg.AI.EmbeddingModel != "embedding-model-from-env" {
+		t.Fatalf("expected embedding model from env binding, got %q", cfg.AI.EmbeddingModel)
+	}
+	if cfg.OAuth.GitHub.CallbackURL != "https://backend.example.com/api/auth/github/callback" {
+		t.Fatalf("expected github callback url from env binding, got %q", cfg.OAuth.GitHub.CallbackURL)
+	}
+}
