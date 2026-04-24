@@ -37,6 +37,23 @@ export const ArticleCard = ({ article }: ArticleCardProps) => {
               )}
             </div>
           </div>
+
+          {article.is_top && (
+            <div className="absolute top-4 right-4">
+              <div className="inline-flex items-center gap-1.5 rounded-full border border-amber-200/70 bg-gradient-to-r from-amber-50/95 via-white/95 to-orange-50/95 px-3 py-1.5 shadow-sm backdrop-blur-md transition-transform duration-300 group-hover:scale-105 dark:border-amber-400/20 dark:from-amber-100/95 dark:via-neutral-100/95 dark:to-orange-100/95">
+                <span className="relative flex h-5 w-5 items-center justify-center rounded-full bg-gradient-to-br from-amber-400 to-orange-500 text-white shadow-sm">
+                  <span className="absolute inset-0 rounded-full bg-white/30 animate-ping opacity-40"></span>
+                  <svg xmlns="http://www.w3.org/2000/svg" className="relative h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                    <path d="M9.25 2.75a.75.75 0 011.5 0v1.12c0 .52.21 1.02.586 1.384l.91.91c.363.364.864.586 1.379.586h1.125a.75.75 0 010 1.5h-.934a1.25 1.25 0 00-1.01.514l-.568.781a2.75 2.75 0 01-2.225 1.135H8.99a2.75 2.75 0 01-2.225-1.135l-.568-.78a1.25 1.25 0 00-1.01-.515H4.25a.75.75 0 010-1.5h1.125c.515 0 1.016-.222 1.379-.586l.91-.91A1.95 1.95 0 008.25 3.87V2.75z" />
+                    <path d="M8 12.75a.75.75 0 01.75.75V17a1.25 1.25 0 002.5 0v-3.5a.75.75 0 011.5 0V17a2.75 2.75 0 01-5.5 0v-3.5a.75.75 0 01.75-.75z" />
+                  </svg>
+                </span>
+                <span className="text-[10px] font-black tracking-[0.24em] text-amber-700 uppercase dark:text-amber-900">
+                  置顶
+                </span>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="flex flex-col flex-1">
