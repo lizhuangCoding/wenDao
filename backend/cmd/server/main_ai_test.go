@@ -10,6 +10,8 @@ import (
 	"wenDao/internal/service"
 )
 
+var _ func() error = Run
+
 func TestInitServices_DisablesAIWhenComponentsUnavailable(t *testing.T) {
 	cfg := &config.Config{}
 

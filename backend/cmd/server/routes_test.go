@@ -5,33 +5,40 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
+	"go.uber.org/zap"
 
 	"wenDao/config"
 	"wenDao/internal/handler"
 )
 
-func TestRegisterRoutes_RegistersRequiredRoutes(t *testing.T) {
+func TestBuildRouter_RegistersRequiredRoutes(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	router := gin.New()
 	cfg := &config.Config{}
+	cfg.Server.Mode = gin.TestMode
+	cfg.Upload.StoragePath = "uploads"
 	rdb := redis.NewClient(&redis.Options{Addr: "127.0.0.1:6379"})
+	defer func() {
+		_ = rdb.Close()
+	}()
 
-	registerRoutes(
-		router,
+	router := buildRouter(
 		cfg,
+		zap.NewNop(),
 		rdb,
-		&handler.UserHandler{},
-		&handler.AuthHandler{},
-		&handler.CategoryHandler{},
-		&handler.ArticleHandler{},
-		&handler.CommentHandler{},
-		&handler.UploadHandler{},
-		&handler.AIHandler{},
-		&handler.SiteHandler{},
-		&handler.StatHandler{},
-		&handler.ChatHandler{},
-		&handler.KnowledgeDocumentHandler{},
+		&appHandlers{
+			user:              &handler.UserHandler{},
+			auth:              &handler.AuthHandler{},
+			category:          &handler.CategoryHandler{},
+			article:           &handler.ArticleHandler{},
+			comment:           &handler.CommentHandler{},
+			upload:            &handler.UploadHandler{},
+			ai:                &handler.AIHandler{},
+			site:              &handler.SiteHandler{},
+			stat:              &handler.StatHandler{},
+			chat:              &handler.ChatHandler{},
+			knowledgeDocument: &handler.KnowledgeDocumentHandler{},
+		},
 	)
 
 	routes := make(map[string]struct{})
@@ -48,6 +55,7 @@ func TestRegisterRoutes_RegistersRequiredRoutes(t *testing.T) {
 		"POST /api/auth/refresh",
 		"GET /api/auth/me",
 		"POST /api/users/me/avatar",
+		"POST /api/ai/chat",
 		"GET /api/admin/articles/:id",
 		"GET /api/admin/comments",
 		"POST /api/admin/comments/:id/restore",
@@ -55,6 +63,7 @@ func TestRegisterRoutes_RegistersRequiredRoutes(t *testing.T) {
 		"GET /api/admin/knowledge-documents/:id",
 		"POST /api/admin/knowledge-documents/:id/approve",
 		"POST /api/admin/knowledge-documents/:id/reject",
+		"GET /health",
 	}
 
 	for _, route := range required {
