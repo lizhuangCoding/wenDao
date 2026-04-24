@@ -3,6 +3,8 @@ package service
 import (
 	"context"
 	"testing"
+
+	"wenDao/internal/model"
 )
 
 func TestThinkTankService_ChatStream_AllowsInjectedADKRunner(t *testing.T) {
@@ -24,5 +26,23 @@ func TestThinkTankService_ChatStream_AllowsInjectedADKRunner(t *testing.T) {
 	}
 	if !sawCompleted {
 		t.Fatalf("expected stream to complete when ADK runner is injected")
+	}
+}
+
+func TestParseADKPendingContext_RoundTripsWaitingUserCheckpoint(t *testing.T) {
+	run := &model.ConversationRun{
+		Status:         "waiting_user",
+		PendingContext: `{"type":"adk_interrupt","checkpoint_id":"thinktank-41-123-8"}`,
+	}
+
+	ctxInfo, ok := parseADKPendingContext(run)
+	if !ok {
+		t.Fatal("expected waiting_user run with ADK checkpoint to be resumable")
+	}
+	if ctxInfo.Type != "adk_interrupt" {
+		t.Fatalf("expected adk interrupt type, got %#v", ctxInfo)
+	}
+	if ctxInfo.Checkpoint != "thinktank-41-123-8" {
+		t.Fatalf("expected checkpoint round-trip, got %#v", ctxInfo)
 	}
 }

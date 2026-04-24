@@ -40,8 +40,9 @@ func TestCompressConversationMemory_KeepsRecentKeyContext(t *testing.T) {
 }
 
 func TestBuildConversationMemory_UsesStoredSummaryAndRecentMessages(t *testing.T) {
+	oldVerbosePrompt := "第一轮问题：请调研 AI Agent 的产品形态以及 Manus 的交互方式，内容很长很长，需要被压缩。"
 	history := []model.ChatMessage{
-		{ID: 1, Role: "user", Content: "第一轮问题：请调研 AI Agent 的产品形态以及 Manus 的交互方式，内容很长很长，需要被压缩。"},
+		{ID: 1, Role: "user", Content: oldVerbosePrompt},
 		{ID: 2, Role: "assistant", Content: "第一轮回答：Manus 的过程展示包含任务拆解、工具调用和结果整合，这些旧细节不应完整进入 prompt。"},
 		{ID: 3, Role: "user", Content: "第二轮问题：继续分析多 Agent 协作。"},
 		{ID: 4, Role: "assistant", Content: "第二轮回答：多 Agent 需要过程透明、可展开日志和最终结果区分。"},
@@ -49,6 +50,8 @@ func TestBuildConversationMemory_UsesStoredSummaryAndRecentMessages(t *testing.T
 		{ID: 6, Role: "assistant", Content: "第三轮回答：可以保存 run step 和工具日志。"},
 		{ID: 7, Role: "user", Content: "第四轮问题：现在继续优化记忆。"},
 		{ID: 8, Role: "assistant", Content: "第四轮回答：久远记忆应压缩，近期记忆保留原文。"},
+		{ID: 9, Role: "user", Content: "第五轮问题：把记忆摘要和近期上下文组合起来。"},
+		{ID: 10, Role: "assistant", Content: "第五轮回答：近期消息保留原文，较早消息交给摘要或长期记忆。"},
 	}
 	memories := []model.ConversationMemory{
 		{Scope: ConversationMemoryScopeSummary, Content: "用户此前关注 Manus 风格多 Agent 过程展示、工具调用日志和 MySQL 持久化。"},
@@ -58,11 +61,51 @@ func TestBuildConversationMemory_UsesStoredSummaryAndRecentMessages(t *testing.T
 	if !strings.Contains(memory, "长期记忆") || !strings.Contains(memory, "用户此前关注 Manus 风格") {
 		t.Fatalf("expected stored memory summary, got %q", memory)
 	}
-	if !strings.Contains(memory, "最近对话") || !strings.Contains(memory, "第四轮问题：现在继续优化记忆") {
+	if !strings.Contains(memory, "最近对话") || !strings.Contains(memory, "第五轮问题：把记忆摘要和近期上下文组合起来。") {
 		t.Fatalf("expected recent raw messages, got %q", memory)
 	}
-	if strings.Contains(memory, "内容很长很长，需要被压缩") {
-		t.Fatalf("expected old verbose message to be summarized away, got %q", memory)
+	if strings.Contains(memory, oldVerbosePrompt) {
+		t.Fatalf("expected old verbose prompt to be summarized away, got %q", memory)
+	}
+}
+
+func TestBuildConversationMemory_CombinesStructuredMemoriesWithRelevantHistory(t *testing.T) {
+	padding := strings.Repeat("不相关的背景说明。", 30)
+	history := []model.ChatMessage{
+		{Role: "user", Content: "我们之前决定在 API 网关里用 Redis 做限流和热点缓存。"},
+		{Role: "assistant", Content: "是的，Redis 负责共享计数器、短时状态和热点数据缓存。"},
+		{Role: "user", Content: "中间有一大段关于前端主题色的讨论。" + padding},
+		{Role: "assistant", Content: "主题色讨论先不影响后端架构。" + padding},
+		{Role: "user", Content: "最近我们又加了监控埋点。"},
+		{Role: "assistant", Content: "监控会接 Prometheus 和告警。"},
+		{Role: "user", Content: "最后再确认一下 Redis 方案是否继续沿用？"},
+		{Role: "assistant", Content: "可以沿用，但要补充降级策略。"},
+	}
+	memories := []model.ConversationMemory{
+		{Scope: ConversationMemoryScopeSummary, Content: "项目正在重构 API 网关的缓存与限流链路。"},
+		{Scope: ConversationMemoryScopePreference, Content: "团队偏好把共享限流状态放进 Redis。"},
+		{Scope: ConversationMemoryScopeDecision, Content: "已决定网关统一负责降级、熔断和监控埋点。"},
+		{Scope: ConversationMemoryScopeOpenThread, Content: ""},
+	}
+
+	memory := buildConversationMemory(history, memories)
+	if !strings.Contains(memory, "长期记忆") {
+		t.Fatalf("expected structured memories section, got %q", memory)
+	}
+	if !strings.Contains(memory, "团队偏好把共享限流状态放进 Redis") {
+		t.Fatalf("expected preference memory to be included, got %q", memory)
+	}
+	if !strings.Contains(memory, "已决定网关统一负责降级、熔断和监控埋点") {
+		t.Fatalf("expected decision memory to be included, got %q", memory)
+	}
+	if strings.Contains(memory, "OpenThread") || strings.Contains(memory, "\n- \n") {
+		t.Fatalf("expected empty memory content to be ignored, got %q", memory)
+	}
+	if !strings.Contains(memory, "我们之前决定在 API 网关里用 Redis 做限流和热点缓存") {
+		t.Fatalf("expected Redis context to remain available in conversation memory, got %q", memory)
+	}
+	if !strings.Contains(memory, "最近对话") || !strings.Contains(memory, "最后再确认一下 Redis 方案是否继续沿用") {
+		t.Fatalf("expected recent raw messages to remain, got %q", memory)
 	}
 }
 

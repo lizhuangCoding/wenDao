@@ -249,6 +249,16 @@ func (l *stubAILogger) Close() error              { return nil }
 
 func ptrInt64(v int64) *int64 { return &v }
 
+func createdMessageRoles(messages []*model.ChatMessage) []string {
+	roles := make([]string, 0, len(messages))
+	for _, msg := range messages {
+		if msg != nil {
+			roles = append(roles, msg.Role)
+		}
+	}
+	return roles
+}
+
 func TestThinkTankService_UsesLibrarianAndSynthesizerWhenLocalKnowledgeIsEnough(t *testing.T) {
 	librarian := &stubLibrarian{result: LibrarianResult{CoverageStatus: "sufficient", Summary: "站内文章总结", Sources: []SourceRef{{Kind: "article", ID: 2, Title: "文章标题", URL: "/article/article-title"}}}}
 	synthesizer := &stubSynthesizer{answer: "这是基于站内知识的最终回答", sources: []string{"文章标题"}}
@@ -272,6 +282,66 @@ func TestThinkTankService_UsesLibrarianAndSynthesizerWhenLocalKnowledgeIsEnough(
 	}
 	if runRepo.saved == nil || runRepo.saved.Status != "completed" {
 		t.Fatalf("expected completed run to be persisted, got %#v", runRepo.saved)
+	}
+}
+
+func TestThinkTankServiceChat_PersistsConversationStateAfterADKAnswer(t *testing.T) {
+	convRepo := &stubConversationRepository{conversation: &model.Conversation{ID: 41, UserID: 8, Title: "新会话"}}
+	msgRepo := &stubChatMessageRepository{items: []model.ChatMessage{
+		{ID: 1, ConversationID: 41, Role: "user", Content: "我们要做一个 API 网关。"},
+		{ID: 2, ConversationID: 41, Role: "assistant", Content: "可以先梳理缓存、限流和监控方案。"},
+		{ID: 3, ConversationID: 41, Role: "user", Content: "限流状态我倾向放在 Redis。"},
+		{ID: 4, ConversationID: 41, Role: "assistant", Content: "Redis 适合做共享计数器和短期状态。"},
+		{ID: 5, ConversationID: 41, Role: "user", Content: "另外还要考虑降级和熔断。"},
+		{ID: 6, ConversationID: 41, Role: "assistant", Content: "可以在网关层统一做降级与熔断策略。"},
+	}}
+	runRepo := &stubConversationRunRepository{}
+	memoryRepo := &stubConversationMemoryRepository{}
+	svc := NewThinkTankService(nil, nil, &stubSynthesizer{}, runRepo, &stubConversationRunStepRepository{}, memoryRepo, convRepo, msgRepo, nil, &stubAILogger{}).(*thinkTankService)
+	svc.adkRunner = &thinkTankADKRunner{}
+	svc.adkAnswerFetcher = func(ctx context.Context, question string) (string, error) {
+		if !strings.Contains(question, "Redis 适合做共享计数器和短期状态") {
+			t.Fatalf("expected ADK query to include recent conversation memory, got %q", question)
+		}
+		if !strings.Contains(question, "帮我总结一下 Redis 在这个网关方案里的作用") {
+			t.Fatalf("expected ADK query to include latest user question, got %q", question)
+		}
+		return "ADK 最终答案：Redis 适合承载限流计数、热点缓存和短时共享状态。", nil
+	}
+
+	resp, err := svc.Chat(context.Background(), "帮我总结一下 Redis 在这个网关方案里的作用", ptrInt64(41), ptrInt64(8))
+	if err != nil {
+		t.Fatalf("expected chat success, got %v", err)
+	}
+	if strings.TrimSpace(resp.Message) == "" {
+		t.Fatal("expected non-empty assistant message")
+	}
+	if resp.Stage != "completed" {
+		t.Fatalf("expected completed stage, got %q", resp.Stage)
+	}
+	if got := createdMessageRoles(msgRepo.created); len(got) != 2 || got[0] != "user" || got[1] != "assistant" {
+		t.Fatalf("expected persisted user/assistant messages, got %#v", got)
+	}
+	if convRepo.updated == nil {
+		t.Fatal("expected conversation metadata update")
+	}
+	if convRepo.updated.Title == "" || convRepo.updated.Title == "新会话" {
+		t.Fatalf("expected conversation title to be refreshed, got %#v", convRepo.updated)
+	}
+	if runRepo.saved == nil || runRepo.saved.Status != "completed" || runRepo.saved.CurrentStage != "completed" {
+		t.Fatalf("expected completed run to be persisted, got %#v", runRepo.saved)
+	}
+	if !strings.Contains(runRepo.saved.PendingContext, "Redis 适合承载限流计数") {
+		t.Fatalf("expected completed answer snapshot in run pending context, got %#v", runRepo.saved)
+	}
+	if len(memoryRepo.memories) != 1 {
+		t.Fatalf("expected a summarized conversation memory to be persisted, got %#v", memoryRepo.memories)
+	}
+	if memoryRepo.memories[0].Scope != ConversationMemoryScopeSummary {
+		t.Fatalf("expected summary memory scope, got %#v", memoryRepo.memories[0])
+	}
+	if !strings.Contains(memoryRepo.memories[0].Content, "API 网关") {
+		t.Fatalf("expected persisted summary memory to retain older context, got %#v", memoryRepo.memories[0])
 	}
 }
 
