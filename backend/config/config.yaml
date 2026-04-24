@@ -16,8 +16,8 @@ site:
 database:
   host: "localhost"      # 数据库连接地址
   port: "3306"           # 数据库端口
-  user: "root"           # 数据库用户名
-  password: "root"           # 数据库密码
+  user: ""               # 数据库用户名，建议通过环境变量 DB_USER 注入
+  password: ""           # 数据库密码，建议通过环境变量 DB_PASSWORD 注入
   dbname: "wendao"       # 数据库名称
   max_idle_conns: 10     # 连接池最大空闲连接数
   max_open_conns: 100    # 连接池最大打开连接数
@@ -41,7 +41,7 @@ redis_vector:
 
 # JWT 身份认证配置
 jwt:
-  secret: "your-secret-key-change-in-production" # JWT 签名密钥 (生产环境务必修改)
+  secret: "your-secret-key-change-in-production" # JWT 签名密钥，必须通过环境变量 JWT_SECRET 覆盖
   access_expire_hours: 1                         # 访问令牌 (Access Token) 过期时间 (小时)
   refresh_expire_days: 2                         # 刷新令牌 (Refresh Token) 过期时间 (天)
 
@@ -56,15 +56,15 @@ ai:
   top_k: 3               # RAG 检索时，从向量库中提取的相关文章片段数量
   rag_min_score: 0.30    # RAG 检索的最小相似度分数阈值 (0.0-1.0)，低于此分数的片段将被忽略
   research_endpoint: "https://google.serper.dev/search" # 多 Agent Journalist 调研服务地址
-  research_api_key: "1461abb545db98018078b95d7042b8ba9071ddec"  # 多 Agent Journalist 调研服务鉴权 Key
+  research_api_key: ""   # 多 Agent Journalist 调研服务鉴权 Key，建议通过环境变量 RESEARCH_API_KEY 注入
   research_max_results: 5 # 单次联网调研最多拉取的来源数量
   research_timeout_seconds: 15 # 单次联网调研请求超时时间（秒）
 
 # OAuth 第三方登录配置
 oauth:
   github:
-    client_id: "Ov23ligimZxzK8Nlpo6B"        # GitHub OAuth App 的 Client ID
-    client_secret: "b5a60a73e271db60c7f7b1b678e2f5f1ed953360"    # GitHub OAuth App 的 Client Secret
+    client_id: ""        # GitHub OAuth App 的 Client ID，建议通过环境变量 GITHUB_CLIENT_ID 注入
+    client_secret: ""    # GitHub OAuth App 的 Client Secret，建议通过环境变量 GITHUB_CLIENT_SECRET 注入
     callback_url: "http://localhost:8089/api/auth/github/callback"     # GitHub 登录后的回调地址，本地开发默认使用后端 8089
 
 # 文件上传配置
