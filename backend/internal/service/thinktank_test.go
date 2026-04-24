@@ -114,6 +114,17 @@ func (r *stubConversationMemoryRepository) GetByConversationIDAndScope(conversat
 	return nil, errors.New("memory not found")
 }
 
+func (r *stubConversationMemoryRepository) DeleteByConversationID(conversationID int64) error {
+	filtered := r.memories[:0]
+	for _, memory := range r.memories {
+		if memory.ConversationID != conversationID {
+			filtered = append(filtered, memory)
+		}
+	}
+	r.memories = filtered
+	return nil
+}
+
 func (r *stubConversationRunStepRepository) Create(step *model.ConversationRunStep) error {
 	clone := *step
 	if clone.ID == 0 {
@@ -155,6 +166,17 @@ func (r *stubConversationRunStepRepository) GetByRunID(runID int64) ([]model.Con
 	return filtered, nil
 }
 
+func (r *stubConversationRunStepRepository) DeleteByConversationID(conversationID int64) error {
+	filtered := r.steps[:0]
+	for _, step := range r.steps {
+		if step.ConversationID != conversationID {
+			filtered = append(filtered, step)
+		}
+	}
+	r.steps = filtered
+	return nil
+}
+
 func (r *stubConversationRunRepository) Create(run *model.ConversationRun) error {
 	clone := *run
 	if clone.ID == 0 {
@@ -174,6 +196,16 @@ func (r *stubConversationRunRepository) Update(run *model.ConversationRun) error
 	clone := *run
 	r.saved = &clone
 	r.active = &clone
+	return nil
+}
+
+func (r *stubConversationRunRepository) DeleteByConversationID(conversationID int64) error {
+	if r.active != nil && r.active.ConversationID == conversationID {
+		r.active = nil
+	}
+	if r.saved != nil && r.saved.ConversationID == conversationID {
+		r.saved = nil
+	}
 	return nil
 }
 

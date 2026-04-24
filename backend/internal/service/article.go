@@ -163,7 +163,6 @@ func (s *articleService) GetByID(id int64) (*model.Article, error) {
 		return nil, fmt.Errorf("failed to get article: %w", err)
 	}
 
-	go s.articleRepo.IncrementViewCount(id)
 	go s.setArticleToCache(article)
 	return article, nil
 }
@@ -178,7 +177,6 @@ func (s *articleService) GetBySlug(slug string) (*model.Article, error) {
 		return nil, fmt.Errorf("failed to get article: %w", err)
 	}
 
-	go s.articleRepo.IncrementViewCount(article.ID)
 	go s.setArticleToCache(article)
 	return article, nil
 }

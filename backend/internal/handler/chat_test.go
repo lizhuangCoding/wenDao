@@ -32,16 +32,35 @@ func (r *stubConversationRepo) Delete(id int64) error                 { return n
 
 type stubChatMessageRepo struct {
 	messages []model.ChatMessage
+	deletedConversationID int64
 }
 
 func (r *stubChatMessageRepo) Create(msg *model.ChatMessage) error { return nil }
 func (r *stubChatMessageRepo) GetByConversationID(conversationID int64) ([]model.ChatMessage, error) {
 	return r.messages, nil
 }
-func (r *stubChatMessageRepo) DeleteByConversationID(conversationID int64) error { return nil }
+func (r *stubChatMessageRepo) DeleteByConversationID(conversationID int64) error {
+	r.deletedConversationID = conversationID
+	return nil
+}
+
+type stubConversationRunRepo struct {
+	deletedConversationID int64
+}
+
+func (r *stubConversationRunRepo) Create(run *model.ConversationRun) error { return nil }
+func (r *stubConversationRunRepo) GetActiveByConversationID(conversationID int64) (*model.ConversationRun, error) {
+	return nil, nil
+}
+func (r *stubConversationRunRepo) Update(run *model.ConversationRun) error { return nil }
+func (r *stubConversationRunRepo) DeleteByConversationID(conversationID int64) error {
+	r.deletedConversationID = conversationID
+	return nil
+}
 
 type stubConversationRunStepRepo struct {
 	steps []model.ConversationRunStep
+	deletedConversationID int64
 }
 
 func (r *stubConversationRunStepRepo) Create(step *model.ConversationRunStep) error { return nil }
@@ -51,6 +70,26 @@ func (r *stubConversationRunStepRepo) GetByConversationID(conversationID int64) 
 }
 func (r *stubConversationRunStepRepo) GetByRunID(runID int64) ([]model.ConversationRunStep, error) {
 	return r.steps, nil
+}
+func (r *stubConversationRunStepRepo) DeleteByConversationID(conversationID int64) error {
+	r.deletedConversationID = conversationID
+	return nil
+}
+
+type stubConversationMemoryRepo struct {
+	deletedConversationID int64
+}
+
+func (r *stubConversationMemoryRepo) Upsert(memory *model.ConversationMemory) error { return nil }
+func (r *stubConversationMemoryRepo) GetByConversationID(conversationID int64) ([]model.ConversationMemory, error) {
+	return nil, nil
+}
+func (r *stubConversationMemoryRepo) GetByConversationIDAndScope(conversationID int64, scope string) (*model.ConversationMemory, error) {
+	return nil, nil
+}
+func (r *stubConversationMemoryRepo) DeleteByConversationID(conversationID int64) error {
+	r.deletedConversationID = conversationID
+	return nil
 }
 
 func TestChatHandler_GetIncludesRunStepsForHistoricalReplay(t *testing.T) {
@@ -105,5 +144,39 @@ func TestChatHandler_GetIncludesRunStepsForHistoricalReplay(t *testing.T) {
 	}
 	if len(runSteps) != 2 {
 		t.Fatalf("expected 2 run steps, got %d", len(runSteps))
+	}
+}
+
+func TestChatHandler_DeleteCleansConversationRelatedData(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	convRepo := &stubConversationRepo{conversation: &model.Conversation{ID: 21, UserID: 7, Title: "研究会话"}}
+	msgRepo := &stubChatMessageRepo{}
+	runRepo := &stubConversationRunRepo{}
+	stepRepo := &stubConversationRunStepRepo{}
+	memoryRepo := &stubConversationMemoryRepo{}
+	h := NewChatHandler(convRepo, msgRepo, runRepo, stepRepo, memoryRepo)
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest(http.MethodDelete, "/api/chat/conversations/21", nil)
+	c.Params = gin.Params{{Key: "id", Value: "21"}}
+	c.Set("user_id", int64(7))
+
+	h.Delete(c)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", w.Code)
+	}
+	if msgRepo.deletedConversationID != 21 {
+		t.Fatalf("expected messages to be deleted for conversation 21, got %d", msgRepo.deletedConversationID)
+	}
+	if runRepo.deletedConversationID != 21 {
+		t.Fatalf("expected runs to be deleted for conversation 21, got %d", runRepo.deletedConversationID)
+	}
+	if stepRepo.deletedConversationID != 21 {
+		t.Fatalf("expected run steps to be deleted for conversation 21, got %d", stepRepo.deletedConversationID)
+	}
+	if memoryRepo.deletedConversationID != 21 {
+		t.Fatalf("expected memories to be deleted for conversation 21, got %d", memoryRepo.deletedConversationID)
 	}
 }

@@ -70,16 +70,4 @@ export const articleApi = {
   refreshScores: () => {
     return request.post('/admin/articles/refresh-scores');
   },
-
-  // --- 其他 ---
-
-  // 点赞文章
-  likeArticle: (id: number) => {
-    return request.post(`/articles/${id}/like`);
-  },
-
-  // 搜索文章
-  searchArticles: (params: PaginationParams & { keyword: string }) => {
-    return request.get<PaginatedResponse<ArticleListItem>>('/articles/search', { params });
-  },
 };

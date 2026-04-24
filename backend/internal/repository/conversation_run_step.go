@@ -12,6 +12,7 @@ type ConversationRunStepRepository interface {
 	Update(step *model.ConversationRunStep) error
 	GetByConversationID(conversationID int64) ([]model.ConversationRunStep, error)
 	GetByRunID(runID int64) ([]model.ConversationRunStep, error)
+	DeleteByConversationID(conversationID int64) error
 }
 
 type conversationRunStepRepository struct {
@@ -41,4 +42,8 @@ func (r *conversationRunStepRepository) GetByRunID(runID int64) ([]model.Convers
 	var steps []model.ConversationRunStep
 	err := r.db.Where("run_id = ?", runID).Order("created_at ASC").Find(&steps).Error
 	return steps, err
+}
+
+func (r *conversationRunStepRepository) DeleteByConversationID(conversationID int64) error {
+	return r.db.Where("conversation_id = ?", conversationID).Delete(&model.ConversationRunStep{}).Error
 }

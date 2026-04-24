@@ -15,15 +15,25 @@ import (
 type ChatHandler struct {
 	convRepo    repository.ConversationRepository
 	msgRepo     repository.ChatMessageRepository
+	runRepo     repository.ConversationRunRepository
 	runStepRepo repository.ConversationRunStepRepository
+	memoryRepo  repository.ConversationMemoryRepository
 }
 
 // NewChatHandler 创建对话处理器
-func NewChatHandler(convRepo repository.ConversationRepository, msgRepo repository.ChatMessageRepository, runStepRepo repository.ConversationRunStepRepository) *ChatHandler {
+func NewChatHandler(
+	convRepo repository.ConversationRepository,
+	msgRepo repository.ChatMessageRepository,
+	runRepo repository.ConversationRunRepository,
+	runStepRepo repository.ConversationRunStepRepository,
+	memoryRepo repository.ConversationMemoryRepository,
+) *ChatHandler {
 	return &ChatHandler{
 		convRepo:    convRepo,
 		msgRepo:     msgRepo,
+		runRepo:     runRepo,
 		runStepRepo: runStepRepo,
+		memoryRepo:  memoryRepo,
 	}
 }
 
@@ -282,6 +292,27 @@ func (h *ChatHandler) Delete(c *gin.Context) {
 	if err := h.msgRepo.DeleteByConversationID(convIDInt); err != nil {
 		response.InternalError(c, "Failed to delete messages")
 		return
+	}
+
+	if h.runStepRepo != nil {
+		if err := h.runStepRepo.DeleteByConversationID(convIDInt); err != nil {
+			response.InternalError(c, "Failed to delete conversation run steps")
+			return
+		}
+	}
+
+	if h.runRepo != nil {
+		if err := h.runRepo.DeleteByConversationID(convIDInt); err != nil {
+			response.InternalError(c, "Failed to delete conversation runs")
+			return
+		}
+	}
+
+	if h.memoryRepo != nil {
+		if err := h.memoryRepo.DeleteByConversationID(convIDInt); err != nil {
+			response.InternalError(c, "Failed to delete conversation memories")
+			return
+		}
 	}
 
 	if err := h.convRepo.Delete(convIDInt); err != nil {

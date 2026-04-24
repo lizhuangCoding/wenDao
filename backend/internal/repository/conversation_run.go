@@ -11,6 +11,7 @@ type ConversationRunRepository interface {
 	Create(run *model.ConversationRun) error
 	GetActiveByConversationID(conversationID int64) (*model.ConversationRun, error)
 	Update(run *model.ConversationRun) error
+	DeleteByConversationID(conversationID int64) error
 }
 
 type conversationRunRepository struct {
@@ -39,4 +40,8 @@ func (r *conversationRunRepository) GetActiveByConversationID(conversationID int
 
 func (r *conversationRunRepository) Update(run *model.ConversationRun) error {
 	return r.db.Save(run).Error
+}
+
+func (r *conversationRunRepository) DeleteByConversationID(conversationID int64) error {
+	return r.db.Where("conversation_id = ?", conversationID).Delete(&model.ConversationRun{}).Error
 }

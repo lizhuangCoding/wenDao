@@ -174,7 +174,7 @@ func main() {
 	aiHandler := handler.NewAIHandler(aiService)
 	siteHandler := handler.NewSiteHandler(cfg)
 	statHandler := handler.NewStatHandler(statService)
-	chatHandler := handler.NewChatHandler(conversationRepo, chatMessageRepo, conversationRunStepRepo)
+	chatHandler := handler.NewChatHandler(conversationRepo, chatMessageRepo, conversationRunRepo, conversationRunStepRepo, conversationMemoryRepo)
 	knowledgeDocumentHandler := handler.NewKnowledgeDocumentHandler(knowledgeDocumentService)
 
 	// 设置路由

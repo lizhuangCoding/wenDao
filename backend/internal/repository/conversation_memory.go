@@ -13,6 +13,7 @@ type ConversationMemoryRepository interface {
 	Upsert(memory *model.ConversationMemory) error
 	GetByConversationID(conversationID int64) ([]model.ConversationMemory, error)
 	GetByConversationIDAndScope(conversationID int64, scope string) (*model.ConversationMemory, error)
+	DeleteByConversationID(conversationID int64) error
 }
 
 type conversationMemoryRepository struct {
@@ -59,4 +60,8 @@ func (r *conversationMemoryRepository) GetByConversationIDAndScope(conversationI
 		return nil, err
 	}
 	return &memory, nil
+}
+
+func (r *conversationMemoryRepository) DeleteByConversationID(conversationID int64) error {
+	return r.db.Where("conversation_id = ?", conversationID).Delete(&model.ConversationMemory{}).Error
 }

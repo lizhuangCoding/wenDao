@@ -26,6 +26,11 @@ func NewArticleHandler(articleService service.ArticleService, statService *servi
 	}
 }
 
+func isAdminRequest(c *gin.Context) bool {
+	role, exists := c.Get("user_role")
+	return exists && role == "admin"
+}
+
 // GetSortMode 获取全站排序模式
 func (h *ArticleHandler) GetSortMode(c *gin.Context) {
 	enabled := h.settingService.GetSortByPopularity()
@@ -126,6 +131,15 @@ func (h *ArticleHandler) GetByID(c *gin.Context) {
 		return
 	}
 
+	if article.Status != "published" && !isAdminRequest(c) {
+		response.NotFound(c, "Article not found")
+		return
+	}
+
+	if article.Status == "published" && !isAdminRequest(c) {
+		_ = h.articleService.IncrViewCount(article.ID)
+	}
+
 	response.Success(c, article)
 }
 
@@ -148,13 +162,15 @@ func (h *ArticleHandler) GetBySlug(c *gin.Context) {
 		return
 	}
 
-	go h.articleService.IncrViewCount(article.ID)
+	_ = h.articleService.IncrViewCount(article.ID)
 
-	go func() {
-		h.statService.RecordPV()
+	if h.statService != nil {
 		ip := c.ClientIP()
-		h.statService.RecordUV(ip)
-	}()
+		go func(clientIP string) {
+			_ = h.statService.RecordPV()
+			_ = h.statService.RecordUV(clientIP)
+		}(ip)
+	}
 
 	response.Success(c, article)
 }
