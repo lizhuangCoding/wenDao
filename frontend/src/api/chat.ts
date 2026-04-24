@@ -20,7 +20,7 @@ async function readSSEStream(response: Response, handlers: ChatStreamHandlers) {
   const decoder = new TextDecoder('utf-8');
   let buffer = '';
 
-  while (true) {
+  for (;;) {
     const { done, value } = await reader.read();
     if (done) break;
 

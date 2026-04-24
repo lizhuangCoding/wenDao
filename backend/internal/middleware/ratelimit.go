@@ -31,6 +31,11 @@ type RateLimitConfig struct {
 // RateLimit 创建限流中间件
 func RateLimit(rdb *redis.Client, config RateLimitConfig) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		if rdb == nil {
+			c.Next()
+			return
+		}
+
 		ctx := context.Background()
 
 		// 生成限流 key

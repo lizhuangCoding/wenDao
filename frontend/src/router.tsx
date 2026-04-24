@@ -1,43 +1,60 @@
+import { Suspense, lazy } from 'react';
 import { createBrowserRouter, Navigate } from 'react-router-dom';
-import { Home } from './pages/Home';
-import { ArticleDetail } from './pages/ArticleDetail';
-import { AIChat } from './pages/AIChat';
-import { Profile } from './pages/Profile';
-import { Login } from './pages/Login';
-import { Register } from './pages/Register';
-import { useAuthStore } from './store';
-import { AdminRoute } from './components/common';
-import { AdminLayout } from './components/admin';
-import { ArticleList } from './views/admin/articles/ArticleList';
-import { ArticleEditor } from './views/admin/articles/ArticleEditor';
-import { CategoryList } from './views/admin/categories/CategoryList';
-import { CommentList } from './views/admin/comments/CommentList';
-import { Dashboard } from './views/admin/Dashboard';
-import { KnowledgeDocumentList } from './views/admin/knowledge-documents/KnowledgeDocumentList';
-import { KnowledgeDocumentDetail } from './views/admin/knowledge-documents/KnowledgeDocumentDetail';
+import { AdminRoute, Loading, ProtectedRoute } from './components/common';
 
-const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+const Home = lazy(() => import('./pages/Home').then((module) => ({ default: module.Home })));
+const ArticleDetail = lazy(() =>
+  import('./pages/ArticleDetail').then((module) => ({ default: module.ArticleDetail }))
+);
+const AIChat = lazy(() => import('./pages/AIChat').then((module) => ({ default: module.AIChat })));
+const Profile = lazy(() => import('./pages/Profile').then((module) => ({ default: module.Profile })));
+const Login = lazy(() => import('./pages/Login').then((module) => ({ default: module.Login })));
+const Register = lazy(() => import('./pages/Register').then((module) => ({ default: module.Register })));
+const AdminLayout = lazy(() =>
+  import('./components/admin/AdminLayout').then((module) => ({ default: module.AdminLayout }))
+);
+const ArticleList = lazy(() =>
+  import('./views/admin/articles/ArticleList').then((module) => ({ default: module.ArticleList }))
+);
+const ArticleEditor = lazy(() =>
+  import('./views/admin/articles/ArticleEditor').then((module) => ({ default: module.ArticleEditor }))
+);
+const CategoryList = lazy(() =>
+  import('./views/admin/categories/CategoryList').then((module) => ({ default: module.CategoryList }))
+);
+const CommentList = lazy(() =>
+  import('./views/admin/comments/CommentList').then((module) => ({ default: module.CommentList }))
+);
+const Dashboard = lazy(() =>
+  import('./views/admin/Dashboard').then((module) => ({ default: module.Dashboard }))
+);
+const KnowledgeDocumentList = lazy(() =>
+  import('./views/admin/knowledge-documents/KnowledgeDocumentList').then((module) => ({
+    default: module.KnowledgeDocumentList,
+  }))
+);
+const KnowledgeDocumentDetail = lazy(() =>
+  import('./views/admin/knowledge-documents/KnowledgeDocumentDetail').then((module) => ({
+    default: module.KnowledgeDocumentDetail,
+  }))
+);
 
-  if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
-  }
-
-  return <>{children}</>;
-};
+const withSuspense = (element: React.ReactNode) => (
+  <Suspense fallback={<Loading />}>{element}</Suspense>
+);
 
 export const router = createBrowserRouter([
   {
     path: '/',
-    element: <Home />,
+    element: withSuspense(<Home />),
   },
   {
     path: '/article/:slug',
-    element: <ArticleDetail />,
+    element: withSuspense(<ArticleDetail />),
   },
   {
     path: '/ai-chat',
-    element: (
+    element: withSuspense(
       <ProtectedRoute>
         <AIChat />
       </ProtectedRoute>
@@ -45,7 +62,7 @@ export const router = createBrowserRouter([
   },
   {
     path: '/profile',
-    element: (
+    element: withSuspense(
       <ProtectedRoute>
         <Profile />
       </ProtectedRoute>
@@ -53,15 +70,15 @@ export const router = createBrowserRouter([
   },
   {
     path: '/login',
-    element: <Login />,
+    element: withSuspense(<Login />),
   },
   {
     path: '/register',
-    element: <Register />,
+    element: withSuspense(<Register />),
   },
   {
     path: '/admin',
-    element: (
+    element: withSuspense(
       <AdminRoute>
         <AdminLayout />
       </AdminRoute>
@@ -80,7 +97,7 @@ export const router = createBrowserRouter([
   },
   {
     path: '*',
-    element: (
+    element: withSuspense(
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <h1 className="text-4xl font-bold text-neutral-700 mb-4">404</h1>

@@ -3,12 +3,14 @@ package main
 import (
 	"context"
 	"fmt"
+
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"gopkg.in/natefinch/lumberjack.v2"
+
 	"log"
 	"net/http"
 	"os"
@@ -23,7 +25,66 @@ import (
 	"wenDao/internal/pkg/response"
 	"wenDao/internal/repository"
 	"wenDao/internal/service"
+
+	"gorm.io/gorm"
 )
+
+type infrastructure struct {
+	db        *gorm.DB
+	rdb       *redis.Client
+	rdbVector *redis.Client
+}
+
+type repositories struct {
+	user                    repository.UserRepository
+	article                 repository.ArticleRepository
+	category                repository.CategoryRepository
+	comment                 repository.CommentRepository
+	chatMessage             repository.ChatMessageRepository
+	conversation            repository.ConversationRepository
+	conversationRun         repository.ConversationRunRepository
+	conversationRunStep     repository.ConversationRunStepRepository
+	conversationMemory      repository.ConversationMemoryRepository
+	knowledgeDocument       repository.KnowledgeDocumentRepository
+	knowledgeDocumentSource repository.KnowledgeDocumentSourceRepository
+	upload                  repository.UploadRepository
+	setting                 repository.SettingRepository
+	stat                    *repository.StatRepository
+}
+
+type aiComponents struct {
+	embedder    eino.Embedder
+	llmClient   eino.LLMClient
+	vectorStore eino.RedisVectorStore
+}
+
+type appServices struct {
+	oauth             service.OAuthService
+	user              service.UserService
+	category          service.CategoryService
+	setting           service.SettingService
+	vector            service.VectorService
+	knowledgeDocument service.KnowledgeDocumentService
+	ai                service.AIService
+	article           service.ArticleService
+	comment           service.CommentService
+	upload            service.UploadService
+	stat              *service.StatService
+}
+
+type appHandlers struct {
+	user              *handler.UserHandler
+	auth              *handler.AuthHandler
+	category          *handler.CategoryHandler
+	article           *handler.ArticleHandler
+	comment           *handler.CommentHandler
+	upload            *handler.UploadHandler
+	ai                *handler.AIHandler
+	site              *handler.SiteHandler
+	stat              *handler.StatHandler
+	chat              *handler.ChatHandler
+	knowledgeDocument *handler.KnowledgeDocumentHandler
+}
 
 func main() {
 	// 加载环境变量
@@ -39,152 +100,27 @@ func main() {
 	logger := initLogger(cfg.Log)
 	defer logger.Sync()
 
-	// 初始化数据库
-	db, err := database.InitMySQL(&cfg.Database)
+	infra, err := initInfrastructure(cfg, logger)
 	if err != nil {
-		logger.Fatal("Failed to connect to MySQL", zap.Error(err))
+		logger.Fatal("Failed to initialize infrastructure", zap.Error(err))
 	}
-	logger.Info("MySQL connected successfully")
 
-	// 自动迁移
-	if err := database.AutoMigrate(db); err != nil {
-		logger.Fatal("Failed to migrate database", zap.Error(err))
-	}
-	logger.Info("Database migrated successfully")
+	repos := initRepositories(infra.db)
 
-	// 初始化 Redis
-	rdb := redis.NewClient(&redis.Options{
-		Addr:     fmt.Sprintf("%s:%s", cfg.Redis.Host, cfg.Redis.Port),
-		Password: cfg.Redis.Password,
-		DB:       cfg.Redis.DB,
-		PoolSize: cfg.Redis.PoolSize,
-	})
-	logger.Info("Redis connected successfully")
-
-	// 初始化 Redis Vector (Redis Stack)
-	rdbVector := redis.NewClient(&redis.Options{
-		Addr:     fmt.Sprintf("%s:%s", cfg.RedisVector.Host, cfg.RedisVector.Port),
-		Password: cfg.RedisVector.Password,
-		DB:       cfg.RedisVector.DB,
-		PoolSize: cfg.RedisVector.PoolSize,
-	})
-	logger.Info("Redis Vector connected successfully")
-
-	// 初始化 Repository
-	userRepo := repository.NewUserRepository(db)
-	articleRepo := repository.NewArticleRepository(db)
-	categoryRepo := repository.NewCategoryRepository(db)
-	commentRepo := repository.NewCommentRepository(db)
-	chatMessageRepo := repository.NewChatMessageRepository(db)
-	conversationRepo := repository.NewConversationRepository(db)
-	conversationRunRepo := repository.NewConversationRunRepository(db)
-	conversationRunStepRepo := repository.NewConversationRunStepRepository(db)
-	conversationMemoryRepo := repository.NewConversationMemoryRepository(db)
-	knowledgeDocumentRepo := repository.NewKnowledgeDocumentRepository(db)
-	knowledgeDocumentSourceRepo := repository.NewKnowledgeDocumentSourceRepository(db)
-	uploadRepo := repository.NewUploadRepository(db)
-	settingRepo := repository.NewSettingRepository(db)
-
-	// 初始化 AI 核心组件
-	embedder, err := eino.NewDoubaoEmbedder(&cfg.AI)
+	aiCore, err := initAIComponents(cfg, logger, infra.rdbVector)
 	if err != nil {
-		logger.Fatal("Failed to create Doubao Embedder", zap.Error(err))
+		logger.Fatal("Failed to initialize AI components", zap.Error(err))
 	}
-	logger.Info("Doubao Embedder initialized successfully")
 
-	llmClient, err := eino.NewDoubaoLLMClient(&cfg.AI)
+	services, cleanup, err := initServices(cfg, logger, repos, infra, aiCore)
 	if err != nil {
-		logger.Fatal("Failed to create Doubao LLM client", zap.Error(err))
+		logger.Fatal("Failed to initialize services", zap.Error(err))
 	}
-	logger.Info("Doubao LLM Client initialized successfully")
+	defer cleanup()
 
-	// ---------------------------------------------------------
-	// RAG 核心修复：强制使用 V4 版本索引，彻底物理隔离
-	// ---------------------------------------------------------
-	const CurrentIndexName = "idx_wendao_v4"
+	handlers := initHandlers(cfg, repos, services, infra.rdb)
 
-	vectorStore := eino.NewRedisVectorStore(rdbVector, CurrentIndexName, logger)
-
-	// 动态探测模型维度
-	logger.Info("Detecting embedding model dimension...")
-	testVec, err := embedder.Embed("dimension test")
-	if err != nil {
-		logger.Fatal("Failed to detect model dimension", zap.Error(err))
-	}
-	actualDim := len(testVec)
-	logger.Info("Model dimension detected", zap.Int("dimension", actualDim), zap.String("using_index", CurrentIndexName))
-
-	// 初始化索引
-	if err := vectorStore.InitIndex(CurrentIndexName, actualDim); err != nil {
-		logger.Fatal("Failed to initialize vector index", zap.Error(err))
-	}
-	logger.Info("Redis Vector index initialized successfully")
-
-	// 初始化 Service
-	oauthService := service.NewOAuthService(cfg)
-	userService := service.NewUserService(userRepo, oauthService, cfg, rdb)
-	categoryService := service.NewCategoryService(categoryRepo)
-	settingService := service.NewSettingService(settingRepo)
-
-	// AI/RAG Services
-	vectorService := service.NewVectorService(vectorStore, embedder, logger)
-	if err := syncPublishedArticleVectors(articleRepo, vectorService, logger); err != nil {
-		logger.Fatal("Failed to sync published article vectors", zap.Error(err))
-	}
-	knowledgeDocumentService := service.NewKnowledgeDocumentService(knowledgeDocumentRepo, knowledgeDocumentSourceRepo, vectorService, articleRepo, categoryRepo, logger)
-	aiEventLogger, err := service.NewAILogger(filepath.Dir(cfg.Log.Output))
-	if err != nil {
-		logger.Fatal("Failed to initialize AI event logger", zap.Error(err))
-	}
-	defer aiEventLogger.Close()
-	retriever := eino.NewRedisRetriever(vectorStore, embedder, cfg.AI.TopK)
-	ragChain := eino.NewRAGChain(retriever, llmClient.GetModel(), cfg.AI.RAGMinScore, logger)
-	librarian := service.NewLibrarianService(ragChain)
-	journalist := service.NewJournalist(&cfg.AI)
-	synthesizer := service.NewThinkTankSynthesizer(llmClient)
-	memorySummarizer := service.NewConversationMemorySummarizer(llmClient)
-	adkRunner, err := service.NewThinkTankADKRunner(context.Background(), llmClient, librarian, knowledgeDocumentService, service.ResearchConfig{
-		Endpoint:       cfg.AI.ResearchEndpoint,
-		APIKey:         cfg.AI.ResearchAPIKey,
-		MaxResults:     cfg.AI.ResearchMaxResults,
-		TimeoutSeconds: cfg.AI.ResearchTimeoutSeconds,
-	})
-	if err != nil {
-		logger.Fatal("Failed to initialize ThinkTank ADK runner", zap.Error(err))
-	}
-	thinkTankService := service.NewThinkTankService(librarian, journalist, synthesizer, conversationRunRepo, conversationRunStepRepo, conversationMemoryRepo, conversationRepo, chatMessageRepo, knowledgeDocumentService, aiEventLogger, adkRunner, memorySummarizer)
-	aiService := service.NewAIService(llmClient, thinkTankService, logger)
-
-	// ArticleService
-	articleService := service.NewArticleService(articleRepo, categoryRepo, rdb, vectorService, logger)
-	commentService := service.NewCommentService(commentRepo, articleRepo)
-	uploadService := service.NewUploadService(uploadRepo, cfg)
-
-	// StatService
-	statRepo := repository.NewStatRepository(db)
-	statService := service.NewStatService(statRepo, rdb)
-
-	// 初始化 Handler
-	userHandler := handler.NewUserHandler(userService, uploadService, oauthService, cfg)
-	authHandler := handler.NewAuthHandler(userService, cfg, rdb)
-	categoryHandler := handler.NewCategoryHandler(categoryService)
-	articleHandler := handler.NewArticleHandler(articleService, statService, settingService)
-	commentHandler := handler.NewCommentHandler(commentService, statService)
-	uploadHandler := handler.NewUploadHandler(uploadService)
-	aiHandler := handler.NewAIHandler(aiService)
-	siteHandler := handler.NewSiteHandler(cfg)
-	statHandler := handler.NewStatHandler(statService)
-	chatHandler := handler.NewChatHandler(conversationRepo, chatMessageRepo, conversationRunRepo, conversationRunStepRepo, conversationMemoryRepo)
-	knowledgeDocumentHandler := handler.NewKnowledgeDocumentHandler(knowledgeDocumentService)
-
-	// 设置路由
-	gin.SetMode(cfg.Server.Mode)
-	router := gin.New()
-	router.Use(middleware.Logger(logger), middleware.Recovery(logger))
-	router.Use(middleware.CORS())
-
-	// 注册路由
-	registerRoutes(router, cfg, rdb, userHandler, authHandler, categoryHandler, articleHandler, commentHandler, uploadHandler, aiHandler, siteHandler, statHandler, chatHandler, knowledgeDocumentHandler)
+	router := buildRouter(cfg, logger, infra.rdb, handlers)
 
 	// 启动服务器
 	srv := &http.Server{
@@ -196,6 +132,195 @@ func main() {
 	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		logger.Fatal("Server failed to start", zap.Error(err))
 	}
+}
+
+func initInfrastructure(cfg *config.Config, logger *zap.Logger) (*infrastructure, error) {
+	db, err := database.InitMySQL(&cfg.Database)
+	if err != nil {
+		return nil, err
+	}
+	logger.Info("MySQL connected successfully")
+
+	if err := database.AutoMigrate(db); err != nil {
+		return nil, err
+	}
+	logger.Info("Database migrated successfully")
+
+	rdb := newRedisClient(cfg.Redis)
+	logger.Info("Redis connected successfully")
+
+	rdbVector := newRedisClient(cfg.RedisVector)
+	logger.Info("Redis Vector connected successfully")
+
+	return &infrastructure{db: db, rdb: rdb, rdbVector: rdbVector}, nil
+}
+
+func newRedisClient(cfg config.RedisConfig) *redis.Client {
+	return redis.NewClient(&redis.Options{
+		Addr:     fmt.Sprintf("%s:%s", cfg.Host, cfg.Port),
+		Password: cfg.Password,
+		DB:       cfg.DB,
+		PoolSize: cfg.PoolSize,
+	})
+}
+
+func initRepositories(db *gorm.DB) *repositories {
+	return &repositories{
+		user:                    repository.NewUserRepository(db),
+		article:                 repository.NewArticleRepository(db),
+		category:                repository.NewCategoryRepository(db),
+		comment:                 repository.NewCommentRepository(db),
+		chatMessage:             repository.NewChatMessageRepository(db),
+		conversation:            repository.NewConversationRepository(db),
+		conversationRun:         repository.NewConversationRunRepository(db),
+		conversationRunStep:     repository.NewConversationRunStepRepository(db),
+		conversationMemory:      repository.NewConversationMemoryRepository(db),
+		knowledgeDocument:       repository.NewKnowledgeDocumentRepository(db),
+		knowledgeDocumentSource: repository.NewKnowledgeDocumentSourceRepository(db),
+		upload:                  repository.NewUploadRepository(db),
+		setting:                 repository.NewSettingRepository(db),
+		stat:                    repository.NewStatRepository(db),
+	}
+}
+
+func initAIComponents(cfg *config.Config, logger *zap.Logger, rdbVector *redis.Client) (*aiComponents, error) {
+	embedder, err := eino.NewDoubaoEmbedder(&cfg.AI)
+	if err != nil {
+		return nil, fmt.Errorf("create doubao embedder: %w", err)
+	}
+	logger.Info("Doubao Embedder initialized successfully")
+
+	llmClient, err := eino.NewDoubaoLLMClient(&cfg.AI)
+	if err != nil {
+		return nil, fmt.Errorf("create doubao llm client: %w", err)
+	}
+	logger.Info("Doubao LLM Client initialized successfully")
+
+	const currentIndexName = "idx_wendao_v4"
+	vectorStore := eino.NewRedisVectorStore(rdbVector, currentIndexName, logger)
+
+	logger.Info("Detecting embedding model dimension...")
+	testVec, err := embedder.Embed("dimension test")
+	if err != nil {
+		return nil, fmt.Errorf("detect embedding model dimension: %w", err)
+	}
+	actualDim := len(testVec)
+	logger.Info("Model dimension detected", zap.Int("dimension", actualDim), zap.String("using_index", currentIndexName))
+
+	if err := vectorStore.InitIndex(currentIndexName, actualDim); err != nil {
+		return nil, fmt.Errorf("initialize vector index: %w", err)
+	}
+	logger.Info("Redis Vector index initialized successfully")
+
+	return &aiComponents{
+		embedder:    embedder,
+		llmClient:   llmClient,
+		vectorStore: vectorStore,
+	}, nil
+}
+
+func initServices(cfg *config.Config, logger *zap.Logger, repos *repositories, infra *infrastructure, aiCore *aiComponents) (*appServices, func(), error) {
+	oauthService := service.NewOAuthService(cfg)
+	userService := service.NewUserService(repos.user, oauthService, cfg, infra.rdb)
+	categoryService := service.NewCategoryService(repos.category)
+	settingService := service.NewSettingService(repos.setting)
+
+	vectorService := service.NewVectorService(aiCore.vectorStore, aiCore.embedder, logger)
+	if err := syncPublishedArticleVectors(repos.article, vectorService, logger); err != nil {
+		return nil, nil, fmt.Errorf("sync published article vectors: %w", err)
+	}
+	knowledgeDocumentService := service.NewKnowledgeDocumentService(repos.knowledgeDocument, repos.knowledgeDocumentSource, vectorService, repos.article, repos.category, logger)
+	aiEventLogger, err := service.NewAILogger(filepath.Dir(cfg.Log.Output))
+	if err != nil {
+		return nil, nil, fmt.Errorf("initialize AI event logger: %w", err)
+	}
+	retriever := eino.NewRedisRetriever(aiCore.vectorStore, aiCore.embedder, cfg.AI.TopK)
+	ragChain := eino.NewRAGChain(retriever, aiCore.llmClient.GetModel(), cfg.AI.RAGMinScore, logger)
+	librarian := service.NewLibrarianService(ragChain)
+	journalist := service.NewJournalist(&cfg.AI)
+	synthesizer := service.NewThinkTankSynthesizer(aiCore.llmClient)
+	memorySummarizer := service.NewConversationMemorySummarizer(aiCore.llmClient)
+	adkRunner, err := service.NewThinkTankADKRunner(context.Background(), aiCore.llmClient, librarian, knowledgeDocumentService, service.ResearchConfig{
+		Endpoint:       cfg.AI.ResearchEndpoint,
+		APIKey:         cfg.AI.ResearchAPIKey,
+		MaxResults:     cfg.AI.ResearchMaxResults,
+		TimeoutSeconds: cfg.AI.ResearchTimeoutSeconds,
+	})
+	if err != nil {
+		aiEventLogger.Close()
+		return nil, nil, fmt.Errorf("initialize thinktank adk runner: %w", err)
+	}
+	thinkTankService := service.NewThinkTankService(
+		librarian,
+		journalist,
+		synthesizer,
+		repos.conversationRun,
+		repos.conversationRunStep,
+		repos.conversationMemory,
+		repos.conversation,
+		repos.chatMessage,
+		knowledgeDocumentService,
+		aiEventLogger,
+		adkRunner,
+		memorySummarizer,
+	)
+
+	return &appServices{
+		oauth:             oauthService,
+		user:              userService,
+		category:          categoryService,
+		setting:           settingService,
+		vector:            vectorService,
+		knowledgeDocument: knowledgeDocumentService,
+		ai:                service.NewAIService(aiCore.llmClient, thinkTankService, logger),
+		article:           service.NewArticleService(repos.article, repos.category, infra.rdb, vectorService, logger),
+		comment:           service.NewCommentService(repos.comment, repos.article),
+		upload:            service.NewUploadService(repos.upload, cfg),
+		stat:              service.NewStatService(repos.stat, infra.rdb),
+	}, func() {
+		_ = aiEventLogger.Close()
+	}, nil
+}
+
+func initHandlers(cfg *config.Config, repos *repositories, services *appServices, rdb *redis.Client) *appHandlers {
+	return &appHandlers{
+		user:              handler.NewUserHandler(services.user, services.upload, services.oauth, cfg),
+		auth:              handler.NewAuthHandler(services.user, cfg, rdb),
+		category:          handler.NewCategoryHandler(services.category),
+		article:           handler.NewArticleHandler(services.article, services.stat, services.setting),
+		comment:           handler.NewCommentHandler(services.comment, services.stat),
+		upload:            handler.NewUploadHandler(services.upload),
+		ai:                handler.NewAIHandler(services.ai),
+		site:              handler.NewSiteHandler(cfg),
+		stat:              handler.NewStatHandler(services.stat),
+		chat:              handler.NewChatHandler(repos.conversation, repos.chatMessage, repos.conversationRun, repos.conversationRunStep, repos.conversationMemory),
+		knowledgeDocument: handler.NewKnowledgeDocumentHandler(services.knowledgeDocument),
+	}
+}
+
+func buildRouter(cfg *config.Config, logger *zap.Logger, rdb *redis.Client, handlers *appHandlers) *gin.Engine {
+	gin.SetMode(cfg.Server.Mode)
+	router := gin.New()
+	router.Use(middleware.Logger(logger), middleware.Recovery(logger), middleware.CORS())
+
+	registerRoutes(
+		router,
+		cfg,
+		rdb,
+		handlers.user,
+		handlers.auth,
+		handlers.category,
+		handlers.article,
+		handlers.comment,
+		handlers.upload,
+		handlers.ai,
+		handlers.site,
+		handlers.stat,
+		handlers.chat,
+		handlers.knowledgeDocument,
+	)
+
+	return router
 }
 
 func loadServerEnv() error {
@@ -271,9 +396,22 @@ func registerRoutes(
 	api := router.Group("/api")
 	{
 		auth := api.Group("/auth")
+		auth.Use(middleware.RateLimit(rdb, middleware.RateLimitConfig{
+			Type:   middleware.IPLimit,
+			Limit:  cfg.RateLimit.Global,
+			Window: time.Second,
+		}))
 		{
-			auth.POST("/register", userHandler.Register)
-			auth.POST("/login", userHandler.Login)
+			auth.POST("/register", middleware.RateLimit(rdb, middleware.RateLimitConfig{
+				Type:   middleware.IPLimit,
+				Limit:  cfg.RateLimit.Register,
+				Window: time.Minute,
+			}), userHandler.Register)
+			auth.POST("/login", middleware.RateLimit(rdb, middleware.RateLimitConfig{
+				Type:   middleware.IPLimit,
+				Limit:  cfg.RateLimit.Login,
+				Window: time.Minute,
+			}), userHandler.Login)
 			auth.GET("/github", userHandler.GitHubLogin)
 			auth.POST("/refresh", authHandler.Refresh)
 			auth.GET("/github/callback", userHandler.GitHubCallback)
@@ -302,8 +440,16 @@ func registerRoutes(
 		ai := api.Group("/ai")
 		ai.Use(middleware.AuthRequired(cfg.JWT.Secret, rdb))
 		{
-			ai.POST("/chat", aiHandler.Chat)
-			ai.POST("/chat/stream", aiHandler.ChatStream)
+			ai.POST("/chat", middleware.RateLimit(rdb, middleware.RateLimitConfig{
+				Type:   middleware.UserLimit,
+				Limit:  cfg.RateLimit.AIChat,
+				Window: time.Minute,
+			}), aiHandler.Chat)
+			ai.POST("/chat/stream", middleware.RateLimit(rdb, middleware.RateLimitConfig{
+				Type:   middleware.UserLimit,
+				Limit:  cfg.RateLimit.AIChat,
+				Window: time.Minute,
+			}), aiHandler.ChatStream)
 			ai.POST("/summary", middleware.AdminRequired(cfg.JWT.Secret, rdb), aiHandler.GenerateSummary)
 		}
 

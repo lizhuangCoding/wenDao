@@ -76,7 +76,7 @@ export const ArticleEditor = () => {
       });
       lastSavedDataRef.current = { title: article.title, content: article.content, summary: article.summary };
     }
-  }, [article, id]); // 监听 id 变化
+  }, [article, draftKey, id]); // 监听 id 变化
 
   // 实时备份到本地
   useEffect(() => {
@@ -136,7 +136,7 @@ export const ArticleEditor = () => {
     }, 30000);
 
     return () => clearInterval(timer);
-  }, [id, isEdit, draftKey, navigate, isAutoSaving]);
+  }, [draftKey, formData.status, id, isAutoSaving, isEdit, navigate]);
 
   const saveMutation = useMutation({
     mutationFn: (data: typeof formData) =>

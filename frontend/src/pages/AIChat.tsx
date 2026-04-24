@@ -245,7 +245,9 @@ export const AIChat = () => {
   }, []);
 
   const activeChat = activeId ? conversations[activeId] : null;
-  const messages = activeChat?.messages || [];
+  const activeChatTitle = activeChat?.title ?? '';
+  const activeChatMessages = activeChat?.messages;
+  const messages = activeChatMessages ?? [];
   const isAssistantProcessing = runStatus === 'running';
   const processingDurationLabel = formatProcessingDuration(processingElapsedMs);
 
@@ -269,16 +271,16 @@ export const AIChat = () => {
   }, [isAssistantProcessing, processingStartedAt]);
 
   useEffect(() => {
-    if (activeChat && !isRenaming) {
-      setDraftTitle(activeChat.title);
+    if (activeChatTitle && !isRenaming) {
+      setDraftTitle(activeChatTitle);
     }
-  }, [activeChat?.id, activeChat?.title, isRenaming]);
+  }, [activeChatTitle, isRenaming]);
 
   useEffect(() => {
     const container = scrollContainerRef.current;
     if (!container || !isNearBottom) return;
     container.scrollTop = container.scrollHeight;
-  }, [messages, isTyping, isStreaming, isNearBottom]);
+  }, [activeChatMessages, isTyping, isStreaming, isNearBottom]);
 
   const handleScroll = () => {
     const container = scrollContainerRef.current;
