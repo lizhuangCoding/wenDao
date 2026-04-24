@@ -92,6 +92,10 @@ func (h *AIHandler) Chat(c *gin.Context) {
 
 	answer, err := h.aiService.Chat(req.Message, req.ConversationID, getCurrentUserID(c))
 	if err != nil {
+		if errors.Is(err, service.ErrAIDisabled) {
+			response.ServiceUnavailable(c, "AI 服务暂时不可用，请稍后再试")
+			return
+		}
 		response.InternalError(c, "生成回答失败，请稍后再试")
 		return
 	}
@@ -119,6 +123,10 @@ func (h *AIHandler) GenerateSummary(c *gin.Context) {
 
 	summary, err := h.aiService.GenerateSummary(req.Content)
 	if err != nil {
+		if errors.Is(err, service.ErrAIDisabled) {
+			response.ServiceUnavailable(c, "AI 服务暂时不可用，请稍后再试")
+			return
+		}
 		response.InternalError(c, "生成摘要失败，请稍后再试")
 		return
 	}
@@ -196,6 +204,10 @@ func (h *AIHandler) ChatStream(c *gin.Context) {
 			}
 			if err == nil {
 				continue
+			}
+			if errors.Is(err, service.ErrAIDisabled) {
+				_ = writeSSEvent(c, "error", chatStreamEvent{Error: "AI 服务暂时不可用，请稍后再试"})
+				return
 			}
 			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 				return

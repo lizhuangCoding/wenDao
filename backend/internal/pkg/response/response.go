@@ -8,20 +8,21 @@ import (
 
 // Response 统一响应格式
 type Response struct {
-	Code    int         `json:"code"`    // 0=成功，非0=错误码
+	Code    int         `json:"code"` // 0=成功，非0=错误码
 	Message string      `json:"message"`
 	Data    interface{} `json:"data,omitempty"`
 }
 
 // 错误码定义
 const (
-	CodeSuccess       = 0
-	CodeInvalidParams = 40001
-	CodeUnauthorized  = 40100
-	CodeForbidden     = 40300
-	CodeNotFound      = 40400
-	CodeTooManyReq    = 42900
-	CodeInternalError = 50000
+	CodeSuccess            = 0
+	CodeInvalidParams      = 40001
+	CodeUnauthorized       = 40100
+	CodeForbidden          = 40300
+	CodeNotFound           = 40400
+	CodeTooManyReq         = 42900
+	CodeServiceUnavailable = 50300
+	CodeInternalError      = 50000
 )
 
 // Success 成功响应
@@ -47,6 +48,8 @@ func Error(c *gin.Context, code int, message string) {
 		statusCode = http.StatusNotFound
 	case CodeTooManyReq:
 		statusCode = http.StatusTooManyRequests
+	case CodeServiceUnavailable:
+		statusCode = http.StatusServiceUnavailable
 	case CodeInternalError:
 		statusCode = http.StatusInternalServerError
 	}
@@ -80,6 +83,11 @@ func NotFound(c *gin.Context, message string) {
 // TooManyRequests 请求过多
 func TooManyRequests(c *gin.Context, message string) {
 	Error(c, CodeTooManyReq, message)
+}
+
+// ServiceUnavailable 服务不可用
+func ServiceUnavailable(c *gin.Context, message string) {
+	Error(c, CodeServiceUnavailable, message)
 }
 
 // InternalError 服务器内部错误

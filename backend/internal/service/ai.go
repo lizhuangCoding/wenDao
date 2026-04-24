@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -9,6 +10,8 @@ import (
 
 	"wenDao/internal/pkg/eino"
 )
+
+var ErrAIDisabled = errors.New("ai service is unavailable")
 
 // AIService AI 服务接口
 type AIService interface {
@@ -27,6 +30,10 @@ type aiService struct {
 	logger    *zap.Logger
 }
 
+type disabledAIService struct {
+	reason string
+}
+
 // NewAIService 创建 AI 服务实例
 func NewAIService(llmClient eino.LLMClient, thinkTank ThinkTankService, logger *zap.Logger) AIService {
 	return &aiService{
@@ -34,6 +41,10 @@ func NewAIService(llmClient eino.LLMClient, thinkTank ThinkTankService, logger *
 		llmClient: llmClient,
 		logger:    logger,
 	}
+}
+
+func NewDisabledAIService(reason string) AIService {
+	return &disabledAIService{reason: strings.TrimSpace(reason)}
 }
 
 func buildConversationTitle(question string) string {
@@ -92,4 +103,28 @@ func (s *aiService) GenerateSummary(content string) (string, error) {
 	}
 
 	return strings.TrimSpace(summary), nil
+}
+
+func (s *disabledAIService) Chat(question string, conversationID *int64, userID *int64) (string, error) {
+	return "", s.err()
+}
+
+func (s *disabledAIService) ChatStream(ctx context.Context, question string, conversationID *int64, userID *int64) (<-chan StreamEvent, <-chan error) {
+	eventCh := make(chan StreamEvent)
+	errCh := make(chan error, 1)
+	errCh <- s.err()
+	close(eventCh)
+	close(errCh)
+	return eventCh, errCh
+}
+
+func (s *disabledAIService) GenerateSummary(content string) (string, error) {
+	return "", s.err()
+}
+
+func (s *disabledAIService) err() error {
+	if s.reason == "" {
+		return ErrAIDisabled
+	}
+	return fmt.Errorf("%w: %s", ErrAIDisabled, s.reason)
 }
