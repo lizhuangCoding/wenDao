@@ -1,0 +1,160 @@
+/* Markdown 内容样式 */
+.markdown-body {
+  @apply text-neutral-800;
+  font-size: 16px;
+  line-height: 1.8;
+}
+
+/* Dark mode */
+.dark .markdown-body {
+  @apply text-neutral-200;
+}
+
+.markdown-body h1 {
+  @apply text-3xl font-bold mt-8 mb-4 text-neutral-700;
+  line-height: 1.3;
+}
+
+.dark .markdown-body h1 {
+  @apply text-neutral-100;
+}
+
+.markdown-body h2 {
+  @apply text-2xl font-bold mt-6 mb-3 text-neutral-700;
+  line-height: 1.4;
+}
+
+.dark .markdown-body h2 {
+  @apply text-neutral-100;
+}
+
+.markdown-body h3 {
+  @apply text-xl font-semibold mt-5 mb-2 text-neutral-700;
+}
+
+.dark .markdown-body h3 {
+  @apply text-neutral-100;
+}
+
+.markdown-body h4,
+.markdown-body h5,
+.markdown-body h6 {
+  @apply text-lg font-semibold mt-4 mb-2 text-neutral-700;
+}
+
+.dark .markdown-body h4,
+.dark .markdown-body h5,
+.dark .markdown-body h6 {
+  @apply text-neutral-100;
+}
+
+.markdown-body p {
+  @apply my-4;
+}
+
+.markdown-body a {
+  @apply text-primary-600 hover:text-primary-700 underline;
+  @apply transition-colors duration-200;
+}
+
+.dark .markdown-body a {
+  @apply text-primary-400 hover:text-primary-300;
+}
+
+.markdown-body ul,
+.markdown-body ol {
+  @apply my-4 pl-6;
+}
+
+.markdown-body ul {
+  @apply list-disc;
+}
+
+.markdown-body ol {
+  @apply list-decimal;
+}
+
+.markdown-body li {
+  @apply my-1;
+}
+
+.dark .markdown-body li {
+  @apply text-neutral-200;
+}
+
+.markdown-body blockquote {
+  @apply border-l-4 border-primary-500 pl-4 my-4;
+  @apply text-neutral-600 italic;
+}
+
+.dark .markdown-body blockquote {
+  @apply text-neutral-400;
+}
+
+.markdown-body code {
+  @apply bg-neutral-100 text-primary-600 px-1.5 py-0.5 rounded;
+  @apply text-sm font-mono;
+}
+
+.dark .markdown-body code {
+  @apply bg-neutral-800 text-primary-400;
+}
+
+.markdown-body pre {
+  @apply bg-neutral-900 text-neutral-100 p-4 rounded-lg my-4 overflow-x-auto;
+}
+
+.dark .markdown-body pre {
+  @apply bg-neutral-800 border border-neutral-700;
+}
+
+.markdown-body pre code {
+  @apply bg-transparent text-neutral-100 p-0;
+}
+
+.dark .markdown-body pre code {
+  @apply text-neutral-200;
+}
+
+.markdown-body table {
+  @apply w-full my-4 border-collapse;
+}
+
+.dark .markdown-body th,
+.dark .markdown-body td {
+  @apply border-neutral-700;
+}
+
+.markdown-body th,
+.markdown-body td {
+  @apply border border-neutral-200 px-4 py-2;
+}
+
+.markdown-body th {
+  @apply bg-neutral-100 font-semibold;
+}
+
+.dark .markdown-body th {
+  @apply bg-neutral-800;
+}
+
+.markdown-body img {
+  @apply max-w-full h-auto rounded-lg my-4;
+}
+
+.markdown-body hr {
+  @apply my-8 border-neutral-200;
+}
+
+.dark .markdown-body hr {
+  @apply border-neutral-700;
+}
+
+/* 代码高亮样式 */
+.markdown-body .hljs {
+  @apply bg-neutral-900;
+}
+
+.dark .markdown-body .hljs {
+  @apply bg-neutral-800;
+}

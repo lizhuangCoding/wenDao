@@ -1,0 +1,169 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    @apply box-border;
+  }
+
+  html {
+    @apply scroll-smooth;
+  }
+
+  body {
+    @apply bg-[#fdfdfb] text-neutral-800 antialiased;
+    font-size: 16px;
+    line-height: 1.6;
+    font-family: "Instrument Sans", "Inter", system-ui, sans-serif;
+    --tooltip-bg: #ffffff;
+    --tooltip-border: #e5e7eb;
+    --tooltip-text: #374151;
+  }
+
+  .dark body {
+    @apply bg-neutral-900 text-neutral-300;
+    --tooltip-bg: #171717;
+    --tooltip-border: #262626;
+    --tooltip-text: #d4d4d4;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply text-neutral-900 font-serif font-black tracking-tight;
+  }
+
+  .dark h1, .dark h2, .dark h3, .dark h4, .dark h5, .dark h6 {
+    @apply text-neutral-100;
+  }
+}
+
+@layer components {
+  /* Button Styles */
+  .btn {
+    @apply px-6 py-2.5 rounded-full font-bold text-xs tracking-widest transition-all duration-300 uppercase inline-flex items-center justify-center gap-2;
+    @apply hover:scale-[1.02] active:scale-[0.98];
+  }
+
+  .btn-primary {
+    @apply bg-neutral-900 text-white shadow-soft;
+    @apply hover:bg-primary-600 hover:shadow-elevated;
+  }
+
+  .btn-secondary {
+    @apply bg-white text-neutral-900 border border-neutral-200;
+    @apply hover:bg-neutral-50;
+  }
+
+  /* Input Styles */
+  .input {
+    @apply w-full px-6 py-3 border-2 border-neutral-100 rounded-2xl bg-neutral-50/50;
+    @apply focus:outline-none focus:ring-4 focus:ring-primary-500/10 focus:border-primary-500 focus:bg-white;
+    @apply transition-all duration-300 font-medium;
+    @apply dark:bg-neutral-800/50 dark:border-neutral-700 dark:text-neutral-100 dark:focus:bg-neutral-800 dark:focus:border-primary-500;
+  }
+
+  /* Refined Prose for Editorial Reading */
+  .prose-refined {
+    @apply text-neutral-700 leading-[1.7] text-lg;
+  }
+
+  /* Dark mode prose */
+  .dark .prose-refined {
+    @apply text-neutral-200;
+  }
+
+  .dark .prose-refined h1, .dark .prose-refined h2, .dark .prose-refined h3 {
+    @apply text-neutral-100;
+  }
+
+  .prose-refined h1, .prose-refined h2, .prose-refined h3 {
+    @apply text-neutral-900 mt-16 mb-6 font-serif font-black leading-tight;
+  }
+
+  .prose-refined h1 { @apply text-5xl; }
+  .prose-refined h2 { @apply text-3xl; }
+  .prose-refined h3 { @apply text-2xl; }
+
+  .prose-refined p {
+    @apply mb-8;
+  }
+
+  .prose-refined blockquote {
+    @apply pl-8 border-l-4 border-primary-500 italic text-2xl text-neutral-500 my-12;
+  }
+
+  .dark .prose-refined blockquote {
+    @apply text-neutral-400;
+  }
+
+  .prose-refined pre {
+    @apply bg-neutral-900 rounded-3xl p-8 my-12 overflow-x-auto shadow-elevated;
+  }
+
+  .prose-refined code {
+    @apply font-mono text-[0.9em] px-1.5 py-0.5 rounded-md bg-neutral-100 text-primary-700;
+  }
+
+  .dark .prose-refined code {
+    @apply bg-neutral-800 text-primary-400;
+  }
+
+  .prose-refined pre code {
+    @apply p-0 bg-transparent text-neutral-100;
+  }
+
+  .prose-refined img {
+    @apply rounded-[2rem] shadow-elevated my-16 mx-auto transition-transform duration-500 hover:scale-[1.02];
+  }
+
+  .prose-refined ul, .prose-refined ol {
+    @apply mb-6 ml-4;
+  }
+
+  .prose-refined ul {
+    list-style-type: none !important;
+  }
+
+  .dark .prose-refined ul, .dark .prose-refined ol {
+    @apply text-neutral-200;
+  }
+
+  .prose-refined li {
+    @apply mb-2 relative;
+  }
+
+  .dark .prose-refined li {
+    @apply text-neutral-200;
+  }
+
+  .prose-refined ul li::before {
+    content: "•";
+    @apply absolute -left-4 text-primary-500 font-black;
+  }
+
+  .prose-refined ol {
+    list-style-type: decimal;
+  }
+}
+
+@layer utilities {
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .max-w-reading {
+    max-width: 720px;
+  }
+
+  .shadow-soft {
+    box-shadow: 0 2px 15px -3px rgba(0, 0, 0, 0.07), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  }
+
+  .shadow-elevated {
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  }
+}

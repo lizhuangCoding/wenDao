@@ -1,0 +1,19 @@
+.DS_Store
+.idea/
+.worktrees/
+
+# Local environment files
+backend/config/.env
+frontend/.env
+
+# Runtime artifacts
+backend/log/
+backend/wenDao-server
+
+# Frontend artifacts
+frontend/node_modules/
+frontend/dist/
+
+# Keep uploaded assets out of git; backend/uploads/.gitignore preserves the dir
+backend/uploads/*
+!backend/uploads/.gitignore
