@@ -518,6 +518,17 @@ export const useChatStore = create<ChatState>()((set, get) => {
         set((state) => ({
           conversations: { ...state.conversations, [response.id]: newChat },
           activeId: response.id,
+          isTyping: false,
+          isStreaming: false,
+          streamingConversationId: null,
+          currentStage: null,
+          currentStageLabel: null,
+          requiresUserInput: false,
+          pendingQuestion: null,
+          runStatus: 'idle',
+          isRecovering: false,
+          reconnectAttempts: 0,
+          lastHeartbeatAt: null,
         }));
       } catch (error) {
         console.error('Failed to create conversation:', error);
