@@ -62,6 +62,17 @@ func TestBuildLibrarianResult_TreatsNoCoveragePhraseAsInsufficient(t *testing.T)
 	}
 }
 
+func TestBuildLibrarianResult_TreatsNoAboutPhraseAsInsufficient(t *testing.T) {
+	docs := []*schema.Document{
+		{MetaData: map[string]any{"title": "fjjjjj", "slug": "9400f1b21c"}},
+		{MetaData: map[string]any{"title": "wfoijejfioew", "slug": "f5ca38f748"}},
+	}
+	result := buildLibrarianResult("本站没有关于马斯克的相关内容。", docs)
+	if result.CoverageStatus != "insufficient" {
+		t.Fatalf("expected insufficient coverage, got %q", result.CoverageStatus)
+	}
+}
+
 func TestFallbackLocalSearchQuery_ExtractsCoreSubject(t *testing.T) {
 	query := fallbackLocalSearchQuery("李小龙的生平经历、武术成就、电影作品、对武术和电影界的影响等方面的信息")
 	if query != "李小龙" {

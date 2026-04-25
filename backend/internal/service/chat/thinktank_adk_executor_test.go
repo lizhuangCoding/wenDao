@@ -2,6 +2,9 @@ package chat
 
 import (
 	"context"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
@@ -125,6 +128,43 @@ func TestWebFetchToolRejectsNonHTTPURLWithoutNetworkAttempt(t *testing.T) {
 	}
 	if !strings.Contains(output, "有效的 http(s) URL") || !strings.Contains(output, "不是 URL") {
 		t.Fatalf("expected invalid URL guidance, got %q", output)
+	}
+}
+
+func TestWebFetchToolTriesNextSearchCandidateWhenFirstPageFails(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/first":
+			http.Error(w, "upstream timeout", http.StatusGatewayTimeout)
+		case "/second":
+			_, _ = w.Write([]byte("第二个页面内容：马斯克创办 SpaceX，并长期推动特斯拉、Neuralink、xAI 等项目。"))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	ctx := WithWebFetchState(context.Background(), newWebFetchState())
+	recordWebSearchCandidates(ctx, fmt.Sprintf(`{"organic":[{"title":"失败页面","link":%q},{"title":"可用页面","link":%q}]}`, server.URL+"/first", server.URL+"/second"))
+
+	fetchTool, err := newWebFetchTool(ResearchConfig{TimeoutSeconds: 1})
+	if err != nil {
+		t.Fatalf("expected WebFetch tool to be created, got %v", err)
+	}
+	invokable, ok := fetchTool.(tool.InvokableTool)
+	if !ok {
+		t.Fatalf("expected WebFetch tool to be invokable")
+	}
+
+	output, err := invokable.InvokableRun(ctx, fmt.Sprintf(`{"url":%q}`, server.URL+"/first"))
+	if err != nil {
+		t.Fatalf("expected failed first page to be handled as tool output, got error %v", err)
+	}
+	if !strings.Contains(output, "第二个页面内容") {
+		t.Fatalf("expected fetch to continue with the next search candidate, got %q", output)
+	}
+	if strings.Count(output, server.URL+"/first") != 1 {
+		t.Fatalf("expected failed URL to be reported once, got %q", output)
 	}
 }
 

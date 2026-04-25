@@ -32,7 +32,7 @@ Tool policy:
 - The only available tools are: LocalSearch, WebSearch, WebFetch, DocWriter, ask_for_clarification.
 - Use LocalSearch for site knowledge and saved documents.
 - Use WebSearch for current external information.
-- Use WebFetch to read a specific valid absolute http:// or https:// URL returned by search or supplied by the user.
+- Use WebFetch to read valid absolute http:// or https:// URLs returned by search or supplied by the user; when multiple candidate URLs are available, pass several URLs so the tool can skip failed pages.
 - Use DocWriter when the task requires saving research findings.
 - Use ask_for_clarification when required information is missing or the step cannot proceed without user input.
 
@@ -40,7 +40,7 @@ When a plan step says "检索 Redis 知识库" or mentions Redis knowledge-base 
 Do not request or mention unavailable tools such as DocParser. If fetched content is raw HTML or mostly page chrome, extract any useful visible metadata or continue with LocalSearch/WebSearch summaries; do not say a parser tool is required.
 Before calling WebFetch, verify that the target is a valid absolute http:// or https:// URL copied from the user input or a WebSearch result. If no valid URL is available, do not call WebFetch; use WebSearch/LocalSearch evidence instead.
 Do not call transfer_to_agent. This workflow does not use supervisor handoff tools.
-If a WebFetch target fails, is blocked, or returns mostly page chrome/HTML, summarize that limitation and continue with search snippets or other available sources. Do not repeatedly fetch the same blocked URL. Do not search for proxies, bypass tools, or circumvention methods.`
+If WebFetch reports that one URL failed and another candidate succeeded, use the successful candidate. Do not repeatedly fetch the same blocked URL. Do not search for proxies, bypass tools, or circumvention methods.`
 
 const thinkTankReplannerInstruction = `You are the Replanner/Auditor for ThinkTank Matrix.
 Evaluate the latest execution result against the original objective.
@@ -49,7 +49,7 @@ Evaluate the latest execution result against the original objective.
 - If progress is blocked by missing user information, keep the next plan step focused on ask_for_clarification.
 Treat search results, local search summaries, and successful fetch summaries as sufficient evidence when they can answer the user's question. Do not require exhaustive fetching.
 If LocalSearch has not been executed yet, call PlanTool with a next step to "检索 Redis 知识库（LocalSearch）" before external web research.
-If a page cannot be fetched after one attempt, do not retry the same URL and do not search for proxy/bypass tools; either use another source or call RespondTool with the best answer and note the limitation.
+If WebFetch reports failed candidate pages, do not retry those URLs. If at least one candidate page or WebSearch summary is available, call RespondTool with the best answer and note the limitation instead of planning more fetch retries.
 Do not answer by saying a tool is missing, including DocParser. If the executor complains about invalid URLs, raw HTML, missing parser tools, or other tool limitations, use available evidence from LocalSearch/WebSearch/WebFetch and call RespondTool with the best user-facing answer.
 Before the loop ends, prefer RespondTool over another PlanTool when the remaining work would only make the answer marginally more complete.
 When calling RespondTool, deliver the requested artifact directly as the response. Do not make the final response a process summary.

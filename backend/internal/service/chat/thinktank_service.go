@@ -109,6 +109,7 @@ func (s *thinkTankService) collectADKRunnerAnswer(ctx context.Context, question 
 	if s.adkRunner == nil || s.adkRunner.runner == nil {
 		return "", nil
 	}
+	ctx = WithWebFetchState(ctx, newWebFetchState())
 	iter := s.adkRunner.runner.Run(ctx, []adk.Message{schema.UserMessage(question)})
 	finalAnswer := ""
 	localNotes := make([]string, 0)

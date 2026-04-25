@@ -68,6 +68,7 @@ func (o *thinkTankOrchestrator) chat(ctx context.Context, question string, conve
 	if s.adkRunner != nil && s.adkAnswerFetcher != nil {
 		adkCtx := WithUserID(ctx, derefUserID(userID))
 		adkCtx = WithAILogger(adkCtx, s.logger)
+		adkCtx = WithWebFetchState(adkCtx, newWebFetchState())
 		if conv != nil {
 			adkCtx = WithConversationID(adkCtx, conv.ID)
 		}
@@ -314,6 +315,7 @@ func (o *thinkTankOrchestrator) streamADKFlow(
 	adkCtx := WithUserID(ctx, derefUserID(userID))
 	adkCtx = WithAILogger(adkCtx, s.logger)
 	adkCtx = WithRunID(adkCtx, runID)
+	adkCtx = WithWebFetchState(adkCtx, newWebFetchState())
 	if conv != nil {
 		adkCtx = WithConversationID(adkCtx, conv.ID)
 	}

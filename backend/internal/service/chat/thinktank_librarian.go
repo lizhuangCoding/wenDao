@@ -96,6 +96,7 @@ func isNoLocalCoverageSummary(summary string) bool {
 		"没有覆盖",
 		"未找到",
 		"没有找到",
+		"没有关于",
 		"没有返回可用结果",
 		"要点列表：无",
 		"要点列表:无",
