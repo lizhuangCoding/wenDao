@@ -234,7 +234,7 @@ func (h *ChatHandler) Get(c *gin.Context) {
 
 	var activeRunResponse *ActiveRunResponse
 	activeStepResponses := make([]StepResponse, 0)
-	if activeRun != nil {
+	if activeRun != nil && (activeRun.Status == "running" || activeRun.Status == "waiting_user") {
 		var heartbeatAt string
 		if activeRun.HeartbeatAt != nil {
 			heartbeatAt = activeRun.HeartbeatAt.Format("2006-01-02 15:04:05")
