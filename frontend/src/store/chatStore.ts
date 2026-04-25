@@ -182,11 +182,16 @@ export const useChatStore = create<ChatState>()((set, get) => {
         ...state.conversations,
         [id]: mapped,
       },
+      isTyping: false,
+      isStreaming: false,
+      streamingConversationId: null,
       currentStage: mapped.activeRun?.current_stage ?? null,
       currentStageLabel: mapped.activeRun?.status === 'waiting_user' ? '需要你补充一点信息' : null,
       requiresUserInput: mapped.activeRun?.status === 'waiting_user',
       pendingQuestion: mapped.activeRun?.pending_question ?? null,
       runStatus: mapped.activeRun?.status ?? 'idle',
+      isRecovering: false,
+      reconnectAttempts: 0,
       lastHeartbeatAt: mapped.activeRun?.heartbeat_at ? new Date(mapped.activeRun.heartbeat_at).getTime() : null,
     }));
     return mapped;
@@ -537,7 +542,20 @@ export const useChatStore = create<ChatState>()((set, get) => {
 
     setActiveChat: async (id) => {
       persistActiveChatId(id);
-      set({ activeId: id });
+      set({
+        activeId: id,
+        isTyping: false,
+        isStreaming: false,
+        streamingConversationId: null,
+        currentStage: null,
+        currentStageLabel: null,
+        requiresUserInput: false,
+        pendingQuestion: null,
+        runStatus: 'idle',
+        isRecovering: false,
+        reconnectAttempts: 0,
+        lastHeartbeatAt: null,
+      });
       try {
         const detail = await chatApi.getConversation(id);
         const mapped = applyConversationDetail(id, detail);
