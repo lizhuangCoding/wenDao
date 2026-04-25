@@ -6,6 +6,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"wenDao/internal/model"
 	"wenDao/internal/repository"
@@ -223,6 +224,20 @@ type stubLibrarian struct {
 
 func (l *stubLibrarian) Search(ctx context.Context, question string) (LibrarianResult, error) {
 	return l.result, l.err
+}
+
+type contextSensitiveLibrarian struct {
+	result LibrarianResult
+	delay  time.Duration
+}
+
+func (l *contextSensitiveLibrarian) Search(ctx context.Context, question string) (LibrarianResult, error) {
+	select {
+	case <-ctx.Done():
+		return LibrarianResult{}, ctx.Err()
+	case <-time.After(l.delay):
+		return l.result, nil
+	}
 }
 
 type stubJournalist struct {
@@ -508,6 +523,128 @@ func TestThinkTankService_ChatStream_StreamsChunksInsteadOfSingleFinalPayload(t 
 	}
 	if len(chunkMessages) < 2 {
 		t.Fatalf("expected multiple streamed chunks, got %d with %#v", len(chunkMessages), chunkMessages)
+	}
+}
+
+func TestThinkTankStreamEmitter_DoesNotBlockWhenOriginalClientStopsReading(t *testing.T) {
+	eventCh := make(chan StreamEvent)
+	done := make(chan struct{})
+
+	go func() {
+		newThinkTankStreamEmitter().emitStage(eventCh, "web_research", "正在进行外部调研")
+		close(done)
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(50 * time.Millisecond):
+		t.Fatal("expected stream emitter to return even when no client is reading")
+	}
+}
+
+func TestThinkTankService_ChatStream_ContinuesAfterRequestContextIsCanceled(t *testing.T) {
+	librarian := &contextSensitiveLibrarian{
+		delay: 20 * time.Millisecond,
+		result: LibrarianResult{
+			CoverageStatus: "sufficient",
+			Summary:        "站内资料足够",
+		},
+	}
+	synthesizer := &stubSynthesizer{answer: "后台任务应该继续完成"}
+	svc := NewThinkTankService(librarian, nil, synthesizer, &stubConversationRunRepository{}, &stubConversationRunStepRepository{}, &stubConversationMemoryRepository{}, &stubConversationRepository{}, &stubChatMessageRepository{}, nil, &stubAILogger{})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	eventCh, errCh := svc.ChatStream(ctx, "刷新页面后继续回答", nil, nil)
+	cancel()
+
+	doneSeen := false
+	for event := range eventCh {
+		if event.Type == StreamEventDone {
+			doneSeen = true
+		}
+	}
+	for err := range errCh {
+		if err != nil {
+			t.Fatalf("expected background run to ignore request cancellation, got %v", err)
+		}
+	}
+	if !doneSeen {
+		t.Fatal("expected stream to complete after the original request context is canceled")
+	}
+}
+
+func TestThinkTankService_ResumeChatStream_ReturnsErrorWhenRunningRunHasNoActiveHub(t *testing.T) {
+	runRepo := &stubConversationRunRepository{active: &model.ConversationRun{
+		ID:             7,
+		ConversationID: 31,
+		UserID:         11,
+		Status:         "running",
+		CurrentStage:   "web_research",
+		LastAnswer:     "已完成部分调研",
+	}}
+	stepRepo := &stubConversationRunStepRepository{steps: []model.ConversationRunStep{{
+		ID:             1,
+		RunID:          7,
+		ConversationID: 31,
+		AgentName:      "Journalist",
+		Summary:        "正在进行外部调研",
+		Status:         "running",
+	}}}
+	convRepo := &stubConversationRepository{conversation: &model.Conversation{ID: 31, UserID: 11, Title: "研究会话"}}
+	svc := NewThinkTankService(&stubLibrarian{}, nil, &stubSynthesizer{}, runRepo, stepRepo, &stubConversationMemoryRepository{}, convRepo, &stubChatMessageRepository{}, nil, &stubAILogger{})
+
+	eventCh, errCh := svc.ResumeChatStream(context.Background(), 31, 7, ptrInt64(11))
+	sawSnapshot := false
+	for event := range eventCh {
+		if event.Type == StreamEventSnapshot && event.Status == "running" {
+			sawSnapshot = true
+		}
+	}
+	if !sawSnapshot {
+		t.Fatal("expected resume stream to send the persisted running snapshot")
+	}
+
+	var gotErr error
+	for err := range errCh {
+		if err != nil {
+			gotErr = err
+		}
+	}
+	if gotErr == nil {
+		t.Fatal("expected running run without active hub to return an error instead of closing silently")
+	}
+}
+
+func TestThinkTankService_ResumeChatStream_DoesNotWaitWhenHubSnapshotIsAlreadyCompleted(t *testing.T) {
+	runRepo := &stubConversationRunRepository{active: &model.ConversationRun{
+		ID:             8,
+		ConversationID: 32,
+		UserID:         12,
+		Status:         "running",
+		CurrentStage:   "streaming",
+		LastAnswer:     "最终答案",
+	}}
+	convRepo := &stubConversationRepository{conversation: &model.Conversation{ID: 32, UserID: 12, Title: "研究会话"}}
+	svc := NewThinkTankService(&stubLibrarian{}, nil, &stubSynthesizer{}, runRepo, &stubConversationRunStepRepository{}, &stubConversationMemoryRepository{}, convRepo, &stubChatMessageRepository{}, nil, &stubAILogger{}).(*thinkTankService)
+	svc.runHub.publish(8, 32, StreamEvent{Type: StreamEventDone, RunID: 8, Stage: "completed", Status: "completed"})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cancel()
+	eventCh, errCh := svc.ResumeChatStream(ctx, 32, 8, ptrInt64(12))
+
+	doneSeen := false
+	for event := range eventCh {
+		if event.Type == StreamEventDone {
+			doneSeen = true
+		}
+	}
+	for err := range errCh {
+		if err != nil {
+			t.Fatalf("expected no error when completed hub snapshot exists, got %v", err)
+		}
+	}
+	if !doneSeen {
+		t.Fatal("expected resume stream to finish immediately when hub snapshot is already completed")
 	}
 }
 

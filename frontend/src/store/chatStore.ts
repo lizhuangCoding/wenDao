@@ -224,6 +224,8 @@ export const useChatStore = create<ChatState>()((set, get) => {
       },
     }));
 
+    let terminalEventReceived = false;
+
     try {
       await chatApi.resumeStream(conversationId, run.id, {
         onResume: ({ run_id, stage, status }) => {
@@ -291,6 +293,7 @@ export const useChatStore = create<ChatState>()((set, get) => {
           });
         },
         onQuestion: ({ message }) => {
+          terminalEventReceived = true;
           set((state) => ({
             isTyping: false,
             isStreaming: false,
@@ -377,6 +380,7 @@ export const useChatStore = create<ChatState>()((set, get) => {
           }));
         },
         onDone: async () => {
+          terminalEventReceived = true;
           try {
             const detail = await chatApi.getConversation(conversationId);
             applyConversationDetail(conversationId, detail);
@@ -396,6 +400,7 @@ export const useChatStore = create<ChatState>()((set, get) => {
           }
         },
         onError: ({ error, message }) => {
+          terminalEventReceived = true;
           const finalMessage = error || message || '恢复连接失败，请稍后再试。';
           set((state) => ({
             isTyping: false,
@@ -428,6 +433,28 @@ export const useChatStore = create<ChatState>()((set, get) => {
           }));
         },
       });
+      if (!terminalEventReceived && get().streamingConversationId === conversationId && get().isRecovering) {
+        set((state) => ({
+          isTyping: false,
+          isStreaming: false,
+          isRecovering: false,
+          streamingConversationId: null,
+          currentStage: 'failed',
+          currentStageLabel: '恢复连接已断开',
+          requiresUserInput: false,
+          pendingQuestion: null,
+          runStatus: 'failed',
+          conversations: {
+            ...state.conversations,
+            [conversationId]: {
+              ...state.conversations[conversationId],
+              activeRun: state.conversations[conversationId]?.activeRun
+                ? { ...state.conversations[conversationId].activeRun!, status: 'failed' }
+                : run,
+            },
+          },
+        }));
+      }
     } catch (error) {
       console.error('Failed to resume conversation stream:', error);
       const attempts = get().reconnectAttempts;

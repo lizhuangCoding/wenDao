@@ -16,70 +16,59 @@ func newThinkTankStreamEmitter() *thinkTankStreamEmitter {
 	return &thinkTankStreamEmitter{}
 }
 
-func (e *thinkTankStreamEmitter) emitStage(eventCh chan<- StreamEvent, stage string, label string) {
+func emitStreamEvent(eventCh chan<- StreamEvent, event StreamEvent) {
 	if eventCh == nil {
 		return
 	}
-	eventCh <- StreamEvent{Type: StreamEventStage, Stage: stage, Label: label}
+	select {
+	case eventCh <- event:
+	default:
+	}
+}
+
+func (e *thinkTankStreamEmitter) emitStage(eventCh chan<- StreamEvent, stage string, label string) {
+	emitStreamEvent(eventCh, StreamEvent{Type: StreamEventStage, Stage: stage, Label: label})
 }
 
 func (e *thinkTankStreamEmitter) emitResume(eventCh chan<- StreamEvent, runID int64, stage string, status string) {
-	if eventCh == nil {
-		return
-	}
-	eventCh <- StreamEvent{Type: StreamEventResume, RunID: runID, Stage: stage, Status: status}
+	emitStreamEvent(eventCh, StreamEvent{Type: StreamEventResume, RunID: runID, Stage: stage, Status: status})
 }
 
 func (e *thinkTankStreamEmitter) emitSnapshot(eventCh chan<- StreamEvent, runID int64, stage string, status string, message string) {
-	if eventCh == nil {
-		return
-	}
-	eventCh <- StreamEvent{Type: StreamEventSnapshot, RunID: runID, Stage: stage, Status: status, Message: message}
+	emitStreamEvent(eventCh, StreamEvent{Type: StreamEventSnapshot, RunID: runID, Stage: stage, Status: status, Message: message})
 }
 
 func (e *thinkTankStreamEmitter) emitHeartbeat(eventCh chan<- StreamEvent, runID int64, stage string, status string) {
-	if eventCh == nil {
-		return
-	}
-	eventCh <- StreamEvent{Type: StreamEventHeartbeat, RunID: runID, Stage: stage, Status: status}
+	emitStreamEvent(eventCh, StreamEvent{Type: StreamEventHeartbeat, RunID: runID, Stage: stage, Status: status})
 }
 
 func (e *thinkTankStreamEmitter) emitQuestion(eventCh chan<- StreamEvent, stage string, question string) {
-	if eventCh == nil {
-		return
-	}
-	eventCh <- StreamEvent{Type: StreamEventQuestion, Stage: stage, Message: question}
+	emitStreamEvent(eventCh, StreamEvent{Type: StreamEventQuestion, Stage: stage, Message: question})
 }
 
 func (e *thinkTankStreamEmitter) emitChunk(eventCh chan<- StreamEvent, message string, sources []string) {
-	if eventCh == nil {
-		return
-	}
-	eventCh <- StreamEvent{Type: StreamEventChunk, Message: message, Sources: sources}
+	emitStreamEvent(eventCh, StreamEvent{Type: StreamEventChunk, Message: message, Sources: sources})
 }
 
 func (e *thinkTankStreamEmitter) emitStep(eventCh chan<- StreamEvent, step *model.ConversationRunStep) {
-	if eventCh == nil || step == nil {
+	if step == nil {
 		return
 	}
-	eventCh <- StreamEvent{
+	emitStreamEvent(eventCh, StreamEvent{
 		Type:      StreamEventStep,
 		StepID:    step.ID,
 		AgentName: step.AgentName,
 		Status:    step.Status,
 		Summary:   step.Summary,
 		Detail:    step.Detail,
-	}
+	})
 }
 
 func (e *thinkTankStreamEmitter) emitDone(eventCh chan<- StreamEvent, stage string, label string) {
-	if eventCh == nil {
-		return
-	}
 	if strings.TrimSpace(label) != "" {
 		e.emitStage(eventCh, stage, label)
 	}
-	eventCh <- StreamEvent{Type: StreamEventDone, Stage: stage}
+	emitStreamEvent(eventCh, StreamEvent{Type: StreamEventDone, Stage: stage})
 }
 
 func formatADKMessageDetail(msg *schema.Message) string {

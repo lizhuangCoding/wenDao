@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/cloudwego/eino/adk"
 	"github.com/cloudwego/eino/components/tool"
@@ -12,6 +13,8 @@ import (
 
 	"wenDao/internal/model"
 )
+
+const thinkTankStreamRunTimeout = 15 * time.Minute
 
 type thinkTankOrchestrator struct {
 	service *thinkTankService
@@ -105,6 +108,9 @@ func (o *thinkTankOrchestrator) chatStream(ctx context.Context, question string,
 		defer close(eventCh)
 		defer close(errCh)
 
+		runCtx, cancel := context.WithTimeout(context.Background(), thinkTankStreamRunTimeout)
+		defer cancel()
+
 		s := o.service
 		conv, err := s.conversations.getOwnedConversation(conversationID, userID)
 		if err != nil {
@@ -131,13 +137,13 @@ func (o *thinkTankOrchestrator) chatStream(ctx context.Context, question string,
 		o.emitSnapshot(eventCh, conv, runID, "analyzing", "running", "")
 
 		if s.adkRunner != nil && s.adkRunner.runner != nil {
-			if err := o.streamADKFlow(ctx, eventCh, errCh, conv, history, question, userID, queryForAgents, decision, checkpointID, runID, resumeFromADKInterrupt); err != nil {
+			if err := o.streamADKFlow(runCtx, eventCh, errCh, conv, history, question, userID, queryForAgents, decision, checkpointID, runID, resumeFromADKInterrupt); err != nil {
 				return
 			}
 			return
 		}
 
-		o.streamManualFlow(ctx, eventCh, errCh, conv, history, question, userID, queryForAgents, decision, runID)
+		o.streamManualFlow(runCtx, eventCh, errCh, conv, history, question, userID, queryForAgents, decision, runID)
 	}()
 	return eventCh, errCh
 }
@@ -166,22 +172,28 @@ func (o *thinkTankOrchestrator) resumeChatStream(ctx context.Context, conversati
 			return
 		}
 
-		o.emitResume(eventCh, conv, run.ID, run.CurrentStage, run.Status)
+		s.streams.emitResume(eventCh, run.ID, run.CurrentStage, run.Status)
 		if snapshot, ok := s.runHub.snapshot(run.ID); ok {
-			o.emitSnapshot(eventCh, conv, run.ID, snapshot.Stage, snapshot.Status, snapshot.Message)
+			s.streams.emitSnapshot(eventCh, run.ID, snapshot.Stage, snapshot.Status, snapshot.Message)
 			for _, step := range snapshot.Steps {
 				step := step
-				o.emitStep(eventCh, conv, run.ID, &step)
+				s.streams.emitStep(eventCh, &step)
 			}
-			if strings.TrimSpace(snapshot.PendingQuestion) != "" {
-				o.emitQuestion(eventCh, conv, run.ID, "clarifying", snapshot.PendingQuestion)
+			if o.emitTerminalResumeState(eventCh, errCh, snapshot.Status, snapshot.PendingQuestion, "") {
+				return
 			}
 			if run.Status == "running" {
 				sub, cancel, ok := s.runHub.subscribe(run.ID)
 				if !ok {
+					errCh <- errors.New("运行记录正在恢复，但后台任务已经不在当前进程中")
 					return
 				}
 				defer cancel()
+				if latest, ok := s.runHub.snapshot(run.ID); ok {
+					if o.emitTerminalResumeState(eventCh, errCh, latest.Status, latest.PendingQuestion, "") {
+						return
+					}
+				}
 				for {
 					select {
 					case <-ctx.Done():
@@ -190,7 +202,11 @@ func (o *thinkTankOrchestrator) resumeChatStream(ctx context.Context, conversati
 						if !ok {
 							return
 						}
-						eventCh <- event
+						select {
+						case <-ctx.Done():
+							return
+						case eventCh <- event:
+						}
 						if event.Type == StreamEventDone {
 							return
 						}
@@ -199,28 +215,54 @@ func (o *thinkTankOrchestrator) resumeChatStream(ctx context.Context, conversati
 			}
 		}
 
-		o.emitSnapshot(eventCh, conv, run.ID, run.CurrentStage, run.Status, run.LastAnswer)
+		s.streams.emitSnapshot(eventCh, run.ID, run.CurrentStage, run.Status, run.LastAnswer)
 		steps, _ := s.runs.runStepRepo.GetByRunID(run.ID)
 		for _, step := range steps {
 			step := step
-			o.emitStep(eventCh, conv, run.ID, &step)
+			s.streams.emitStep(eventCh, &step)
 		}
 		switch run.Status {
+		case "running":
+			errCh <- errors.New("后台任务已经断开，请重新发送问题")
 		case "waiting_user":
-			if run.PendingQuestion != nil && strings.TrimSpace(*run.PendingQuestion) != "" {
-				o.emitQuestion(eventCh, conv, run.ID, "clarifying", *run.PendingQuestion)
+			pendingQuestion := ""
+			if run.PendingQuestion != nil {
+				pendingQuestion = *run.PendingQuestion
 			}
+			o.emitTerminalResumeState(eventCh, errCh, run.Status, pendingQuestion, "")
 		case "completed":
-			o.emitDone(eventCh, conv, run.ID, "completed", "回答已生成")
+			o.emitTerminalResumeState(eventCh, errCh, run.Status, "", "")
 		case "failed":
 			message := "本次执行失败"
 			if run.LastError != nil && strings.TrimSpace(*run.LastError) != "" {
 				message = *run.LastError
 			}
-			errCh <- errors.New(message)
+			o.emitTerminalResumeState(eventCh, errCh, run.Status, "", message)
 		}
 	}()
 	return eventCh, errCh
+}
+
+func (o *thinkTankOrchestrator) emitTerminalResumeState(eventCh chan<- StreamEvent, errCh chan<- error, status string, pendingQuestion string, errorMessage string) bool {
+	switch status {
+	case "waiting_user":
+		if strings.TrimSpace(pendingQuestion) != "" {
+			o.service.streams.emitQuestion(eventCh, "clarifying", pendingQuestion)
+		}
+		return true
+	case "completed":
+		o.service.streams.emitDone(eventCh, "completed", "回答已生成")
+		return true
+	case "failed":
+		message := strings.TrimSpace(errorMessage)
+		if message == "" {
+			message = "本次执行失败"
+		}
+		errCh <- errors.New(message)
+		return true
+	default:
+		return false
+	}
 }
 
 func (o *thinkTankOrchestrator) buildAgentQuery(question string, conv *model.Conversation, history []model.ChatMessage) string {
