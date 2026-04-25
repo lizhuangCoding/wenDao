@@ -39,6 +39,7 @@ func (r *conversationRunRepository) GetByID(id int64) (*model.ConversationRun, e
 func (r *conversationRunRepository) GetActiveByConversationID(conversationID int64) (*model.ConversationRun, error) {
 	var run model.ConversationRun
 	err := r.db.Where("conversation_id = ?", conversationID).
+		Where("status IN ?", []string{"running", "waiting_user"}).
 		Order("updated_at DESC").
 		First(&run).Error
 	if err != nil {

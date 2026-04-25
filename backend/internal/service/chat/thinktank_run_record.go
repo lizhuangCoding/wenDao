@@ -222,6 +222,9 @@ func (r *thinkTankRunRecorder) updateProgress(runID int64, stage string, answer 
 	if err != nil || run == nil {
 		return
 	}
+	if run.Status == "completed" || run.Status == "failed" {
+		return
+	}
 	if strings.TrimSpace(stage) != "" {
 		run.CurrentStage = stage
 	}

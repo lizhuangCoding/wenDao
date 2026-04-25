@@ -301,6 +301,72 @@ func TestChatHandler_GetOmitsCompletedRunFromActiveRun(t *testing.T) {
 	}
 }
 
+func TestChatHandler_GetOmitsStaleRunningRunWhenAssistantAnswerExists(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	runStartedAt := time.Date(2026, 4, 25, 10, 0, 0, 0, time.UTC)
+	answerAt := runStartedAt.Add(10 * time.Second)
+	h := &ChatHandler{
+		convRepo: &stubConversationRepo{conversation: &model.Conversation{
+			ID:        21,
+			UserID:    7,
+			Title:     "旧运行态会话",
+			CreatedAt: runStartedAt,
+			UpdatedAt: answerAt,
+		}},
+		msgRepo: &stubChatMessageRepo{messages: []model.ChatMessage{
+			{
+				ID:             1,
+				ConversationID: 21,
+				Role:           "user",
+				Content:        "总结一下",
+				CreatedAt:      runStartedAt,
+			},
+			{
+				ID:             2,
+				ConversationID: 21,
+				Role:           "assistant",
+				Content:        "最终回答",
+				CreatedAt:      answerAt,
+			},
+		}},
+		runRepo: &stubConversationRunRepo{active: &model.ConversationRun{
+			ID:               10,
+			ConversationID:   21,
+			UserID:           7,
+			Status:           "running",
+			CurrentStage:     "streaming",
+			OriginalQuestion: "总结一下",
+			LastAnswer:       "最终回答",
+			CreatedAt:        runStartedAt,
+			UpdatedAt:        answerAt,
+		}},
+		runStepRepo: &stubConversationRunStepRepo{steps: []model.ConversationRunStep{
+			{ID: 11, ConversationID: 21, RunID: 10, AgentName: "Synthesizer", Type: "thinking", Summary: "已完成", Detail: "最终整合", Status: "completed", CreatedAt: answerAt},
+		}},
+	}
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest(http.MethodGet, "/api/chat/conversations/21", strings.NewReader(""))
+	c.Params = gin.Params{{Key: "id", Value: "21"}}
+	c.Set("user_id", int64(7))
+
+	h.Get(c)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", w.Code)
+	}
+
+	var body map[string]any
+	if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
+		t.Fatalf("failed to decode response body: %v", err)
+	}
+	data := body["data"].(map[string]any)
+	if activeRun, exists := data["active_run"]; exists && activeRun != nil {
+		t.Fatalf("expected stale running run with persisted assistant answer to be omitted, got %#v", activeRun)
+	}
+}
+
 func TestChatHandler_DeleteCleansConversationRelatedData(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	convRepo := &stubConversationRepo{conversation: &model.Conversation{ID: 21, UserID: 7, Title: "研究会话"}}

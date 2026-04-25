@@ -234,7 +234,7 @@ func (h *ChatHandler) Get(c *gin.Context) {
 
 	var activeRunResponse *ActiveRunResponse
 	activeStepResponses := make([]StepResponse, 0)
-	if activeRun != nil && (activeRun.Status == "running" || activeRun.Status == "waiting_user") {
+	if isResumableRun(activeRun, msgs) {
 		var heartbeatAt string
 		if activeRun.HeartbeatAt != nil {
 			heartbeatAt = activeRun.HeartbeatAt.Format("2006-01-02 15:04:05")
@@ -273,6 +273,24 @@ func (h *ChatHandler) Get(c *gin.Context) {
 		ActiveRun:    activeRunResponse,
 		ActiveSteps:  activeStepResponses,
 	})
+}
+
+func isResumableRun(run *model.ConversationRun, messages []model.ChatMessage) bool {
+	if run == nil {
+		return false
+	}
+	if run.Status != "running" && run.Status != "waiting_user" {
+		return false
+	}
+	if run.Status != "running" {
+		return true
+	}
+	for _, msg := range messages {
+		if msg.Role == "assistant" && !msg.CreatedAt.Before(run.CreatedAt) {
+			return false
+		}
+	}
+	return true
 }
 
 // Update 更新对话标题

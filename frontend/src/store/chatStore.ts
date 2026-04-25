@@ -92,6 +92,7 @@ const upsertStep = (steps: ChatStep[] = [], next: ChatStep): ChatStep[] => {
 
 const mapActiveRun = (run?: ChatConversationDetailResponse['active_run']): ChatActiveRun | null => {
   if (!run) return null;
+  if (!run.can_resume || (run.status !== 'running' && run.status !== 'waiting_user')) return null;
   return {
     id: Number(run.id),
     status: run.status,

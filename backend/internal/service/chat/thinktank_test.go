@@ -596,6 +596,13 @@ func TestThinkTankService_ChatStream_PersistsSummarizedRunEventsWithoutChunkSnap
 	assertContainsEventType(t, agents, "Librarian")
 	assertContainsEventType(t, agents, "Journalist")
 	assertContainsEventType(t, agents, "Synthesizer")
+
+	if runRepo.active == nil {
+		t.Fatalf("expected completed run to be persisted")
+	}
+	if runRepo.active.Status != "completed" || runRepo.active.CurrentStage != "completed" {
+		t.Fatalf("expected final run to remain completed, got status=%q stage=%q", runRepo.active.Status, runRepo.active.CurrentStage)
+	}
 }
 
 func assertContainsEventType(t *testing.T, types []string, want string) {
