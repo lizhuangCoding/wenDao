@@ -78,6 +78,7 @@ func (r *thinkTankRunRecorder) persistADKClarification(conversationID int64, use
 		CurrentStage:     "clarifying",
 		OriginalQuestion: question,
 		PendingQuestion:  &clarification,
+		LastAnswer:       clarification,
 		LastPlan:         decision.PlanSummary,
 		PendingContext:   marshalADKPendingContext(checkpointID),
 	}
@@ -99,6 +100,7 @@ func (r *thinkTankRunRecorder) persistCompletedRun(conversationID int64, userID 
 		Status:           "completed",
 		CurrentStage:     "completed",
 		OriginalQuestion: question,
+		LastAnswer:       answer,
 		LastPlan:         decision.PlanSummary,
 		PendingContext:   answer,
 		CompletedAt:      &now,
@@ -210,6 +212,55 @@ func (s *thinkTankService) persistCompletedRun(conversationID int64, userID int6
 
 func (s *thinkTankService) logStage(conv *model.Conversation, userID *int64, stage string, message string, detail string) {
 	s.runs.logStage(conv, userID, stage, message, detail)
+}
+
+func (r *thinkTankRunRecorder) updateProgress(runID int64, stage string, answer string) {
+	if r == nil || r.runRepo == nil || runID <= 0 {
+		return
+	}
+	run, err := r.runRepo.GetByID(runID)
+	if err != nil || run == nil {
+		return
+	}
+	if strings.TrimSpace(stage) != "" {
+		run.CurrentStage = stage
+	}
+	if answer != "" {
+		run.LastAnswer = answer
+	}
+	now := time.Now()
+	run.HeartbeatAt = &now
+	_ = r.runRepo.Update(run)
+}
+
+func (r *thinkTankRunRecorder) touchHeartbeat(runID int64) {
+	if r == nil || r.runRepo == nil || runID <= 0 {
+		return
+	}
+	run, err := r.runRepo.GetByID(runID)
+	if err != nil || run == nil {
+		return
+	}
+	now := time.Now()
+	run.HeartbeatAt = &now
+	_ = r.runRepo.Update(run)
+}
+
+func (r *thinkTankRunRecorder) persistFailure(runID int64, err error) {
+	if r == nil || r.runRepo == nil || runID <= 0 {
+		return
+	}
+	run, getErr := r.runRepo.GetByID(runID)
+	if getErr != nil || run == nil {
+		return
+	}
+	run.Status = "failed"
+	run.CurrentStage = "failed"
+	if err != nil {
+		message := err.Error()
+		run.LastError = &message
+	}
+	_ = r.runRepo.Update(run)
 }
 
 func appendStepDetail(step *model.ConversationRunStep, detail string) {

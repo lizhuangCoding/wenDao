@@ -23,6 +23,27 @@ func (e *thinkTankStreamEmitter) emitStage(eventCh chan<- StreamEvent, stage str
 	eventCh <- StreamEvent{Type: StreamEventStage, Stage: stage, Label: label}
 }
 
+func (e *thinkTankStreamEmitter) emitResume(eventCh chan<- StreamEvent, runID int64, stage string, status string) {
+	if eventCh == nil {
+		return
+	}
+	eventCh <- StreamEvent{Type: StreamEventResume, RunID: runID, Stage: stage, Status: status}
+}
+
+func (e *thinkTankStreamEmitter) emitSnapshot(eventCh chan<- StreamEvent, runID int64, stage string, status string, message string) {
+	if eventCh == nil {
+		return
+	}
+	eventCh <- StreamEvent{Type: StreamEventSnapshot, RunID: runID, Stage: stage, Status: status, Message: message}
+}
+
+func (e *thinkTankStreamEmitter) emitHeartbeat(eventCh chan<- StreamEvent, runID int64, stage string, status string) {
+	if eventCh == nil {
+		return
+	}
+	eventCh <- StreamEvent{Type: StreamEventHeartbeat, RunID: runID, Stage: stage, Status: status}
+}
+
 func (e *thinkTankStreamEmitter) emitQuestion(eventCh chan<- StreamEvent, stage string, question string) {
 	if eventCh == nil {
 		return

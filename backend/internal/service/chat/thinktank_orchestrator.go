@@ -2,6 +2,7 @@ package chat
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -119,13 +120,15 @@ func (o *thinkTankOrchestrator) chatStream(ctx context.Context, question string,
 			s.conversations.saveMessageWithWarning(conv.ID, "user", question, "Failed to save user message")
 		}
 
-		s.streams.emitStage(eventCh, "analyzing", "正在理解你的问题")
+		o.emitStage(eventCh, conv, 0, "analyzing", "正在理解你的问题")
 		decision := PlannerDecision{ExecutionStrategy: "eino_plan_execute_replan", PlanSummary: "由 Eino PlanExecute planner 生成计划"}
-		s.streams.emitStage(eventCh, "analyzing", "正在进行多 Agent 深度调研")
+		o.emitStage(eventCh, conv, 0, "analyzing", "正在进行多 Agent 深度调研")
 		s.runs.logStage(conv, userID, "adk_start", "开始多 Agent 协作流", question)
 
 		queryForAgents := o.buildAgentQuery(question, conv, history)
 		runID, checkpointID, resumeFromADKInterrupt := o.prepareADKRun(conv, pending, userID, question, decision)
+		o.emitResume(eventCh, conv, runID, "analyzing", "running")
+		o.emitSnapshot(eventCh, conv, runID, "analyzing", "running", "")
 
 		if s.adkRunner != nil && s.adkRunner.runner != nil {
 			if err := o.streamADKFlow(ctx, eventCh, errCh, conv, history, question, userID, queryForAgents, decision, checkpointID, runID, resumeFromADKInterrupt); err != nil {
@@ -135,6 +138,87 @@ func (o *thinkTankOrchestrator) chatStream(ctx context.Context, question string,
 		}
 
 		o.streamManualFlow(ctx, eventCh, errCh, conv, history, question, userID, queryForAgents, decision, runID)
+	}()
+	return eventCh, errCh
+}
+
+func (o *thinkTankOrchestrator) resumeChatStream(ctx context.Context, conversationID int64, runID int64, userID *int64) (<-chan StreamEvent, <-chan error) {
+	eventCh := make(chan StreamEvent, 48)
+	errCh := make(chan error, 1)
+	go func() {
+		defer close(eventCh)
+		defer close(errCh)
+
+		s := o.service
+		conv, err := s.conversations.getOwnedConversation(&conversationID, userID)
+		if err != nil {
+			errCh <- err
+			return
+		}
+		if conv == nil {
+			errCh <- errors.New("conversation not found")
+			return
+		}
+
+		run, err := s.runs.runRepo.GetByID(runID)
+		if err != nil || run == nil || run.ConversationID != conversationID || run.UserID != derefUserID(userID) {
+			errCh <- errors.New("run not found")
+			return
+		}
+
+		o.emitResume(eventCh, conv, run.ID, run.CurrentStage, run.Status)
+		if snapshot, ok := s.runHub.snapshot(run.ID); ok {
+			o.emitSnapshot(eventCh, conv, run.ID, snapshot.Stage, snapshot.Status, snapshot.Message)
+			for _, step := range snapshot.Steps {
+				step := step
+				o.emitStep(eventCh, conv, run.ID, &step)
+			}
+			if strings.TrimSpace(snapshot.PendingQuestion) != "" {
+				o.emitQuestion(eventCh, conv, run.ID, "clarifying", snapshot.PendingQuestion)
+			}
+			if run.Status == "running" {
+				sub, cancel, ok := s.runHub.subscribe(run.ID)
+				if !ok {
+					return
+				}
+				defer cancel()
+				for {
+					select {
+					case <-ctx.Done():
+						return
+					case event, ok := <-sub:
+						if !ok {
+							return
+						}
+						eventCh <- event
+						if event.Type == StreamEventDone {
+							return
+						}
+					}
+				}
+			}
+		}
+
+		o.emitSnapshot(eventCh, conv, run.ID, run.CurrentStage, run.Status, run.LastAnswer)
+		steps, _ := s.runs.runStepRepo.GetByRunID(run.ID)
+		for _, step := range steps {
+			step := step
+			o.emitStep(eventCh, conv, run.ID, &step)
+		}
+		switch run.Status {
+		case "waiting_user":
+			if run.PendingQuestion != nil && strings.TrimSpace(*run.PendingQuestion) != "" {
+				o.emitQuestion(eventCh, conv, run.ID, "clarifying", *run.PendingQuestion)
+			}
+		case "completed":
+			o.emitDone(eventCh, conv, run.ID, "completed", "回答已生成")
+		case "failed":
+			message := "本次执行失败"
+			if run.LastError != nil && strings.TrimSpace(*run.LastError) != "" {
+				message = *run.LastError
+			}
+			errCh <- errors.New(message)
+		}
 	}()
 	return eventCh, errCh
 }
@@ -226,7 +310,7 @@ func (o *thinkTankOrchestrator) streamADKFlow(
 		if e.Err != nil {
 			if currentStep != nil {
 				currentStep.fail("Error: " + e.Err.Error())
-				s.streams.emitStep(eventCh, currentStep.snapshot())
+				o.emitStep(eventCh, conv, runID, currentStep.snapshot())
 			}
 			s.runs.logStage(conv, userID, "failed", "ADK 运行错误", e.Err.Error())
 			errCh <- e.Err
@@ -241,33 +325,33 @@ func (o *thinkTankOrchestrator) streamADKFlow(
 			if currentStep != nil {
 				currentStep.setStatus("waiting_user")
 				currentStep.appendDetail("流程中断：ask_for_clarification\n问题：" + clarification)
-				s.streams.emitStep(eventCh, currentStep.snapshot())
+				o.emitStep(eventCh, conv, runID, currentStep.snapshot())
 			}
 			if conv != nil {
 				s.runs.persistADKClarification(conv.ID, derefUserID(userID), runID, question, clarification, checkpointID, decision)
 				s.conversations.saveMessageWithWarning(conv.ID, "assistant", clarification, "Failed to save clarification message")
 			}
-			s.streams.emitStage(eventCh, "clarifying", "需要补充一点信息")
-			s.streams.emitQuestion(eventCh, "clarifying", clarification)
+			o.emitStage(eventCh, conv, runID, "clarifying", "需要补充一点信息")
+			o.emitQuestion(eventCh, conv, runID, "clarifying", clarification)
 			return nil
 		}
 
 		if e.AgentName != "" && (currentStep == nil || currentStep.step.AgentName != e.AgentName) {
 			if currentStep != nil {
 				currentStep.complete()
-				s.streams.emitStep(eventCh, currentStep.snapshot())
+				o.emitStep(eventCh, conv, runID, currentStep.snapshot())
 			}
 			summary, label := adkAgentStepMetadata(e.AgentName)
 			if label != "" {
-				s.streams.emitStage(eventCh, "adk_event", label)
+				o.emitStage(eventCh, conv, runID, "adk_event", label)
 			}
 			currentStep = s.runs.newStepTracker(conversationID, runID, e.AgentName, summary)
-			s.streams.emitStep(eventCh, currentStep.snapshot())
+			o.emitStep(eventCh, conv, runID, currentStep.snapshot())
 		}
 
 		if actionDetail := formatADKActionDetail(e.Action); actionDetail != "" && currentStep != nil {
 			currentStep.appendDetail(actionDetail)
-			s.streams.emitStep(eventCh, currentStep.snapshot())
+			o.emitStep(eventCh, conv, runID, currentStep.snapshot())
 		}
 
 		msg, _, err := adk.GetMessage(e)
@@ -289,7 +373,7 @@ func (o *thinkTankOrchestrator) streamADKFlow(
 		}
 		if currentStep != nil && detail != "" {
 			currentStep.appendDetail(detail)
-			s.streams.emitStep(eventCh, currentStep.snapshot())
+			o.emitStep(eventCh, conv, runID, currentStep.snapshot())
 		}
 
 		if e.AgentName == "replanner" && strings.TrimSpace(msg.Content) != "" {
@@ -298,7 +382,7 @@ func (o *thinkTankOrchestrator) streamADKFlow(
 					adkWebNotes = appendNonEmptyNote(adkWebNotes, "replanner returned a tool limitation instead of a user-facing answer: "+response)
 				} else {
 					fullAnswer = appendGroupedReferences(response, adkArticleSources, adkWebSources)
-					s.streams.emitChunk(eventCh, fullAnswer, nil)
+					o.emitChunk(eventCh, conv, runID, fullAnswer, nil)
 				}
 			}
 		}
@@ -311,7 +395,7 @@ func (o *thinkTankOrchestrator) streamADKFlow(
 			if currentStep != nil {
 				currentStep.appendDetail("replanner 未通过 respond 工具产出最终答案，已根据已执行步骤和检索结果生成兜底回答。")
 			}
-			s.streams.emitChunk(eventCh, fullAnswer, nil)
+			o.emitChunk(eventCh, conv, runID, fullAnswer, nil)
 		} else {
 			err := fmt.Errorf("ADK run completed without final respond output")
 			if fallbackErr != nil {
@@ -319,7 +403,7 @@ func (o *thinkTankOrchestrator) streamADKFlow(
 			}
 			if currentStep != nil {
 				currentStep.fail("ADK 运行结束，但 replanner 没有通过 respond 工具产出最终答案。")
-				s.streams.emitStep(eventCh, currentStep.snapshot())
+				o.emitStep(eventCh, conv, runID, currentStep.snapshot())
 			}
 			s.runs.logStage(conv, userID, "failed", "ADK 未产出最终回答", err.Error())
 			errCh <- err
@@ -329,11 +413,11 @@ func (o *thinkTankOrchestrator) streamADKFlow(
 
 	if currentStep != nil {
 		currentStep.complete()
-		s.streams.emitStep(eventCh, currentStep.snapshot())
+		o.emitStep(eventCh, conv, runID, currentStep.snapshot())
 	}
 	o.persistFinalAnswer(conv, derefUserID(userID), question, fullAnswer, decision, history)
 	s.runs.logStage(conv, userID, "completed", "多 Agent 协作完成", fmt.Sprintf("答案长度: %d，答案内容：%v", len(fullAnswer), fullAnswer))
-	s.streams.emitDone(eventCh, "completed", "调研已完成")
+	o.emitDone(eventCh, conv, runID, "completed", "调研已完成")
 	return nil
 }
 
@@ -357,64 +441,64 @@ func (o *thinkTankOrchestrator) streamManualFlow(
 		conversationID = conv.ID
 	}
 
-	s.streams.emitStage(eventCh, "local_search", "正在检索站内知识")
+	o.emitStage(eventCh, conv, runID, "local_search", "正在检索站内知识")
 	libStep := s.runs.newStepTracker(conversationID, runID, "Librarian", "正在检索站内知识")
-	s.streams.emitStep(eventCh, libStep.snapshot())
+	o.emitStep(eventCh, conv, runID, libStep.snapshot())
 	localResult, err := s.librarian.Search(ctx, queryForAgents)
 	if err != nil {
 		libStep.fail(err.Error())
-		s.streams.emitStep(eventCh, libStep.snapshot())
+		o.emitStep(eventCh, conv, runID, libStep.snapshot())
 		s.runs.logStage(conv, userID, "failed", "本地检索失败", err.Error())
 		errCh <- err
 		return
 	}
 	libStep.appendDetail(formatLibrarianStepDetail(localResult))
 	libStep.complete()
-	s.streams.emitStep(eventCh, libStep.snapshot())
+	o.emitStep(eventCh, conv, runID, libStep.snapshot())
 	s.runs.logStage(conv, userID, "local_search_done", "本地检索完成", fmt.Sprintf("状态: %s", localResult.CoverageStatus))
 
 	var webResult *JournalistResult
 	if localResult.CoverageStatus != "sufficient" && s.journalist != nil {
-		s.streams.emitStage(eventCh, "web_research", "正在进行外部调研")
+		o.emitStage(eventCh, conv, runID, "web_research", "正在进行外部调研")
 		s.runs.logStage(conv, userID, "web_research_start", "开始外部调研", "")
 		jouStep := s.runs.newStepTracker(conversationID, runID, "Journalist", "正在进行外部调研")
-		s.streams.emitStep(eventCh, jouStep.snapshot())
+		o.emitStep(eventCh, conv, runID, jouStep.snapshot())
 		webResult, err = s.journalist.Research(ctx, queryForAgents, localResult)
 		if err != nil {
 			jouStep.fail(err.Error())
-			s.streams.emitStep(eventCh, jouStep.snapshot())
+			o.emitStep(eventCh, conv, runID, jouStep.snapshot())
 			s.runs.logStage(conv, userID, "failed", "外部调研失败", err.Error())
 			errCh <- err
 			return
 		}
 		jouStep.appendDetail(formatJournalistStepDetail(webResult))
 		jouStep.complete()
-		s.streams.emitStep(eventCh, jouStep.snapshot())
+		o.emitStep(eventCh, conv, runID, jouStep.snapshot())
 		s.researchDraft.saveFromJournalist(derefUserID(userID), webResult)
 		s.runs.logStage(conv, userID, "web_research_done", "外部调研完成", fmt.Sprintf("来源数: %d", len(webResult.Sources)))
 	}
 
-	s.streams.emitStage(eventCh, "integration", "正在整合专家结果")
+	o.emitStage(eventCh, conv, runID, "integration", "正在整合专家结果")
 	synStep := s.runs.newStepTracker(conversationID, runID, "Synthesizer", "正在整合专家结果")
-	s.streams.emitStep(eventCh, synStep.snapshot())
+	o.emitStep(eventCh, conv, runID, synStep.snapshot())
 	answer, sources, err := s.synthesizer.Compose(ctx, queryForAgents, localResult, webResult)
 	if err != nil {
 		synStep.fail(err.Error())
-		s.streams.emitStep(eventCh, synStep.snapshot())
+		o.emitStep(eventCh, conv, runID, synStep.snapshot())
 		s.runs.logStage(conv, userID, "failed", "结果整合失败", err.Error())
 		errCh <- err
 		return
 	}
 	synStep.appendDetail(formatSynthesizerStepDetail(localResult, webResult, sources))
 	synStep.complete()
-	s.streams.emitStep(eventCh, synStep.snapshot())
+	o.emitStep(eventCh, conv, runID, synStep.snapshot())
 	s.runs.logStage(conv, userID, "integration_done", "结果整合完成", "")
 
 	o.persistFinalAnswer(conv, derefUserID(userID), question, answer, decision, history)
 	for _, chunk := range splitStreamChunks(answer) {
-		s.streams.emitChunk(eventCh, chunk, sources)
+		o.emitChunk(eventCh, conv, runID, chunk, sources)
 	}
-	s.streams.emitDone(eventCh, "completed", "回答已生成")
+	o.emitDone(eventCh, conv, runID, "completed", "回答已生成")
 }
 
 func adkAgentStepMetadata(agentName string) (string, string) {
@@ -427,5 +511,69 @@ func adkAgentStepMetadata(agentName string) (string, string) {
 		return "正在评估结果并重规划", "Eino Replanner 正在评估"
 	default:
 		return "Agent " + agentName + " 正在协作", "切换为 " + agentName + " Agent"
+	}
+}
+
+func (o *thinkTankOrchestrator) emitResume(eventCh chan<- StreamEvent, conv *model.Conversation, runID int64, stage string, status string) {
+	o.service.streams.emitResume(eventCh, runID, stage, status)
+	if conv != nil && runID > 0 {
+		o.service.runHub.publish(runID, conv.ID, StreamEvent{Type: StreamEventResume, RunID: runID, Stage: stage, Status: status})
+		o.service.runs.updateProgress(runID, stage, "")
+	}
+}
+
+func (o *thinkTankOrchestrator) emitSnapshot(eventCh chan<- StreamEvent, conv *model.Conversation, runID int64, stage string, status string, message string) {
+	o.service.streams.emitSnapshot(eventCh, runID, stage, status, message)
+	if conv != nil && runID > 0 {
+		o.service.runHub.publish(runID, conv.ID, StreamEvent{Type: StreamEventSnapshot, RunID: runID, Stage: stage, Status: status, Message: message})
+		o.service.runs.updateProgress(runID, stage, message)
+	}
+}
+
+func (o *thinkTankOrchestrator) emitStage(eventCh chan<- StreamEvent, conv *model.Conversation, runID int64, stage string, label string) {
+	o.service.streams.emitStage(eventCh, stage, label)
+	if conv != nil && runID > 0 {
+		o.service.runHub.publish(runID, conv.ID, StreamEvent{Type: StreamEventStage, RunID: runID, Stage: stage, Label: label, Status: "running"})
+		o.service.runs.updateProgress(runID, stage, "")
+	}
+}
+
+func (o *thinkTankOrchestrator) emitQuestion(eventCh chan<- StreamEvent, conv *model.Conversation, runID int64, stage string, question string) {
+	o.service.streams.emitQuestion(eventCh, stage, question)
+	if conv != nil && runID > 0 {
+		o.service.runHub.publish(runID, conv.ID, StreamEvent{Type: StreamEventQuestion, RunID: runID, Stage: stage, Message: question, Status: "waiting_user"})
+		o.service.runs.updateProgress(runID, stage, question)
+	}
+}
+
+func (o *thinkTankOrchestrator) emitChunk(eventCh chan<- StreamEvent, conv *model.Conversation, runID int64, message string, sources []string) {
+	o.service.streams.emitChunk(eventCh, message, sources)
+	if conv != nil && runID > 0 {
+		o.service.runHub.publish(runID, conv.ID, StreamEvent{Type: StreamEventChunk, RunID: runID, Stage: "streaming", Message: message, Sources: sources, Status: "running"})
+		o.service.runs.updateProgress(runID, "streaming", message)
+	}
+}
+
+func (o *thinkTankOrchestrator) emitStep(eventCh chan<- StreamEvent, conv *model.Conversation, runID int64, step *model.ConversationRunStep) {
+	o.service.streams.emitStep(eventCh, step)
+	if conv != nil && runID > 0 && step != nil {
+		o.service.runHub.publish(runID, conv.ID, StreamEvent{
+			Type:      StreamEventStep,
+			RunID:     runID,
+			Stage:     step.Type,
+			Status:    step.Status,
+			StepID:    step.ID,
+			AgentName: step.AgentName,
+			Summary:   step.Summary,
+			Detail:    step.Detail,
+		})
+	}
+}
+
+func (o *thinkTankOrchestrator) emitDone(eventCh chan<- StreamEvent, conv *model.Conversation, runID int64, stage string, label string) {
+	o.service.streams.emitDone(eventCh, stage, label)
+	if conv != nil && runID > 0 {
+		o.service.runHub.publish(runID, conv.ID, StreamEvent{Type: StreamEventDone, RunID: runID, Stage: stage, Status: "completed"})
+		o.service.runHub.finish(runID, "completed")
 	}
 }

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -37,6 +38,7 @@ type ChatResponse struct {
 }
 
 type chatStreamEvent struct {
+	RunID             int64    `json:"run_id,omitempty"`
 	Stage             string   `json:"stage,omitempty"`
 	Label             string   `json:"label,omitempty"`
 	Message           string   `json:"message,omitempty"`
@@ -50,6 +52,11 @@ type chatStreamEvent struct {
 	Status    string `json:"status,omitempty"`
 	Summary   string `json:"summary,omitempty"`
 	Detail    string `json:"detail,omitempty"`
+}
+
+type ResumeChatStreamRequest struct {
+	ConversationID int64 `json:"conversation_id" binding:"required"`
+	RunID          int64 `json:"run_id" binding:"required"`
 }
 
 func getCurrentUserID(c *gin.Context) *int64 {
@@ -153,6 +160,35 @@ func (h *AIHandler) ChatStream(c *gin.Context) {
 		return
 	}
 
+	h.streamEvents(c, eventCh, errCh)
+	c.Status(http.StatusOK)
+}
+
+func (h *AIHandler) ResumeChatStream(c *gin.Context) {
+	var req ResumeChatStreamRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.InvalidParams(c, "会话或运行参数不能为空")
+		return
+	}
+
+	c.Header("Content-Type", "text/event-stream")
+	c.Header("Cache-Control", "no-cache")
+	c.Header("Connection", "keep-alive")
+	c.Header("X-Accel-Buffering", "no")
+
+	eventCh, errCh := h.aiService.ResumeChatStream(c.Request.Context(), req.ConversationID, req.RunID, getCurrentUserID(c))
+	h.streamEvents(c, eventCh, errCh)
+	c.Status(http.StatusOK)
+}
+
+func (h *AIHandler) streamEvents(c *gin.Context, eventCh <-chan service.StreamEvent, errCh <-chan error) {
+	ticker := time.NewTicker(10 * time.Second)
+	defer ticker.Stop()
+
+	lastRunID := int64(0)
+	lastStage := ""
+	lastStatus := ""
+
 	for eventCh != nil || errCh != nil {
 		select {
 		case <-c.Request.Context().Done():
@@ -160,30 +196,46 @@ func (h *AIHandler) ChatStream(c *gin.Context) {
 				return
 			}
 			return
+		case <-ticker.C:
+			if lastRunID > 0 {
+				if err := writeSSEvent(c, "heartbeat", chatStreamEvent{RunID: lastRunID, Stage: lastStage, Status: lastStatus}); err != nil {
+					return
+				}
+			}
 		case event, ok := <-eventCh:
 			if !ok {
 				eventCh = nil
 				continue
 			}
+			if event.RunID > 0 {
+				lastRunID = event.RunID
+			}
+			if event.Stage != "" {
+				lastStage = event.Stage
+			}
+			if event.Status != "" {
+				lastStatus = event.Status
+			}
 			switch event.Type {
 			case service.StreamEventStage:
 				// 阶段事件只更新 UI 顶部状态，不写入最终回答正文。
-				if err := writeSSEvent(c, "stage", chatStreamEvent{Stage: event.Stage, Label: event.Label}); err != nil {
+				if err := writeSSEvent(c, "stage", chatStreamEvent{RunID: event.RunID, Stage: event.Stage, Label: event.Label}); err != nil {
 					return
 				}
 			case service.StreamEventQuestion:
 				// Planner 认为需要补充条件时，前端会把这条问题显示成 assistant 消息。
-				if err := writeSSEvent(c, "question", chatStreamEvent{Stage: event.Stage, Message: event.Message, RequiresUserInput: true}); err != nil {
+				if err := writeSSEvent(c, "question", chatStreamEvent{RunID: event.RunID, Stage: event.Stage, Status: event.Status, Message: event.Message, RequiresUserInput: true}); err != nil {
 					return
 				}
 			case service.StreamEventChunk:
 				// chunk 是当前累计答案快照，前端用它覆盖 assistant 占位消息。
-				if err := writeSSEvent(c, "chunk", chatStreamEvent{Message: event.Message, Sources: event.Sources}); err != nil {
+				if err := writeSSEvent(c, "chunk", chatStreamEvent{RunID: event.RunID, Stage: event.Stage, Status: event.Status, Message: event.Message, Sources: event.Sources}); err != nil {
 					return
 				}
 			case service.StreamEventStep:
 				// step 是可展开的多 Agent 过程日志，通常对应一次 Agent 切换或工具调用结果。
 				if err := writeSSEvent(c, "step", chatStreamEvent{
+					RunID:      event.RunID,
 					StepID:    event.StepID,
 					AgentName: event.AgentName,
 					Status:    event.Status,
@@ -192,8 +244,20 @@ func (h *AIHandler) ChatStream(c *gin.Context) {
 				}); err != nil {
 					return
 				}
+			case service.StreamEventResume:
+				if err := writeSSEvent(c, "resume", chatStreamEvent{RunID: event.RunID, Stage: event.Stage, Status: event.Status}); err != nil {
+					return
+				}
+			case service.StreamEventSnapshot:
+				if err := writeSSEvent(c, "snapshot", chatStreamEvent{RunID: event.RunID, Stage: event.Stage, Status: event.Status, Message: event.Message}); err != nil {
+					return
+				}
+			case service.StreamEventHeartbeat:
+				if err := writeSSEvent(c, "heartbeat", chatStreamEvent{RunID: event.RunID, Stage: event.Stage, Status: event.Status}); err != nil {
+					return
+				}
 			case service.StreamEventDone:
-				if err := writeSSEvent(c, "done", chatStreamEvent{Stage: event.Stage}); err != nil {
+				if err := writeSSEvent(c, "done", chatStreamEvent{RunID: event.RunID, Stage: event.Stage, Status: event.Status}); err != nil {
 					return
 				}
 			}
@@ -216,6 +280,4 @@ func (h *AIHandler) ChatStream(c *gin.Context) {
 			return
 		}
 	}
-
-	c.Status(http.StatusOK)
 }

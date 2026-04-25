@@ -44,6 +44,7 @@ type thinkTankService struct {
 	streams       *thinkTankStreamEmitter
 	researchDraft *thinkTankResearchDraftSink
 	orchestrator  *thinkTankOrchestrator
+	runHub        *chatRunHub
 
 	adkRunner        *thinkTankADKRunner
 	adkAnswerFetcher func(ctx context.Context, question string) (string, error)
@@ -84,6 +85,7 @@ func NewThinkTankService(
 		runs:          newThinkTankRunRecorder(runRepo, runStepRepo, logger),
 		streams:       newThinkTankStreamEmitter(),
 		researchDraft: newThinkTankResearchDraftSink(knowledgeSvc),
+		runHub:        newChatRunHub(),
 		adkRunner:     runner,
 	}
 	svc.orchestrator = newThinkTankOrchestrator(svc)
@@ -97,6 +99,10 @@ func (s *thinkTankService) Chat(ctx context.Context, question string, conversati
 
 func (s *thinkTankService) ChatStream(ctx context.Context, question string, conversationID *int64, userID *int64) (<-chan StreamEvent, <-chan error) {
 	return s.orchestrator.chatStream(ctx, question, conversationID, userID)
+}
+
+func (s *thinkTankService) ResumeChatStream(ctx context.Context, conversationID int64, runID int64, userID *int64) (<-chan StreamEvent, <-chan error) {
+	return s.orchestrator.resumeChatStream(ctx, conversationID, runID, userID)
 }
 
 func (s *thinkTankService) collectADKRunnerAnswer(ctx context.Context, question string) (string, error) {

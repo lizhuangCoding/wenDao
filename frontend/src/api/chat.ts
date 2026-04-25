@@ -1,8 +1,21 @@
 import { getApiUrl, request } from './client';
-import type { ChatRequest, ChatResponse, ChatQuestionEvent, ChatStageEvent, ChatStepEvent } from '@/types';
+import type {
+  ChatHeartbeatEvent,
+  ChatConversationDetailResponse,
+  ChatQuestionEvent,
+  ChatRequest,
+  ChatResponse,
+  ChatResumeEvent,
+  ChatSnapshotEvent,
+  ChatStageEvent,
+  ChatStepEvent,
+} from '@/types';
 
 type ChatStreamHandlers = {
   onStart?: (payload: Record<string, unknown>) => void;
+  onResume?: (payload: ChatResumeEvent) => void;
+  onSnapshot?: (payload: ChatSnapshotEvent) => void;
+  onHeartbeat?: (payload: ChatHeartbeatEvent) => void;
   onStage?: (payload: ChatStageEvent) => void;
   onQuestion?: (payload: ChatQuestionEvent) => void;
   onStep?: (payload: ChatStepEvent) => void;
@@ -38,6 +51,9 @@ async function readSSEStream(response: Response, handlers: ChatStreamHandlers) {
       const payload = JSON.parse(dataLine.replace('data: ', '').trim());
 
       if (eventName === 'start') handlers.onStart?.(payload);
+      if (eventName === 'resume') handlers.onResume?.(payload);
+      if (eventName === 'snapshot') handlers.onSnapshot?.(payload);
+      if (eventName === 'heartbeat') handlers.onHeartbeat?.(payload);
       if (eventName === 'stage') handlers.onStage?.(payload);
       if (eventName === 'question') handlers.onQuestion?.(payload);
       if (eventName === 'step') handlers.onStep?.(payload);
@@ -72,6 +88,25 @@ export const chatApi = {
     await readSSEStream(response, handlers);
   },
 
+  resumeStream: async (conversationId: number, runId: number, handlers: ChatStreamHandlers) => {
+    const token = localStorage.getItem('access_token');
+    const response = await fetch(getApiUrl('/ai/chat/stream/resume'), {
+      method: 'POST',
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({ conversation_id: conversationId, run_id: runId }),
+    });
+
+    if (!response.ok) {
+      throw new Error('恢复流式请求失败');
+    }
+
+    await readSSEStream(response, handlers);
+  },
+
   getConversations: () => {
     return request.get<any[]>('/chat/conversations');
   },
@@ -81,7 +116,7 @@ export const chatApi = {
   },
 
   getConversation: (id: number) => {
-    return request.get<any>(`/chat/conversations/${id}`);
+    return request.get<ChatConversationDetailResponse>(`/chat/conversations/${id}`);
   },
 
   renameConversation: (id: number, title: string) => {

@@ -20,6 +20,8 @@ type AIService interface {
 	Chat(question string, conversationID *int64, userID *int64) (string, error)
 	// ChatStream AI 流式对话
 	ChatStream(ctx context.Context, question string, conversationID *int64, userID *int64) (<-chan chatcore.StreamEvent, <-chan error)
+	// ResumeChatStream 恢复 AI 流式对话
+	ResumeChatStream(ctx context.Context, conversationID int64, runID int64, userID *int64) (<-chan chatcore.StreamEvent, <-chan error)
 	// GenerateSummary 生成文章摘要
 	GenerateSummary(content string) (string, error)
 }
@@ -71,6 +73,10 @@ func (s *aiService) ChatStream(ctx context.Context, question string, conversatio
 	return s.thinkTank.ChatStream(ctx, question, conversationID, userID)
 }
 
+func (s *aiService) ResumeChatStream(ctx context.Context, conversationID int64, runID int64, userID *int64) (<-chan chatcore.StreamEvent, <-chan error) {
+	return s.thinkTank.ResumeChatStream(ctx, conversationID, runID, userID)
+}
+
 // GenerateSummary 生成文章摘要
 func (s *aiService) GenerateSummary(content string) (string, error) {
 	if content == "" {
@@ -111,6 +117,15 @@ func (s *disabledAIService) Chat(question string, conversationID *int64, userID 
 }
 
 func (s *disabledAIService) ChatStream(ctx context.Context, question string, conversationID *int64, userID *int64) (<-chan chatcore.StreamEvent, <-chan error) {
+	eventCh := make(chan chatcore.StreamEvent)
+	errCh := make(chan error, 1)
+	errCh <- s.err()
+	close(eventCh)
+	close(errCh)
+	return eventCh, errCh
+}
+
+func (s *disabledAIService) ResumeChatStream(ctx context.Context, conversationID int64, runID int64, userID *int64) (<-chan chatcore.StreamEvent, <-chan error) {
 	eventCh := make(chan chatcore.StreamEvent)
 	errCh := make(chan error, 1)
 	errCh <- s.err()

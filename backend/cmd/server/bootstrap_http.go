@@ -141,6 +141,11 @@ func registerRoutes(
 				Limit:  cfg.RateLimit.AIChat,
 				Window: time.Minute,
 			}), aiHandler.ChatStream)
+			ai.POST("/chat/stream/resume", middleware.RateLimit(rdb, middleware.RateLimitConfig{
+				Type:   middleware.UserLimit,
+				Limit:  cfg.RateLimit.AIChat,
+				Window: time.Minute,
+			}), aiHandler.ResumeChatStream)
 			ai.POST("/summary", middleware.AdminRequired(cfg.JWT.Secret, rdb), aiHandler.GenerateSummary)
 		}
 

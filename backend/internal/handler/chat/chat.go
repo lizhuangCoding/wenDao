@@ -70,6 +70,18 @@ type ConversationDetailResponse struct {
 	Conversation ConversationResponse `json:"conversation"`
 	Messages     []MessageResponse    `json:"messages"`
 	Steps        []StepResponse       `json:"steps,omitempty"`
+	ActiveRun    *ActiveRunResponse   `json:"active_run,omitempty"`
+	ActiveSteps  []StepResponse       `json:"active_steps,omitempty"`
+}
+
+type ActiveRunResponse struct {
+	ID              int64   `json:"id"`
+	Status          string  `json:"status"`
+	CurrentStage    string  `json:"current_stage"`
+	PendingQuestion *string `json:"pending_question,omitempty"`
+	LastAnswer      string  `json:"last_answer"`
+	HeartbeatAt     string  `json:"heartbeat_at,omitempty"`
+	CanResume       bool    `json:"can_resume"`
 }
 
 // StepResponse 步骤响应
@@ -190,6 +202,10 @@ func (h *ChatHandler) Get(c *gin.Context) {
 	if h.runStepRepo != nil {
 		steps, _ = h.runStepRepo.GetByConversationID(convIDInt)
 	}
+	var activeRun *model.ConversationRun
+	if h.runRepo != nil {
+		activeRun, _ = h.runRepo.GetActiveByConversationID(convIDInt)
+	}
 
 	msgResponses := make([]MessageResponse, len(msgs))
 	for i, msg := range msgs {
@@ -216,10 +232,46 @@ func (h *ChatHandler) Get(c *gin.Context) {
 		}
 	}
 
+	var activeRunResponse *ActiveRunResponse
+	activeStepResponses := make([]StepResponse, 0)
+	if activeRun != nil {
+		var heartbeatAt string
+		if activeRun.HeartbeatAt != nil {
+			heartbeatAt = activeRun.HeartbeatAt.Format("2006-01-02 15:04:05")
+		}
+		activeRunResponse = &ActiveRunResponse{
+			ID:              activeRun.ID,
+			Status:          activeRun.Status,
+			CurrentStage:    activeRun.CurrentStage,
+			PendingQuestion: activeRun.PendingQuestion,
+			LastAnswer:      activeRun.LastAnswer,
+			HeartbeatAt:     heartbeatAt,
+			CanResume:       activeRun.Status == "running" || activeRun.Status == "waiting_user",
+		}
+		if h.runStepRepo != nil {
+			activeSteps, _ := h.runStepRepo.GetByRunID(activeRun.ID)
+			activeStepResponses = make([]StepResponse, len(activeSteps))
+			for i, step := range activeSteps {
+				activeStepResponses[i] = StepResponse{
+					ID:        step.ID,
+					RunID:     step.RunID,
+					AgentName: step.AgentName,
+					Type:      step.Type,
+					Summary:   step.Summary,
+					Detail:    step.Detail,
+					Status:    step.Status,
+					CreatedAt: step.CreatedAt.Format("2006-01-02 15:04:05"),
+				}
+			}
+		}
+	}
+
 	response.Success(c, ConversationDetailResponse{
 		Conversation: buildConversationResponse(conv),
 		Messages:     msgResponses,
 		Steps:        stepResponses,
+		ActiveRun:    activeRunResponse,
+		ActiveSteps:  activeStepResponses,
 	})
 }
 

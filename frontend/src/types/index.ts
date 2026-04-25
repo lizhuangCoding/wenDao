@@ -130,6 +130,7 @@ export type ChatStage =
   | 'web_research'
   | 'integration'
   | 'synthesizing'
+  | 'streaming'
   | 'completed'
   | 'failed';
 
@@ -150,11 +151,41 @@ export interface ChatStep {
 }
 
 export interface ChatStepEvent {
+  run_id?: number;
   step_id: number;
   agent_name: string;
   status: 'running' | 'completed' | 'failed';
   summary: string;
   detail: string;
+}
+
+export interface ChatActiveRun {
+  id: number;
+  status: 'idle' | 'running' | 'waiting_user' | 'completed' | 'failed';
+  current_stage: ChatStage | 'streaming';
+  pending_question?: string;
+  last_answer: string;
+  heartbeat_at?: string;
+  can_resume: boolean;
+}
+
+export interface ChatResumeEvent {
+  run_id: number;
+  stage?: ChatStage | 'streaming';
+  status?: ChatActiveRun['status'];
+}
+
+export interface ChatSnapshotEvent {
+  run_id: number;
+  stage?: ChatStage | 'streaming';
+  status?: ChatActiveRun['status'];
+  message?: string;
+}
+
+export interface ChatHeartbeatEvent {
+  run_id: number;
+  stage?: ChatStage | 'streaming';
+  status?: ChatActiveRun['status'];
 }
 
 export interface ChatArticleReference {
@@ -179,6 +210,7 @@ export interface ChatMessage {
   content: string;
   timestamp: number;
   processSteps?: ChatStep[];
+  runId?: number;
 }
 
 export interface ChatRequest {
@@ -190,6 +222,26 @@ export interface ChatRequest {
 export interface ChatResponse {
   message: string;
   sources?: string[];
+}
+
+export interface ChatConversationDetailResponse {
+  conversation: {
+    id: number;
+    title: string;
+    user_id: number;
+    created_at: string;
+    updated_at: string;
+  };
+  messages: Array<{
+    id: number;
+    conversation_id: number;
+    role: 'user' | 'assistant';
+    content: string;
+    created_at: string;
+  }>;
+  steps?: ChatStep[];
+  active_run?: ChatActiveRun;
+  active_steps?: ChatStep[];
 }
 
 export interface KnowledgeDocument {

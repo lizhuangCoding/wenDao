@@ -124,11 +124,14 @@ func NewThinkTankService(
 }
 
 const (
-	StreamEventStage    = chatcore.StreamEventStage
-	StreamEventQuestion = chatcore.StreamEventQuestion
-	StreamEventChunk    = chatcore.StreamEventChunk
-	StreamEventStep     = chatcore.StreamEventStep
-	StreamEventDone     = chatcore.StreamEventDone
+	StreamEventStage     = chatcore.StreamEventStage
+	StreamEventQuestion  = chatcore.StreamEventQuestion
+	StreamEventChunk     = chatcore.StreamEventChunk
+	StreamEventStep      = chatcore.StreamEventStep
+	StreamEventResume    = chatcore.StreamEventResume
+	StreamEventSnapshot  = chatcore.StreamEventSnapshot
+	StreamEventHeartbeat = chatcore.StreamEventHeartbeat
+	StreamEventDone      = chatcore.StreamEventDone
 )
 
 func IsAIDisabled(err error) bool { return errors.Is(err, ErrAIDisabled) }

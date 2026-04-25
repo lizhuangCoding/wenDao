@@ -188,6 +188,13 @@ func (r *stubConversationRunRepository) Create(run *model.ConversationRun) error
 	return nil
 }
 
+func (r *stubConversationRunRepository) GetByID(id int64) (*model.ConversationRun, error) {
+	if r.active != nil && r.active.ID == id {
+		return r.active, nil
+	}
+	return nil, errors.New("run not found")
+}
+
 func (r *stubConversationRunRepository) GetActiveByConversationID(conversationID int64) (*model.ConversationRun, error) {
 	return r.active, nil
 }

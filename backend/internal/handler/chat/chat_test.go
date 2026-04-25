@@ -45,12 +45,19 @@ func (r *stubChatMessageRepo) DeleteByConversationID(conversationID int64) error
 }
 
 type stubConversationRunRepo struct {
+	active                *model.ConversationRun
 	deletedConversationID int64
 }
 
 func (r *stubConversationRunRepo) Create(run *model.ConversationRun) error { return nil }
-func (r *stubConversationRunRepo) GetActiveByConversationID(conversationID int64) (*model.ConversationRun, error) {
+func (r *stubConversationRunRepo) GetByID(id int64) (*model.ConversationRun, error) {
+	if r.active != nil && r.active.ID == id {
+		return r.active, nil
+	}
 	return nil, nil
+}
+func (r *stubConversationRunRepo) GetActiveByConversationID(conversationID int64) (*model.ConversationRun, error) {
+	return r.active, nil
 }
 func (r *stubConversationRunRepo) Update(run *model.ConversationRun) error { return nil }
 func (r *stubConversationRunRepo) DeleteByConversationID(conversationID int64) error {
@@ -69,7 +76,13 @@ func (r *stubConversationRunStepRepo) GetByConversationID(conversationID int64) 
 	return r.steps, nil
 }
 func (r *stubConversationRunStepRepo) GetByRunID(runID int64) ([]model.ConversationRunStep, error) {
-	return r.steps, nil
+	filtered := make([]model.ConversationRunStep, 0, len(r.steps))
+	for _, step := range r.steps {
+		if step.RunID == runID {
+			filtered = append(filtered, step)
+		}
+	}
+	return filtered, nil
 }
 func (r *stubConversationRunStepRepo) DeleteByConversationID(conversationID int64) error {
 	r.deletedConversationID = conversationID
@@ -144,6 +157,85 @@ func TestChatHandler_GetIncludesRunStepsForHistoricalReplay(t *testing.T) {
 	}
 	if len(runSteps) != 2 {
 		t.Fatalf("expected 2 run steps, got %d", len(runSteps))
+	}
+}
+
+func TestChatHandler_GetIncludesActiveRunSnapshot(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	now := time.Date(2026, 4, 25, 9, 0, 0, 0, time.UTC)
+	heartbeatAt := now.Add(15 * time.Second)
+	h := &ChatHandler{
+		convRepo: &stubConversationRepo{conversation: &model.Conversation{
+			ID:        21,
+			UserID:    7,
+			Title:     "恢复中的会话",
+			CreatedAt: now,
+			UpdatedAt: now,
+		}},
+		msgRepo: &stubChatMessageRepo{messages: []model.ChatMessage{{
+			ID:             1,
+			ConversationID: 21,
+			Role:           "user",
+			Content:        "帮我分析一下",
+			CreatedAt:      now,
+		}}},
+		runRepo: &stubConversationRunRepo{active: &model.ConversationRun{
+			ID:               9,
+			ConversationID:   21,
+			UserID:           7,
+			Status:           "running",
+			CurrentStage:     "web_research",
+			OriginalQuestion: "帮我分析一下",
+			LastPlan:         "plan",
+			LastAnswer:       "这是当前快照",
+			HeartbeatAt:      &heartbeatAt,
+			CreatedAt:        now,
+			UpdatedAt:        now,
+		}},
+		runStepRepo: &stubConversationRunStepRepo{steps: []model.ConversationRunStep{
+			{ID: 11, ConversationID: 21, RunID: 9, AgentName: "Journalist", Type: "research", Summary: "外部调研中", Detail: "正在抓取资料", Status: "running", CreatedAt: now},
+			{ID: 12, ConversationID: 21, RunID: 8, AgentName: "Librarian", Type: "thinking", Summary: "旧 run", Detail: "旧步骤", Status: "completed", CreatedAt: now},
+		}},
+	}
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest(http.MethodGet, "/api/chat/conversations/21", strings.NewReader(""))
+	c.Params = gin.Params{{Key: "id", Value: "21"}}
+	c.Set("user_id", int64(7))
+
+	h.Get(c)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", w.Code)
+	}
+
+	var body map[string]any
+	if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
+		t.Fatalf("failed to decode response body: %v", err)
+	}
+
+	data := body["data"].(map[string]any)
+	activeRun, ok := data["active_run"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected active_run object, got %#v", data["active_run"])
+	}
+	if got := int64(activeRun["id"].(float64)); got != 9 {
+		t.Fatalf("expected active run id 9, got %d", got)
+	}
+	if got := activeRun["last_answer"].(string); got != "这是当前快照" {
+		t.Fatalf("expected last_answer snapshot, got %q", got)
+	}
+	if got := activeRun["can_resume"].(bool); !got {
+		t.Fatalf("expected can_resume to be true")
+	}
+
+	activeSteps, ok := data["active_steps"].([]any)
+	if !ok {
+		t.Fatalf("expected active_steps array, got %#v", data["active_steps"])
+	}
+	if len(activeSteps) != 1 {
+		t.Fatalf("expected only active run steps, got %d", len(activeSteps))
 	}
 }
 
