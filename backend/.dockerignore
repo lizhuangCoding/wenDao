@@ -1,0 +1,8 @@
+.DS_Store
+.env
+config/.env
+log/
+uploads/*
+!uploads/.gitignore
+wenDao-server
+tmp/

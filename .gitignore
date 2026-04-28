@@ -3,6 +3,8 @@
 .worktrees/
 
 # Local environment files
+.env
+.env.production
 backend/config/.env
 frontend/.env
 

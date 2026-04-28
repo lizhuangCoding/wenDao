@@ -128,6 +128,76 @@ oauth:
 	}
 }
 
+func TestLoadConfig_BindsServerAndLogSettingsFromEnv(t *testing.T) {
+	viper.Reset()
+	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+	defer viper.Reset()
+
+	tempDir := t.TempDir()
+	configDir := filepath.Join(tempDir, "config")
+	if err := os.MkdirAll(configDir, 0o755); err != nil {
+		t.Fatalf("failed to create config dir: %v", err)
+	}
+
+	configContent := `server:
+  port: "8089"
+  mode: "debug"
+site:
+  slogan: "test"
+  url: "http://localhost:3000"
+jwt:
+  secret: "real-test-secret"
+  access_expire_hours: 1
+  refresh_expire_days: 7
+upload:
+  max_size: 10485760
+  allowed_types:
+    - "image/jpeg"
+  storage_path: "./uploads"
+log:
+  level: "info"
+  format: "console"
+  output: "log/"
+`
+	if err := os.WriteFile(filepath.Join(configDir, "config.yaml"), []byte(configContent), 0o644); err != nil {
+		t.Fatalf("failed to write config file: %v", err)
+	}
+
+	oldWD, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("failed to get working directory: %v", err)
+	}
+	defer func() {
+		_ = os.Chdir(oldWD)
+	}()
+
+	t.Setenv("SERVER_PORT", "9090")
+	t.Setenv("SERVER_MODE", "release")
+	t.Setenv("LOG_FORMAT", "json")
+	t.Setenv("LOG_OUTPUT", "stdout")
+
+	if err := os.Chdir(tempDir); err != nil {
+		t.Fatalf("failed to change working directory: %v", err)
+	}
+
+	cfg, err := LoadConfig()
+	if err != nil {
+		t.Fatalf("expected config to load, got %v", err)
+	}
+	if cfg.Server.Port != "9090" {
+		t.Fatalf("expected server port from env binding, got %q", cfg.Server.Port)
+	}
+	if cfg.Server.Mode != "release" {
+		t.Fatalf("expected server mode from env binding, got %q", cfg.Server.Mode)
+	}
+	if cfg.Log.Format != "json" {
+		t.Fatalf("expected log format from env binding, got %q", cfg.Log.Format)
+	}
+	if cfg.Log.Output != "stdout" {
+		t.Fatalf("expected log output from env binding, got %q", cfg.Log.Output)
+	}
+}
+
 func TestLoadConfig_BindsResearchSettingsFromEnv(t *testing.T) {
 	viper.Reset()
 	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
