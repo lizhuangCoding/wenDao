@@ -1,0 +1,14 @@
+services:
+  caddy:
+    profiles:
+      - domain
+
+  frontend:
+    ports:
+      - "80:80"
+
+  mysql:
+    image: mysql:8.0
+
+  redis:
+    image: redis/redis-stack:latest

@@ -2,6 +2,9 @@ FROM node:22-alpine AS deps
 
 WORKDIR /app
 
+ARG NPM_REGISTRY=https://registry.npmmirror.com
+RUN npm config set registry ${NPM_REGISTRY}
+
 COPY package.json package-lock.json ./
 RUN npm ci
 

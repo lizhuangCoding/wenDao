@@ -57,6 +57,21 @@ docker compose --env-file .env.production -f docker-compose.prod.yml ps
 docker compose --env-file .env.production -f docker-compose.prod.yml logs -f backend
 ```
 
+### IP-only deployment
+
+When deploying by public IP before a domain is ready, use the IP override file. It disables Caddy, exposes the frontend directly on port `80`, and uses the images that are easier to pull on Alibaba Cloud Linux:
+
+```bash
+docker compose --env-file .env.production -f docker-compose.prod.yml -f docker-compose.ip.yml up -d --build
+```
+
+Check service status:
+
+```bash
+docker compose --env-file .env.production -f docker-compose.prod.yml -f docker-compose.ip.yml ps
+docker compose --env-file .env.production -f docker-compose.prod.yml -f docker-compose.ip.yml logs --tail=100 backend
+```
+
 ## 4. Create the first admin user
 
 Register the first user from the site, then promote that user in MySQL. Adjust the username or email condition to match your account:
