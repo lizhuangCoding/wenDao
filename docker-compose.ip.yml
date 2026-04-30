@@ -1,14 +1,19 @@
 services:
+  # 临时 IP 部署不需要 Caddy 自动 HTTPS。
+  # 把 caddy 放进 domain profile 后，默认 up 不会启动它。
   caddy:
     profiles:
       - domain
 
+  # 没有 Caddy 时，由前端 Nginx 直接监听服务器 80 端口。
   frontend:
     ports:
       - "80:80"
 
+  # 阿里云服务器上 mysql:8.0 通常比 mysql:8.4 更容易拉取。
   mysql:
     image: mysql:8.0
 
+  # IP 临时部署使用你已手动拉到服务器的 redis/redis-stack 镜像。
   redis:
     image: redis/redis-stack:latest

@@ -1,87 +1,122 @@
 services:
+  # 正式域名部署入口。Caddy 负责监听 80/443、自动 HTTPS、转发请求。
+  # 临时 IP 部署时会被 docker-compose.ip.yml 放到 domain profile 里，从而不启动。
   caddy:
     image: caddy:2.8-alpine
     restart: unless-stopped
     environment:
+      # Caddyfile 使用这个域名申请证书，例如 example.com。
       PUBLIC_DOMAIN: ${PUBLIC_DOMAIN:?set PUBLIC_DOMAIN to your public domain}
     ports:
       - "80:80"
       - "443:443"
     volumes:
+      # Caddy 配置文件：定义 /api、/uploads、/health 和前端转发规则。
       - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      # Caddy 证书和运行状态需要持久化，否则容器重建会重新申请证书。
       - caddy_data:/data
       - caddy_config:/config
     depends_on:
       - frontend
       - backend
 
+  # 前端服务：构建 React/Vite 静态文件，并用 Nginx 提供访问。
   frontend:
     build:
       context: ./frontend
       args:
+        # 默认 /api，浏览器会请求同源的 /api，再由 Nginx/Caddy 转发到后端。
         VITE_API_BASE_URL: ${VITE_API_BASE_URL:-/api}
     restart: unless-stopped
     depends_on:
       - backend
 
+  # 后端服务：Go/Gin API，连接 MySQL、Redis 和可选 AI 服务。
   backend:
     build:
       context: ./backend
     restart: unless-stopped
     environment:
+      # 后端容器内部监听端口。前端/Caddy 都通过 backend:8089 访问它。
       SERVER_PORT: "8089"
       SERVER_MODE: release
+      # 站点公开地址，用于 OAuth 回调、链接生成等需要知道公网入口的场景。
       SITE_URL: ${SITE_URL:?set SITE_URL to your public site URL}
+
+      # 数据库连接信息。DB_HOST 使用 compose 服务名 mysql，不需要公网 IP。
       DB_HOST: mysql
       DB_PORT: "3306"
       DB_USER: ${DB_USER:-wendao}
       DB_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD}
       DB_NAME: ${DB_NAME:-wendao}
+
+      # Redis 用于缓存、限流、JWT 黑名单；Redis Vector 用于 AI/RAG 向量检索。
+      # 当前两个都指向同一个 redis-stack 容器。
       REDIS_HOST: redis
       REDIS_PORT: "6379"
       REDIS_PASSWORD: ${REDIS_PASSWORD:?set REDIS_PASSWORD}
       REDIS_VECTOR_HOST: redis
       REDIS_VECTOR_PORT: "6379"
       REDIS_VECTOR_PASSWORD: ${REDIS_PASSWORD:?set REDIS_PASSWORD}
+
+      # JWT_SECRET 必须是随机强密钥，不能用仓库里的默认占位值。
       JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET}
+
+      # 上传文件写入容器内 /app/uploads，并由下面的 uploads_data volume 持久化。
       UPLOAD_PATH: /app/uploads
+
+      # 生产环境日志输出到 stdout，方便 docker logs 查看。
       LOG_FORMAT: json
       LOG_OUTPUT: stdout
+
+      # GitHub 登录配置。暂时不用 GitHub OAuth 时可以留空。
       GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
       GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
       GITHUB_CALLBACK_URL: ${GITHUB_CALLBACK_URL:-}
+
+      # AI 配置。DOUBAO_API_KEY 留空时，后端会以降级模式运行。
       DOUBAO_API_KEY: ${DOUBAO_API_KEY:-}
       DOUBAO_ENDPOINT: ${DOUBAO_ENDPOINT:-}
       DOUBAO_CHAT_MODEL: ${DOUBAO_CHAT_MODEL:-}
       DOUBAO_EMBEDDING_MODEL: ${DOUBAO_EMBEDDING_MODEL:-}
+
+      # 可选联网搜索服务，用于研究型 Agent。
       RESEARCH_ENDPOINT: ${RESEARCH_ENDPOINT:-}
       RESEARCH_API_KEY: ${RESEARCH_API_KEY:-}
       TZ: ${TZ:-Asia/Shanghai}
     volumes:
+      # 持久化用户上传文件，避免容器重建后图片丢失。
       - uploads_data:/app/uploads
     depends_on:
+      # 等 MySQL/Redis 健康检查通过后再启动后端。
       mysql:
         condition: service_healthy
       redis:
         condition: service_healthy
     healthcheck:
+      # 后端健康检查，用于判断 API 是否能响应。
       test: ["CMD-SHELL", "wget -q -O - http://127.0.0.1:8089/health >/dev/null || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 5
       start_period: 20s
 
+  # MySQL 数据库。正式域名部署默认使用 mysql:8.4；IP 临时部署覆盖为 mysql:8.0。
   mysql:
     image: mysql:8.4
     restart: unless-stopped
+    # 确保中文、emoji 等内容能正常保存。
     command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
     environment:
       MYSQL_DATABASE: ${DB_NAME:-wendao}
+      # 创建给后端使用的业务账号，不建议让后端用 root。
       MYSQL_USER: ${DB_USER:-wendao}
       MYSQL_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD}
+      # root 是 MySQL 管理员账号，只用于维护数据库。
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?set MYSQL_ROOT_PASSWORD}
       TZ: ${TZ:-Asia/Shanghai}
     volumes:
+      # 持久化数据库数据，避免容器重建后数据丢失。
       - mysql_data:/var/lib/mysql
     healthcheck:
       test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$${MYSQL_ROOT_PASSWORD} --silent"]
@@ -90,13 +125,16 @@ services:
       retries: 10
       start_period: 30s
 
+  # Redis Stack：同时提供普通 Redis 能力和向量检索能力。
   redis:
     image: redis/redis-stack-server:latest
     restart: unless-stopped
     environment:
       REDIS_PASSWORD: ${REDIS_PASSWORD:?set REDIS_PASSWORD}
+      # 开启 AOF 持久化，并要求密码访问 Redis。
       REDIS_ARGS: "--appendonly yes --requirepass ${REDIS_PASSWORD:?set REDIS_PASSWORD}"
     volumes:
+      # 持久化 Redis 数据和向量索引。
       - redis_data:/data
     healthcheck:
       test: ["CMD-SHELL", "redis-cli -a \"$${REDIS_PASSWORD}\" ping | grep PONG"]
@@ -106,8 +144,13 @@ services:
       start_period: 10s
 
 volumes:
+  # 数据库数据。
   mysql_data:
+  # Redis 数据和向量索引。
   redis_data:
+  # 用户上传文件。
   uploads_data:
+  # Caddy 自动签发的证书。
   caddy_data:
+  # Caddy 运行配置。
   caddy_config:
