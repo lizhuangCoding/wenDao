@@ -83,6 +83,26 @@ services:
       # 可选联网搜索服务，用于研究型 Agent。
       RESEARCH_ENDPOINT: ${RESEARCH_ENDPOINT:-}
       RESEARCH_API_KEY: ${RESEARCH_API_KEY:-}
+
+      # 管理员初始化脚本使用。真实值放在 .env.production，不要提交到 Git。
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      ADMIN_EMAIL_1: ${ADMIN_EMAIL_1:-}
+      ADMIN_USERNAME_1: ${ADMIN_USERNAME_1:-}
+      ADMIN_PASSWORD_1: ${ADMIN_PASSWORD_1:-}
+      ADMIN_EMAIL_2: ${ADMIN_EMAIL_2:-}
+      ADMIN_USERNAME_2: ${ADMIN_USERNAME_2:-}
+      ADMIN_PASSWORD_2: ${ADMIN_PASSWORD_2:-}
+      ADMIN_EMAIL_3: ${ADMIN_EMAIL_3:-}
+      ADMIN_USERNAME_3: ${ADMIN_USERNAME_3:-}
+      ADMIN_PASSWORD_3: ${ADMIN_PASSWORD_3:-}
+      ADMIN_EMAIL_4: ${ADMIN_EMAIL_4:-}
+      ADMIN_USERNAME_4: ${ADMIN_USERNAME_4:-}
+      ADMIN_PASSWORD_4: ${ADMIN_PASSWORD_4:-}
+      ADMIN_EMAIL_5: ${ADMIN_EMAIL_5:-}
+      ADMIN_USERNAME_5: ${ADMIN_USERNAME_5:-}
+      ADMIN_PASSWORD_5: ${ADMIN_PASSWORD_5:-}
       TZ: ${TZ:-Asia/Shanghai}
     volumes:
       # 持久化用户上传文件，避免容器重建后图片丢失。

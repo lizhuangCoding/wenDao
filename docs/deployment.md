@@ -90,6 +90,15 @@ http://your-server-ip:8081
 
 Run the admin bootstrap command inside the backend container. It creates the user if it does not exist, or promotes an existing user with the same email to `admin`.
 
+If `ADMIN_EMAIL`, `ADMIN_USERNAME`, and `ADMIN_PASSWORD` are already set in `.env.production`, run:
+
+```bash
+docker compose --env-file .env.production -f docker-compose.prod.yml -f docker-compose.ip.yml exec \
+  backend /app/wendao-init-admin
+```
+
+Or pass the values only for this command:
+
 ```bash
 docker compose --env-file .env.production -f docker-compose.prod.yml -f docker-compose.ip.yml exec \
   -e ADMIN_EMAIL="your-email@example.com" \
