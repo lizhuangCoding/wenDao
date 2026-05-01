@@ -11,6 +11,16 @@
 - AI 能力：AI 对话、流式输出、RAG 检索、研究型多 Agent 协作
 - 知识沉淀：研究结果可转化为知识文档，进一步进入内容与检索链路
 
+## 效果展示
+
+| AI 多 Agent 协作过程 | 效果展示 2 |
+| --- | --- |
+| ![AI 多 Agent 协作过程](./docs/screenshots/1.png) | ![效果展示 2](./docs/screenshots/2.png) |
+
+| 效果展示 3 | 效果展示 4 |
+| --- | --- |
+| ![效果展示 3](./docs/screenshots/3.png) | ![效果展示 4](./docs/screenshots/4.png) |
+
 ## Highlights
 
 - Go + Gin + Gorm 的后端结构，按 `handler / service / repository` 分层
