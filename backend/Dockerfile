@@ -16,6 +16,7 @@ RUN go mod download
 
 COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/wendao-server ./cmd/server
+RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/wendao-init-admin ./scripts
 
 # 运行阶段：只保留运行后端需要的最小环境，不带 Go 编译工具链。
 FROM alpine:3.22
@@ -29,6 +30,7 @@ RUN apk add --no-cache ca-certificates tzdata \
 WORKDIR /app
 
 COPY --from=builder /out/wendao-server /app/wendao-server
+COPY --from=builder /out/wendao-init-admin /app/wendao-init-admin
 COPY config/config.yaml /app/config/config.yaml
 
 # uploads 和 log 是运行时目录；uploads 由 compose 挂载 volume 持久化。

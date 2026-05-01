@@ -88,13 +88,30 @@ http://your-server-ip:8081
 
 ## 4. Create the first admin user
 
-Register the first user from the site, then promote that user in MySQL. Adjust the username or email condition to match your account:
+Run the admin bootstrap command inside the backend container. It creates the user if it does not exist, or promotes an existing user with the same email to `admin`.
 
 ```bash
-docker compose --env-file .env.production -f docker-compose.prod.yml exec mysql \
-  mysql -uwendao -p wendao \
-  -e "UPDATE users SET role = 'admin' WHERE username = 'your-username';"
+docker compose --env-file .env.production -f docker-compose.prod.yml -f docker-compose.ip.yml exec \
+  -e ADMIN_EMAIL="your-email@example.com" \
+  -e ADMIN_USERNAME="your-admin-username" \
+  -e ADMIN_PASSWORD="replace-with-a-strong-password" \
+  backend /app/wendao-init-admin
 ```
+
+For multiple admins, use numbered variables:
+
+```bash
+docker compose --env-file .env.production -f docker-compose.prod.yml -f docker-compose.ip.yml exec \
+  -e ADMIN_EMAIL_1="first@example.com" \
+  -e ADMIN_USERNAME_1="first-admin" \
+  -e ADMIN_PASSWORD_1="replace-with-a-strong-password" \
+  -e ADMIN_EMAIL_2="second@example.com" \
+  -e ADMIN_USERNAME_2="second-admin" \
+  -e ADMIN_PASSWORD_2="replace-with-another-strong-password" \
+  backend /app/wendao-init-admin
+```
+
+Do not commit real admin passwords to Git. Pass them only at runtime.
 
 ## 5. Backups
 
