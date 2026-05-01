@@ -59,7 +59,15 @@ docker compose --env-file .env.production -f docker-compose.prod.yml logs -f bac
 
 ### IP-only deployment
 
-When deploying by public IP before a domain is ready, use the IP override file. It disables Caddy, exposes the frontend directly on port `80`, and uses the images that are easier to pull on Alibaba Cloud Linux:
+When deploying by public IP before a domain is ready, use the IP override file. It disables Caddy, exposes the frontend on server port `8081`, and uses the images that are easier to pull on Alibaba Cloud Linux:
+
+For IP-only deployment, set the public URL values in `.env.production` with the port included:
+
+```env
+PUBLIC_DOMAIN=http://your-server-ip:8081
+SITE_URL=http://your-server-ip:8081
+GITHUB_CALLBACK_URL=http://your-server-ip:8081/api/auth/github/callback
+```
 
 ```bash
 docker compose --env-file .env.production -f docker-compose.prod.yml -f docker-compose.ip.yml up -d --build
@@ -70,6 +78,12 @@ Check service status:
 ```bash
 docker compose --env-file .env.production -f docker-compose.prod.yml -f docker-compose.ip.yml ps
 docker compose --env-file .env.production -f docker-compose.prod.yml -f docker-compose.ip.yml logs --tail=100 backend
+```
+
+Then visit:
+
+```text
+http://your-server-ip:8081
 ```
 
 ## 4. Create the first admin user

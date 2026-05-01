@@ -5,10 +5,11 @@ services:
     profiles:
       - domain
 
-  # 没有 Caddy 时，由前端 Nginx 直接监听服务器 80 端口。
+  # 没有 Caddy 时，把服务器公网 8081 转发到前端容器内的 80。
+  # 这样服务器的 80/443 可以留给后续统一网关或其他项目。
   frontend:
     ports:
-      - "80:80"
+      - "8081:80"
 
   # 阿里云服务器上 mysql:8.0 通常比 mysql:8.4 更容易拉取。
   mysql:
