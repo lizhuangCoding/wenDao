@@ -107,19 +107,6 @@ docker compose --env-file .env.production -f docker-compose.prod.yml -f docker-c
   backend /app/wendao-init-admin
 ```
 
-For multiple admins, use numbered variables:
-
-```bash
-docker compose --env-file .env.production -f docker-compose.prod.yml -f docker-compose.ip.yml exec \
-  -e ADMIN_EMAIL_1="first@example.com" \
-  -e ADMIN_USERNAME_1="first-admin" \
-  -e ADMIN_PASSWORD_1="replace-with-a-strong-password" \
-  -e ADMIN_EMAIL_2="second@example.com" \
-  -e ADMIN_USERNAME_2="second-admin" \
-  -e ADMIN_PASSWORD_2="replace-with-another-strong-password" \
-  backend /app/wendao-init-admin
-```
-
 Do not commit real admin passwords to Git. Pass them only at runtime.
 
 ## 5. Backups

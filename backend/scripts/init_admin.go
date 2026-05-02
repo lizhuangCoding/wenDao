@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"sort"
-	"strconv"
 	"strings"
 	"time"
 
@@ -47,102 +45,43 @@ func main() {
 		log.Fatal("Failed to connect to database:", err)
 	}
 
-	admins, err := parseAdminSpecs(os.Environ())
+	admin, err := parseAdminSpec(os.Environ())
 	if err != nil {
 		log.Fatal("Failed to parse admin configuration:", err)
 	}
 
-	for _, admin := range admins {
-		if err := upsertAdmin(db, admin); err != nil {
-			log.Fatalf("Failed to initialize admin %s: %v", admin.Email, err)
-		}
-		fmt.Printf("Admin account initialized successfully: username=%s email=%s\n", admin.Username, admin.Email)
+	if err := upsertAdmin(db, admin); err != nil {
+		log.Fatalf("Failed to initialize admin %s: %v", admin.Email, err)
 	}
+	fmt.Printf("Admin account initialized successfully: username=%s email=%s\n", admin.Username, admin.Email)
 }
 
-func parseAdminSpecs(env []string) ([]adminSpec, error) {
+func parseAdminSpec(env []string) (adminSpec, error) {
 	values := envValues(env)
-
-	var specs []adminSpec
-	if values["ADMIN_EMAIL"] != "" || values["ADMIN_PASSWORD"] != "" || values["ADMIN_USERNAME"] != "" {
-		specs = append(specs, adminSpec{
-			Username: values["ADMIN_USERNAME"],
-			Email:    values["ADMIN_EMAIL"],
-			Password: values["ADMIN_PASSWORD"],
-		})
+	if hasNumberedAdminVariables(values) {
+		return adminSpec{}, errors.New("numbered admin variables are no longer supported; use ADMIN_EMAIL, ADMIN_USERNAME, and ADMIN_PASSWORD")
 	}
 
-	indexes := adminIndexes(values)
-	for _, index := range indexes {
-		specs = append(specs, adminSpec{
-			Username: values[fmt.Sprintf("ADMIN_USERNAME_%d", index)],
-			Email:    values[fmt.Sprintf("ADMIN_EMAIL_%d", index)],
-			Password: values[fmt.Sprintf("ADMIN_PASSWORD_%d", index)],
-		})
+	spec := adminSpec{
+		Username: values["ADMIN_USERNAME"],
+		Email:    values["ADMIN_EMAIL"],
+		Password: values["ADMIN_PASSWORD"],
 	}
-
-	if len(specs) == 0 {
-		return nil, errors.New("set ADMIN_EMAIL and ADMIN_PASSWORD, or numbered ADMIN_EMAIL_1 and ADMIN_PASSWORD_1 variables")
+	if spec.Email == "" && spec.Password == "" && spec.Username == "" {
+		return adminSpec{}, errors.New("set ADMIN_EMAIL and ADMIN_PASSWORD")
 	}
-
-	for i := range specs {
-		if err := normalizeAdminSpec(&specs[i]); err != nil {
-			return nil, err
-		}
+	if err := normalizeAdminSpec(&spec); err != nil {
+		return adminSpec{}, err
 	}
-
-	if err := rejectDuplicateAdmins(specs); err != nil {
-		return nil, err
-	}
-
-	return specs, nil
+	return spec, nil
 }
 
-func envValues(env []string) map[string]string {
-	values := make(map[string]string, len(env))
-	for _, item := range env {
-		key, value, ok := strings.Cut(item, "=")
-		if !ok {
-			continue
-		}
-		values[key] = strings.TrimSpace(value)
-	}
-	return values
-}
-
-func adminIndexes(values map[string]string) []int {
-	seen := make(map[int]struct{})
+func hasNumberedAdminVariables(values map[string]string) bool {
 	for key := range values {
 		for _, prefix := range []string{"ADMIN_EMAIL_", "ADMIN_PASSWORD_", "ADMIN_USERNAME_"} {
-			if !strings.HasPrefix(key, prefix) {
-				continue
+			if strings.HasPrefix(key, prefix) {
+				return true
 			}
-			index, err := strconv.Atoi(strings.TrimPrefix(key, prefix))
-			if err == nil && index > 0 {
-				seen[index] = struct{}{}
-			}
-		}
-	}
-
-	indexes := make([]int, 0, len(seen))
-	for index := range seen {
-		if !hasNumberedAdminValue(values, index) {
-			continue
-		}
-		indexes = append(indexes, index)
-	}
-	sort.Ints(indexes)
-	return indexes
-}
-
-func hasNumberedAdminValue(values map[string]string, index int) bool {
-	for _, key := range []string{
-		fmt.Sprintf("ADMIN_EMAIL_%d", index),
-		fmt.Sprintf("ADMIN_PASSWORD_%d", index),
-		fmt.Sprintf("ADMIN_USERNAME_%d", index),
-	} {
-		if strings.TrimSpace(values[key]) != "" {
-			return true
 		}
 	}
 	return false
@@ -190,22 +129,16 @@ func usernameFromEmail(email string) string {
 	return localPart
 }
 
-func rejectDuplicateAdmins(specs []adminSpec) error {
-	emails := make(map[string]struct{}, len(specs))
-	usernames := make(map[string]struct{}, len(specs))
-	for _, spec := range specs {
-		email := strings.ToLower(spec.Email)
-		username := strings.ToLower(spec.Username)
-		if _, ok := emails[email]; ok {
-			return fmt.Errorf("duplicate admin email %q", spec.Email)
+func envValues(env []string) map[string]string {
+	values := make(map[string]string, len(env))
+	for _, item := range env {
+		key, value, ok := strings.Cut(item, "=")
+		if !ok {
+			continue
 		}
-		if _, ok := usernames[username]; ok {
-			return fmt.Errorf("duplicate admin username %q", spec.Username)
-		}
-		emails[email] = struct{}{}
-		usernames[username] = struct{}{}
+		values[key] = strings.TrimSpace(value)
 	}
-	return nil
+	return values
 }
 
 func upsertAdmin(db *gorm.DB, spec adminSpec) error {
