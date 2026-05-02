@@ -24,6 +24,29 @@ func TestParseAdminSpecsSupportsSingleAdmin(t *testing.T) {
 	}
 }
 
+func TestParseAdminSpecsIgnoresEmptyNumberedAdminVariables(t *testing.T) {
+	specs, err := parseAdminSpecs([]string{
+		"ADMIN_EMAIL=admin@example.com",
+		"ADMIN_PASSWORD=secret-password",
+		"ADMIN_USERNAME=lizhuang",
+		"ADMIN_EMAIL_1=",
+		"ADMIN_PASSWORD_1=",
+		"ADMIN_USERNAME_1=",
+		"ADMIN_EMAIL_2=",
+		"ADMIN_PASSWORD_2=",
+		"ADMIN_USERNAME_2=",
+	})
+	if err != nil {
+		t.Fatalf("expected empty numbered admin variables to be ignored, got %v", err)
+	}
+	if len(specs) != 1 {
+		t.Fatalf("expected 1 admin spec, got %d", len(specs))
+	}
+	if specs[0].Email != "admin@example.com" {
+		t.Fatalf("expected single admin email, got %q", specs[0].Email)
+	}
+}
+
 func TestParseAdminSpecsSupportsMultipleAdmins(t *testing.T) {
 	specs, err := parseAdminSpecs([]string{
 		"ADMIN_EMAIL_2=second@example.com",

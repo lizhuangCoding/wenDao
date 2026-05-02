@@ -126,10 +126,26 @@ func adminIndexes(values map[string]string) []int {
 
 	indexes := make([]int, 0, len(seen))
 	for index := range seen {
+		if !hasNumberedAdminValue(values, index) {
+			continue
+		}
 		indexes = append(indexes, index)
 	}
 	sort.Ints(indexes)
 	return indexes
+}
+
+func hasNumberedAdminValue(values map[string]string, index int) bool {
+	for _, key := range []string{
+		fmt.Sprintf("ADMIN_EMAIL_%d", index),
+		fmt.Sprintf("ADMIN_PASSWORD_%d", index),
+		fmt.Sprintf("ADMIN_USERNAME_%d", index),
+	} {
+		if strings.TrimSpace(values[key]) != "" {
+			return true
+		}
+	}
+	return false
 }
 
 func normalizeAdminSpec(spec *adminSpec) error {
