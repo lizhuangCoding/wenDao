@@ -66,11 +66,15 @@ func (m *thinkTankConversationManager) loadHistory(conversationID int64) []model
 	return history
 }
 
-func (m *thinkTankConversationManager) saveMessageWithWarning(conversationID int64, role string, content string, logMessage string) {
+func (m *thinkTankConversationManager) saveMessageWithWarning(conversationID int64, role string, content string, logMessage string, runID ...int64) {
 	if m == nil || m.msgRepo == nil {
 		return
 	}
-	if err := m.msgRepo.Create(&model.ChatMessage{ConversationID: conversationID, Role: role, Content: content}); err != nil {
+	var messageRunID *int64
+	if len(runID) > 0 && runID[0] > 0 {
+		messageRunID = &runID[0]
+	}
+	if err := m.msgRepo.Create(&model.ChatMessage{ConversationID: conversationID, RunID: messageRunID, Role: role, Content: content}); err != nil {
 		if m.logger != nil {
 			m.logger.LogError(AILogEntry{ConversationID: conversationID, Stage: "persistence", Message: logMessage, Detail: err.Error()})
 		}
@@ -88,11 +92,11 @@ func (m *thinkTankConversationManager) updateMetadataWithWarning(conv *model.Con
 	_ = m.convRepo.Update(conv)
 }
 
-func (m *thinkTankConversationManager) persistAssistantTurn(conv *model.Conversation, question string, answer string) {
+func (m *thinkTankConversationManager) persistAssistantTurn(conv *model.Conversation, question string, answer string, runID int64) {
 	if conv == nil || strings.TrimSpace(answer) == "" {
 		return
 	}
-	m.saveMessageWithWarning(conv.ID, "assistant", answer, "Failed to save assistant message")
+	m.saveMessageWithWarning(conv.ID, "assistant", answer, "Failed to save assistant message", runID)
 	m.updateMetadataWithWarning(conv, question)
 }
 

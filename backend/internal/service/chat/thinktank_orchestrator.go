@@ -74,7 +74,7 @@ func (o *thinkTankOrchestrator) chat(ctx context.Context, question string, conve
 		}
 		answer, err := s.adkAnswerFetcher(adkCtx, queryForAgents)
 		if err == nil && strings.TrimSpace(answer) != "" {
-			o.persistFinalAnswer(conv, derefUserID(userID), question, answer, decision, history)
+			o.persistFinalAnswer(conv, derefUserID(userID), question, answer, decision, history, 0)
 			return &ThinkTankChatResponse{Message: answer, Stage: "completed"}, nil
 		}
 	}
@@ -98,7 +98,7 @@ func (o *thinkTankOrchestrator) chat(ctx context.Context, question string, conve
 		return nil, err
 	}
 
-	o.persistFinalAnswer(conv, derefUserID(userID), question, answer, decision, history)
+	o.persistFinalAnswer(conv, derefUserID(userID), question, answer, decision, history, 0)
 	return &ThinkTankChatResponse{Message: answer, Sources: sources, Stage: "completed"}, nil
 }
 
@@ -274,11 +274,11 @@ func (o *thinkTankOrchestrator) buildAgentQuery(question string, conv *model.Con
 	return buildAgentQuery(question, memory)
 }
 
-func (o *thinkTankOrchestrator) persistFinalAnswer(conv *model.Conversation, userID int64, question string, answer string, decision PlannerDecision, history []model.ChatMessage) {
+func (o *thinkTankOrchestrator) persistFinalAnswer(conv *model.Conversation, userID int64, question string, answer string, decision PlannerDecision, history []model.ChatMessage, runID int64) {
 	if conv == nil || strings.TrimSpace(answer) == "" {
 		return
 	}
-	o.service.conversations.persistAssistantTurn(conv, question, answer)
+	o.service.conversations.persistAssistantTurn(conv, question, answer, runID)
 	o.service.runs.persistCompletedRun(conv.ID, userID, question, answer, decision)
 	o.service.memories.updateConversationMemoryWithWarning(conv.ID, userID, appendConversationTurn(history, question, answer))
 }
@@ -373,7 +373,7 @@ func (o *thinkTankOrchestrator) streamADKFlow(
 			}
 			if conv != nil {
 				s.runs.persistADKClarification(conv.ID, derefUserID(userID), runID, question, clarification, checkpointID, decision)
-				s.conversations.saveMessageWithWarning(conv.ID, "assistant", clarification, "Failed to save clarification message")
+				s.conversations.saveMessageWithWarning(conv.ID, "assistant", clarification, "Failed to save clarification message", runID)
 			}
 			o.emitStage(eventCh, conv, runID, "clarifying", "需要补充一点信息")
 			o.emitQuestion(eventCh, conv, runID, "clarifying", clarification)
@@ -459,7 +459,7 @@ func (o *thinkTankOrchestrator) streamADKFlow(
 		currentStep.complete()
 		o.emitStep(eventCh, conv, runID, currentStep.snapshot())
 	}
-	o.persistFinalAnswer(conv, derefUserID(userID), question, fullAnswer, decision, history)
+	o.persistFinalAnswer(conv, derefUserID(userID), question, fullAnswer, decision, history, runID)
 	s.runs.logStage(conv, userID, "completed", "多 Agent 协作完成", fmt.Sprintf("答案长度: %d，答案内容：%v", len(fullAnswer), fullAnswer))
 	o.emitDone(eventCh, conv, runID, "completed", "调研已完成")
 	return nil
@@ -538,7 +538,7 @@ func (o *thinkTankOrchestrator) streamManualFlow(
 	o.emitStep(eventCh, conv, runID, synStep.snapshot())
 	s.runs.logStage(conv, userID, "integration_done", "结果整合完成", "")
 
-	o.persistFinalAnswer(conv, derefUserID(userID), question, answer, decision, history)
+	o.persistFinalAnswer(conv, derefUserID(userID), question, answer, decision, history, runID)
 	for _, chunk := range splitStreamChunks(answer) {
 		o.emitChunk(eventCh, conv, runID, chunk, sources)
 	}

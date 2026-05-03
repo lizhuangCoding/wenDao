@@ -742,6 +742,42 @@ func TestThinkTankService_ChatStream_PersistsSummarizedRunEventsWithoutChunkSnap
 	}
 }
 
+func TestThinkTankService_ChatStream_PersistsAssistantMessageRunID(t *testing.T) {
+	librarian := &stubLibrarian{result: LibrarianResult{CoverageStatus: "sufficient", Summary: "站内资料充足"}}
+	synthesizer := &stubSynthesizer{answer: "整合后的最终回答"}
+	runRepo := &stubConversationRunRepository{}
+	msgRepo := &stubChatMessageRepository{}
+	convRepo := &stubConversationRepository{conversation: &model.Conversation{ID: 31, UserID: 11, Title: "研究会话"}}
+	svc := NewThinkTankService(librarian, nil, synthesizer, runRepo, &stubConversationRunStepRepository{}, &stubConversationMemoryRepository{}, convRepo, msgRepo, nil, &stubAILogger{})
+
+	eventCh, errCh := svc.ChatStream(context.Background(), "调研工业大模型落地", ptrInt64(31), ptrInt64(11))
+	for range eventCh {
+	}
+	for err := range errCh {
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
+	}
+
+	if runRepo.saved == nil || runRepo.saved.ID == 0 {
+		t.Fatalf("expected persisted run with id, got %#v", runRepo.saved)
+	}
+
+	var assistant *model.ChatMessage
+	for _, msg := range msgRepo.created {
+		if msg.Role == "assistant" {
+			assistant = msg
+			break
+		}
+	}
+	if assistant == nil {
+		t.Fatalf("expected assistant message to be persisted, got %#v", msgRepo.created)
+	}
+	if assistant.RunID == nil || *assistant.RunID != runRepo.saved.ID {
+		t.Fatalf("expected assistant message run_id %d, got %#v", runRepo.saved.ID, assistant.RunID)
+	}
+}
+
 func assertContainsEventType(t *testing.T, types []string, want string) {
 	t.Helper()
 	for _, got := range types {

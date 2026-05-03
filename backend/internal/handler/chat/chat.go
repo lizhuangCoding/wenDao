@@ -58,11 +58,13 @@ type ConversationResponse struct {
 
 // MessageResponse 消息响应
 type MessageResponse struct {
-	ID             int64  `json:"id"`
-	ConversationID int64  `json:"conversation_id"`
-	Role           string `json:"role"`
-	Content        string `json:"content"`
-	CreatedAt      string `json:"created_at"`
+	ID             int64          `json:"id"`
+	ConversationID int64          `json:"conversation_id"`
+	RunID          *int64         `json:"run_id,omitempty"`
+	Role           string         `json:"role"`
+	Content        string         `json:"content"`
+	CreatedAt      string         `json:"created_at"`
+	ProcessSteps   []StepResponse `json:"process_steps,omitempty"`
 }
 
 // ConversationDetailResponse 对话详情响应
@@ -94,6 +96,19 @@ type StepResponse struct {
 	Detail    string `json:"detail"`
 	Status    string `json:"status"`
 	CreatedAt string `json:"created_at"`
+}
+
+func buildStepResponse(step model.ConversationRunStep) StepResponse {
+	return StepResponse{
+		ID:        step.ID,
+		RunID:     step.RunID,
+		AgentName: step.AgentName,
+		Type:      step.Type,
+		Summary:   step.Summary,
+		Detail:    step.Detail,
+		Status:    step.Status,
+		CreatedAt: step.CreatedAt.Format("2006-01-02 15:04:05"),
+	}
 }
 
 func parseConversationID(c *gin.Context) (int64, bool) {
@@ -207,29 +222,28 @@ func (h *ChatHandler) Get(c *gin.Context) {
 		activeRun, _ = h.runRepo.GetActiveByConversationID(convIDInt)
 	}
 
+	stepResponses := make([]StepResponse, len(steps))
+	stepsByRunID := make(map[int64][]StepResponse)
+	for i, step := range steps {
+		stepResponse := buildStepResponse(step)
+		stepResponses[i] = stepResponse
+		stepsByRunID[step.RunID] = append(stepsByRunID[step.RunID], stepResponse)
+	}
+
 	msgResponses := make([]MessageResponse, len(msgs))
 	for i, msg := range msgs {
-		msgResponses[i] = MessageResponse{
+		msgResponse := MessageResponse{
 			ID:             msg.ID,
 			ConversationID: msg.ConversationID,
+			RunID:          msg.RunID,
 			Role:           msg.Role,
 			Content:        msg.Content,
 			CreatedAt:      msg.CreatedAt.Format("2006-01-02 15:04:05"),
 		}
-	}
-
-	stepResponses := make([]StepResponse, len(steps))
-	for i, step := range steps {
-		stepResponses[i] = StepResponse{
-			ID:        step.ID,
-			RunID:     step.RunID,
-			AgentName: step.AgentName,
-			Type:      step.Type,
-			Summary:   step.Summary,
-			Detail:    step.Detail,
-			Status:    step.Status,
-			CreatedAt: step.CreatedAt.Format("2006-01-02 15:04:05"),
+		if msg.RunID != nil {
+			msgResponse.ProcessSteps = stepsByRunID[*msg.RunID]
 		}
+		msgResponses[i] = msgResponse
 	}
 
 	var activeRunResponse *ActiveRunResponse
@@ -252,16 +266,7 @@ func (h *ChatHandler) Get(c *gin.Context) {
 			activeSteps, _ := h.runStepRepo.GetByRunID(activeRun.ID)
 			activeStepResponses = make([]StepResponse, len(activeSteps))
 			for i, step := range activeSteps {
-				activeStepResponses[i] = StepResponse{
-					ID:        step.ID,
-					RunID:     step.RunID,
-					AgentName: step.AgentName,
-					Type:      step.Type,
-					Summary:   step.Summary,
-					Detail:    step.Detail,
-					Status:    step.Status,
-					CreatedAt: step.CreatedAt.Format("2006-01-02 15:04:05"),
-				}
+				activeStepResponses[i] = buildStepResponse(step)
 			}
 		}
 	}

@@ -199,6 +199,7 @@ export interface ChatReferenceGroups {
 }
 
 export interface ChatQuestionEvent {
+  run_id?: number;
   stage: 'clarifying';
   message: string;
   requires_user_input: true;
@@ -235,9 +236,11 @@ export interface ChatConversationDetailResponse {
   messages: Array<{
     id: number;
     conversation_id: number;
+    run_id?: number;
     role: 'user' | 'assistant';
     content: string;
     created_at: string;
+    process_steps?: ChatStep[];
   }>;
   steps?: ChatStep[];
   active_run?: ChatActiveRun;

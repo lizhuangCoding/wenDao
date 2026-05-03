@@ -50,6 +50,13 @@ const normalizeStep = (step: any): ChatStep => ({
 
 const mapSteps = (steps: any[] = []): ChatStep[] => steps.map(normalizeStep);
 
+const parseChatTime = (value?: string) => {
+  if (!value) return 0;
+  const normalized = value.includes('T') ? value : value.replace(' ', 'T');
+  const time = new Date(normalized).getTime();
+  return Number.isFinite(time) ? time : 0;
+};
+
 const attachStepsToLatestAssistant = (messages: ChatMessage[], steps: ChatStep[]): ChatMessage[] => {
   if (steps.length === 0) return messages;
   const latestAssistantIndex = [...messages].reverse().findIndex((m) => m.role === 'assistant');
@@ -60,18 +67,106 @@ const attachStepsToLatestAssistant = (messages: ChatMessage[], steps: ChatStep[]
   );
 };
 
+type StepGroup = {
+  runId: number;
+  steps: ChatStep[];
+  firstStepAt: number;
+  lastStepAt: number;
+};
+
+const groupStepsByRun = (steps: ChatStep[]): StepGroup[] => {
+  const groups = new Map<number, ChatStep[]>();
+  for (const step of steps) {
+    if (!step.run_id) continue;
+    const existing = groups.get(step.run_id) || [];
+    existing.push(step);
+    groups.set(step.run_id, existing);
+  }
+  return Array.from(groups.entries())
+    .map(([runId, runSteps]) => {
+      const times = runSteps.map((step) => parseChatTime(step.created_at)).filter((time) => time > 0);
+      return {
+        runId,
+        steps: runSteps,
+        firstStepAt: times.length ? Math.min(...times) : 0,
+        lastStepAt: times.length ? Math.max(...times) : 0,
+      };
+    })
+    .sort((a, b) => a.firstStepAt - b.firstStepAt);
+};
+
+const attachStepsToAssistantMessages = (messages: ChatMessage[], steps: ChatStep[]): ChatMessage[] => {
+  if (steps.length === 0) return messages;
+
+  const assistantIndexes = messages.reduce<number[]>((indexes, message, index) => {
+    if (message.role === 'assistant') indexes.push(index);
+    return indexes;
+  }, []);
+  if (assistantIndexes.length === 0) return messages;
+
+  const groupedSteps = groupStepsByRun(steps);
+  if (groupedSteps.length === 0) {
+    return attachStepsToLatestAssistant(messages, steps);
+  }
+
+  const stepsByMessageIndex = new Map<number, ChatStep[]>();
+  const assignedMessageIndexes = new Set<number>();
+  const unassignedGroups: StepGroup[] = [];
+
+  groupedSteps.forEach((group) => {
+    const directIndex = assistantIndexes.find((messageIndex) => {
+      if (assignedMessageIndexes.has(messageIndex)) return false;
+      return messages[messageIndex].runId === group.runId;
+    });
+    if (directIndex !== undefined) {
+      assignedMessageIndexes.add(directIndex);
+      stepsByMessageIndex.set(directIndex, group.steps);
+      return;
+    }
+    unassignedGroups.push(group);
+  });
+
+  unassignedGroups.forEach((group) => {
+    const candidateIndex = assistantIndexes.find((messageIndex) => {
+      if (assignedMessageIndexes.has(messageIndex)) return false;
+      const message = messages[messageIndex];
+      return group.lastStepAt > 0 && message.timestamp >= group.lastStepAt;
+    });
+
+    const fallbackIndex = assistantIndexes.find((messageIndex) => !assignedMessageIndexes.has(messageIndex));
+    const messageIndex = candidateIndex ?? fallbackIndex;
+    if (messageIndex === undefined) return;
+
+    assignedMessageIndexes.add(messageIndex);
+    stepsByMessageIndex.set(messageIndex, group.steps);
+  });
+
+  return messages.map((message, index) => {
+    const processSteps = stepsByMessageIndex.get(index);
+    if (!processSteps) return message;
+    return {
+      ...message,
+      processSteps,
+      runId: processSteps[0]?.run_id,
+    };
+  });
+};
+
 const mapMessages = (messages: any[] = [], steps: any[] = []): ChatMessage[] => {
   const mapped = messages.map((m: any) => ({
     id: String(m.id),
     role: m.role as 'user' | 'assistant',
     content: m.content,
-    timestamp: new Date(m.created_at).getTime(),
+    timestamp: parseChatTime(m.created_at),
+    runId: m.run_id ? Number(m.run_id) : undefined,
+    processSteps: Array.isArray(m.process_steps) ? mapSteps(m.process_steps) : undefined,
   }));
-  return attachStepsToLatestAssistant(mapped, mapSteps(steps));
+  return attachStepsToAssistantMessages(mapped, mapSteps(steps));
 };
 
 const stepEventToStep = (event: ChatStepEvent): ChatStep => ({
   id: Number(event.step_id || 0),
+  run_id: event.run_id ? Number(event.run_id) : undefined,
   agent_name: event.agent_name || 'Agent',
   type: 'thinking',
   summary: event.summary || '',
@@ -111,9 +206,10 @@ const ensureResumableAssistantMessage = (
 ): ChatMessage[] => {
   if (!activeRun) return messages;
   const content = activeRun.pending_question ?? activeRun.last_answer ?? '';
-  const latestAssistantIndex = [...messages].reverse().findIndex((m) => m.role === 'assistant');
-  if (latestAssistantIndex !== -1) {
-    const targetIndex = messages.length - 1 - latestAssistantIndex;
+  const targetIndex = messages.findIndex(
+    (message) => message.role === 'assistant' && (message.runId === activeRun.id || message.id === `resume-${activeRun.id}`)
+  );
+  if (targetIndex !== -1) {
     return messages.map((message, index) =>
       index === targetIndex
         ? {
@@ -142,7 +238,8 @@ const mapConversationDetail = (detail: ChatConversationDetailResponse): Conversa
   const steps = mapSteps(detail.steps ?? []);
   const activeSteps = mapSteps(detail.active_steps ?? []);
   const activeRun = mapActiveRun(detail.active_run);
-  const messages = ensureResumableAssistantMessage(mapMessages(detail.messages, detail.steps ?? []), activeRun, activeSteps);
+  const historicalSteps = activeRun ? steps.filter((step) => step.run_id !== activeRun.id) : steps;
+  const messages = ensureResumableAssistantMessage(mapMessages(detail.messages, historicalSteps), activeRun, activeSteps);
 
   return {
     id: detail.conversation.id,
@@ -154,6 +251,48 @@ const mapConversationDetail = (detail: ChatConversationDetailResponse): Conversa
     updatedAt: new Date(detail.conversation.updated_at).getTime(),
     isLoaded: true,
   };
+};
+
+const preserveExistingProcessSteps = (next: Conversation, previous?: Conversation): Conversation => {
+  if (!previous) return next;
+
+  const previousAssistantMessages = previous.messages.filter((message) => message.role === 'assistant');
+  const stepsByRunId = new Map<number, { steps: ChatStep[]; runId?: number }>();
+  const stepsByAssistantIndex: Array<{ steps: ChatStep[]; runId?: number }> = [];
+
+  previousAssistantMessages.forEach((message) => {
+    if (!message.processSteps?.length) return;
+    const entry = { steps: message.processSteps, runId: message.runId };
+    stepsByAssistantIndex.push(entry);
+    if (message.runId) {
+      stepsByRunId.set(message.runId, entry);
+    }
+  });
+
+  if (stepsByRunId.size === 0 && stepsByAssistantIndex.length === 0) return next;
+
+  let assistantIndex = 0;
+  const messages = next.messages.map((message) => {
+    if (message.role !== 'assistant') return message;
+
+    const currentAssistantIndex = assistantIndex;
+    assistantIndex += 1;
+
+    if (message.processSteps?.length) return message;
+
+    const matched = message.runId ? stepsByRunId.get(message.runId) : undefined;
+    const fallback = stepsByAssistantIndex[currentAssistantIndex];
+    const preserved = matched ?? fallback;
+    if (!preserved?.steps.length) return message;
+
+    return {
+      ...message,
+      processSteps: preserved.steps,
+      runId: message.runId ?? preserved.runId,
+    };
+  });
+
+  return { ...next, messages };
 };
 
 const ACTIVE_CHAT_STORAGE_KEY = 'wendao.aiChat.activeId';
@@ -177,7 +316,7 @@ const persistActiveChatId = (id: number | null) => {
 
 export const useChatStore = create<ChatState>()((set, get) => {
   const applyConversationDetail = (id: number, detail: ChatConversationDetailResponse) => {
-    const mapped = mapConversationDetail(detail);
+    const mapped = preserveExistingProcessSteps(mapConversationDetail(detail), get().conversations[id]);
     set((state) => ({
       conversations: {
         ...state.conversations,
@@ -761,7 +900,7 @@ export const useChatStore = create<ChatState>()((set, get) => {
                 lastHeartbeatAt: Date.now(),
               });
             },
-            onQuestion: ({ message }) => {
+            onQuestion: ({ run_id, message }) => {
               set((state) => ({
                 currentStage: 'clarifying',
                 currentStageLabel: '需要你补充一点信息',
@@ -780,7 +919,7 @@ export const useChatStore = create<ChatState>()((set, get) => {
                       ? { ...state.conversations[currentId!].activeRun!, status: 'waiting_user', pending_question: message, last_answer: message }
                       : null,
                     messages: state.conversations[currentId!].messages.map((msg) =>
-                      msg.id === assistantMessageId ? { ...msg, content: message } : msg
+                      msg.id === assistantMessageId ? { ...msg, content: message, runId: run_id ?? msg.runId } : msg
                     ),
                     steps: state.conversations[currentId!].steps,
                     updatedAt: Date.now(),
@@ -812,7 +951,7 @@ export const useChatStore = create<ChatState>()((set, get) => {
                 };
               });
             },
-            onChunk: ({ message, content: chunkContent }) => {
+            onChunk: ({ run_id, message, content: chunkContent }) => {
               const snapshot = message ?? chunkContent ?? '';
               set((state) => ({
                 lastHeartbeatAt: Date.now(),
@@ -825,7 +964,7 @@ export const useChatStore = create<ChatState>()((set, get) => {
                       ? { ...state.conversations[currentId!].activeRun!, last_answer: snapshot, status: 'running' }
                       : null,
                     messages: state.conversations[currentId!].messages.map((msg) =>
-                      msg.id === assistantMessageId ? { ...msg, content: snapshot } : msg
+                      msg.id === assistantMessageId ? { ...msg, content: snapshot, runId: run_id ?? msg.runId } : msg
                     ),
                     steps: state.conversations[currentId!].steps,
                     updatedAt: Date.now(),

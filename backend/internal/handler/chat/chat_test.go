@@ -31,7 +31,7 @@ func (r *stubConversationRepo) Update(conv *model.Conversation) error { return n
 func (r *stubConversationRepo) Delete(id int64) error                 { return nil }
 
 type stubChatMessageRepo struct {
-	messages []model.ChatMessage
+	messages              []model.ChatMessage
 	deletedConversationID int64
 }
 
@@ -66,7 +66,7 @@ func (r *stubConversationRunRepo) DeleteByConversationID(conversationID int64) e
 }
 
 type stubConversationRunStepRepo struct {
-	steps []model.ConversationRunStep
+	steps                 []model.ConversationRunStep
 	deletedConversationID int64
 }
 
@@ -157,6 +157,126 @@ func TestChatHandler_GetIncludesRunStepsForHistoricalReplay(t *testing.T) {
 	}
 	if len(runSteps) != 2 {
 		t.Fatalf("expected 2 run steps, got %d", len(runSteps))
+	}
+}
+
+func TestChatHandler_GetIncludesMessageRunIDForStepAssociation(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	now := time.Date(2026, 5, 3, 10, 0, 0, 0, time.UTC)
+	runID := int64(42)
+	h := &ChatHandler{
+		convRepo: &stubConversationRepo{conversation: &model.Conversation{
+			ID:        21,
+			UserID:    7,
+			Title:     "多轮会话",
+			CreatedAt: now,
+			UpdatedAt: now,
+		}},
+		msgRepo: &stubChatMessageRepo{messages: []model.ChatMessage{{
+			ID:             1,
+			ConversationID: 21,
+			RunID:          &runID,
+			Role:           "assistant",
+			Content:        "第一轮回答",
+			CreatedAt:      now,
+		}}},
+		runStepRepo: &stubConversationRunStepRepo{steps: []model.ConversationRunStep{{
+			ID:             1,
+			ConversationID: 21,
+			RunID:          runID,
+			AgentName:      "planner",
+			Type:           "thinking",
+			Summary:        "生成任务计划",
+			Detail:         "计划详情",
+			Status:         "completed",
+			CreatedAt:      now,
+		}}},
+	}
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest(http.MethodGet, "/api/chat/conversations/21", strings.NewReader(""))
+	c.Params = gin.Params{{Key: "id", Value: "21"}}
+	c.Set("user_id", int64(7))
+
+	h.Get(c)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", w.Code)
+	}
+
+	var body map[string]any
+	if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
+		t.Fatalf("failed to decode response body: %v", err)
+	}
+	data := body["data"].(map[string]any)
+	messages := data["messages"].([]any)
+	message := messages[0].(map[string]any)
+	if got := int64(message["run_id"].(float64)); got != runID {
+		t.Fatalf("expected message run_id %d, got %d", runID, got)
+	}
+	processSteps, ok := message["process_steps"].([]any)
+	if !ok {
+		t.Fatalf("expected message process_steps array, got %#v", message["process_steps"])
+	}
+	if len(processSteps) != 1 {
+		t.Fatalf("expected 1 message process step, got %d", len(processSteps))
+	}
+}
+
+func TestChatHandler_GetAttachesEachRunStepsToMatchingAssistantMessage(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	now := time.Date(2026, 5, 3, 11, 0, 0, 0, time.UTC)
+	firstRunID := int64(101)
+	secondRunID := int64(102)
+	h := &ChatHandler{
+		convRepo: &stubConversationRepo{conversation: &model.Conversation{
+			ID:        21,
+			UserID:    7,
+			Title:     "多轮会话",
+			CreatedAt: now,
+			UpdatedAt: now,
+		}},
+		msgRepo: &stubChatMessageRepo{messages: []model.ChatMessage{
+			{ID: 1, ConversationID: 21, Role: "user", Content: "第一个问题", CreatedAt: now},
+			{ID: 2, ConversationID: 21, RunID: &firstRunID, Role: "assistant", Content: "第一轮回答", CreatedAt: now.Add(1 * time.Second)},
+			{ID: 3, ConversationID: 21, Role: "user", Content: "第二个问题", CreatedAt: now.Add(2 * time.Second)},
+			{ID: 4, ConversationID: 21, RunID: &secondRunID, Role: "assistant", Content: "第二轮回答", CreatedAt: now.Add(3 * time.Second)},
+		}},
+		runStepRepo: &stubConversationRunStepRepo{steps: []model.ConversationRunStep{
+			{ID: 1, ConversationID: 21, RunID: firstRunID, AgentName: "planner", Type: "thinking", Summary: "第一轮计划", Detail: "第一轮详情", Status: "completed", CreatedAt: now},
+			{ID: 2, ConversationID: 21, RunID: secondRunID, AgentName: "executor", Type: "thinking", Summary: "第二轮执行", Detail: "第二轮详情", Status: "completed", CreatedAt: now.Add(2 * time.Second)},
+		}},
+	}
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest(http.MethodGet, "/api/chat/conversations/21", strings.NewReader(""))
+	c.Params = gin.Params{{Key: "id", Value: "21"}}
+	c.Set("user_id", int64(7))
+
+	h.Get(c)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", w.Code)
+	}
+
+	var body map[string]any
+	if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
+		t.Fatalf("failed to decode response body: %v", err)
+	}
+	data := body["data"].(map[string]any)
+	messages := data["messages"].([]any)
+	firstAssistant := messages[1].(map[string]any)
+	secondAssistant := messages[3].(map[string]any)
+
+	firstSteps := firstAssistant["process_steps"].([]any)
+	secondSteps := secondAssistant["process_steps"].([]any)
+	if got := firstSteps[0].(map[string]any)["summary"]; got != "第一轮计划" {
+		t.Fatalf("expected first assistant to include first run step, got %#v", got)
+	}
+	if got := secondSteps[0].(map[string]any)["summary"]; got != "第二轮执行" {
+		t.Fatalf("expected second assistant to include second run step, got %#v", got)
 	}
 }
 

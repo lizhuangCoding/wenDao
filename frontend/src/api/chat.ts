@@ -19,7 +19,7 @@ type ChatStreamHandlers = {
   onStage?: (payload: ChatStageEvent) => void;
   onQuestion?: (payload: ChatQuestionEvent) => void;
   onStep?: (payload: ChatStepEvent) => void;
-  onChunk: (payload: { message?: string; content?: string; sources?: string[] }) => void;
+  onChunk: (payload: { run_id?: number; message?: string; content?: string; sources?: string[] }) => void;
   onDone?: (payload: Record<string, unknown>) => void;
   onError?: (payload: { error?: string; message?: string }) => void;
 };
