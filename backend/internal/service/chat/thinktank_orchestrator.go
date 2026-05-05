@@ -49,6 +49,45 @@ func (s *thinkTankResearchDraftSink) saveFromJournalist(userID int64, result *Jo
 	})
 }
 
+func (o *thinkTankOrchestrator) clarifyAgentQuery(ctx context.Context, question string, queryForAgents string) (string, ClarifierDecision, bool, string) {
+	s := o.service
+	if s.clarifier == nil {
+		return queryForAgents, defaultClarifierDecision(question), false, ""
+	}
+	decision, err := s.clarifier.Clarify(ctx, ClarifierInput{
+		OriginalQuestion: question,
+		AgentQuery:       queryForAgents,
+	})
+	if err != nil {
+		s.runs.logStage(nil, nil, "clarifier_warning", "Clarifier failed; continuing with original question", err.Error())
+		return queryForAgents, defaultClarifierDecision(question), false, ""
+	}
+	if decision.ShouldAskUser {
+		return queryForAgents, decision, true, strings.TrimSpace(decision.ClarificationQuestion)
+	}
+	return buildClarifiedAgentQuery(queryForAgents, decision), decision, false, ""
+}
+
+func (o *thinkTankOrchestrator) reviewAnswer(ctx context.Context, question string, queryForAgents string, decision ClarifierDecision, answer string, revisionCount int) (AcceptanceReview, bool) {
+	s := o.service
+	if s.acceptanceReviewer == nil || strings.TrimSpace(answer) == "" {
+		return defaultAcceptanceReview(), false
+	}
+	review, err := s.acceptanceReviewer.Review(ctx, AcceptanceReviewInput{
+		OriginalQuestion: question,
+		AgentQuery:       queryForAgents,
+		Decision:         decision,
+		Answer:           answer,
+		RevisionCount:    revisionCount,
+	})
+	if err != nil {
+		s.runs.logStage(nil, nil, "acceptance_warning", "Acceptance review failed; returning generated answer", err.Error())
+		return defaultAcceptanceReview(), false
+	}
+	shouldRevise := normalizeAcceptanceVerdict(review.Verdict) == acceptanceVerdictRevise && revisionCount < s.maxReviewRevisions
+	return review, shouldRevise
+}
+
 func (o *thinkTankOrchestrator) chat(ctx context.Context, question string, conversationID *int64, userID *int64) (*ThinkTankChatResponse, error) {
 	s := o.service
 	conv, err := s.conversations.getOwnedConversation(conversationID, userID)
@@ -64,6 +103,13 @@ func (o *thinkTankOrchestrator) chat(ctx context.Context, question string, conve
 
 	decision := PlannerDecision{ExecutionStrategy: "eino_plan_execute_replan", PlanSummary: "由 Eino PlanExecute planner 生成计划"}
 	queryForAgents := o.buildAgentQuery(question, conv, history)
+	queryForAgents, clarifierDecision, needsUser, clarificationQuestion := o.clarifyAgentQuery(ctx, question, queryForAgents)
+	if needsUser {
+		if conv != nil {
+			s.conversations.saveMessageWithWarning(conv.ID, "assistant", clarificationQuestion, "Failed to save clarification message")
+		}
+		return &ThinkTankChatResponse{Message: clarificationQuestion, Stage: "clarifying", RequiresUserInput: true}, nil
+	}
 
 	if s.adkRunner != nil && s.adkAnswerFetcher != nil {
 		adkCtx := WithUserID(ctx, derefUserID(userID))
@@ -74,8 +120,20 @@ func (o *thinkTankOrchestrator) chat(ctx context.Context, question string, conve
 		}
 		answer, err := s.adkAnswerFetcher(adkCtx, queryForAgents)
 		if err == nil && strings.TrimSpace(answer) != "" {
-			o.persistFinalAnswer(conv, derefUserID(userID), question, answer, decision, history, 0)
-			return &ThinkTankChatResponse{Message: answer, Stage: "completed"}, nil
+			finalAnswer := answer
+			review, shouldRevise := o.reviewAnswer(ctx, question, queryForAgents, clarifierDecision, finalAnswer, 0)
+			if shouldRevise {
+				revisedAnswer, revisionErr := s.adkAnswerFetcher(adkCtx, buildRevisionAgentQuery(queryForAgents, finalAnswer, review))
+				if revisionErr == nil && strings.TrimSpace(revisedAnswer) != "" {
+					finalAnswer = revisedAnswer
+					review, _ = o.reviewAnswer(ctx, question, queryForAgents, clarifierDecision, finalAnswer, 1)
+					if normalizeAcceptanceVerdict(review.Verdict) == acceptanceVerdictRevise {
+						finalAnswer = appendAcceptanceLimitations(finalAnswer, review)
+					}
+				}
+			}
+			o.persistFinalAnswer(conv, derefUserID(userID), question, finalAnswer, decision, history, 0)
+			return &ThinkTankChatResponse{Message: finalAnswer, Stage: "completed"}, nil
 		}
 	}
 
@@ -96,6 +154,24 @@ func (o *thinkTankOrchestrator) chat(ctx context.Context, question string, conve
 	answer, sources, err := s.synthesizer.Compose(ctx, queryForAgents, localResult, webResult)
 	if err != nil {
 		return nil, err
+	}
+
+	review, shouldRevise := o.reviewAnswer(ctx, question, queryForAgents, clarifierDecision, answer, 0)
+	if shouldRevise && s.adkRunner != nil && s.adkAnswerFetcher != nil {
+		adkCtx := WithUserID(ctx, derefUserID(userID))
+		adkCtx = WithAILogger(adkCtx, s.logger)
+		adkCtx = WithWebFetchState(adkCtx, newWebFetchState())
+		if conv != nil {
+			adkCtx = WithConversationID(adkCtx, conv.ID)
+		}
+		revisedAnswer, revisionErr := s.adkAnswerFetcher(adkCtx, buildRevisionAgentQuery(queryForAgents, answer, review))
+		if revisionErr == nil && strings.TrimSpace(revisedAnswer) != "" {
+			answer = revisedAnswer
+			review, _ = o.reviewAnswer(ctx, question, queryForAgents, clarifierDecision, answer, 1)
+			if normalizeAcceptanceVerdict(review.Verdict) == acceptanceVerdictRevise {
+				answer = appendAcceptanceLimitations(answer, review)
+			}
+		}
 	}
 
 	o.persistFinalAnswer(conv, derefUserID(userID), question, answer, decision, history, 0)
