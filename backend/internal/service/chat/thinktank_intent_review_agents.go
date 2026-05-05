@@ -150,7 +150,7 @@ func buildAcceptancePrompt(input AcceptanceReviewInput) string {
 		"clarifier_decision": input.Decision,
 		"answer":             strings.TrimSpace(input.Answer),
 		"revision_count":     input.RevisionCount,
-		"review_instruction": fmt.Sprintf("Revision count: %d. Return a valid JSON object with verdict.", input.RevisionCount),
+		"instruction":        fmt.Sprintf("Revision count: %d. Return a valid JSON object with verdict.", input.RevisionCount),
 	}
 	return marshalReviewPrompt(payload)
 }

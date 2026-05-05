@@ -1,6 +1,7 @@
 package chat
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 )
@@ -153,6 +154,20 @@ func TestBuildAcceptancePrompt_IncludesReviewContext(t *testing.T) {
 	for _, want := range []string{"AI Agent", "技术演进", "商业落地", "Revision count: 0", "verdict"} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("expected acceptance prompt to contain %q, got %q", want, got)
+		}
+	}
+
+	var payload map[string]any
+	if err := json.Unmarshal([]byte(got), &payload); err != nil {
+		t.Fatalf("expected acceptance prompt to be valid JSON, got error %v and prompt %q", err, got)
+	}
+	instruction, ok := payload["instruction"].(string)
+	if !ok {
+		t.Fatalf("expected acceptance prompt to include instruction field, got %#v", payload)
+	}
+	for _, want := range []string{"Revision count: 0", "verdict"} {
+		if !strings.Contains(instruction, want) {
+			t.Fatalf("expected instruction to contain %q, got %q", want, instruction)
 		}
 	}
 }
