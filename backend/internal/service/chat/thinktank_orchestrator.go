@@ -212,6 +212,20 @@ func (o *thinkTankOrchestrator) chatStream(ctx context.Context, question string,
 		runID, checkpointID, resumeFromADKInterrupt := o.prepareADKRun(conv, pending, userID, question, decision)
 		o.emitResume(eventCh, conv, runID, "analyzing", "running")
 		o.emitSnapshot(eventCh, conv, runID, "analyzing", "running", "")
+		if !resumeFromADKInterrupt {
+			o.emitStage(eventCh, conv, runID, "clarifying_intent", "正在澄清你的意图")
+			clarifiedQuery, _, needsUser, clarificationQuestion := o.clarifyAgentQuery(runCtx, question, queryForAgents)
+			if needsUser {
+				if conv != nil {
+					s.runs.persistAgentClarification(conv.ID, derefUserID(userID), runID, question, clarificationQuestion, "clarifying", `{"type":"clarifier_interrupt"}`, decision)
+					s.conversations.saveMessageWithWarning(conv.ID, "assistant", clarificationQuestion, "Failed to save clarification message", runID)
+				}
+				o.emitStage(eventCh, conv, runID, "clarifying", "需要补充一点信息")
+				o.emitQuestion(eventCh, conv, runID, "clarifying", clarificationQuestion)
+				return
+			}
+			queryForAgents = clarifiedQuery
+		}
 
 		if s.adkRunner != nil && s.adkRunner.runner != nil {
 			if err := o.streamADKFlow(runCtx, eventCh, errCh, conv, history, question, userID, queryForAgents, decision, checkpointID, runID, resumeFromADKInterrupt); err != nil {
