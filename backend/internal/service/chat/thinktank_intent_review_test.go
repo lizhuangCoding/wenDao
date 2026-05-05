@@ -99,3 +99,60 @@ func TestBuildRevisionAgentQuery_IncludesReviewInstruction(t *testing.T) {
 		}
 	}
 }
+
+func TestClarifierInstruction_OnlyAsksForCriticalMissingInfo(t *testing.T) {
+	required := []string{
+		"Only ask the user when missing information would change what should be answered",
+		"broad but clear",
+		"target_dimensions",
+		"valid JSON",
+	}
+	for _, text := range required {
+		if !strings.Contains(thinkTankClarifierInstruction, text) {
+			t.Fatalf("clarifier instruction must contain %q", text)
+		}
+	}
+}
+
+func TestAcceptanceInstruction_BoundsReviewStrictness(t *testing.T) {
+	required := []string{
+		"Return pass when the answer substantially satisfies",
+		"revise only when",
+		"ask_user only when",
+		"valid JSON",
+	}
+	for _, text := range required {
+		if !strings.Contains(thinkTankAcceptanceInstruction, text) {
+			t.Fatalf("acceptance instruction must contain %q", text)
+		}
+	}
+}
+
+func TestBuildClarifierPrompt_IncludesOriginalQuestionAndAgentQuery(t *testing.T) {
+	got := buildClarifierPrompt(ClarifierInput{
+		OriginalQuestion: "帮我调研一下李小龙",
+		AgentQuery:       "会话记忆：用户喜欢结构化回答",
+	})
+	for _, want := range []string{"帮我调研一下李小龙", "会话记忆", "should_ask_user"} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("expected clarifier prompt to contain %q, got %q", want, got)
+		}
+	}
+}
+
+func TestBuildAcceptancePrompt_IncludesReviewContext(t *testing.T) {
+	got := buildAcceptancePrompt(AcceptanceReviewInput{
+		OriginalQuestion: "帮我分析一下 AI Agent 的发展趋势",
+		AgentQuery:       "用户关心维度：技术演进、商业落地",
+		Decision: ClarifierDecision{
+			TargetDimensions: []string{"技术演进", "商业落地"},
+		},
+		Answer:        "AI Agent 正在发展。",
+		RevisionCount: 0,
+	})
+	for _, want := range []string{"AI Agent", "技术演进", "商业落地", "Revision count: 0", "verdict"} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("expected acceptance prompt to contain %q, got %q", want, got)
+		}
+	}
+}
