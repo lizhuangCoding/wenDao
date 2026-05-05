@@ -787,3 +787,48 @@ func assertContainsEventType(t *testing.T, types []string, want string) {
 	}
 	t.Fatalf("expected event type %q in %#v", want, types)
 }
+
+type stubClarifier struct {
+	decision ClarifierDecision
+	err      error
+	calls    int
+	inputs   []ClarifierInput
+}
+
+func (s *stubClarifier) Clarify(ctx context.Context, input ClarifierInput) (ClarifierDecision, error) {
+	s.calls++
+	s.inputs = append(s.inputs, input)
+	return s.decision, s.err
+}
+
+type stubAcceptanceReviewer struct {
+	reviews []AcceptanceReview
+	err     error
+	calls   int
+	inputs  []AcceptanceReviewInput
+}
+
+func (s *stubAcceptanceReviewer) Review(ctx context.Context, input AcceptanceReviewInput) (AcceptanceReview, error) {
+	s.calls++
+	s.inputs = append(s.inputs, input)
+	if len(s.reviews) >= s.calls {
+		return s.reviews[s.calls-1], s.err
+	}
+	return defaultAcceptanceReview(), s.err
+}
+
+func TestNewThinkTankService_UsesInjectedClarifierAndAcceptanceReviewer(t *testing.T) {
+	clarifier := &stubClarifier{decision: defaultClarifierDecision("问题")}
+	reviewer := &stubAcceptanceReviewer{reviews: []AcceptanceReview{defaultAcceptanceReview()}}
+	svc := NewThinkTankService(nil, nil, &stubSynthesizer{}, &stubConversationRunRepository{}, &stubConversationRunStepRepository{}, &stubConversationMemoryRepository{}, &stubConversationRepository{}, &stubChatMessageRepository{}, nil, &stubAILogger{}, clarifier, reviewer).(*thinkTankService)
+
+	if svc.clarifier != clarifier {
+		t.Fatalf("expected injected clarifier to be stored")
+	}
+	if svc.acceptanceReviewer != reviewer {
+		t.Fatalf("expected injected acceptance reviewer to be stored")
+	}
+	if svc.maxReviewRevisions != maxThinkTankReviewRevisions {
+		t.Fatalf("expected default max review revisions, got %d", svc.maxReviewRevisions)
+	}
+}
