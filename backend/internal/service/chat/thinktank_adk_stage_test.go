@@ -2,6 +2,7 @@ package chat
 
 import (
 	"context"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -73,5 +74,55 @@ func TestThinkTankService_ChatStream_EmitsQuestionWhenClarifierNeedsUser(t *test
 	}
 	if !strings.Contains(question, "完整报错信息") {
 		t.Fatalf("expected clarifier question event, got %q", question)
+	}
+}
+
+func TestThinkTankService_ChatStream_EmitsReviewingAndRevisionStages(t *testing.T) {
+	clarifier := &stubClarifier{decision: defaultClarifierDecision("帮我分析一下 AI Agent 的发展趋势")}
+	reviewer := &stubAcceptanceReviewer{reviews: []AcceptanceReview{
+		{
+			Verdict:             acceptanceVerdictRevise,
+			MissingDimensions:   []string{"风险限制"},
+			RevisionInstruction: "补充风险限制",
+		},
+		defaultAcceptanceReview(),
+	}}
+	svc := NewThinkTankService(nil, nil, &stubSynthesizer{}, &stubConversationRunRepository{}, &stubConversationRunStepRepository{}, &stubConversationMemoryRepository{}, &stubConversationRepository{}, &stubChatMessageRepository{}, nil, &stubAILogger{}, clarifier, reviewer).(*thinkTankService)
+	svc.adkRunner = &thinkTankADKRunner{runner: nil}
+	var calls int
+	svc.adkAnswerFetcher = func(ctx context.Context, question string) (string, error) {
+		calls++
+		if calls == 2 && !strings.Contains(question, "补充风险限制") {
+			t.Fatalf("expected revision instruction in second run, got %q", question)
+		}
+		return "第" + strconv.Itoa(calls) + "版答案", nil
+	}
+
+	eventCh, errCh := svc.ChatStream(context.Background(), "帮我分析一下 AI Agent 的发展趋势", nil, nil)
+	var stages []string
+	var finalChunk string
+	for event := range eventCh {
+		if event.Type == StreamEventStage {
+			stages = append(stages, event.Stage)
+		}
+		if event.Type == StreamEventChunk {
+			finalChunk += event.Message
+		}
+	}
+	for err := range errCh {
+		if err != nil {
+			t.Fatalf("expected no stream error, got %v", err)
+		}
+	}
+	for _, want := range []string{"reviewing", "revising", "completed"} {
+		if !containsStage(stages, want) {
+			t.Fatalf("expected stage %q in %#v", want, stages)
+		}
+	}
+	if calls != 2 {
+		t.Fatalf("expected one revision, got %d calls", calls)
+	}
+	if !strings.Contains(finalChunk, "第2版答案") {
+		t.Fatalf("expected revised answer chunk, got %q", finalChunk)
 	}
 }

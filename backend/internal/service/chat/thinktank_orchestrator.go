@@ -212,9 +212,10 @@ func (o *thinkTankOrchestrator) chatStream(ctx context.Context, question string,
 		runID, checkpointID, resumeFromADKInterrupt := o.prepareADKRun(conv, pending, userID, question, decision)
 		o.emitResume(eventCh, conv, runID, "analyzing", "running")
 		o.emitSnapshot(eventCh, conv, runID, "analyzing", "running", "")
+		clarifierDecision := defaultClarifierDecision(question)
 		if !resumeFromADKInterrupt {
 			o.emitStage(eventCh, conv, runID, "clarifying_intent", "正在澄清你的意图")
-			clarifiedQuery, _, needsUser, clarificationQuestion := o.clarifyAgentQuery(runCtx, question, queryForAgents)
+			clarifiedQuery, clarifiedDecision, needsUser, clarificationQuestion := o.clarifyAgentQuery(runCtx, question, queryForAgents)
 			if needsUser {
 				if conv != nil {
 					s.runs.persistAgentClarification(conv.ID, derefUserID(userID), runID, question, clarificationQuestion, "clarifying", `{"type":"clarifier_interrupt"}`, decision)
@@ -225,6 +226,36 @@ func (o *thinkTankOrchestrator) chatStream(ctx context.Context, question string,
 				return
 			}
 			queryForAgents = clarifiedQuery
+			clarifierDecision = clarifiedDecision
+		}
+
+		if s.adkRunner != nil && s.adkRunner.runner == nil && s.adkAnswerFetcher != nil {
+			answer, err := s.adkAnswerFetcher(runCtx, queryForAgents)
+			if err != nil {
+				errCh <- err
+				return
+			}
+			o.emitStage(eventCh, conv, runID, "reviewing", "正在审核答案质量")
+			review, shouldRevise := o.reviewAnswer(runCtx, question, queryForAgents, clarifierDecision, answer, 0)
+			if shouldRevise {
+				o.emitStage(eventCh, conv, runID, "revising", "正在根据审核意见修订答案")
+				revisedAnswer, revisionErr := s.adkAnswerFetcher(runCtx, buildRevisionAgentQuery(queryForAgents, answer, review))
+				if revisionErr != nil {
+					errCh <- revisionErr
+					return
+				}
+				if strings.TrimSpace(revisedAnswer) != "" {
+					answer = revisedAnswer
+				}
+				review, _ = o.reviewAnswer(runCtx, question, queryForAgents, clarifierDecision, answer, 1)
+				if normalizeAcceptanceVerdict(review.Verdict) == acceptanceVerdictRevise {
+					answer = appendAcceptanceLimitations(answer, review)
+				}
+			}
+			o.persistFinalAnswer(conv, derefUserID(userID), question, answer, decision, history, runID)
+			o.emitChunk(eventCh, conv, runID, answer, nil)
+			o.emitDone(eventCh, conv, runID, "completed", "回答已生成")
+			return
 		}
 
 		if s.adkRunner != nil && s.adkRunner.runner != nil {
@@ -545,6 +576,7 @@ func (o *thinkTankOrchestrator) streamADKFlow(
 		}
 	}
 
+	o.emitStage(eventCh, conv, runID, "reviewing", "正在审核答案质量")
 	if currentStep != nil {
 		currentStep.complete()
 		o.emitStep(eventCh, conv, runID, currentStep.snapshot())
@@ -627,6 +659,7 @@ func (o *thinkTankOrchestrator) streamManualFlow(
 	synStep.complete()
 	o.emitStep(eventCh, conv, runID, synStep.snapshot())
 	s.runs.logStage(conv, userID, "integration_done", "结果整合完成", "")
+	o.emitStage(eventCh, conv, runID, "reviewing", "正在审核答案质量")
 
 	o.persistFinalAnswer(conv, derefUserID(userID), question, answer, decision, history, runID)
 	for _, chunk := range splitStreamChunks(answer) {
