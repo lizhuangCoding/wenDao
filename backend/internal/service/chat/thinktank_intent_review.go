@@ -106,7 +106,7 @@ func parseClarifierDecision(raw string, originalQuestion string) ClarifierDecisi
 	}
 	decision.WhyNeeded = strings.TrimSpace(decision.WhyNeeded)
 	decision.SuggestedReply = strings.TrimSpace(decision.SuggestedReply)
-	if decision.ShouldAskUser && strings.TrimSpace(formatClarifierQuestion(decision)) == "" {
+	if decision.ShouldAskUser && len(decision.MissingDimensions) == 0 && decision.ClarificationQuestion == "" {
 		decision.ShouldAskUser = false
 	}
 	return decision

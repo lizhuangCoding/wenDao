@@ -115,6 +115,29 @@ func TestParseClarifierDecision_KeepsAskUserWhenVisibleProfileCanRenderQuestion(
 	}
 }
 
+func TestParseClarifierDecision_DisablesAskUserWithoutConcreteMissingDimension(t *testing.T) {
+	raw := `{
+  "normalized_question": "制定 AI 学习计划",
+  "intent": "学习 AI",
+  "answer_goal": "learning_plan",
+  "target_dimensions": ["学习路径"],
+  "constraints": {"depth": "入门"},
+  "ambiguity_level": "medium",
+  "should_ask_user": true,
+  "clarification_question": "",
+  "reason": "学习计划需要明确基础和目标",
+  "need_summary": "制定一个可执行的学习计划",
+  "missing_dimensions": [],
+  "why_needed": "不同领域、基础和目标会影响学习路径与练习项目。",
+  "suggested_reply": "我想学 AI，目前零基础，希望三个月能做一个小项目。"
+}`
+
+	got := parseClarifierDecision(raw, "我要学习知识")
+	if got.ShouldAskUser {
+		t.Fatalf("expected ask-user path to be disabled without concrete missing dimension, got %#v", got)
+	}
+}
+
 func TestFormatClarifierQuestion_ShowsNeedMissingReasonAndSuggestedReply(t *testing.T) {
 	decision := ClarifierDecision{
 		NormalizedQuestion: "我要学习知识",
