@@ -204,16 +204,35 @@ func TestFormatClarifierQuestion_StepDetailUsesConciseProcessPanel(t *testing.T)
 }
 
 func TestParseAcceptanceReview_NormalizesVerdict(t *testing.T) {
-	raw := `{"verdict":"revise","score":62,"matched_dimensions":["技术演进"],"missing_dimensions":["商业落地"],"unsupported_claims":["缺少来源"],"format_issues":["没有结论"],"revision_instruction":"补充商业落地和明确趋势判断","user_question":"","reason":"缺少关键维度"}`
+	raw := `{"verdict":"revise","score":62,"matched_dimensions":["技术演进"],"missing_dimensions":["商业落地"],"unsupported_claims":["缺少来源"],"format_issues":["没有结论"],"revision_instruction":"补充商业落地和明确趋势判断","user_question":"","reason":"缺少关键维度","summary":"  需要补充商业化分析  "}`
 	got := parseAcceptanceReview(raw)
 	if got.Verdict != acceptanceVerdictRevise {
 		t.Fatalf("expected revise verdict, got %#v", got)
+	}
+	if !got.Available {
+		t.Fatalf("expected parsed acceptance review to be available, got %#v", got)
 	}
 	if got.Score != 62 {
 		t.Fatalf("expected score 62, got %d", got.Score)
 	}
 	if got.RevisionInstruction != "补充商业落地和明确趋势判断" {
 		t.Fatalf("unexpected revision instruction %q", got.RevisionInstruction)
+	}
+	if got.Summary != "需要补充商业化分析" {
+		t.Fatalf("expected trimmed summary, got %q", got.Summary)
+	}
+}
+
+func TestNormalizeAcceptanceVerdict_AcceptsCaseAndHyphenVariants(t *testing.T) {
+	tests := map[string]string{
+		"Revise":   acceptanceVerdictRevise,
+		"ASK_USER": acceptanceVerdictAskUser,
+		"ask-user": acceptanceVerdictAskUser,
+	}
+	for verdict, want := range tests {
+		if got := normalizeAcceptanceVerdict(verdict); got != want {
+			t.Fatalf("expected %q to normalize to %q, got %q", verdict, want, got)
+		}
 	}
 }
 
@@ -222,8 +241,63 @@ func TestParseAcceptanceReview_DefaultsToPassWhenInvalid(t *testing.T) {
 	if got.Verdict != acceptanceVerdictPass {
 		t.Fatalf("invalid acceptance output should not block answer, got %#v", got)
 	}
-	if got.Score != 100 {
-		t.Fatalf("expected safe pass score, got %d", got.Score)
+	if got.Score != 0 {
+		t.Fatalf("expected unavailable pass score, got %d", got.Score)
+	}
+	if got.Available {
+		t.Fatalf("expected invalid acceptance output to be unavailable, got %#v", got)
+	}
+}
+
+func TestAppendAcceptanceSummary_PassShowsScoreAndCoveredDimensions(t *testing.T) {
+	review := AcceptanceReview{
+		Verdict:           acceptanceVerdictPass,
+		Score:             88,
+		MatchedDimensions: []string{"技术演进", "产品形态", "风险限制"},
+		Reason:            "回答覆盖主要维度，证据边界清楚。",
+		Summary:           "初稿已经满足用户的核心分析需求。",
+		Available:         true,
+	}
+
+	got := appendAcceptanceSummary("最终答案", review, false)
+	for _, want := range []string{
+		"最终答案",
+		"验收摘要：通过，评分 88/100",
+		"已覆盖：技术演进、产品形态、风险限制",
+		"初稿已经满足用户的核心分析需求。",
+		"回答覆盖主要维度，证据边界清楚。",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("expected acceptance summary to contain %q, got %q", want, got)
+		}
+	}
+}
+
+func TestAppendAcceptanceSummary_SkipsUnavailableReview(t *testing.T) {
+	got := appendAcceptanceSummary("最终答案", defaultAcceptanceReview(), false)
+	if got != "最终答案" {
+		t.Fatalf("expected unavailable review to leave answer unchanged, got %q", got)
+	}
+}
+
+func TestFormatAcceptanceQuestion_ShowsReasonAndQuestion(t *testing.T) {
+	review := AcceptanceReview{
+		Verdict:      acceptanceVerdictAskUser,
+		UserQuestion: "你希望重点分析国内市场还是全球市场？",
+		Reason:       "市场范围会改变案例、风险和趋势判断。",
+		Available:    true,
+	}
+
+	got := formatAcceptanceQuestion(review)
+	for _, want := range []string{
+		"验收时发现还缺少一个关键信息：",
+		"你希望重点分析国内市场还是全球市场？",
+		"为什么需要：",
+		"市场范围会改变案例、风险和趋势判断。",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("expected acceptance question to contain %q, got %q", want, got)
+		}
 	}
 }
 
@@ -275,6 +349,8 @@ func TestAcceptanceInstruction_BoundsReviewStrictness(t *testing.T) {
 		"Return pass when the answer substantially satisfies",
 		"revise only when",
 		"ask_user only when",
+		"score",
+		"summary",
 		"valid JSON",
 	}
 	for _, text := range required {
@@ -306,7 +382,7 @@ func TestBuildAcceptancePrompt_IncludesReviewContext(t *testing.T) {
 		Answer:        "AI Agent 正在发展。",
 		RevisionCount: 0,
 	})
-	for _, want := range []string{"AI Agent", "技术演进", "商业落地", "Revision count: 0", "verdict"} {
+	for _, want := range []string{"AI Agent", "技术演进", "商业落地", "Revision count: 0", "verdict", "score", "summary"} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("expected acceptance prompt to contain %q, got %q", want, got)
 		}
@@ -320,7 +396,7 @@ func TestBuildAcceptancePrompt_IncludesReviewContext(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected acceptance prompt to include instruction field, got %#v", payload)
 	}
-	for _, want := range []string{"Revision count: 0", "verdict"} {
+	for _, want := range []string{"Revision count: 0", "verdict", "score", "summary"} {
 		if !strings.Contains(instruction, want) {
 			t.Fatalf("expected instruction to contain %q, got %q", want, instruction)
 		}

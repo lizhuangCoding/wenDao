@@ -22,7 +22,8 @@ const thinkTankAcceptanceInstruction = `You are the ThinkTank Acceptance Reviewe
 Return pass when the answer substantially satisfies the user's original question and clarified target dimensions.
 Return revise only when important requested dimensions, evidence, or answer structure are missing and can be fixed without asking the user.
 Return ask_user only when the answer cannot proceed because critical user intent or constraints are still unknown.
-Return valid JSON only with keys: verdict, score, matched_dimensions, missing_dimensions, unsupported_claims, format_issues, revision_instruction, user_question, reason.`
+Always include a numeric score from 0 to 100 and a concise summary of the acceptance result.
+Return valid JSON only with keys: verdict, score, matched_dimensions, missing_dimensions, unsupported_claims, format_issues, revision_instruction, user_question, reason, summary.`
 
 type einoClarifier struct {
 	runner *adk.Runner
@@ -152,7 +153,7 @@ func buildAcceptancePrompt(input AcceptanceReviewInput) string {
 		"clarifier_decision": input.Decision,
 		"answer":             strings.TrimSpace(input.Answer),
 		"revision_count":     input.RevisionCount,
-		"instruction":        fmt.Sprintf("Revision count: %d. Return a valid JSON object with verdict.", input.RevisionCount),
+		"instruction":        fmt.Sprintf("Revision count: %d. Return a valid JSON object with verdict, score, and summary.", input.RevisionCount),
 	}
 	return marshalReviewPrompt(payload)
 }

@@ -56,6 +56,8 @@ type AcceptanceReview struct {
 	RevisionInstruction string   `json:"revision_instruction"`
 	UserQuestion        string   `json:"user_question"`
 	Reason              string   `json:"reason"`
+	Summary             string   `json:"summary"`
+	Available           bool     `json:"-"`
 }
 
 type AcceptanceReviewInput struct {
@@ -129,7 +131,14 @@ func parseAcceptanceReview(raw string) AcceptanceReview {
 	if err := json.Unmarshal([]byte(extractJSONObject(raw)), &review); err != nil {
 		return defaultAcceptanceReview()
 	}
+	review.Available = true
 	review.Verdict = normalizeAcceptanceVerdict(review.Verdict)
+	review.MatchedDimensions = compactNonEmptyStrings(review.MatchedDimensions)
+	review.MissingDimensions = compactNonEmptyStrings(review.MissingDimensions)
+	review.UnsupportedClaims = compactNonEmptyStrings(review.UnsupportedClaims)
+	review.FormatIssues = compactNonEmptyStrings(review.FormatIssues)
+	review.Reason = strings.TrimSpace(review.Reason)
+	review.Summary = strings.TrimSpace(review.Summary)
 	if review.Score <= 0 {
 		if review.Verdict == acceptanceVerdictPass {
 			review.Score = 100
@@ -150,18 +159,23 @@ func parseAcceptanceReview(raw string) AcceptanceReview {
 
 func defaultAcceptanceReview() AcceptanceReview {
 	return AcceptanceReview{
-		Verdict: acceptanceVerdictPass,
-		Score:   100,
-		Reason:  "acceptance output unavailable; returning generated answer",
+		Verdict:   acceptanceVerdictPass,
+		Score:     0,
+		Reason:    "acceptance output unavailable; returning generated answer",
+		Available: false,
 	}
 }
 
 func normalizeAcceptanceVerdict(verdict string) string {
-	switch strings.TrimSpace(verdict) {
+	normalized := strings.ToLower(strings.TrimSpace(verdict))
+	normalized = strings.ReplaceAll(normalized, "-", "_")
+	switch normalized {
 	case acceptanceVerdictRevise:
 		return acceptanceVerdictRevise
 	case acceptanceVerdictAskUser:
 		return acceptanceVerdictAskUser
+	case "needs_revision", "needs_revise", "revise_answer":
+		return acceptanceVerdictRevise
 	default:
 		return acceptanceVerdictPass
 	}
@@ -293,6 +307,122 @@ func formatClarifierStepDetail(decision ClarifierDecision) string {
 		parts = append(parts, "原因："+reason)
 	}
 	return strings.Join(parts, "\n\n")
+}
+
+func appendAcceptanceSummary(answer string, review AcceptanceReview, revised bool) string {
+	answer = strings.TrimSpace(answer)
+	if answer == "" || !review.Available {
+		return answer
+	}
+
+	score := review.Score
+	if score < 0 {
+		score = 0
+	}
+	if score > 100 {
+		score = 100
+	}
+
+	verdictText := "通过"
+	if revised {
+		verdictText = "初稿需要修订，已自动补充关键缺失项"
+	} else {
+		switch normalizeAcceptanceVerdict(review.Verdict) {
+		case acceptanceVerdictRevise:
+			verdictText = "需要修订"
+		case acceptanceVerdictAskUser:
+			verdictText = "需要补充信息"
+		}
+	}
+
+	parts := []string{"验收摘要：" + verdictText + "，评分 " + strconv.Itoa(score) + "/100"}
+	if matchedDimensions := compactNonEmptyStrings(review.MatchedDimensions); len(matchedDimensions) > 0 {
+		parts = append(parts, "已覆盖："+strings.Join(matchedDimensions, "、"))
+	}
+	if revised {
+		if revisionInstruction := strings.TrimSpace(review.RevisionInstruction); revisionInstruction != "" {
+			parts = append(parts, "修订重点："+revisionInstruction)
+		}
+	}
+	summary := strings.TrimSpace(review.Summary)
+	reason := strings.TrimSpace(review.Reason)
+	switch {
+	case summary != "" && reason != "":
+		parts = append(parts, "结论："+summary+"\n"+reason)
+	case summary != "":
+		parts = append(parts, "结论："+summary)
+	case reason != "":
+		parts = append(parts, "结论："+reason)
+	}
+	if missingDimensions := compactNonEmptyStrings(review.MissingDimensions); len(missingDimensions) > 0 {
+		parts = append(parts, "仍需注意："+strings.Join(missingDimensions, "、"))
+	}
+	if unsupportedClaims := compactNonEmptyStrings(review.UnsupportedClaims); len(unsupportedClaims) > 0 {
+		parts = append(parts, "证据限制："+strings.Join(unsupportedClaims, "、"))
+	}
+
+	return answer + "\n\n" + strings.Join(parts, "\n")
+}
+
+func formatAcceptanceQuestion(review AcceptanceReview) string {
+	question := strings.TrimSpace(review.UserQuestion)
+	if question == "" {
+		question = "请补充缺失的关键信息后，我再继续完善答案。"
+	}
+
+	parts := []string{"验收时发现还缺少一个关键信息：", question}
+	if reason := strings.TrimSpace(review.Reason); reason != "" {
+		parts = append(parts, "为什么需要：", reason)
+	}
+	return strings.Join(parts, "\n\n")
+}
+
+func formatAcceptanceStepDetail(review AcceptanceReview, revised bool) string {
+	if !review.Available {
+		return "AcceptanceAgent 未返回可用验收结果，已直接返回生成答案。"
+	}
+
+	score := review.Score
+	if score < 0 {
+		score = 0
+	}
+	if score > 100 {
+		score = 100
+	}
+	parts := []string{
+		"验收结论：" + acceptanceVerdictText(review.Verdict),
+		"评分：" + strconv.Itoa(score) + "/100",
+	}
+	if matchedDimensions := compactNonEmptyStrings(review.MatchedDimensions); len(matchedDimensions) > 0 {
+		parts = append(parts, "已覆盖："+strings.Join(matchedDimensions, "、"))
+	}
+	if missingDimensions := compactNonEmptyStrings(review.MissingDimensions); len(missingDimensions) > 0 {
+		parts = append(parts, "缺失维度："+strings.Join(missingDimensions, "、"))
+	}
+	if revised {
+		parts = append(parts, "处理方式：初稿需要修订，已自动补充关键缺失项")
+	} else if normalizeAcceptanceVerdict(review.Verdict) == acceptanceVerdictRevise {
+		parts = append(parts, "处理方式：需要返工修订")
+	} else if normalizeAcceptanceVerdict(review.Verdict) == acceptanceVerdictAskUser {
+		parts = append(parts, "处理方式：需要用户补充关键信息")
+	} else {
+		parts = append(parts, "处理方式：验收通过")
+	}
+	if reason := strings.TrimSpace(review.Reason); reason != "" {
+		parts = append(parts, "原因："+reason)
+	}
+	return strings.Join(parts, "\n\n")
+}
+
+func acceptanceVerdictText(verdict string) string {
+	switch normalizeAcceptanceVerdict(verdict) {
+	case acceptanceVerdictRevise:
+		return "需要修订"
+	case acceptanceVerdictAskUser:
+		return "需要补充信息"
+	default:
+		return "通过"
+	}
 }
 
 func compactNonEmptyStrings(items []string) []string {
