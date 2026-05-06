@@ -249,6 +249,34 @@ func TestParseAcceptanceReview_DefaultsToPassWhenInvalid(t *testing.T) {
 	}
 }
 
+func TestParseAcceptanceReview_EmptyObjectIsUnavailable(t *testing.T) {
+	got := parseAcceptanceReview(`{}`)
+	if got.Available {
+		t.Fatalf("expected empty acceptance object to be unavailable, got %#v", got)
+	}
+	if got.Score != 0 {
+		t.Fatalf("expected unavailable empty object score 0, got %d", got.Score)
+	}
+}
+
+func TestParseAcceptanceReview_ClampsScoreAndPreservesExplicitZero(t *testing.T) {
+	tooHigh := parseAcceptanceReview(`{"verdict":"pass","score":120,"summary":"覆盖核心问题"}`)
+	if !tooHigh.Available {
+		t.Fatalf("expected meaningful acceptance output to be available, got %#v", tooHigh)
+	}
+	if tooHigh.Score != 100 {
+		t.Fatalf("expected score to be clamped to 100, got %d", tooHigh.Score)
+	}
+
+	explicitZero := parseAcceptanceReview(`{"verdict":"pass","score":0,"summary":"无法确认质量","reason":"模型明确给出零分"}`)
+	if !explicitZero.Available {
+		t.Fatalf("expected explicit zero with summary/reason to be available, got %#v", explicitZero)
+	}
+	if explicitZero.Score != 0 {
+		t.Fatalf("expected explicit score 0 to be preserved, got %d", explicitZero.Score)
+	}
+}
+
 func TestAppendAcceptanceSummary_PassShowsScoreAndCoveredDimensions(t *testing.T) {
 	review := AcceptanceReview{
 		Verdict:           acceptanceVerdictPass,
@@ -269,6 +297,27 @@ func TestAppendAcceptanceSummary_PassShowsScoreAndCoveredDimensions(t *testing.T
 	} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("expected acceptance summary to contain %q, got %q", want, got)
+		}
+	}
+}
+
+func TestAppendAcceptanceSummary_RevisedShowsAutomaticRevision(t *testing.T) {
+	review := AcceptanceReview{
+		Verdict:             acceptanceVerdictRevise,
+		Score:               72,
+		RevisionInstruction: "补充风险限制和落地条件",
+		Summary:             "初稿缺少关键风险维度。",
+		Available:           true,
+	}
+
+	got := appendAcceptanceSummary("修订后答案", review, true)
+	for _, want := range []string{
+		"验收摘要：初稿需要修订，已自动补充关键缺失项，评分 72/100",
+		"修订重点：补充风险限制和落地条件",
+		"修订后答案",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("expected revised acceptance summary to contain %q, got %q", want, got)
 		}
 	}
 }
@@ -297,6 +346,46 @@ func TestFormatAcceptanceQuestion_ShowsReasonAndQuestion(t *testing.T) {
 	} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("expected acceptance question to contain %q, got %q", want, got)
+		}
+	}
+}
+
+func TestFormatAcceptanceStepDetail_ShowsVerdictScoreAndHandling(t *testing.T) {
+	passReview := AcceptanceReview{
+		Verdict:           acceptanceVerdictPass,
+		Score:             91,
+		MatchedDimensions: []string{"技术演进", "产品形态"},
+		Reason:            "覆盖核心维度。",
+		Available:         true,
+	}
+	passDetail := formatAcceptanceStepDetail(passReview, false)
+	for _, want := range []string{
+		"验收结论：通过",
+		"评分：91/100",
+		"已覆盖：技术演进、产品形态",
+		"处理方式：验收通过",
+		"原因：覆盖核心维度。",
+	} {
+		if !strings.Contains(passDetail, want) {
+			t.Fatalf("expected pass step detail to contain %q, got %q", want, passDetail)
+		}
+	}
+
+	reviseReview := AcceptanceReview{
+		Verdict:           acceptanceVerdictRevise,
+		Score:             64,
+		MissingDimensions: []string{"风险限制"},
+		Available:         true,
+	}
+	reviseDetail := formatAcceptanceStepDetail(reviseReview, true)
+	for _, want := range []string{
+		"验收结论：需要修订",
+		"评分：64/100",
+		"缺失维度：风险限制",
+		"处理方式：初稿需要修订，已自动补充关键缺失项",
+	} {
+		if !strings.Contains(reviseDetail, want) {
+			t.Fatalf("expected revised step detail to contain %q, got %q", want, reviseDetail)
 		}
 	}
 }

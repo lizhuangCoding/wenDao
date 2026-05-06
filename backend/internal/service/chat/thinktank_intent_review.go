@@ -60,6 +60,19 @@ type AcceptanceReview struct {
 	Available           bool     `json:"-"`
 }
 
+type rawAcceptanceReview struct {
+	Verdict             string   `json:"verdict"`
+	Score               *int     `json:"score"`
+	MatchedDimensions   []string `json:"matched_dimensions"`
+	MissingDimensions   []string `json:"missing_dimensions"`
+	UnsupportedClaims   []string `json:"unsupported_claims"`
+	FormatIssues        []string `json:"format_issues"`
+	RevisionInstruction string   `json:"revision_instruction"`
+	UserQuestion        string   `json:"user_question"`
+	Reason              string   `json:"reason"`
+	Summary             string   `json:"summary"`
+}
+
 type AcceptanceReviewInput struct {
 	OriginalQuestion string
 	AgentQuery       string
@@ -127,27 +140,33 @@ func defaultClarifierDecision(originalQuestion string) ClarifierDecision {
 }
 
 func parseAcceptanceReview(raw string) AcceptanceReview {
-	var review AcceptanceReview
-	if err := json.Unmarshal([]byte(extractJSONObject(raw)), &review); err != nil {
+	var parsed rawAcceptanceReview
+	if err := json.Unmarshal([]byte(extractJSONObject(raw)), &parsed); err != nil {
+		return defaultAcceptanceReview()
+	}
+	review := AcceptanceReview{
+		Verdict:             strings.TrimSpace(parsed.Verdict),
+		MatchedDimensions:   compactNonEmptyStrings(parsed.MatchedDimensions),
+		MissingDimensions:   compactNonEmptyStrings(parsed.MissingDimensions),
+		UnsupportedClaims:   compactNonEmptyStrings(parsed.UnsupportedClaims),
+		FormatIssues:        compactNonEmptyStrings(parsed.FormatIssues),
+		RevisionInstruction: strings.TrimSpace(parsed.RevisionInstruction),
+		UserQuestion:        strings.TrimSpace(parsed.UserQuestion),
+		Reason:              strings.TrimSpace(parsed.Reason),
+		Summary:             strings.TrimSpace(parsed.Summary),
+	}
+	if !hasMeaningfulAcceptanceReview(parsed, review) {
 		return defaultAcceptanceReview()
 	}
 	review.Available = true
 	review.Verdict = normalizeAcceptanceVerdict(review.Verdict)
-	review.MatchedDimensions = compactNonEmptyStrings(review.MatchedDimensions)
-	review.MissingDimensions = compactNonEmptyStrings(review.MissingDimensions)
-	review.UnsupportedClaims = compactNonEmptyStrings(review.UnsupportedClaims)
-	review.FormatIssues = compactNonEmptyStrings(review.FormatIssues)
-	review.Reason = strings.TrimSpace(review.Reason)
-	review.Summary = strings.TrimSpace(review.Summary)
-	if review.Score <= 0 {
-		if review.Verdict == acceptanceVerdictPass {
-			review.Score = 100
-		} else {
-			review.Score = 60
-		}
+	if parsed.Score != nil {
+		review.Score = clampAcceptanceScore(*parsed.Score)
+	} else if review.Verdict == acceptanceVerdictPass {
+		review.Score = 100
+	} else {
+		review.Score = 60
 	}
-	review.RevisionInstruction = strings.TrimSpace(review.RevisionInstruction)
-	review.UserQuestion = strings.TrimSpace(review.UserQuestion)
 	if review.Verdict == acceptanceVerdictRevise && review.RevisionInstruction == "" {
 		review.Verdict = acceptanceVerdictPass
 	}
@@ -155,6 +174,29 @@ func parseAcceptanceReview(raw string) AcceptanceReview {
 		review.Verdict = acceptanceVerdictPass
 	}
 	return review
+}
+
+func hasMeaningfulAcceptanceReview(raw rawAcceptanceReview, review AcceptanceReview) bool {
+	return strings.TrimSpace(raw.Verdict) != "" ||
+		raw.Score != nil ||
+		len(review.MatchedDimensions) > 0 ||
+		len(review.MissingDimensions) > 0 ||
+		len(review.UnsupportedClaims) > 0 ||
+		len(review.FormatIssues) > 0 ||
+		review.RevisionInstruction != "" ||
+		review.UserQuestion != "" ||
+		review.Reason != "" ||
+		review.Summary != ""
+}
+
+func clampAcceptanceScore(score int) int {
+	if score < 0 {
+		return 0
+	}
+	if score > 100 {
+		return 100
+	}
+	return score
 }
 
 func defaultAcceptanceReview() AcceptanceReview {
