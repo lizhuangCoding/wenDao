@@ -124,12 +124,15 @@ export interface CreateCommentRequest {
 // AI 聊天相关类型
 export type ChatStage =
   | 'analyzing'
+  | 'clarifying_intent'
   | 'clarifying'
   | 'adk_event'
   | 'local_search'
   | 'web_research'
   | 'integration'
   | 'synthesizing'
+  | 'reviewing'
+  | 'revising'
   | 'streaming'
   | 'completed'
   | 'failed';

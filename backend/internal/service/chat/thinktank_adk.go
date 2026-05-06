@@ -62,6 +62,8 @@ type thinkTankADKRunner struct {
 	runner          *adk.Runner
 	agent           adk.ResumableAgent
 	checkpointStore *thinkTankCheckpointStore
+	clarifier       Clarifier
+	acceptance      AcceptanceReviewer
 }
 
 type askForClarificationOptions struct {
@@ -142,6 +144,15 @@ func NewThinkTankADKRunner(
 	model, ok := llm.GetModel().(componentmodel.ToolCallingChatModel)
 	if !ok {
 		return nil, fmt.Errorf("llm model does not support tool calling")
+	}
+
+	clarifier, err := newEinoClarifier(ctx, model)
+	if err != nil {
+		return nil, err
+	}
+	acceptance, err := newEinoAcceptanceReviewer(ctx, model)
+	if err != nil {
+		return nil, err
 	}
 
 	// 1. 初始化 executor 可直接调用的 Eino tools。这里不再创建 supervisor，
@@ -259,6 +270,8 @@ func NewThinkTankADKRunner(
 		runner:          runner,
 		agent:           agent,
 		checkpointStore: checkpointStore,
+		clarifier:       clarifier,
+		acceptance:      acceptance,
 	}, nil
 }
 

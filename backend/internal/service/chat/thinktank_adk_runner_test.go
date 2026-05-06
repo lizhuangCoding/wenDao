@@ -2,6 +2,7 @@ package chat
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"wenDao/internal/model"
@@ -44,5 +45,29 @@ func TestParseADKPendingContext_RoundTripsWaitingUserCheckpoint(t *testing.T) {
 	}
 	if ctxInfo.Checkpoint != "thinktank-41-123-8" {
 		t.Fatalf("expected checkpoint round-trip, got %#v", ctxInfo)
+	}
+}
+
+func TestThinkTankOrchestrator_EffectiveQuestionCombinesADKPendingContext(t *testing.T) {
+	originalQuestion := "帮我规划数据库迁移"
+	systemQuestion := "你要迁移到哪个数据库？"
+	userSupplement := "从 MySQL 迁移到 PostgreSQL，停机窗口 30 分钟"
+	run := &model.ConversationRun{
+		Status:           "waiting_user",
+		OriginalQuestion: originalQuestion,
+		PendingQuestion:  &systemQuestion,
+		PendingContext:   marshalADKPendingContext("thinktank-52-123-8", originalQuestion, systemQuestion),
+	}
+	svc := NewThinkTankService(nil, nil, &stubSynthesizer{}, &stubConversationRunRepository{}, &stubConversationRunStepRepository{}, &stubConversationMemoryRepository{}, &stubConversationRepository{}, &stubChatMessageRepository{}, nil, &stubAILogger{}).(*thinkTankService)
+
+	effectiveQuestion, skipClarifier := svc.orchestrator.effectiveQuestionFromPending(userSupplement, run)
+
+	if !skipClarifier {
+		t.Fatalf("expected ADK pending follow-up to skip ClarifierAgent")
+	}
+	for _, want := range []string{originalQuestion, systemQuestion, userSupplement} {
+		if !strings.Contains(effectiveQuestion, want) {
+			t.Fatalf("expected effective question to contain %q, got %q", want, effectiveQuestion)
+		}
 	}
 }

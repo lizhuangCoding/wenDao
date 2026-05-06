@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -786,4 +787,236 @@ func assertContainsEventType(t *testing.T, types []string, want string) {
 		}
 	}
 	t.Fatalf("expected event type %q in %#v", want, types)
+}
+
+type stubClarifier struct {
+	decision ClarifierDecision
+	err      error
+	calls    int
+	inputs   []ClarifierInput
+}
+
+func (s *stubClarifier) Clarify(ctx context.Context, input ClarifierInput) (ClarifierDecision, error) {
+	s.calls++
+	s.inputs = append(s.inputs, input)
+	return s.decision, s.err
+}
+
+type stubAcceptanceReviewer struct {
+	reviews []AcceptanceReview
+	err     error
+	calls   int
+	inputs  []AcceptanceReviewInput
+}
+
+func (s *stubAcceptanceReviewer) Review(ctx context.Context, input AcceptanceReviewInput) (AcceptanceReview, error) {
+	s.calls++
+	s.inputs = append(s.inputs, input)
+	if len(s.reviews) >= s.calls {
+		return s.reviews[s.calls-1], s.err
+	}
+	return defaultAcceptanceReview(), s.err
+}
+
+func TestNewThinkTankService_UsesInjectedClarifierAndAcceptanceReviewer(t *testing.T) {
+	clarifier := &stubClarifier{decision: defaultClarifierDecision("问题")}
+	reviewer := &stubAcceptanceReviewer{reviews: []AcceptanceReview{defaultAcceptanceReview()}}
+	svc := NewThinkTankService(nil, nil, &stubSynthesizer{}, &stubConversationRunRepository{}, &stubConversationRunStepRepository{}, &stubConversationMemoryRepository{}, &stubConversationRepository{}, &stubChatMessageRepository{}, nil, &stubAILogger{}, clarifier, reviewer).(*thinkTankService)
+
+	if svc.clarifier != clarifier {
+		t.Fatalf("expected injected clarifier to be stored")
+	}
+	if svc.acceptanceReviewer != reviewer {
+		t.Fatalf("expected injected acceptance reviewer to be stored")
+	}
+	if svc.maxReviewRevisions != maxThinkTankReviewRevisions {
+		t.Fatalf("expected default max review revisions, got %d", svc.maxReviewRevisions)
+	}
+}
+
+func TestThinkTankServiceChat_ClarifierEnhancesADKQueryWithoutAsking(t *testing.T) {
+	clarifier := &stubClarifier{decision: ClarifierDecision{
+		NormalizedQuestion: "分析 AI Agent 的发展趋势",
+		Intent:             "了解 AI Agent 的发展趋势",
+		AnswerGoal:         "research",
+		TargetDimensions:   []string{"技术演进", "商业落地"},
+	}}
+	reviewer := &stubAcceptanceReviewer{reviews: []AcceptanceReview{defaultAcceptanceReview()}}
+	svc := NewThinkTankService(nil, nil, &stubSynthesizer{}, &stubConversationRunRepository{}, &stubConversationRunStepRepository{}, &stubConversationMemoryRepository{}, &stubConversationRepository{}, &stubChatMessageRepository{}, nil, &stubAILogger{}, clarifier, reviewer).(*thinkTankService)
+	svc.adkRunner = &thinkTankADKRunner{}
+	svc.adkAnswerFetcher = func(ctx context.Context, question string) (string, error) {
+		if !strings.Contains(question, "技术演进") || !strings.Contains(question, "商业落地") {
+			t.Fatalf("expected clarified dimensions in ADK query, got %q", question)
+		}
+		return "AI Agent 趋势答案", nil
+	}
+
+	resp, err := svc.Chat(context.Background(), "帮我分析一下 AI Agent 的发展趋势", nil, nil)
+	if err != nil {
+		t.Fatalf("expected chat success, got %v", err)
+	}
+	if resp.RequiresUserInput {
+		t.Fatalf("did not expect user input for broad but clear question")
+	}
+	if resp.Message != "AI Agent 趋势答案" {
+		t.Fatalf("unexpected response %q", resp.Message)
+	}
+	if clarifier.calls != 1 || reviewer.calls != 1 {
+		t.Fatalf("expected one clarifier and one reviewer call, got %d/%d", clarifier.calls, reviewer.calls)
+	}
+}
+
+func TestThinkTankServiceChat_ClarifierCanAskUser(t *testing.T) {
+	clarifier := &stubClarifier{decision: ClarifierDecision{
+		NormalizedQuestion:    "帮我看看这个报错怎么修",
+		Intent:                "定位报错",
+		ShouldAskUser:         true,
+		ClarificationQuestion: "请把完整报错信息、触发操作和相关代码片段发我。",
+	}}
+	svc := NewThinkTankService(nil, nil, &stubSynthesizer{}, &stubConversationRunRepository{}, &stubConversationRunStepRepository{}, &stubConversationMemoryRepository{}, &stubConversationRepository{}, &stubChatMessageRepository{}, nil, &stubAILogger{}, clarifier).(*thinkTankService)
+	svc.adkRunner = &thinkTankADKRunner{}
+	svc.adkAnswerFetcher = func(ctx context.Context, question string) (string, error) {
+		t.Fatalf("ADK should not run when clarifier asks user, got %q", question)
+		return "", nil
+	}
+
+	resp, err := svc.Chat(context.Background(), "帮我看看这个报错怎么修", nil, nil)
+	if err != nil {
+		t.Fatalf("expected clarification response without error, got %v", err)
+	}
+	if !resp.RequiresUserInput {
+		t.Fatalf("expected requires user input")
+	}
+	if resp.Stage != "clarifying" {
+		t.Fatalf("expected clarifying stage, got %q", resp.Stage)
+	}
+	if !strings.Contains(resp.Message, "完整报错信息") {
+		t.Fatalf("expected clarification question, got %q", resp.Message)
+	}
+}
+
+func TestThinkTankServiceChat_AcceptanceRevisionRunsOnce(t *testing.T) {
+	clarifier := &stubClarifier{decision: defaultClarifierDecision("帮我分析一下 AI Agent 的发展趋势")}
+	reviewer := &stubAcceptanceReviewer{reviews: []AcceptanceReview{
+		{
+			Verdict:             acceptanceVerdictRevise,
+			MissingDimensions:   []string{"风险限制"},
+			RevisionInstruction: "补充风险限制",
+		},
+		defaultAcceptanceReview(),
+	}}
+	svc := NewThinkTankService(nil, nil, &stubSynthesizer{}, &stubConversationRunRepository{}, &stubConversationRunStepRepository{}, &stubConversationMemoryRepository{}, &stubConversationRepository{}, &stubChatMessageRepository{}, nil, &stubAILogger{}, clarifier, reviewer).(*thinkTankService)
+	svc.adkRunner = &thinkTankADKRunner{}
+	var calls int
+	svc.adkAnswerFetcher = func(ctx context.Context, question string) (string, error) {
+		calls++
+		if calls == 2 && !strings.Contains(question, "补充风险限制") {
+			t.Fatalf("expected revision instruction in second ADK query, got %q", question)
+		}
+		return "第" + strconv.Itoa(calls) + "版答案", nil
+	}
+
+	resp, err := svc.Chat(context.Background(), "帮我分析一下 AI Agent 的发展趋势", nil, nil)
+	if err != nil {
+		t.Fatalf("expected chat success, got %v", err)
+	}
+	if calls != 2 {
+		t.Fatalf("expected one revision run, got %d calls", calls)
+	}
+	if resp.Message != "第2版答案" {
+		t.Fatalf("expected revised answer, got %q", resp.Message)
+	}
+}
+
+func TestThinkTankServiceChat_AcceptanceCanAskUserAndPersistWaitingRun(t *testing.T) {
+	question := "帮我制定迁移方案"
+	followUp := "需要确认目标数据库和停机窗口。"
+	convRepo := &stubConversationRepository{conversation: &model.Conversation{ID: 41, UserID: 12, Title: "迁移会话"}}
+	runRepo := &stubConversationRunRepository{}
+	msgRepo := &stubChatMessageRepository{}
+	clarifier := &stubClarifier{decision: defaultClarifierDecision(question)}
+	reviewer := &stubAcceptanceReviewer{reviews: []AcceptanceReview{{
+		Verdict:      acceptanceVerdictAskUser,
+		UserQuestion: followUp,
+		Reason:       "缺少关键约束",
+	}}}
+	svc := NewThinkTankService(nil, nil, &stubSynthesizer{}, runRepo, &stubConversationRunStepRepository{}, &stubConversationMemoryRepository{}, convRepo, msgRepo, nil, &stubAILogger{}, clarifier, reviewer).(*thinkTankService)
+	svc.adkRunner = &thinkTankADKRunner{}
+	svc.adkAnswerFetcher = func(ctx context.Context, question string) (string, error) {
+		return "初版方案", nil
+	}
+
+	resp, err := svc.Chat(context.Background(), question, ptrInt64(41), ptrInt64(12))
+	if err != nil {
+		t.Fatalf("expected chat success, got %v", err)
+	}
+	if !resp.RequiresUserInput {
+		t.Fatalf("expected acceptance ask_user to require user input")
+	}
+	if resp.Stage != "clarifying" || resp.Message != followUp {
+		t.Fatalf("expected follow-up response, got stage=%q message=%q", resp.Stage, resp.Message)
+	}
+	if runRepo.active == nil || runRepo.active.Status != "waiting_user" {
+		t.Fatalf("expected waiting_user run, got %#v", runRepo.active)
+	}
+	if !strings.Contains(runRepo.active.PendingContext, "acceptance_interrupt") || !strings.Contains(runRepo.active.PendingContext, question) {
+		t.Fatalf("expected acceptance pending context with original question, got %q", runRepo.active.PendingContext)
+	}
+	var assistant *model.ChatMessage
+	for _, msg := range msgRepo.created {
+		if msg.Role == "assistant" {
+			assistant = msg
+		}
+	}
+	if assistant == nil || assistant.Content != followUp {
+		t.Fatalf("expected persisted assistant follow-up, got %#v", msgRepo.created)
+	}
+}
+
+func TestThinkTankServiceChat_AcceptanceFollowUpUpdatesPendingRun(t *testing.T) {
+	originalQuestion := "帮我制定迁移方案"
+	systemQuestion := "需要确认目标数据库和停机窗口。"
+	userSupplement := "MySQL 到 PostgreSQL，停机窗口 30 分钟"
+	nextFollowUp := "还需要确认数据量级。"
+	runRepo := &stubConversationRunRepository{active: &model.ConversationRun{
+		ID:               77,
+		ConversationID:   41,
+		UserID:           12,
+		Status:           "waiting_user",
+		CurrentStage:     "clarifying",
+		OriginalQuestion: originalQuestion,
+		PendingQuestion:  &systemQuestion,
+		PendingContext:   marshalAgentPendingContext("acceptance_interrupt", originalQuestion, systemQuestion),
+	}}
+	convRepo := &stubConversationRepository{conversation: &model.Conversation{ID: 41, UserID: 12, Title: "迁移会话"}}
+	clarifier := &stubClarifier{decision: defaultClarifierDecision(originalQuestion)}
+	reviewer := &stubAcceptanceReviewer{reviews: []AcceptanceReview{{
+		Verdict:      acceptanceVerdictAskUser,
+		UserQuestion: nextFollowUp,
+		Reason:       "还缺少数据规模",
+	}}}
+	svc := NewThinkTankService(nil, nil, &stubSynthesizer{}, runRepo, &stubConversationRunStepRepository{}, &stubConversationMemoryRepository{}, convRepo, &stubChatMessageRepository{}, nil, &stubAILogger{}, clarifier, reviewer).(*thinkTankService)
+	svc.adkRunner = &thinkTankADKRunner{}
+	svc.adkAnswerFetcher = func(ctx context.Context, question string) (string, error) {
+		for _, want := range []string{originalQuestion, systemQuestion, userSupplement} {
+			if !strings.Contains(question, want) {
+				t.Fatalf("expected resumed ADK query to contain %q, got %q", want, question)
+			}
+		}
+		return "初版方案", nil
+	}
+
+	resp, err := svc.Chat(context.Background(), userSupplement, ptrInt64(41), ptrInt64(12))
+	if err != nil {
+		t.Fatalf("expected chat success, got %v", err)
+	}
+	if !resp.RequiresUserInput || resp.Message != nextFollowUp {
+		t.Fatalf("expected next follow-up, got %#v", resp)
+	}
+	if runRepo.active == nil || runRepo.active.ID != 77 || runRepo.active.Status != "waiting_user" {
+		t.Fatalf("expected pending run 77 to be updated, got %#v", runRepo.active)
+	}
+	if !strings.Contains(runRepo.active.PendingContext, "acceptance_interrupt") || !strings.Contains(runRepo.active.PendingContext, nextFollowUp) {
+		t.Fatalf("expected updated pending context, got %q", runRepo.active.PendingContext)
+	}
 }

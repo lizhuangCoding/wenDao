@@ -49,6 +49,45 @@ func (s *thinkTankResearchDraftSink) saveFromJournalist(userID int64, result *Jo
 	})
 }
 
+func (o *thinkTankOrchestrator) clarifyAgentQuery(ctx context.Context, question string, queryForAgents string) (string, ClarifierDecision, bool, string) {
+	s := o.service
+	if s.clarifier == nil {
+		return queryForAgents, defaultClarifierDecision(question), false, ""
+	}
+	decision, err := s.clarifier.Clarify(ctx, ClarifierInput{
+		OriginalQuestion: question,
+		AgentQuery:       queryForAgents,
+	})
+	if err != nil {
+		s.runs.logStage(nil, nil, "clarifier_warning", "Clarifier failed; continuing with original question", err.Error())
+		return queryForAgents, defaultClarifierDecision(question), false, ""
+	}
+	if decision.ShouldAskUser {
+		return queryForAgents, decision, true, strings.TrimSpace(decision.ClarificationQuestion)
+	}
+	return buildClarifiedAgentQuery(queryForAgents, decision), decision, false, ""
+}
+
+func (o *thinkTankOrchestrator) reviewAnswer(ctx context.Context, question string, queryForAgents string, decision ClarifierDecision, answer string, revisionCount int) (AcceptanceReview, bool) {
+	s := o.service
+	if s.acceptanceReviewer == nil || strings.TrimSpace(answer) == "" {
+		return defaultAcceptanceReview(), false
+	}
+	review, err := s.acceptanceReviewer.Review(ctx, AcceptanceReviewInput{
+		OriginalQuestion: question,
+		AgentQuery:       queryForAgents,
+		Decision:         decision,
+		Answer:           answer,
+		RevisionCount:    revisionCount,
+	})
+	if err != nil {
+		s.runs.logStage(nil, nil, "acceptance_warning", "Acceptance review failed; returning generated answer", err.Error())
+		return defaultAcceptanceReview(), false
+	}
+	shouldRevise := normalizeAcceptanceVerdict(review.Verdict) == acceptanceVerdictRevise && revisionCount < s.maxReviewRevisions
+	return review, shouldRevise
+}
+
 func (o *thinkTankOrchestrator) chat(ctx context.Context, question string, conversationID *int64, userID *int64) (*ThinkTankChatResponse, error) {
 	s := o.service
 	conv, err := s.conversations.getOwnedConversation(conversationID, userID)
@@ -57,13 +96,33 @@ func (o *thinkTankOrchestrator) chat(ctx context.Context, question string, conve
 	}
 
 	var history []model.ChatMessage
+	var pending *model.ConversationRun
 	if conv != nil {
 		history = s.conversations.loadHistory(conv.ID)
+		pending = s.runs.activeRun(conv.ID)
 		s.conversations.saveMessageWithWarning(conv.ID, "user", question, "Failed to save user message")
 	}
 
 	decision := PlannerDecision{ExecutionStrategy: "eino_plan_execute_replan", PlanSummary: "由 Eino PlanExecute planner 生成计划"}
-	queryForAgents := o.buildAgentQuery(question, conv, history)
+	effectiveQuestion, skipClarifier := o.effectiveQuestionFromPending(question, pending)
+	pendingRunID := runIDFromPending(pending)
+	queryForAgents := o.buildAgentQuery(effectiveQuestion, conv, history)
+	clarifierDecision := defaultClarifierDecision(effectiveQuestion)
+	if skipClarifier {
+		clarifierDecision = defaultClarifierDecision(effectiveQuestion)
+	} else {
+		var needsUser bool
+		var clarificationQuestion string
+		queryForAgents, clarifierDecision, needsUser, clarificationQuestion = o.clarifyAgentQuery(ctx, effectiveQuestion, queryForAgents)
+		if needsUser {
+			if conv != nil {
+				pendingContext := marshalAgentPendingContext("clarifier_interrupt", effectiveQuestion, clarificationQuestion)
+				s.runs.persistAgentClarification(conv.ID, derefUserID(userID), pendingRunID, effectiveQuestion, clarificationQuestion, "clarifying", pendingContext, decision)
+				s.conversations.saveMessageWithWarning(conv.ID, "assistant", clarificationQuestion, "Failed to save clarification message")
+			}
+			return &ThinkTankChatResponse{Message: clarificationQuestion, Stage: "clarifying", RequiresUserInput: true}, nil
+		}
+	}
 
 	if s.adkRunner != nil && s.adkAnswerFetcher != nil {
 		adkCtx := WithUserID(ctx, derefUserID(userID))
@@ -74,8 +133,28 @@ func (o *thinkTankOrchestrator) chat(ctx context.Context, question string, conve
 		}
 		answer, err := s.adkAnswerFetcher(adkCtx, queryForAgents)
 		if err == nil && strings.TrimSpace(answer) != "" {
-			o.persistFinalAnswer(conv, derefUserID(userID), question, answer, decision, history, 0)
-			return &ThinkTankChatResponse{Message: answer, Stage: "completed"}, nil
+			finalAnswer := answer
+			review, shouldRevise := o.reviewAnswer(ctx, effectiveQuestion, queryForAgents, clarifierDecision, finalAnswer, 0)
+			if normalizeAcceptanceVerdict(review.Verdict) == acceptanceVerdictAskUser {
+				return o.acceptanceQuestionResponse(conv, derefUserID(userID), pendingRunID, effectiveQuestion, review.UserQuestion, decision), nil
+			}
+			if shouldRevise {
+				revisedAnswer, revisionErr := s.adkAnswerFetcher(adkCtx, buildRevisionAgentQuery(queryForAgents, finalAnswer, review))
+				if revisionErr != nil || strings.TrimSpace(revisedAnswer) == "" {
+					finalAnswer = appendAcceptanceLimitations(finalAnswer, review)
+				} else {
+					finalAnswer = revisedAnswer
+					review, _ = o.reviewAnswer(ctx, effectiveQuestion, queryForAgents, clarifierDecision, finalAnswer, 1)
+					if normalizeAcceptanceVerdict(review.Verdict) == acceptanceVerdictAskUser {
+						return o.acceptanceQuestionResponse(conv, derefUserID(userID), pendingRunID, effectiveQuestion, review.UserQuestion, decision), nil
+					}
+					if normalizeAcceptanceVerdict(review.Verdict) == acceptanceVerdictRevise {
+						finalAnswer = appendAcceptanceLimitations(finalAnswer, review)
+					}
+				}
+			}
+			o.persistFinalAnswer(conv, derefUserID(userID), effectiveQuestion, finalAnswer, decision, history, 0)
+			return &ThinkTankChatResponse{Message: finalAnswer, Stage: "completed"}, nil
 		}
 	}
 
@@ -98,7 +177,33 @@ func (o *thinkTankOrchestrator) chat(ctx context.Context, question string, conve
 		return nil, err
 	}
 
-	o.persistFinalAnswer(conv, derefUserID(userID), question, answer, decision, history, 0)
+	review, shouldRevise := o.reviewAnswer(ctx, effectiveQuestion, queryForAgents, clarifierDecision, answer, 0)
+	if normalizeAcceptanceVerdict(review.Verdict) == acceptanceVerdictAskUser {
+		return o.acceptanceQuestionResponse(conv, derefUserID(userID), pendingRunID, effectiveQuestion, review.UserQuestion, decision), nil
+	}
+	if shouldRevise && s.adkRunner != nil && s.adkAnswerFetcher != nil {
+		adkCtx := WithUserID(ctx, derefUserID(userID))
+		adkCtx = WithAILogger(adkCtx, s.logger)
+		adkCtx = WithWebFetchState(adkCtx, newWebFetchState())
+		if conv != nil {
+			adkCtx = WithConversationID(adkCtx, conv.ID)
+		}
+		revisedAnswer, revisionErr := s.adkAnswerFetcher(adkCtx, buildRevisionAgentQuery(queryForAgents, answer, review))
+		if revisionErr != nil || strings.TrimSpace(revisedAnswer) == "" {
+			answer = appendAcceptanceLimitations(answer, review)
+		} else {
+			answer = revisedAnswer
+			review, _ = o.reviewAnswer(ctx, effectiveQuestion, queryForAgents, clarifierDecision, answer, 1)
+			if normalizeAcceptanceVerdict(review.Verdict) == acceptanceVerdictAskUser {
+				return o.acceptanceQuestionResponse(conv, derefUserID(userID), pendingRunID, effectiveQuestion, review.UserQuestion, decision), nil
+			}
+			if normalizeAcceptanceVerdict(review.Verdict) == acceptanceVerdictRevise {
+				answer = appendAcceptanceLimitations(answer, review)
+			}
+		}
+	}
+
+	o.persistFinalAnswer(conv, derefUserID(userID), effectiveQuestion, answer, decision, history, 0)
 	return &ThinkTankChatResponse{Message: answer, Sources: sources, Stage: "completed"}, nil
 }
 
@@ -132,19 +237,75 @@ func (o *thinkTankOrchestrator) chatStream(ctx context.Context, question string,
 		o.emitStage(eventCh, conv, 0, "analyzing", "正在进行多 Agent 深度调研")
 		s.runs.logStage(conv, userID, "adk_start", "开始多 Agent 协作流", question)
 
-		queryForAgents := o.buildAgentQuery(question, conv, history)
-		runID, checkpointID, resumeFromADKInterrupt := o.prepareADKRun(conv, pending, userID, question, decision)
+		effectiveQuestion, skipClarifier := o.effectiveQuestionFromPending(question, pending)
+		queryForAgents := o.buildAgentQuery(effectiveQuestion, conv, history)
+		runID, checkpointID, resumeFromADKInterrupt := o.prepareADKRun(conv, pending, userID, effectiveQuestion, decision)
 		o.emitResume(eventCh, conv, runID, "analyzing", "running")
 		o.emitSnapshot(eventCh, conv, runID, "analyzing", "running", "")
+		clarifierDecision := defaultClarifierDecision(effectiveQuestion)
+		if !resumeFromADKInterrupt && !skipClarifier {
+			o.emitStage(eventCh, conv, runID, "clarifying_intent", "正在澄清你的意图")
+			clarifiedQuery, clarifiedDecision, needsUser, clarificationQuestion := o.clarifyAgentQuery(runCtx, effectiveQuestion, queryForAgents)
+			if needsUser {
+				if conv != nil {
+					pendingContext := marshalAgentPendingContext("clarifier_interrupt", effectiveQuestion, clarificationQuestion)
+					s.runs.persistAgentClarification(conv.ID, derefUserID(userID), runID, effectiveQuestion, clarificationQuestion, "clarifying", pendingContext, decision)
+					s.conversations.saveMessageWithWarning(conv.ID, "assistant", clarificationQuestion, "Failed to save clarification message", runID)
+				}
+				o.emitStage(eventCh, conv, runID, "clarifying", "需要补充一点信息")
+				o.emitQuestion(eventCh, conv, runID, "clarifying", clarificationQuestion)
+				return
+			}
+			queryForAgents = clarifiedQuery
+			clarifierDecision = clarifiedDecision
+		}
+
+		if s.adkRunner != nil && s.adkRunner.runner == nil && s.adkAnswerFetcher != nil {
+			answer, err := s.adkAnswerFetcher(runCtx, queryForAgents)
+			if err != nil {
+				errCh <- err
+				return
+			}
+			o.emitStage(eventCh, conv, runID, "reviewing", "正在审核答案质量")
+			review, shouldRevise := o.reviewAnswer(runCtx, effectiveQuestion, queryForAgents, clarifierDecision, answer, 0)
+			if normalizeAcceptanceVerdict(review.Verdict) == acceptanceVerdictAskUser {
+				o.emitAcceptanceQuestion(eventCh, conv, runID, derefUserID(userID), effectiveQuestion, review.UserQuestion, decision)
+				return
+			}
+			if shouldRevise {
+				o.emitStage(eventCh, conv, runID, "revising", "正在根据审核意见修订答案")
+				revisedAnswer, revisionErr := s.adkAnswerFetcher(runCtx, buildRevisionAgentQuery(queryForAgents, answer, review))
+				if revisionErr != nil {
+					s.runs.logStage(conv, userID, "acceptance_revision_warning", "答案修订失败，返回初版并附加审核说明", revisionErr.Error())
+					answer = appendAcceptanceLimitations(answer, review)
+				} else if strings.TrimSpace(revisedAnswer) == "" {
+					answer = appendAcceptanceLimitations(answer, review)
+				} else if strings.TrimSpace(revisedAnswer) != "" {
+					answer = revisedAnswer
+					review, _ = o.reviewAnswer(runCtx, effectiveQuestion, queryForAgents, clarifierDecision, answer, 1)
+					if normalizeAcceptanceVerdict(review.Verdict) == acceptanceVerdictAskUser {
+						o.emitAcceptanceQuestion(eventCh, conv, runID, derefUserID(userID), effectiveQuestion, review.UserQuestion, decision)
+						return
+					}
+					if normalizeAcceptanceVerdict(review.Verdict) == acceptanceVerdictRevise {
+						answer = appendAcceptanceLimitations(answer, review)
+					}
+				}
+			}
+			o.persistFinalAnswer(conv, derefUserID(userID), effectiveQuestion, answer, decision, history, runID)
+			o.emitChunk(eventCh, conv, runID, answer, nil)
+			o.emitDone(eventCh, conv, runID, "completed", "回答已生成")
+			return
+		}
 
 		if s.adkRunner != nil && s.adkRunner.runner != nil {
-			if err := o.streamADKFlow(runCtx, eventCh, errCh, conv, history, question, userID, queryForAgents, decision, checkpointID, runID, resumeFromADKInterrupt); err != nil {
+			if err := o.streamADKFlow(runCtx, eventCh, errCh, conv, history, effectiveQuestion, question, userID, queryForAgents, decision, checkpointID, runID, resumeFromADKInterrupt, clarifierDecision); err != nil {
 				return
 			}
 			return
 		}
 
-		o.streamManualFlow(runCtx, eventCh, errCh, conv, history, question, userID, queryForAgents, decision, runID)
+		o.streamManualFlow(runCtx, eventCh, errCh, conv, history, effectiveQuestion, userID, queryForAgents, decision, runID, clarifierDecision)
 	}()
 	return eventCh, errCh
 }
@@ -274,6 +435,50 @@ func (o *thinkTankOrchestrator) buildAgentQuery(question string, conv *model.Con
 	return buildAgentQuery(question, memory)
 }
 
+func (o *thinkTankOrchestrator) effectiveQuestionFromPending(question string, pending *model.ConversationRun) (string, bool) {
+	if pendingContext, ok := parseAgentPendingContext(pending); ok {
+		return buildInterruptedFollowUpQuestion(pendingContext.OriginalQuestion, pendingContext.SystemQuestion, question), true
+	}
+	if pendingContext, ok := parseADKPendingContext(pending); ok && strings.TrimSpace(pendingContext.OriginalQuestion) != "" && strings.TrimSpace(pendingContext.SystemQuestion) != "" {
+		return buildInterruptedFollowUpQuestion(pendingContext.OriginalQuestion, pendingContext.SystemQuestion, question), true
+	}
+	return question, false
+}
+
+func runIDFromPending(pending *model.ConversationRun) int64 {
+	if pending == nil || pending.ID <= 0 || pending.Status != "waiting_user" {
+		return 0
+	}
+	return pending.ID
+}
+
+func (o *thinkTankOrchestrator) acceptanceQuestionResponse(conv *model.Conversation, userID int64, runID int64, question string, userQuestion string, decision PlannerDecision) *ThinkTankChatResponse {
+	userQuestion = strings.TrimSpace(userQuestion)
+	if userQuestion == "" {
+		userQuestion = "还需要你补充一点信息，我才能继续。"
+	}
+	if conv != nil {
+		pendingContext := marshalAgentPendingContext("acceptance_interrupt", question, userQuestion)
+		o.service.runs.persistAgentClarification(conv.ID, userID, runID, question, userQuestion, "clarifying", pendingContext, decision)
+		o.service.conversations.saveMessageWithWarning(conv.ID, "assistant", userQuestion, "Failed to save acceptance clarification message", runID)
+	}
+	return &ThinkTankChatResponse{Message: userQuestion, Stage: "clarifying", RequiresUserInput: true}
+}
+
+func (o *thinkTankOrchestrator) emitAcceptanceQuestion(eventCh chan<- StreamEvent, conv *model.Conversation, runID int64, userID int64, question string, userQuestion string, decision PlannerDecision) {
+	userQuestion = strings.TrimSpace(userQuestion)
+	if userQuestion == "" {
+		userQuestion = "还需要你补充一点信息，我才能继续。"
+	}
+	if conv != nil {
+		pendingContext := marshalAgentPendingContext("acceptance_interrupt", question, userQuestion)
+		o.service.runs.persistAgentClarification(conv.ID, userID, runID, question, userQuestion, "clarifying", pendingContext, decision)
+		o.service.conversations.saveMessageWithWarning(conv.ID, "assistant", userQuestion, "Failed to save acceptance clarification message", runID)
+	}
+	o.emitStage(eventCh, conv, runID, "clarifying", "需要补充一点信息")
+	o.emitQuestion(eventCh, conv, runID, "clarifying", userQuestion)
+}
+
 func (o *thinkTankOrchestrator) persistFinalAnswer(conv *model.Conversation, userID int64, question string, answer string, decision PlannerDecision, history []model.ChatMessage, runID int64) {
 	if conv == nil || strings.TrimSpace(answer) == "" {
 		return
@@ -304,12 +509,14 @@ func (o *thinkTankOrchestrator) streamADKFlow(
 	conv *model.Conversation,
 	history []model.ChatMessage,
 	question string,
+	resumeInput string,
 	userID *int64,
 	queryForAgents string,
 	decision PlannerDecision,
 	checkpointID string,
 	runID int64,
 	resumeFromADKInterrupt bool,
+	clarifierDecision ClarifierDecision,
 ) error {
 	s := o.service
 	adkCtx := WithUserID(ctx, derefUserID(userID))
@@ -322,7 +529,7 @@ func (o *thinkTankOrchestrator) streamADKFlow(
 
 	var adkIter *adk.AsyncIterator[*adk.AgentEvent]
 	if resumeFromADKInterrupt {
-		resumeIter, resumeErr := s.adkRunner.runner.Resume(adkCtx, checkpointID, adk.WithToolOptions([]tool.Option{WithNewInput(question)}))
+		resumeIter, resumeErr := s.adkRunner.runner.Resume(adkCtx, checkpointID, adk.WithToolOptions([]tool.Option{WithNewInput(resumeInput)}))
 		if resumeErr != nil {
 			errCh <- resumeErr
 			return resumeErr
@@ -426,7 +633,6 @@ func (o *thinkTankOrchestrator) streamADKFlow(
 					adkWebNotes = appendNonEmptyNote(adkWebNotes, "replanner returned a tool limitation instead of a user-facing answer: "+response)
 				} else {
 					fullAnswer = appendGroupedReferences(response, adkArticleSources, adkWebSources)
-					o.emitChunk(eventCh, conv, runID, fullAnswer, nil)
 				}
 			}
 		}
@@ -439,7 +645,6 @@ func (o *thinkTankOrchestrator) streamADKFlow(
 			if currentStep != nil {
 				currentStep.appendDetail("replanner 未通过 respond 工具产出最终答案，已根据已执行步骤和检索结果生成兜底回答。")
 			}
-			o.emitChunk(eventCh, conv, runID, fullAnswer, nil)
 		} else {
 			err := fmt.Errorf("ADK run completed without final respond output")
 			if fallbackErr != nil {
@@ -455,12 +660,41 @@ func (o *thinkTankOrchestrator) streamADKFlow(
 		}
 	}
 
+	o.emitStage(eventCh, conv, runID, "reviewing", "正在审核答案质量")
 	if currentStep != nil {
 		currentStep.complete()
 		o.emitStep(eventCh, conv, runID, currentStep.snapshot())
 	}
+	review, shouldRevise := o.reviewAnswer(ctx, question, queryForAgents, clarifierDecision, fullAnswer, 0)
+	if normalizeAcceptanceVerdict(review.Verdict) == acceptanceVerdictAskUser {
+		o.emitAcceptanceQuestion(eventCh, conv, runID, derefUserID(userID), question, review.UserQuestion, decision)
+		return nil
+	}
+	if shouldRevise && s.adkAnswerFetcher != nil {
+		o.emitStage(eventCh, conv, runID, "revising", "正在根据审核意见修订答案")
+		revisedAnswer, revisionErr := s.adkAnswerFetcher(adkCtx, buildRevisionAgentQuery(queryForAgents, fullAnswer, review))
+		if revisionErr != nil {
+			s.runs.logStage(conv, userID, "acceptance_revision_warning", "答案修订失败，返回初版并附加审核说明", revisionErr.Error())
+			fullAnswer = appendAcceptanceLimitations(fullAnswer, review)
+		} else if strings.TrimSpace(revisedAnswer) == "" {
+			fullAnswer = appendAcceptanceLimitations(fullAnswer, review)
+		} else if strings.TrimSpace(revisedAnswer) != "" {
+			fullAnswer = revisedAnswer
+			review, _ = o.reviewAnswer(ctx, question, queryForAgents, clarifierDecision, fullAnswer, 1)
+			if normalizeAcceptanceVerdict(review.Verdict) == acceptanceVerdictAskUser {
+				o.emitAcceptanceQuestion(eventCh, conv, runID, derefUserID(userID), question, review.UserQuestion, decision)
+				return nil
+			}
+			if normalizeAcceptanceVerdict(review.Verdict) == acceptanceVerdictRevise {
+				fullAnswer = appendAcceptanceLimitations(fullAnswer, review)
+			}
+		}
+	} else if shouldRevise {
+		fullAnswer = appendAcceptanceLimitations(fullAnswer, review)
+	}
 	o.persistFinalAnswer(conv, derefUserID(userID), question, fullAnswer, decision, history, runID)
 	s.runs.logStage(conv, userID, "completed", "多 Agent 协作完成", fmt.Sprintf("答案长度: %d，答案内容：%v", len(fullAnswer), fullAnswer))
+	o.emitChunk(eventCh, conv, runID, fullAnswer, nil)
 	o.emitDone(eventCh, conv, runID, "completed", "调研已完成")
 	return nil
 }
@@ -476,6 +710,7 @@ func (o *thinkTankOrchestrator) streamManualFlow(
 	queryForAgents string,
 	decision PlannerDecision,
 	runID int64,
+	clarifierDecision ClarifierDecision,
 ) {
 	s := o.service
 	s.runs.logStage(conv, userID, "manual_start", "开始手动编排流程", queryForAgents)
@@ -537,6 +772,34 @@ func (o *thinkTankOrchestrator) streamManualFlow(
 	synStep.complete()
 	o.emitStep(eventCh, conv, runID, synStep.snapshot())
 	s.runs.logStage(conv, userID, "integration_done", "结果整合完成", "")
+	o.emitStage(eventCh, conv, runID, "reviewing", "正在审核答案质量")
+	review, shouldRevise := o.reviewAnswer(ctx, question, queryForAgents, clarifierDecision, answer, 0)
+	if normalizeAcceptanceVerdict(review.Verdict) == acceptanceVerdictAskUser {
+		o.emitAcceptanceQuestion(eventCh, conv, runID, derefUserID(userID), question, review.UserQuestion, decision)
+		return
+	}
+	if shouldRevise && s.adkRunner != nil && s.adkAnswerFetcher != nil {
+		o.emitStage(eventCh, conv, runID, "revising", "正在根据审核意见修订答案")
+		revisedAnswer, revisionErr := s.adkAnswerFetcher(ctx, buildRevisionAgentQuery(queryForAgents, answer, review))
+		if revisionErr != nil {
+			s.runs.logStage(conv, userID, "acceptance_revision_warning", "答案修订失败，返回初版并附加审核说明", revisionErr.Error())
+			answer = appendAcceptanceLimitations(answer, review)
+		} else if strings.TrimSpace(revisedAnswer) == "" {
+			answer = appendAcceptanceLimitations(answer, review)
+		} else if strings.TrimSpace(revisedAnswer) != "" {
+			answer = revisedAnswer
+			review, _ = o.reviewAnswer(ctx, question, queryForAgents, clarifierDecision, answer, 1)
+			if normalizeAcceptanceVerdict(review.Verdict) == acceptanceVerdictAskUser {
+				o.emitAcceptanceQuestion(eventCh, conv, runID, derefUserID(userID), question, review.UserQuestion, decision)
+				return
+			}
+			if normalizeAcceptanceVerdict(review.Verdict) == acceptanceVerdictRevise {
+				answer = appendAcceptanceLimitations(answer, review)
+			}
+		}
+	} else if shouldRevise {
+		answer = appendAcceptanceLimitations(answer, review)
+	}
 
 	o.persistFinalAnswer(conv, derefUserID(userID), question, answer, decision, history, runID)
 	for _, chunk := range splitStreamChunks(answer) {

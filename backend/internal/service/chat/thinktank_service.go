@@ -48,6 +48,10 @@ type thinkTankService struct {
 
 	adkRunner        *thinkTankADKRunner
 	adkAnswerFetcher func(ctx context.Context, question string) (string, error)
+
+	clarifier          Clarifier
+	acceptanceReviewer AcceptanceReviewer
+	maxReviewRevisions int
 }
 
 // NewThinkTankService 创建 ThinkTank 服务
@@ -66,27 +70,44 @@ func NewThinkTankService(
 ) ThinkTankService {
 	var runner *thinkTankADKRunner
 	var memorySummarizer ConversationMemorySummarizer
+	var clarifier Clarifier
+	var acceptanceReviewer AcceptanceReviewer
 	for _, option := range options {
 		switch v := option.(type) {
 		case *thinkTankADKRunner:
 			runner = v
 		case ConversationMemorySummarizer:
 			memorySummarizer = v
+		case Clarifier:
+			clarifier = v
+		case AcceptanceReviewer:
+			acceptanceReviewer = v
+		}
+	}
+	if runner != nil {
+		if clarifier == nil {
+			clarifier = runner.clarifier
+		}
+		if acceptanceReviewer == nil {
+			acceptanceReviewer = runner.acceptance
 		}
 	}
 
 	svc := &thinkTankService{
-		librarian:     librarian,
-		journalist:    journalist,
-		synthesizer:   synthesizer,
-		logger:        logger,
-		conversations: newThinkTankConversationManager(convRepo, msgRepo, logger),
-		memories:      newThinkTankMemoryManager(memoryRepo, memorySummarizer, logger),
-		runs:          newThinkTankRunRecorder(runRepo, runStepRepo, logger),
-		streams:       newThinkTankStreamEmitter(),
-		researchDraft: newThinkTankResearchDraftSink(knowledgeSvc),
-		runHub:        newChatRunHub(),
-		adkRunner:     runner,
+		librarian:          librarian,
+		journalist:         journalist,
+		synthesizer:        synthesizer,
+		logger:             logger,
+		conversations:      newThinkTankConversationManager(convRepo, msgRepo, logger),
+		memories:           newThinkTankMemoryManager(memoryRepo, memorySummarizer, logger),
+		runs:               newThinkTankRunRecorder(runRepo, runStepRepo, logger),
+		streams:            newThinkTankStreamEmitter(),
+		researchDraft:      newThinkTankResearchDraftSink(knowledgeSvc),
+		runHub:             newChatRunHub(),
+		adkRunner:          runner,
+		clarifier:          clarifier,
+		acceptanceReviewer: acceptanceReviewer,
+		maxReviewRevisions: maxThinkTankReviewRevisions,
 	}
 	svc.orchestrator = newThinkTankOrchestrator(svc)
 	svc.adkAnswerFetcher = svc.collectADKRunnerAnswer
