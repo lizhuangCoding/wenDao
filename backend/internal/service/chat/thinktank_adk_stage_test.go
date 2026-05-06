@@ -213,6 +213,63 @@ func TestThinkTankService_ChatStream_EmitsReviewingAndRevisionStages(t *testing.
 	}
 }
 
+func TestThinkTankService_ChatStream_RevisionStillReviseDoesNotClaimCompletedRevision(t *testing.T) {
+	question := "帮我分析一下 AI Agent 的发展趋势"
+	clarifier := &stubClarifier{decision: defaultClarifierDecision(question)}
+	reviewer := &stubAcceptanceReviewer{reviews: []AcceptanceReview{
+		{
+			Verdict:             acceptanceVerdictRevise,
+			Score:               62,
+			MissingDimensions:   []string{"风险限制"},
+			RevisionInstruction: "补充风险限制",
+			Summary:             "初稿缺少风险边界",
+			Available:           true,
+		},
+		{
+			Verdict:             acceptanceVerdictRevise,
+			Score:               74,
+			MissingDimensions:   []string{"量化案例"},
+			RevisionInstruction: "继续补充量化案例",
+			Summary:             "修订后仍缺少量化案例",
+			Available:           true,
+		},
+	}}
+	svc := NewThinkTankService(nil, nil, &stubSynthesizer{}, &stubConversationRunRepository{}, &stubConversationRunStepRepository{}, &stubConversationMemoryRepository{}, &stubConversationRepository{}, &stubChatMessageRepository{}, nil, &stubAILogger{}, clarifier, reviewer).(*thinkTankService)
+	svc.adkRunner = &thinkTankADKRunner{runner: nil}
+	var calls int
+	svc.adkAnswerFetcher = func(ctx context.Context, question string) (string, error) {
+		calls++
+		if calls == 1 {
+			return "初版答案", nil
+		}
+		return "修订后答案", nil
+	}
+
+	eventCh, errCh := svc.ChatStream(context.Background(), question, nil, nil)
+	var finalChunk string
+	for event := range eventCh {
+		if event.Type == StreamEventChunk {
+			finalChunk += event.Message
+		}
+	}
+	for err := range errCh {
+		if err != nil {
+			t.Fatalf("expected no stream error, got %v", err)
+		}
+	}
+	if calls != 2 {
+		t.Fatalf("expected initial and revision fetches, got %d", calls)
+	}
+	for _, want := range []string{"修订后答案", "回答限制", "量化案例", "验收摘要", "评分 74/100"} {
+		if !strings.Contains(finalChunk, want) {
+			t.Fatalf("expected final chunk to contain %q, got %q", want, finalChunk)
+		}
+	}
+	if strings.Contains(finalChunk, "已自动补充关键缺失项") {
+		t.Fatalf("did not expect final chunk to claim completed revision, got %q", finalChunk)
+	}
+}
+
 func TestThinkTankService_ChatStream_ReturnsInitialAnswerWhenRevisionFails(t *testing.T) {
 	question := "帮我分析一下 AI Agent 的发展趋势"
 	clarifier := &stubClarifier{decision: defaultClarifierDecision(question)}
