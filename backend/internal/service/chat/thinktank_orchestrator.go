@@ -63,7 +63,11 @@ func (o *thinkTankOrchestrator) clarifyAgentQuery(ctx context.Context, question 
 		return queryForAgents, defaultClarifierDecision(question), false, ""
 	}
 	if decision.ShouldAskUser {
-		return queryForAgents, decision, true, strings.TrimSpace(decision.ClarificationQuestion)
+		clarificationQuestion := formatClarifierQuestion(decision)
+		if strings.TrimSpace(clarificationQuestion) == "" {
+			clarificationQuestion = strings.TrimSpace(decision.ClarificationQuestion)
+		}
+		return queryForAgents, decision, true, clarificationQuestion
 	}
 	return buildClarifiedAgentQuery(queryForAgents, decision), decision, false, ""
 }
@@ -136,23 +140,26 @@ func (o *thinkTankOrchestrator) chat(ctx context.Context, question string, conve
 			finalAnswer := answer
 			review, shouldRevise := o.reviewAnswer(ctx, effectiveQuestion, queryForAgents, clarifierDecision, finalAnswer, 0)
 			if normalizeAcceptanceVerdict(review.Verdict) == acceptanceVerdictAskUser {
-				return o.acceptanceQuestionResponse(conv, derefUserID(userID), pendingRunID, effectiveQuestion, review.UserQuestion, decision), nil
+				return o.acceptanceQuestionResponse(conv, derefUserID(userID), pendingRunID, effectiveQuestion, review, decision), nil
 			}
+			revised := false
 			if shouldRevise {
 				revisedAnswer, revisionErr := s.adkAnswerFetcher(adkCtx, buildRevisionAgentQuery(queryForAgents, finalAnswer, review))
 				if revisionErr != nil || strings.TrimSpace(revisedAnswer) == "" {
 					finalAnswer = appendAcceptanceLimitations(finalAnswer, review)
 				} else {
 					finalAnswer = revisedAnswer
+					revised = true
 					review, _ = o.reviewAnswer(ctx, effectiveQuestion, queryForAgents, clarifierDecision, finalAnswer, 1)
 					if normalizeAcceptanceVerdict(review.Verdict) == acceptanceVerdictAskUser {
-						return o.acceptanceQuestionResponse(conv, derefUserID(userID), pendingRunID, effectiveQuestion, review.UserQuestion, decision), nil
+						return o.acceptanceQuestionResponse(conv, derefUserID(userID), pendingRunID, effectiveQuestion, review, decision), nil
 					}
 					if normalizeAcceptanceVerdict(review.Verdict) == acceptanceVerdictRevise {
 						finalAnswer = appendAcceptanceLimitations(finalAnswer, review)
 					}
 				}
 			}
+			finalAnswer = appendAcceptanceSummary(finalAnswer, review, revised)
 			o.persistFinalAnswer(conv, derefUserID(userID), effectiveQuestion, finalAnswer, decision, history, 0)
 			return &ThinkTankChatResponse{Message: finalAnswer, Stage: "completed"}, nil
 		}
@@ -179,8 +186,9 @@ func (o *thinkTankOrchestrator) chat(ctx context.Context, question string, conve
 
 	review, shouldRevise := o.reviewAnswer(ctx, effectiveQuestion, queryForAgents, clarifierDecision, answer, 0)
 	if normalizeAcceptanceVerdict(review.Verdict) == acceptanceVerdictAskUser {
-		return o.acceptanceQuestionResponse(conv, derefUserID(userID), pendingRunID, effectiveQuestion, review.UserQuestion, decision), nil
+		return o.acceptanceQuestionResponse(conv, derefUserID(userID), pendingRunID, effectiveQuestion, review, decision), nil
 	}
+	revised := false
 	if shouldRevise && s.adkRunner != nil && s.adkAnswerFetcher != nil {
 		adkCtx := WithUserID(ctx, derefUserID(userID))
 		adkCtx = WithAILogger(adkCtx, s.logger)
@@ -193,9 +201,10 @@ func (o *thinkTankOrchestrator) chat(ctx context.Context, question string, conve
 			answer = appendAcceptanceLimitations(answer, review)
 		} else {
 			answer = revisedAnswer
+			revised = true
 			review, _ = o.reviewAnswer(ctx, effectiveQuestion, queryForAgents, clarifierDecision, answer, 1)
 			if normalizeAcceptanceVerdict(review.Verdict) == acceptanceVerdictAskUser {
-				return o.acceptanceQuestionResponse(conv, derefUserID(userID), pendingRunID, effectiveQuestion, review.UserQuestion, decision), nil
+				return o.acceptanceQuestionResponse(conv, derefUserID(userID), pendingRunID, effectiveQuestion, review, decision), nil
 			}
 			if normalizeAcceptanceVerdict(review.Verdict) == acceptanceVerdictRevise {
 				answer = appendAcceptanceLimitations(answer, review)
@@ -203,6 +212,7 @@ func (o *thinkTankOrchestrator) chat(ctx context.Context, question string, conve
 		}
 	}
 
+	answer = appendAcceptanceSummary(answer, review, revised)
 	o.persistFinalAnswer(conv, derefUserID(userID), effectiveQuestion, answer, decision, history, 0)
 	return &ThinkTankChatResponse{Message: answer, Sources: sources, Stage: "completed"}, nil
 }
@@ -452,8 +462,8 @@ func runIDFromPending(pending *model.ConversationRun) int64 {
 	return pending.ID
 }
 
-func (o *thinkTankOrchestrator) acceptanceQuestionResponse(conv *model.Conversation, userID int64, runID int64, question string, userQuestion string, decision PlannerDecision) *ThinkTankChatResponse {
-	userQuestion = strings.TrimSpace(userQuestion)
+func (o *thinkTankOrchestrator) acceptanceQuestionResponse(conv *model.Conversation, userID int64, runID int64, question string, review AcceptanceReview, decision PlannerDecision) *ThinkTankChatResponse {
+	userQuestion := strings.TrimSpace(formatAcceptanceQuestion(review))
 	if userQuestion == "" {
 		userQuestion = "还需要你补充一点信息，我才能继续。"
 	}

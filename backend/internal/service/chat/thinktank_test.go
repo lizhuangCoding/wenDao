@@ -895,6 +895,81 @@ func TestThinkTankServiceChat_ClarifierCanAskUser(t *testing.T) {
 	}
 }
 
+func TestThinkTankServiceChat_ClarifierReturnsStructuredQuestion(t *testing.T) {
+	clarifier := &stubClarifier{decision: ClarifierDecision{
+		NormalizedQuestion:    "帮我做一份增长方案",
+		Intent:                "制定增长方案",
+		ShouldAskUser:         true,
+		NeedSummary:           "为新产品制定可执行增长方案",
+		MissingDimensions:     []string{"目标用户", "预算范围", "时间周期"},
+		WhyNeeded:             "这些信息会影响渠道选择、投放强度和优先级。",
+		SuggestedReply:        "目标用户是中小企业，预算 5 万，周期 3 个月。",
+		ClarificationQuestion: "请补充目标用户、预算和周期。",
+	}}
+	svc := NewThinkTankService(nil, nil, &stubSynthesizer{}, &stubConversationRunRepository{}, &stubConversationRunStepRepository{}, &stubConversationMemoryRepository{}, &stubConversationRepository{}, &stubChatMessageRepository{}, nil, &stubAILogger{}, clarifier).(*thinkTankService)
+	svc.adkRunner = &thinkTankADKRunner{}
+	svc.adkAnswerFetcher = func(ctx context.Context, question string) (string, error) {
+		t.Fatalf("ADK should not run when clarifier asks user, got %q", question)
+		return "", nil
+	}
+
+	resp, err := svc.Chat(context.Background(), "帮我做一份增长方案", nil, nil)
+	if err != nil {
+		t.Fatalf("expected clarification response without error, got %v", err)
+	}
+	if !resp.RequiresUserInput {
+		t.Fatalf("expected requires user input")
+	}
+	for _, want := range []string{
+		"我理解你是想",
+		"为新产品制定可执行增长方案",
+		"为了后续回答更精确，需要确认",
+		"目标用户",
+		"预算范围",
+		"时间周期",
+		"为什么需要这些信息",
+		"这些信息会影响渠道选择",
+		"你可以这样回复",
+		"目标用户是中小企业",
+	} {
+		if !strings.Contains(resp.Message, want) {
+			t.Fatalf("expected structured clarification to contain %q, got %q", want, resp.Message)
+		}
+	}
+}
+
+func TestThinkTankServiceChat_AppendsAcceptanceSummary(t *testing.T) {
+	clarifier := &stubClarifier{decision: defaultClarifierDecision("帮我分析一下 AI Agent 的发展趋势")}
+	reviewer := &stubAcceptanceReviewer{reviews: []AcceptanceReview{{
+		Available:         true,
+		Verdict:           acceptanceVerdictPass,
+		Score:             92,
+		Summary:           "覆盖了核心趋势和落地影响。",
+		MatchedDimensions: []string{"技术演进", "商业落地"},
+	}}}
+	svc := NewThinkTankService(nil, nil, &stubSynthesizer{}, &stubConversationRunRepository{}, &stubConversationRunStepRepository{}, &stubConversationMemoryRepository{}, &stubConversationRepository{}, &stubChatMessageRepository{}, nil, &stubAILogger{}, clarifier, reviewer).(*thinkTankService)
+	svc.adkRunner = &thinkTankADKRunner{}
+	svc.adkAnswerFetcher = func(ctx context.Context, question string) (string, error) {
+		return "AI Agent 趋势答案", nil
+	}
+
+	resp, err := svc.Chat(context.Background(), "帮我分析一下 AI Agent 的发展趋势", nil, nil)
+	if err != nil {
+		t.Fatalf("expected chat success, got %v", err)
+	}
+	for _, want := range []string{
+		"AI Agent 趋势答案",
+		"验收摘要",
+		"评分 92/100",
+		"已覆盖：技术演进、商业落地",
+		"覆盖了核心趋势和落地影响",
+	} {
+		if !strings.Contains(resp.Message, want) {
+			t.Fatalf("expected acceptance summary to contain %q, got %q", want, resp.Message)
+		}
+	}
+}
+
 func TestThinkTankServiceChat_AcceptanceRevisionRunsOnce(t *testing.T) {
 	clarifier := &stubClarifier{decision: defaultClarifierDecision("帮我分析一下 AI Agent 的发展趋势")}
 	reviewer := &stubAcceptanceReviewer{reviews: []AcceptanceReview{
@@ -923,7 +998,7 @@ func TestThinkTankServiceChat_AcceptanceRevisionRunsOnce(t *testing.T) {
 	if calls != 2 {
 		t.Fatalf("expected one revision run, got %d calls", calls)
 	}
-	if resp.Message != "第2版答案" {
+	if !strings.Contains(resp.Message, "第2版答案") {
 		t.Fatalf("expected revised answer, got %q", resp.Message)
 	}
 }
@@ -953,7 +1028,7 @@ func TestThinkTankServiceChat_AcceptanceCanAskUserAndPersistWaitingRun(t *testin
 	if !resp.RequiresUserInput {
 		t.Fatalf("expected acceptance ask_user to require user input")
 	}
-	if resp.Stage != "clarifying" || resp.Message != followUp {
+	if resp.Stage != "clarifying" || !strings.Contains(resp.Message, followUp) || !strings.Contains(resp.Message, "验收时发现还缺少一个关键信息") {
 		t.Fatalf("expected follow-up response, got stage=%q message=%q", resp.Stage, resp.Message)
 	}
 	if runRepo.active == nil || runRepo.active.Status != "waiting_user" {
@@ -968,7 +1043,7 @@ func TestThinkTankServiceChat_AcceptanceCanAskUserAndPersistWaitingRun(t *testin
 			assistant = msg
 		}
 	}
-	if assistant == nil || assistant.Content != followUp {
+	if assistant == nil || !strings.Contains(assistant.Content, followUp) || !strings.Contains(assistant.Content, "验收时发现还缺少一个关键信息") {
 		t.Fatalf("expected persisted assistant follow-up, got %#v", msgRepo.created)
 	}
 }
@@ -1010,7 +1085,7 @@ func TestThinkTankServiceChat_AcceptanceFollowUpUpdatesPendingRun(t *testing.T) 
 	if err != nil {
 		t.Fatalf("expected chat success, got %v", err)
 	}
-	if !resp.RequiresUserInput || resp.Message != nextFollowUp {
+	if !resp.RequiresUserInput || !strings.Contains(resp.Message, nextFollowUp) || !strings.Contains(resp.Message, "验收时发现还缺少一个关键信息") {
 		t.Fatalf("expected next follow-up, got %#v", resp)
 	}
 	if runRepo.active == nil || runRepo.active.ID != 77 || runRepo.active.Status != "waiting_user" {
