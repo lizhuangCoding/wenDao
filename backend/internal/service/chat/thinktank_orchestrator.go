@@ -258,6 +258,8 @@ func (o *thinkTankOrchestrator) chatStream(ctx context.Context, question string,
 		if !resumeFromADKInterrupt && !skipClarifier {
 			o.emitStage(eventCh, conv, runID, "clarifying_intent", "正在澄清你的意图")
 			clarifiedQuery, clarifiedDecision, needsUser, clarificationQuestion := o.clarifyAgentQuery(runCtx, effectiveQuestion, queryForAgents)
+			clarifierDecision = clarifiedDecision
+			o.emitSyntheticAgentStep(eventCh, conv, runID, "ClarifierAgent", "正在澄清用户意图", formatClarifierStepDetail(clarifiedDecision))
 			if needsUser {
 				if conv != nil {
 					pendingContext := marshalAgentPendingContext("clarifier_interrupt", effectiveQuestion, clarificationQuestion)
@@ -269,7 +271,6 @@ func (o *thinkTankOrchestrator) chatStream(ctx context.Context, question string,
 				return
 			}
 			queryForAgents = clarifiedQuery
-			clarifierDecision = clarifiedDecision
 		}
 
 		if s.adkRunner != nil && s.adkRunner.runner == nil && s.adkAnswerFetcher != nil {
@@ -280,10 +281,12 @@ func (o *thinkTankOrchestrator) chatStream(ctx context.Context, question string,
 			}
 			o.emitStage(eventCh, conv, runID, "reviewing", "正在审核答案质量")
 			review, shouldRevise := o.reviewAnswer(runCtx, effectiveQuestion, queryForAgents, clarifierDecision, answer, 0)
+			o.emitSyntheticAgentStep(eventCh, conv, runID, "AcceptanceAgent", "正在验收答案质量", formatAcceptanceStepDetail(review, false))
 			if normalizeAcceptanceVerdict(review.Verdict) == acceptanceVerdictAskUser {
-				o.emitAcceptanceQuestion(eventCh, conv, runID, derefUserID(userID), effectiveQuestion, review.UserQuestion, decision)
+				o.emitAcceptanceQuestion(eventCh, conv, runID, derefUserID(userID), effectiveQuestion, review, decision)
 				return
 			}
+			revised := false
 			if shouldRevise {
 				o.emitStage(eventCh, conv, runID, "revising", "正在根据审核意见修订答案")
 				revisedAnswer, revisionErr := s.adkAnswerFetcher(runCtx, buildRevisionAgentQuery(queryForAgents, answer, review))
@@ -295,8 +298,10 @@ func (o *thinkTankOrchestrator) chatStream(ctx context.Context, question string,
 				} else if strings.TrimSpace(revisedAnswer) != "" {
 					answer = revisedAnswer
 					review, _ = o.reviewAnswer(runCtx, effectiveQuestion, queryForAgents, clarifierDecision, answer, 1)
+					revised = normalizeAcceptanceVerdict(review.Verdict) != acceptanceVerdictRevise && normalizeAcceptanceVerdict(review.Verdict) != acceptanceVerdictAskUser
+					o.emitSyntheticAgentStep(eventCh, conv, runID, "AcceptanceAgent", "正在验收修订后答案", formatAcceptanceStepDetail(review, revised))
 					if normalizeAcceptanceVerdict(review.Verdict) == acceptanceVerdictAskUser {
-						o.emitAcceptanceQuestion(eventCh, conv, runID, derefUserID(userID), effectiveQuestion, review.UserQuestion, decision)
+						o.emitAcceptanceQuestion(eventCh, conv, runID, derefUserID(userID), effectiveQuestion, review, decision)
 						return
 					}
 					if normalizeAcceptanceVerdict(review.Verdict) == acceptanceVerdictRevise {
@@ -304,6 +309,7 @@ func (o *thinkTankOrchestrator) chatStream(ctx context.Context, question string,
 					}
 				}
 			}
+			answer = appendAcceptanceSummary(answer, review, revised)
 			o.persistFinalAnswer(conv, derefUserID(userID), effectiveQuestion, answer, decision, history, runID)
 			o.emitChunk(eventCh, conv, runID, answer, nil)
 			o.emitDone(eventCh, conv, runID, "completed", "回答已生成")
@@ -477,8 +483,8 @@ func (o *thinkTankOrchestrator) acceptanceQuestionResponse(conv *model.Conversat
 	return &ThinkTankChatResponse{Message: userQuestion, Stage: "clarifying", RequiresUserInput: true}
 }
 
-func (o *thinkTankOrchestrator) emitAcceptanceQuestion(eventCh chan<- StreamEvent, conv *model.Conversation, runID int64, userID int64, question string, userQuestion string, decision PlannerDecision) {
-	userQuestion = strings.TrimSpace(userQuestion)
+func (o *thinkTankOrchestrator) emitAcceptanceQuestion(eventCh chan<- StreamEvent, conv *model.Conversation, runID int64, userID int64, question string, review AcceptanceReview, decision PlannerDecision) {
+	userQuestion := strings.TrimSpace(formatAcceptanceQuestion(review))
 	if userQuestion == "" {
 		userQuestion = "还需要你补充一点信息，我才能继续。"
 	}
@@ -489,6 +495,19 @@ func (o *thinkTankOrchestrator) emitAcceptanceQuestion(eventCh chan<- StreamEven
 	}
 	o.emitStage(eventCh, conv, runID, "clarifying", "需要补充一点信息")
 	o.emitQuestion(eventCh, conv, runID, "clarifying", userQuestion)
+}
+
+func (o *thinkTankOrchestrator) emitSyntheticAgentStep(eventCh chan<- StreamEvent, conv *model.Conversation, runID int64, agentName string, summary string, detail string) {
+	conversationID := int64(0)
+	if conv != nil {
+		conversationID = conv.ID
+	}
+	step := o.service.runs.newStepTracker(conversationID, runID, agentName, summary)
+	if strings.TrimSpace(detail) != "" {
+		step.appendDetail(detail)
+	}
+	step.complete()
+	o.emitStep(eventCh, conv, runID, step.snapshot())
 }
 
 func (o *thinkTankOrchestrator) persistFinalAnswer(conv *model.Conversation, userID int64, question string, answer string, decision PlannerDecision, history []model.ChatMessage, runID int64) {
@@ -678,10 +697,12 @@ func (o *thinkTankOrchestrator) streamADKFlow(
 		o.emitStep(eventCh, conv, runID, currentStep.snapshot())
 	}
 	review, shouldRevise := o.reviewAnswer(ctx, question, queryForAgents, clarifierDecision, fullAnswer, 0)
+	o.emitSyntheticAgentStep(eventCh, conv, runID, "AcceptanceAgent", "正在验收答案质量", formatAcceptanceStepDetail(review, false))
 	if normalizeAcceptanceVerdict(review.Verdict) == acceptanceVerdictAskUser {
-		o.emitAcceptanceQuestion(eventCh, conv, runID, derefUserID(userID), question, review.UserQuestion, decision)
+		o.emitAcceptanceQuestion(eventCh, conv, runID, derefUserID(userID), question, review, decision)
 		return nil
 	}
+	revised := false
 	if shouldRevise && s.adkAnswerFetcher != nil {
 		o.emitStage(eventCh, conv, runID, "revising", "正在根据审核意见修订答案")
 		revisedAnswer, revisionErr := s.adkAnswerFetcher(adkCtx, buildRevisionAgentQuery(queryForAgents, fullAnswer, review))
@@ -693,8 +714,10 @@ func (o *thinkTankOrchestrator) streamADKFlow(
 		} else if strings.TrimSpace(revisedAnswer) != "" {
 			fullAnswer = revisedAnswer
 			review, _ = o.reviewAnswer(ctx, question, queryForAgents, clarifierDecision, fullAnswer, 1)
+			revised = normalizeAcceptanceVerdict(review.Verdict) != acceptanceVerdictRevise && normalizeAcceptanceVerdict(review.Verdict) != acceptanceVerdictAskUser
+			o.emitSyntheticAgentStep(eventCh, conv, runID, "AcceptanceAgent", "正在验收修订后答案", formatAcceptanceStepDetail(review, revised))
 			if normalizeAcceptanceVerdict(review.Verdict) == acceptanceVerdictAskUser {
-				o.emitAcceptanceQuestion(eventCh, conv, runID, derefUserID(userID), question, review.UserQuestion, decision)
+				o.emitAcceptanceQuestion(eventCh, conv, runID, derefUserID(userID), question, review, decision)
 				return nil
 			}
 			if normalizeAcceptanceVerdict(review.Verdict) == acceptanceVerdictRevise {
@@ -704,6 +727,7 @@ func (o *thinkTankOrchestrator) streamADKFlow(
 	} else if shouldRevise {
 		fullAnswer = appendAcceptanceLimitations(fullAnswer, review)
 	}
+	fullAnswer = appendAcceptanceSummary(fullAnswer, review, revised)
 	o.persistFinalAnswer(conv, derefUserID(userID), question, fullAnswer, decision, history, runID)
 	s.runs.logStage(conv, userID, "completed", "多 Agent 协作完成", fmt.Sprintf("答案长度: %d，答案内容：%v", len(fullAnswer), fullAnswer))
 	o.emitChunk(eventCh, conv, runID, fullAnswer, nil)
@@ -786,10 +810,12 @@ func (o *thinkTankOrchestrator) streamManualFlow(
 	s.runs.logStage(conv, userID, "integration_done", "结果整合完成", "")
 	o.emitStage(eventCh, conv, runID, "reviewing", "正在审核答案质量")
 	review, shouldRevise := o.reviewAnswer(ctx, question, queryForAgents, clarifierDecision, answer, 0)
+	o.emitSyntheticAgentStep(eventCh, conv, runID, "AcceptanceAgent", "正在验收答案质量", formatAcceptanceStepDetail(review, false))
 	if normalizeAcceptanceVerdict(review.Verdict) == acceptanceVerdictAskUser {
-		o.emitAcceptanceQuestion(eventCh, conv, runID, derefUserID(userID), question, review.UserQuestion, decision)
+		o.emitAcceptanceQuestion(eventCh, conv, runID, derefUserID(userID), question, review, decision)
 		return
 	}
+	revised := false
 	if shouldRevise && s.adkRunner != nil && s.adkAnswerFetcher != nil {
 		o.emitStage(eventCh, conv, runID, "revising", "正在根据审核意见修订答案")
 		revisedAnswer, revisionErr := s.adkAnswerFetcher(ctx, buildRevisionAgentQuery(queryForAgents, answer, review))
@@ -801,8 +827,10 @@ func (o *thinkTankOrchestrator) streamManualFlow(
 		} else if strings.TrimSpace(revisedAnswer) != "" {
 			answer = revisedAnswer
 			review, _ = o.reviewAnswer(ctx, question, queryForAgents, clarifierDecision, answer, 1)
+			revised = normalizeAcceptanceVerdict(review.Verdict) != acceptanceVerdictRevise && normalizeAcceptanceVerdict(review.Verdict) != acceptanceVerdictAskUser
+			o.emitSyntheticAgentStep(eventCh, conv, runID, "AcceptanceAgent", "正在验收修订后答案", formatAcceptanceStepDetail(review, revised))
 			if normalizeAcceptanceVerdict(review.Verdict) == acceptanceVerdictAskUser {
-				o.emitAcceptanceQuestion(eventCh, conv, runID, derefUserID(userID), question, review.UserQuestion, decision)
+				o.emitAcceptanceQuestion(eventCh, conv, runID, derefUserID(userID), question, review, decision)
 				return
 			}
 			if normalizeAcceptanceVerdict(review.Verdict) == acceptanceVerdictRevise {
@@ -813,6 +841,7 @@ func (o *thinkTankOrchestrator) streamManualFlow(
 		answer = appendAcceptanceLimitations(answer, review)
 	}
 
+	answer = appendAcceptanceSummary(answer, review, revised)
 	o.persistFinalAnswer(conv, derefUserID(userID), question, answer, decision, history, runID)
 	for _, chunk := range splitStreamChunks(answer) {
 		o.emitChunk(eventCh, conv, runID, chunk, sources)

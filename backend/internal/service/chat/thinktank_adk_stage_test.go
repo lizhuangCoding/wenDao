@@ -83,6 +83,86 @@ func TestThinkTankService_ChatStream_EmitsQuestionWhenClarifierNeedsUser(t *test
 	}
 }
 
+func TestThinkTankService_ChatStream_EmitsClarifierAndAcceptanceSteps(t *testing.T) {
+	question := "帮我分析一下 AI Agent 的发展趋势"
+	clarifier := &stubClarifier{decision: ClarifierDecision{
+		NormalizedQuestion: "分析 AI Agent 的发展趋势",
+		Intent:             "判断 AI Agent 的机会与风险",
+		NeedSummary:        "需要一份面向产品负责人的趋势分析",
+		TargetDimensions:   []string{"机会", "风险", "落地建议"},
+	}}
+	reviewer := &stubAcceptanceReviewer{reviews: []AcceptanceReview{{
+		Verdict:           acceptanceVerdictPass,
+		Score:             88,
+		MatchedDimensions: []string{"机会", "风险", "落地建议"},
+		Summary:           "覆盖了关键维度",
+		Available:         true,
+	}}}
+	svc := NewThinkTankService(nil, nil, &stubSynthesizer{}, &stubConversationRunRepository{}, &stubConversationRunStepRepository{}, &stubConversationMemoryRepository{}, &stubConversationRepository{}, &stubChatMessageRepository{}, nil, &stubAILogger{}, clarifier, reviewer).(*thinkTankService)
+	svc.adkRunner = &thinkTankADKRunner{runner: nil}
+	svc.adkAnswerFetcher = func(ctx context.Context, question string) (string, error) {
+		return "趋势分析正文", nil
+	}
+
+	eventCh, errCh := svc.ChatStream(context.Background(), question, nil, nil)
+	seenSteps := map[string]bool{}
+	var finalChunk string
+	for event := range eventCh {
+		if event.Type == StreamEventStep {
+			seenSteps[event.AgentName] = true
+		}
+		if event.Type == StreamEventChunk {
+			finalChunk += event.Message
+		}
+	}
+	for err := range errCh {
+		if err != nil {
+			t.Fatalf("expected no stream error, got %v", err)
+		}
+	}
+	for _, want := range []string{"ClarifierAgent", "AcceptanceAgent"} {
+		if !seenSteps[want] {
+			t.Fatalf("expected stream step for %s, got %#v", want, seenSteps)
+		}
+	}
+	for _, want := range []string{"验收摘要", "评分 88/100"} {
+		if !strings.Contains(finalChunk, want) {
+			t.Fatalf("expected final chunk to contain %q, got %q", want, finalChunk)
+		}
+	}
+}
+
+func TestThinkTankService_ChatStream_ClarifierQuestionIsStructured(t *testing.T) {
+	clarifier := &stubClarifier{decision: ClarifierDecision{
+		NormalizedQuestion: "帮我做增长方案",
+		Intent:             "制定增长方案",
+		ShouldAskUser:      true,
+		NeedSummary:        "为新产品制定增长方案",
+		MissingDimensions:  []string{"目标用户是谁", "预算范围是多少"},
+		WhyNeeded:          "不同用户和预算会改变渠道组合。",
+		SuggestedReply:     "目标用户是中小企业主，预算 10 万以内。",
+	}}
+	svc := NewThinkTankService(nil, nil, &stubSynthesizer{}, &stubConversationRunRepository{}, &stubConversationRunStepRepository{}, &stubConversationMemoryRepository{}, &stubConversationRepository{}, &stubChatMessageRepository{}, nil, &stubAILogger{}, clarifier)
+
+	eventCh, errCh := svc.ChatStream(context.Background(), "帮我做增长方案", nil, nil)
+	var question string
+	for event := range eventCh {
+		if event.Type == StreamEventQuestion {
+			question = event.Message
+		}
+	}
+	for err := range errCh {
+		if err != nil {
+			t.Fatalf("expected no stream error, got %v", err)
+		}
+	}
+	for _, want := range []string{"我理解你是想：", "为了后续回答更精确，需要确认：", "1. 目标用户是谁", "2. 预算范围是多少", "为什么需要这些信息：", "你可以这样回复："} {
+		if !strings.Contains(question, want) {
+			t.Fatalf("expected structured clarifier question to contain %q, got %q", want, question)
+		}
+	}
+}
+
 func TestThinkTankService_ChatStream_EmitsReviewingAndRevisionStages(t *testing.T) {
 	clarifier := &stubClarifier{decision: defaultClarifierDecision("帮我分析一下 AI Agent 的发展趋势")}
 	reviewer := &stubAcceptanceReviewer{reviews: []AcceptanceReview{
@@ -216,7 +296,12 @@ func TestThinkTankService_ChatStream_AcceptanceCanAskUserAndPersistWaitingRun(t 
 			t.Fatalf("expected no stream error, got %v", err)
 		}
 	}
-	if emittedQuestion != followUp {
+	for _, want := range []string{"验收时发现还缺少一个关键信息", followUp, "为什么需要", "缺少关键约束"} {
+		if !strings.Contains(emittedQuestion, want) {
+			t.Fatalf("expected formatted acceptance follow-up to contain %q, got %q", want, emittedQuestion)
+		}
+	}
+	if emittedQuestion == followUp {
 		t.Fatalf("expected acceptance follow-up, got %q", emittedQuestion)
 	}
 	if len(chunks) != 0 {
@@ -276,8 +361,13 @@ func TestThinkTankService_ChatStream_ManualFlowAcceptanceCanAskUser(t *testing.T
 	if reviewer.calls != 1 {
 		t.Fatalf("expected manual stream to run acceptance review, got %d calls", reviewer.calls)
 	}
-	if emittedQuestion != followUp {
-		t.Fatalf("expected acceptance follow-up, got %q", emittedQuestion)
+	for _, want := range []string{"验收时发现还缺少一个关键信息", followUp, "为什么需要", "缺少关键约束"} {
+		if !strings.Contains(emittedQuestion, want) {
+			t.Fatalf("expected formatted acceptance follow-up to contain %q, got %q", want, emittedQuestion)
+		}
+	}
+	if emittedQuestion == followUp {
+		t.Fatalf("expected formatted acceptance follow-up, got raw question %q", emittedQuestion)
 	}
 	if len(chunks) != 0 {
 		t.Fatalf("did not expect obsolete answer chunks before ask_user, got %#v", chunks)
