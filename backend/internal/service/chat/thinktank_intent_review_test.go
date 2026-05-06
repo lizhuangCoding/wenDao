@@ -80,6 +80,41 @@ func TestParseClarifierDecision_IncludesVisibleNeedProfile(t *testing.T) {
 	}
 }
 
+func TestParseClarifierDecision_KeepsAskUserWhenVisibleProfileCanRenderQuestion(t *testing.T) {
+	raw := `{
+  "normalized_question": "制定 AI 学习计划",
+  "intent": "学习 AI",
+  "answer_goal": "learning_plan",
+  "target_dimensions": ["学习路径"],
+  "constraints": {"depth": "入门"},
+  "ambiguity_level": "medium",
+  "should_ask_user": true,
+  "clarification_question": "",
+  "reason": "学习计划需要明确基础和目标",
+  "need_summary": "制定一个可执行的学习计划",
+  "missing_dimensions": ["学习领域", "当前基础", "学习目标"],
+  "why_needed": "不同领域、基础和目标会影响学习路径与练习项目。",
+  "suggested_reply": "我想学 AI，目前零基础，希望三个月能做一个小项目。"
+}`
+
+	got := parseClarifierDecision(raw, "我要学习知识")
+	if !got.ShouldAskUser {
+		t.Fatalf("expected visible profile to preserve ask-user path, got %#v", got)
+	}
+	formatted := formatClarifierQuestion(got)
+	for _, want := range []string{
+		"我理解你是想：制定一个可执行的学习计划",
+		"1. 学习领域",
+		"为什么需要这些信息：",
+		"你可以这样回复：",
+		"我想学 AI，目前零基础",
+	} {
+		if !strings.Contains(formatted, want) {
+			t.Fatalf("expected formatted clarification to contain %q, got %q", want, formatted)
+		}
+	}
+}
+
 func TestFormatClarifierQuestion_ShowsNeedMissingReasonAndSuggestedReply(t *testing.T) {
 	decision := ClarifierDecision{
 		NormalizedQuestion: "我要学习知识",
@@ -105,6 +140,42 @@ func TestFormatClarifierQuestion_ShowsNeedMissingReasonAndSuggestedReply(t *test
 	} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("expected formatted clarification to contain %q, got %q", want, got)
+		}
+	}
+}
+
+func TestFormatClarifierQuestion_StepDetailUsesConciseProcessPanel(t *testing.T) {
+	decision := ClarifierDecision{
+		NormalizedQuestion: "我要学习知识",
+		Intent:             "学习知识",
+		AnswerGoal:         "learning_plan",
+		TargetDimensions:   []string{"学习路径", "练习项目"},
+		ShouldAskUser:      true,
+		NeedSummary:        "制定一个可执行的学习计划",
+		MissingDimensions:  []string{"学习领域", "当前基础"},
+		WhyNeeded:          "不同领域、基础和目标会影响学习路径与练习项目。",
+		SuggestedReply:     "我想学 AI，目前零基础。",
+		Reason:             "学习计划需要明确基础和目标",
+	}
+
+	got := formatClarifierStepDetail(decision)
+	for _, want := range []string{
+		"实际需求：制定一个可执行的学习计划",
+		"回答维度：学习路径、练习项目",
+		"处理方式：需要用户补充关键维度",
+		"原因：学习计划需要明确基础和目标",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("expected step detail to contain %q, got %q", want, got)
+		}
+	}
+	for _, notWant := range []string{
+		"我理解你是想：",
+		"为了后续回答更精确，需要确认：",
+		"你可以这样回复：",
+	} {
+		if strings.Contains(got, notWant) {
+			t.Fatalf("expected step detail to omit user-facing text %q, got %q", notWant, got)
 		}
 	}
 }

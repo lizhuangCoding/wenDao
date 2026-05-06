@@ -106,7 +106,7 @@ func parseClarifierDecision(raw string, originalQuestion string) ClarifierDecisi
 	}
 	decision.WhyNeeded = strings.TrimSpace(decision.WhyNeeded)
 	decision.SuggestedReply = strings.TrimSpace(decision.SuggestedReply)
-	if decision.ShouldAskUser && decision.ClarificationQuestion == "" {
+	if decision.ShouldAskUser && strings.TrimSpace(formatClarifierQuestion(decision)) == "" {
 		decision.ShouldAskUser = false
 	}
 	return decision
@@ -227,6 +227,11 @@ func formatClarifierQuestion(decision ClarifierDecision) string {
 	if len(missingDimensions) == 0 && strings.TrimSpace(decision.ClarificationQuestion) != "" {
 		missingDimensions = []string{strings.TrimSpace(decision.ClarificationQuestion)}
 	}
+	whyNeeded := strings.TrimSpace(decision.WhyNeeded)
+	suggestedReply := strings.TrimSpace(decision.SuggestedReply)
+	if len(missingDimensions) == 0 && whyNeeded == "" && suggestedReply == "" {
+		return ""
+	}
 
 	var b strings.Builder
 	if needSummary != "" {
@@ -245,14 +250,14 @@ func formatClarifierQuestion(decision ClarifierDecision) string {
 			b.WriteString(dimension)
 		}
 	}
-	if whyNeeded := strings.TrimSpace(decision.WhyNeeded); whyNeeded != "" {
+	if whyNeeded != "" {
 		if b.Len() > 0 {
 			b.WriteString("\n\n")
 		}
 		b.WriteString("为什么需要这些信息：\n")
 		b.WriteString(whyNeeded)
 	}
-	if suggestedReply := strings.TrimSpace(decision.SuggestedReply); suggestedReply != "" {
+	if suggestedReply != "" {
 		if b.Len() > 0 {
 			b.WriteString("\n\n")
 		}
@@ -266,21 +271,26 @@ func formatClarifierQuestion(decision ClarifierDecision) string {
 }
 
 func formatClarifierStepDetail(decision ClarifierDecision) string {
-	parts := make([]string, 0, 5)
-	if question := formatClarifierQuestion(decision); question != "" {
-		parts = append(parts, question)
+	parts := make([]string, 0, 4)
+	if needSummary := strings.TrimSpace(decision.NeedSummary); needSummary != "" {
+		parts = append(parts, "实际需求："+needSummary)
+	} else if intent := strings.TrimSpace(decision.Intent); intent != "" {
+		parts = append(parts, "实际需求："+intent)
+	} else if normalizedQuestion := strings.TrimSpace(decision.NormalizedQuestion); normalizedQuestion != "" {
+		parts = append(parts, "实际需求："+normalizedQuestion)
 	}
-	if normalizedQuestion := strings.TrimSpace(decision.NormalizedQuestion); normalizedQuestion != "" {
-		parts = append(parts, "归一化问题："+normalizedQuestion)
+	if targetDimensions := compactNonEmptyStrings(decision.TargetDimensions); len(targetDimensions) > 0 {
+		parts = append(parts, "回答维度："+strings.Join(targetDimensions, "、"))
+	} else if missingDimensions := compactNonEmptyStrings(decision.MissingDimensions); len(missingDimensions) > 0 {
+		parts = append(parts, "回答维度："+strings.Join(missingDimensions, "、"))
 	}
-	if answerGoal := strings.TrimSpace(decision.AnswerGoal); answerGoal != "" {
-		parts = append(parts, "回答目标："+answerGoal)
-	}
-	if ambiguityLevel := strings.TrimSpace(decision.AmbiguityLevel); ambiguityLevel != "" {
-		parts = append(parts, "歧义程度："+ambiguityLevel)
+	if decision.ShouldAskUser {
+		parts = append(parts, "处理方式：需要用户补充关键维度")
+	} else {
+		parts = append(parts, "处理方式：无需追问，按推断维度继续调研")
 	}
 	if reason := strings.TrimSpace(decision.Reason); reason != "" {
-		parts = append(parts, "判断依据："+reason)
+		parts = append(parts, "原因："+reason)
 	}
 	return strings.Join(parts, "\n\n")
 }
