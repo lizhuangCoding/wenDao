@@ -69,6 +69,7 @@ type rawAcceptanceReview struct {
 	FormatIssues        []string `json:"format_issues"`
 	RevisionInstruction string   `json:"revision_instruction"`
 	UserQuestion        string   `json:"user_question"`
+	FollowUpQuestion    string   `json:"follow_up_question"`
 	Reason              string   `json:"reason"`
 	Summary             string   `json:"summary"`
 }
@@ -151,42 +152,32 @@ func parseAcceptanceReview(raw string) AcceptanceReview {
 		UnsupportedClaims:   compactNonEmptyStrings(parsed.UnsupportedClaims),
 		FormatIssues:        compactNonEmptyStrings(parsed.FormatIssues),
 		RevisionInstruction: strings.TrimSpace(parsed.RevisionInstruction),
-		UserQuestion:        strings.TrimSpace(parsed.UserQuestion),
+		UserQuestion:        firstNonEmptyString(parsed.UserQuestion, parsed.FollowUpQuestion),
 		Reason:              strings.TrimSpace(parsed.Reason),
 		Summary:             strings.TrimSpace(parsed.Summary),
 	}
-	if !hasMeaningfulAcceptanceReview(parsed, review) {
+	normalizedVerdict, validVerdict := parseAcceptanceVerdict(review.Verdict)
+	if !hasMeaningfulAcceptanceReview(parsed, review, validVerdict) {
 		return defaultAcceptanceReview()
 	}
 	review.Available = true
-	review.Verdict = normalizeAcceptanceVerdict(review.Verdict)
-	if parsed.Score != nil {
-		review.Score = clampAcceptanceScore(*parsed.Score)
-	} else if review.Verdict == acceptanceVerdictPass {
-		review.Score = 100
-	} else {
-		review.Score = 60
-	}
-	if review.Verdict == acceptanceVerdictRevise && review.RevisionInstruction == "" {
-		review.Verdict = acceptanceVerdictPass
-	}
-	if review.Verdict == acceptanceVerdictAskUser && review.UserQuestion == "" {
-		review.Verdict = acceptanceVerdictPass
-	}
+	review.Verdict = normalizedVerdict
+	review.Score = clampAcceptanceScore(*parsed.Score)
 	return review
 }
 
-func hasMeaningfulAcceptanceReview(raw rawAcceptanceReview, review AcceptanceReview) bool {
-	return strings.TrimSpace(raw.Verdict) != "" ||
-		raw.Score != nil ||
-		len(review.MatchedDimensions) > 0 ||
-		len(review.MissingDimensions) > 0 ||
-		len(review.UnsupportedClaims) > 0 ||
-		len(review.FormatIssues) > 0 ||
-		review.RevisionInstruction != "" ||
-		review.UserQuestion != "" ||
-		review.Reason != "" ||
-		review.Summary != ""
+func hasMeaningfulAcceptanceReview(raw rawAcceptanceReview, review AcceptanceReview, validVerdict bool) bool {
+	if !validVerdict || raw.Score == nil || review.Summary == "" {
+		return false
+	}
+	switch normalizeAcceptanceVerdict(review.Verdict) {
+	case acceptanceVerdictRevise:
+		return review.RevisionInstruction != ""
+	case acceptanceVerdictAskUser:
+		return review.UserQuestion != ""
+	default:
+		return true
+	}
 }
 
 func clampAcceptanceScore(score int) int {
@@ -209,17 +200,27 @@ func defaultAcceptanceReview() AcceptanceReview {
 }
 
 func normalizeAcceptanceVerdict(verdict string) string {
+	normalized, ok := parseAcceptanceVerdict(verdict)
+	if ok {
+		return normalized
+	}
+	return acceptanceVerdictPass
+}
+
+func parseAcceptanceVerdict(verdict string) (string, bool) {
 	normalized := strings.ToLower(strings.TrimSpace(verdict))
 	normalized = strings.ReplaceAll(normalized, "-", "_")
 	switch normalized {
+	case acceptanceVerdictPass:
+		return acceptanceVerdictPass, true
 	case acceptanceVerdictRevise:
-		return acceptanceVerdictRevise
+		return acceptanceVerdictRevise, true
 	case acceptanceVerdictAskUser:
-		return acceptanceVerdictAskUser
+		return acceptanceVerdictAskUser, true
 	case "needs_revision", "needs_revise", "revise_answer":
-		return acceptanceVerdictRevise
+		return acceptanceVerdictRevise, true
 	default:
-		return acceptanceVerdictPass
+		return acceptanceVerdictPass, false
 	}
 }
 
@@ -477,6 +478,15 @@ func compactNonEmptyStrings(items []string) []string {
 		compacted = append(compacted, item)
 	}
 	return compacted
+}
+
+func firstNonEmptyString(items ...string) string {
+	for _, item := range items {
+		if trimmed := strings.TrimSpace(item); trimmed != "" {
+			return trimmed
+		}
+	}
+	return ""
 }
 
 func buildRevisionAgentQuery(base string, previousAnswer string, review AcceptanceReview) string {

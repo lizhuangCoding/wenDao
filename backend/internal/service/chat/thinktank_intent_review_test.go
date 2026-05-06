@@ -259,6 +259,36 @@ func TestParseAcceptanceReview_EmptyObjectIsUnavailable(t *testing.T) {
 	}
 }
 
+func TestParseAcceptanceReview_SummaryOnlyIsUnavailable(t *testing.T) {
+	got := parseAcceptanceReview(`{"summary":"ok"}`)
+	if got.Available {
+		t.Fatalf("expected summary-only acceptance review to be unavailable, got %#v", got)
+	}
+	if got.Verdict != acceptanceVerdictPass || got.Score != 0 {
+		t.Fatalf("expected unavailable default review, got %#v", got)
+	}
+}
+
+func TestParseAcceptanceReview_AskUserWithoutQuestionIsUnavailable(t *testing.T) {
+	got := parseAcceptanceReview(`{"verdict":"ask_user","summary":"need scope","score":60}`)
+	if got.Available {
+		t.Fatalf("expected ask_user without follow-up question to be unavailable, got %#v", got)
+	}
+	if got.Verdict != acceptanceVerdictPass || got.Score != 0 {
+		t.Fatalf("expected unavailable default review, got %#v", got)
+	}
+}
+
+func TestParseAcceptanceReview_AskUserAcceptsFollowUpQuestion(t *testing.T) {
+	got := parseAcceptanceReview(`{"verdict":"ask_user","summary":"need scope","score":60,"follow_up_question":"请确认市场范围？"}`)
+	if !got.Available {
+		t.Fatalf("expected ask_user with follow-up question to be available, got %#v", got)
+	}
+	if got.UserQuestion != "请确认市场范围？" {
+		t.Fatalf("expected follow-up question to populate user question, got %#v", got)
+	}
+}
+
 func TestParseAcceptanceReview_ClampsScoreAndPreservesExplicitZero(t *testing.T) {
 	tooHigh := parseAcceptanceReview(`{"verdict":"pass","score":120,"summary":"覆盖核心问题"}`)
 	if !tooHigh.Available {
