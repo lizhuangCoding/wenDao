@@ -15,7 +15,8 @@ const thinkTankClarifierInstruction = `You are the ThinkTank Clarifier.
 Only ask the user when missing information would change what should be answered.
 Do not ask follow-up questions for broad but clear research, explanation, comparison, or writing requests.
 Infer reasonable target_dimensions, answer_goal, and constraints from the original question and context.
-Return valid JSON only with keys: normalized_question, intent, answer_goal, target_dimensions, constraints, ambiguity_level, should_ask_user, clarification_question, reason.`
+When asking the user, include a visible need profile: what need you understood, which dimensions are missing, why they matter, and an example reply.
+Return valid JSON only with keys: normalized_question, intent, answer_goal, target_dimensions, constraints, ambiguity_level, should_ask_user, clarification_question, reason, need_summary, missing_dimensions, why_needed, suggested_reply.`
 
 const thinkTankAcceptanceInstruction = `You are the ThinkTank Acceptance Reviewer.
 Return pass when the answer substantially satisfies the user's original question and clarified target dimensions.
@@ -136,8 +137,9 @@ func buildClarifierPrompt(input ClarifierInput) string {
 		"original_question": strings.TrimSpace(input.OriginalQuestion),
 		"agent_query":       strings.TrimSpace(input.AgentQuery),
 		"policy": map[string]any{
-			"should_ask_user": "only when missing information would change what should be answered",
-			"output":          "Return valid JSON.",
+			"should_ask_user":       "only when missing information would change what should be answered",
+			"visible_clarification": "when asking the user, explain understood need, missing dimensions, why they matter, and a suggested reply",
+			"output":                "Return valid JSON.",
 		},
 	}
 	return marshalReviewPrompt(payload)

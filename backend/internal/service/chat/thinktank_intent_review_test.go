@@ -48,6 +48,67 @@ func TestParseClarifierDecision_DefaultsWhenJSONInvalid(t *testing.T) {
 	}
 }
 
+func TestParseClarifierDecision_IncludesVisibleNeedProfile(t *testing.T) {
+	raw := `{
+  "normalized_question": "制定 AI 学习计划",
+  "intent": "学习 AI",
+  "answer_goal": "learning_plan",
+  "target_dimensions": ["学习路径", "练习项目"],
+  "constraints": {"depth": "入门"},
+  "ambiguity_level": "medium",
+  "should_ask_user": true,
+  "clarification_question": "你想学哪个领域？",
+  "reason": "学习计划需要明确基础和目标",
+  "need_summary": "制定一个可执行的学习计划",
+  "missing_dimensions": ["学习领域", "当前基础", "学习目标"],
+  "why_needed": "不同领域、基础和目标会影响学习路径与练习项目。",
+  "suggested_reply": "我想学 AI，目前零基础，希望三个月能做一个小项目。"
+}`
+
+	got := parseClarifierDecision(raw, "我要学习知识")
+	if got.NeedSummary != "制定一个可执行的学习计划" {
+		t.Fatalf("expected need summary to be parsed, got %q", got.NeedSummary)
+	}
+	if len(got.MissingDimensions) != 3 || got.MissingDimensions[0] != "学习领域" {
+		t.Fatalf("expected missing dimensions to be parsed, got %#v", got.MissingDimensions)
+	}
+	if got.WhyNeeded != "不同领域、基础和目标会影响学习路径与练习项目。" {
+		t.Fatalf("expected why_needed to be parsed, got %q", got.WhyNeeded)
+	}
+	if got.SuggestedReply != "我想学 AI，目前零基础，希望三个月能做一个小项目。" {
+		t.Fatalf("expected suggested reply to be parsed, got %q", got.SuggestedReply)
+	}
+}
+
+func TestFormatClarifierQuestion_ShowsNeedMissingReasonAndSuggestedReply(t *testing.T) {
+	decision := ClarifierDecision{
+		NormalizedQuestion: "我要学习知识",
+		Intent:             "学习知识",
+		AnswerGoal:         "learning_plan",
+		ShouldAskUser:      true,
+		NeedSummary:        "制定一个可执行的学习计划",
+		MissingDimensions:  []string{"学习领域", "当前基础", "学习目标"},
+		WhyNeeded:          "不同领域、基础和目标会影响学习路径与练习项目。",
+		SuggestedReply:     "我想学 AI，目前零基础，希望三个月能做一个小项目。",
+	}
+
+	got := formatClarifierQuestion(decision)
+	for _, want := range []string{
+		"我理解你是想：制定一个可执行的学习计划",
+		"为了后续回答更精确，需要确认：",
+		"1. 学习领域",
+		"2. 当前基础",
+		"3. 学习目标",
+		"为什么需要这些信息：",
+		"你可以这样回复：",
+		"我想学 AI，目前零基础",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("expected formatted clarification to contain %q, got %q", want, got)
+		}
+	}
+}
+
 func TestParseAcceptanceReview_NormalizesVerdict(t *testing.T) {
 	raw := `{"verdict":"revise","score":62,"matched_dimensions":["技术演进"],"missing_dimensions":["商业落地"],"unsupported_claims":["缺少来源"],"format_issues":["没有结论"],"revision_instruction":"补充商业落地和明确趋势判断","user_question":"","reason":"缺少关键维度"}`
 	got := parseAcceptanceReview(raw)

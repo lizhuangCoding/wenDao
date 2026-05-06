@@ -3,6 +3,7 @@ package chat
 import (
 	"context"
 	"encoding/json"
+	"strconv"
 	"strings"
 )
 
@@ -34,6 +35,10 @@ type ClarifierDecision struct {
 	ShouldAskUser         bool                 `json:"should_ask_user"`
 	ClarificationQuestion string               `json:"clarification_question"`
 	Reason                string               `json:"reason"`
+	NeedSummary           string               `json:"need_summary"`
+	MissingDimensions     []string             `json:"missing_dimensions"`
+	WhyNeeded             string               `json:"why_needed"`
+	SuggestedReply        string               `json:"suggested_reply"`
 }
 
 type ClarifierInput struct {
@@ -91,6 +96,16 @@ func parseClarifierDecision(raw string, originalQuestion string) ClarifierDecisi
 		decision.AmbiguityLevel = "low"
 	}
 	decision.ClarificationQuestion = strings.TrimSpace(decision.ClarificationQuestion)
+	decision.NeedSummary = strings.TrimSpace(decision.NeedSummary)
+	if decision.NeedSummary == "" {
+		decision.NeedSummary = decision.Intent
+	}
+	decision.MissingDimensions = compactNonEmptyStrings(decision.MissingDimensions)
+	if decision.ShouldAskUser && len(decision.MissingDimensions) == 0 && decision.ClarificationQuestion != "" {
+		decision.MissingDimensions = []string{decision.ClarificationQuestion}
+	}
+	decision.WhyNeeded = strings.TrimSpace(decision.WhyNeeded)
+	decision.SuggestedReply = strings.TrimSpace(decision.SuggestedReply)
 	if decision.ShouldAskUser && decision.ClarificationQuestion == "" {
 		decision.ShouldAskUser = false
 	}
@@ -197,6 +212,89 @@ func buildClarifiedAgentQuery(base string, decision ClarifierDecision) string {
 		b.WriteString(strings.Join(parts, "；"))
 	}
 	return strings.TrimSpace(b.String())
+}
+
+func formatClarifierQuestion(decision ClarifierDecision) string {
+	needSummary := strings.TrimSpace(decision.NeedSummary)
+	if needSummary == "" {
+		needSummary = strings.TrimSpace(decision.Intent)
+	}
+	if needSummary == "" {
+		needSummary = strings.TrimSpace(decision.NormalizedQuestion)
+	}
+
+	missingDimensions := compactNonEmptyStrings(decision.MissingDimensions)
+	if len(missingDimensions) == 0 && strings.TrimSpace(decision.ClarificationQuestion) != "" {
+		missingDimensions = []string{strings.TrimSpace(decision.ClarificationQuestion)}
+	}
+
+	var b strings.Builder
+	if needSummary != "" {
+		b.WriteString("我理解你是想：")
+		b.WriteString(needSummary)
+	}
+	if len(missingDimensions) > 0 {
+		if b.Len() > 0 {
+			b.WriteString("\n\n")
+		}
+		b.WriteString("为了后续回答更精确，需要确认：")
+		for i, dimension := range missingDimensions {
+			b.WriteString("\n")
+			b.WriteString(strconv.Itoa(i + 1))
+			b.WriteString(". ")
+			b.WriteString(dimension)
+		}
+	}
+	if whyNeeded := strings.TrimSpace(decision.WhyNeeded); whyNeeded != "" {
+		if b.Len() > 0 {
+			b.WriteString("\n\n")
+		}
+		b.WriteString("为什么需要这些信息：\n")
+		b.WriteString(whyNeeded)
+	}
+	if suggestedReply := strings.TrimSpace(decision.SuggestedReply); suggestedReply != "" {
+		if b.Len() > 0 {
+			b.WriteString("\n\n")
+		}
+		b.WriteString("你可以这样回复：\n")
+		b.WriteString(suggestedReply)
+	}
+	if b.Len() == 0 {
+		return strings.TrimSpace(decision.ClarificationQuestion)
+	}
+	return strings.TrimSpace(b.String())
+}
+
+func formatClarifierStepDetail(decision ClarifierDecision) string {
+	parts := make([]string, 0, 5)
+	if question := formatClarifierQuestion(decision); question != "" {
+		parts = append(parts, question)
+	}
+	if normalizedQuestion := strings.TrimSpace(decision.NormalizedQuestion); normalizedQuestion != "" {
+		parts = append(parts, "归一化问题："+normalizedQuestion)
+	}
+	if answerGoal := strings.TrimSpace(decision.AnswerGoal); answerGoal != "" {
+		parts = append(parts, "回答目标："+answerGoal)
+	}
+	if ambiguityLevel := strings.TrimSpace(decision.AmbiguityLevel); ambiguityLevel != "" {
+		parts = append(parts, "歧义程度："+ambiguityLevel)
+	}
+	if reason := strings.TrimSpace(decision.Reason); reason != "" {
+		parts = append(parts, "判断依据："+reason)
+	}
+	return strings.Join(parts, "\n\n")
+}
+
+func compactNonEmptyStrings(items []string) []string {
+	compacted := make([]string, 0, len(items))
+	for _, item := range items {
+		item = strings.TrimSpace(item)
+		if item == "" {
+			continue
+		}
+		compacted = append(compacted, item)
+	}
+	return compacted
 }
 
 func buildRevisionAgentQuery(base string, previousAnswer string, review AcceptanceReview) string {
