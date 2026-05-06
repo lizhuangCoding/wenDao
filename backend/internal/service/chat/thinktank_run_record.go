@@ -55,7 +55,7 @@ func (r *thinkTankRunRecorder) startADKRun(conversationID int64, userID int64, q
 		CurrentStage:     "analyzing",
 		OriginalQuestion: question,
 		LastPlan:         decision.PlanSummary,
-		PendingContext:   marshalADKPendingContext(checkpointID),
+		PendingContext:   marshalADKPendingContext(checkpointID, question),
 	}
 	if pending != nil {
 		run.ID = pending.ID
@@ -80,7 +80,7 @@ func (r *thinkTankRunRecorder) persistADKClarification(conversationID int64, use
 		PendingQuestion:  &clarification,
 		LastAnswer:       clarification,
 		LastPlan:         decision.PlanSummary,
-		PendingContext:   marshalADKPendingContext(checkpointID),
+		PendingContext:   marshalADKPendingContext(checkpointID, question, clarification),
 	}
 	if run.ID > 0 {
 		_ = r.runRepo.Update(run)

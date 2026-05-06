@@ -927,3 +927,96 @@ func TestThinkTankServiceChat_AcceptanceRevisionRunsOnce(t *testing.T) {
 		t.Fatalf("expected revised answer, got %q", resp.Message)
 	}
 }
+
+func TestThinkTankServiceChat_AcceptanceCanAskUserAndPersistWaitingRun(t *testing.T) {
+	question := "帮我制定迁移方案"
+	followUp := "需要确认目标数据库和停机窗口。"
+	convRepo := &stubConversationRepository{conversation: &model.Conversation{ID: 41, UserID: 12, Title: "迁移会话"}}
+	runRepo := &stubConversationRunRepository{}
+	msgRepo := &stubChatMessageRepository{}
+	clarifier := &stubClarifier{decision: defaultClarifierDecision(question)}
+	reviewer := &stubAcceptanceReviewer{reviews: []AcceptanceReview{{
+		Verdict:      acceptanceVerdictAskUser,
+		UserQuestion: followUp,
+		Reason:       "缺少关键约束",
+	}}}
+	svc := NewThinkTankService(nil, nil, &stubSynthesizer{}, runRepo, &stubConversationRunStepRepository{}, &stubConversationMemoryRepository{}, convRepo, msgRepo, nil, &stubAILogger{}, clarifier, reviewer).(*thinkTankService)
+	svc.adkRunner = &thinkTankADKRunner{}
+	svc.adkAnswerFetcher = func(ctx context.Context, question string) (string, error) {
+		return "初版方案", nil
+	}
+
+	resp, err := svc.Chat(context.Background(), question, ptrInt64(41), ptrInt64(12))
+	if err != nil {
+		t.Fatalf("expected chat success, got %v", err)
+	}
+	if !resp.RequiresUserInput {
+		t.Fatalf("expected acceptance ask_user to require user input")
+	}
+	if resp.Stage != "clarifying" || resp.Message != followUp {
+		t.Fatalf("expected follow-up response, got stage=%q message=%q", resp.Stage, resp.Message)
+	}
+	if runRepo.active == nil || runRepo.active.Status != "waiting_user" {
+		t.Fatalf("expected waiting_user run, got %#v", runRepo.active)
+	}
+	if !strings.Contains(runRepo.active.PendingContext, "acceptance_interrupt") || !strings.Contains(runRepo.active.PendingContext, question) {
+		t.Fatalf("expected acceptance pending context with original question, got %q", runRepo.active.PendingContext)
+	}
+	var assistant *model.ChatMessage
+	for _, msg := range msgRepo.created {
+		if msg.Role == "assistant" {
+			assistant = msg
+		}
+	}
+	if assistant == nil || assistant.Content != followUp {
+		t.Fatalf("expected persisted assistant follow-up, got %#v", msgRepo.created)
+	}
+}
+
+func TestThinkTankServiceChat_AcceptanceFollowUpUpdatesPendingRun(t *testing.T) {
+	originalQuestion := "帮我制定迁移方案"
+	systemQuestion := "需要确认目标数据库和停机窗口。"
+	userSupplement := "MySQL 到 PostgreSQL，停机窗口 30 分钟"
+	nextFollowUp := "还需要确认数据量级。"
+	runRepo := &stubConversationRunRepository{active: &model.ConversationRun{
+		ID:               77,
+		ConversationID:   41,
+		UserID:           12,
+		Status:           "waiting_user",
+		CurrentStage:     "clarifying",
+		OriginalQuestion: originalQuestion,
+		PendingQuestion:  &systemQuestion,
+		PendingContext:   marshalAgentPendingContext("acceptance_interrupt", originalQuestion, systemQuestion),
+	}}
+	convRepo := &stubConversationRepository{conversation: &model.Conversation{ID: 41, UserID: 12, Title: "迁移会话"}}
+	clarifier := &stubClarifier{decision: defaultClarifierDecision(originalQuestion)}
+	reviewer := &stubAcceptanceReviewer{reviews: []AcceptanceReview{{
+		Verdict:      acceptanceVerdictAskUser,
+		UserQuestion: nextFollowUp,
+		Reason:       "还缺少数据规模",
+	}}}
+	svc := NewThinkTankService(nil, nil, &stubSynthesizer{}, runRepo, &stubConversationRunStepRepository{}, &stubConversationMemoryRepository{}, convRepo, &stubChatMessageRepository{}, nil, &stubAILogger{}, clarifier, reviewer).(*thinkTankService)
+	svc.adkRunner = &thinkTankADKRunner{}
+	svc.adkAnswerFetcher = func(ctx context.Context, question string) (string, error) {
+		for _, want := range []string{originalQuestion, systemQuestion, userSupplement} {
+			if !strings.Contains(question, want) {
+				t.Fatalf("expected resumed ADK query to contain %q, got %q", want, question)
+			}
+		}
+		return "初版方案", nil
+	}
+
+	resp, err := svc.Chat(context.Background(), userSupplement, ptrInt64(41), ptrInt64(12))
+	if err != nil {
+		t.Fatalf("expected chat success, got %v", err)
+	}
+	if !resp.RequiresUserInput || resp.Message != nextFollowUp {
+		t.Fatalf("expected next follow-up, got %#v", resp)
+	}
+	if runRepo.active == nil || runRepo.active.ID != 77 || runRepo.active.Status != "waiting_user" {
+		t.Fatalf("expected pending run 77 to be updated, got %#v", runRepo.active)
+	}
+	if !strings.Contains(runRepo.active.PendingContext, "acceptance_interrupt") || !strings.Contains(runRepo.active.PendingContext, nextFollowUp) {
+		t.Fatalf("expected updated pending context, got %q", runRepo.active.PendingContext)
+	}
+}
