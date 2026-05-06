@@ -149,13 +149,14 @@ func (o *thinkTankOrchestrator) chat(ctx context.Context, question string, conve
 					finalAnswer = appendAcceptanceLimitations(finalAnswer, review)
 				} else {
 					finalAnswer = revisedAnswer
-					revised = true
 					review, _ = o.reviewAnswer(ctx, effectiveQuestion, queryForAgents, clarifierDecision, finalAnswer, 1)
 					if normalizeAcceptanceVerdict(review.Verdict) == acceptanceVerdictAskUser {
 						return o.acceptanceQuestionResponse(conv, derefUserID(userID), pendingRunID, effectiveQuestion, review, decision), nil
 					}
 					if normalizeAcceptanceVerdict(review.Verdict) == acceptanceVerdictRevise {
 						finalAnswer = appendAcceptanceLimitations(finalAnswer, review)
+					} else {
+						revised = true
 					}
 				}
 			}
@@ -201,13 +202,14 @@ func (o *thinkTankOrchestrator) chat(ctx context.Context, question string, conve
 			answer = appendAcceptanceLimitations(answer, review)
 		} else {
 			answer = revisedAnswer
-			revised = true
 			review, _ = o.reviewAnswer(ctx, effectiveQuestion, queryForAgents, clarifierDecision, answer, 1)
 			if normalizeAcceptanceVerdict(review.Verdict) == acceptanceVerdictAskUser {
 				return o.acceptanceQuestionResponse(conv, derefUserID(userID), pendingRunID, effectiveQuestion, review, decision), nil
 			}
 			if normalizeAcceptanceVerdict(review.Verdict) == acceptanceVerdictRevise {
 				answer = appendAcceptanceLimitations(answer, review)
+			} else {
+				revised = true
 			}
 		}
 	}

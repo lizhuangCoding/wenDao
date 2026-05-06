@@ -1003,6 +1003,137 @@ func TestThinkTankServiceChat_AcceptanceRevisionRunsOnce(t *testing.T) {
 	}
 }
 
+func TestThinkTankServiceChat_AcceptanceRevisionStillReviseDoesNotClaimSuccess(t *testing.T) {
+	clarifier := &stubClarifier{decision: defaultClarifierDecision("帮我分析一下 AI Agent 的发展趋势")}
+	reviewer := &stubAcceptanceReviewer{reviews: []AcceptanceReview{
+		{
+			Available:           true,
+			Verdict:             acceptanceVerdictRevise,
+			Score:               45,
+			Summary:             "初稿缺少关键风险限制。",
+			MissingDimensions:   []string{"风险限制"},
+			RevisionInstruction: "补充风险限制",
+		},
+		{
+			Available:           true,
+			Verdict:             acceptanceVerdictRevise,
+			Score:               65,
+			Summary:             "修订版仍缺少边界条件。",
+			Reason:              "还不能确认风险限制是否完整。",
+			MissingDimensions:   []string{"边界条件"},
+			RevisionInstruction: "继续补充边界条件",
+		},
+	}}
+	svc := NewThinkTankService(nil, nil, &stubSynthesizer{}, &stubConversationRunRepository{}, &stubConversationRunStepRepository{}, &stubConversationMemoryRepository{}, &stubConversationRepository{}, &stubChatMessageRepository{}, nil, &stubAILogger{}, clarifier, reviewer).(*thinkTankService)
+	svc.adkRunner = &thinkTankADKRunner{}
+	var calls int
+	svc.adkAnswerFetcher = func(ctx context.Context, question string) (string, error) {
+		calls++
+		if calls == 2 && !strings.Contains(question, "补充风险限制") {
+			t.Fatalf("expected revision instruction in second ADK query, got %q", question)
+		}
+		if calls == 1 {
+			return "初版答案", nil
+		}
+		return "修订版答案", nil
+	}
+
+	resp, err := svc.Chat(context.Background(), "帮我分析一下 AI Agent 的发展趋势", nil, nil)
+	if err != nil {
+		t.Fatalf("expected chat success, got %v", err)
+	}
+	for _, want := range []string{
+		"修订版答案",
+		"回答限制",
+		"仍可能缺少：边界条件",
+		"验收摘要",
+		"需要修订",
+		"评分 65/100",
+		"修订版仍缺少边界条件",
+	} {
+		if !strings.Contains(resp.Message, want) {
+			t.Fatalf("expected response to contain %q, got %q", want, resp.Message)
+		}
+	}
+	if strings.Contains(resp.Message, "已自动补充关键缺失项") {
+		t.Fatalf("did not expect unsuccessful revision to claim success, got %q", resp.Message)
+	}
+}
+
+func TestThinkTankServiceChat_ManualAcceptanceRevisionStillReviseDoesNotClaimSuccess(t *testing.T) {
+	question := "帮我制定迁移方案"
+	clarifier := &stubClarifier{decision: defaultClarifierDecision(question)}
+	reviewer := &stubAcceptanceReviewer{reviews: []AcceptanceReview{
+		{
+			Available:           true,
+			Verdict:             acceptanceVerdictRevise,
+			Score:               50,
+			Summary:             "初稿缺少回滚方案。",
+			MissingDimensions:   []string{"回滚方案"},
+			RevisionInstruction: "补充回滚方案",
+		},
+		{
+			Available:           true,
+			Verdict:             acceptanceVerdictRevise,
+			Score:               70,
+			Summary:             "修订版仍缺少验证步骤。",
+			Reason:              "上线后验证路径还不完整。",
+			MissingDimensions:   []string{"验证步骤"},
+			RevisionInstruction: "继续补充验证步骤",
+		},
+	}}
+	svc := NewThinkTankService(
+		&stubLibrarian{result: LibrarianResult{CoverageStatus: "sufficient", Summary: "站内资料充足"}},
+		nil,
+		&stubSynthesizer{answer: "手动初版答案"},
+		&stubConversationRunRepository{},
+		&stubConversationRunStepRepository{},
+		&stubConversationMemoryRepository{},
+		&stubConversationRepository{},
+		&stubChatMessageRepository{},
+		nil,
+		&stubAILogger{},
+		clarifier,
+		reviewer,
+	).(*thinkTankService)
+	svc.adkRunner = &thinkTankADKRunner{}
+	var calls int
+	svc.adkAnswerFetcher = func(ctx context.Context, question string) (string, error) {
+		calls++
+		if calls == 1 {
+			return "", nil
+		}
+		if !strings.Contains(question, "补充回滚方案") {
+			t.Fatalf("expected revision instruction in manual revision query, got %q", question)
+		}
+		return "手动修订答案", nil
+	}
+
+	resp, err := svc.Chat(context.Background(), question, nil, nil)
+	if err != nil {
+		t.Fatalf("expected chat success, got %v", err)
+	}
+	if calls != 2 {
+		t.Fatalf("expected one empty ADK attempt and one manual revision, got %d calls", calls)
+	}
+	for _, want := range []string{
+		"手动修订答案",
+		"回答限制",
+		"仍可能缺少：验证步骤",
+		"验收摘要",
+		"需要修订",
+		"评分 70/100",
+		"修订版仍缺少验证步骤",
+	} {
+		if !strings.Contains(resp.Message, want) {
+			t.Fatalf("expected response to contain %q, got %q", want, resp.Message)
+		}
+	}
+	if strings.Contains(resp.Message, "已自动补充关键缺失项") {
+		t.Fatalf("did not expect unsuccessful manual revision to claim success, got %q", resp.Message)
+	}
+}
+
 func TestThinkTankServiceChat_AcceptanceCanAskUserAndPersistWaitingRun(t *testing.T) {
 	question := "帮我制定迁移方案"
 	followUp := "需要确认目标数据库和停机窗口。"
