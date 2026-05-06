@@ -167,6 +167,31 @@ func TestFormatClarifierQuestion_ShowsNeedMissingReasonAndSuggestedReply(t *test
 	}
 }
 
+func TestFormatClarifierQuestion_FillsMissingVisibleProfile(t *testing.T) {
+	decision := ClarifierDecision{
+		NormalizedQuestion: "我要学习知识",
+		Intent:             "学习知识",
+		ShouldAskUser:      true,
+		NeedSummary:        "制定一个可执行的学习计划",
+		MissingDimensions:  []string{"学习领域", "当前基础"},
+	}
+
+	got := formatClarifierQuestion(decision)
+	for _, want := range []string{
+		"我理解你是想：制定一个可执行的学习计划",
+		"1. 学习领域",
+		"2. 当前基础",
+		"为什么需要这些信息：",
+		"这些信息会直接影响回答范围、深度和可执行建议",
+		"你可以这样回复：",
+		"请按上述维度逐项补充，例如：学习领域、当前基础。",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("expected fallback clarification to contain %q, got %q", want, got)
+		}
+	}
+}
+
 func TestFormatClarifierQuestion_StepDetailUsesConciseProcessPanel(t *testing.T) {
 	decision := ClarifierDecision{
 		NormalizedQuestion: "我要学习知识",
@@ -331,6 +356,26 @@ func TestAppendAcceptanceSummary_PassShowsScoreAndCoveredDimensions(t *testing.T
 	}
 }
 
+func TestAppendAcceptanceSummary_ShowsDimensionFallbacks(t *testing.T) {
+	review := AcceptanceReview{
+		Verdict:   acceptanceVerdictPass,
+		Score:     90,
+		Summary:   "答案整体满足问题。",
+		Available: true,
+	}
+
+	got := appendAcceptanceSummary("最终答案", review, false)
+	for _, want := range []string{
+		"验收摘要：通过，评分 90/100",
+		"已覆盖：AcceptanceAgent 未返回具体覆盖维度",
+		"仍需注意：未发现明确缺失维度",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("expected acceptance summary fallback to contain %q, got %q", want, got)
+		}
+	}
+}
+
 func TestAppendAcceptanceSummary_RevisedShowsAutomaticRevision(t *testing.T) {
 	review := AcceptanceReview{
 		Verdict:             acceptanceVerdictRevise,
@@ -416,6 +461,25 @@ func TestFormatAcceptanceStepDetail_ShowsVerdictScoreAndHandling(t *testing.T) {
 	} {
 		if !strings.Contains(reviseDetail, want) {
 			t.Fatalf("expected revised step detail to contain %q, got %q", want, reviseDetail)
+		}
+	}
+}
+
+func TestFormatAcceptanceStepDetail_ShowsDimensionFallbacks(t *testing.T) {
+	review := AcceptanceReview{
+		Verdict:   acceptanceVerdictPass,
+		Score:     90,
+		Summary:   "答案整体满足问题。",
+		Available: true,
+	}
+
+	got := formatAcceptanceStepDetail(review, false)
+	for _, want := range []string{
+		"已覆盖：AcceptanceAgent 未返回具体覆盖维度",
+		"缺失维度：未发现明确缺失维度",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("expected acceptance step fallback to contain %q, got %q", want, got)
 		}
 	}
 }

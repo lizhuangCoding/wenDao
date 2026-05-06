@@ -285,7 +285,13 @@ func formatClarifierQuestion(decision ClarifierDecision) string {
 		missingDimensions = []string{strings.TrimSpace(decision.ClarificationQuestion)}
 	}
 	whyNeeded := strings.TrimSpace(decision.WhyNeeded)
+	if whyNeeded == "" {
+		whyNeeded = defaultClarifierWhyNeeded(needSummary, missingDimensions)
+	}
 	suggestedReply := strings.TrimSpace(decision.SuggestedReply)
+	if suggestedReply == "" {
+		suggestedReply = defaultClarifierSuggestedReply(missingDimensions)
+	}
 	if len(missingDimensions) == 0 && whyNeeded == "" && suggestedReply == "" {
 		return ""
 	}
@@ -325,6 +331,21 @@ func formatClarifierQuestion(decision ClarifierDecision) string {
 		return strings.TrimSpace(decision.ClarificationQuestion)
 	}
 	return strings.TrimSpace(b.String())
+}
+
+func defaultClarifierWhyNeeded(needSummary string, missingDimensions []string) string {
+	if len(missingDimensions) == 0 && strings.TrimSpace(needSummary) == "" {
+		return ""
+	}
+	return "这些信息会直接影响回答范围、深度和可执行建议，补充后我可以按你的真实目标组织答案。"
+}
+
+func defaultClarifierSuggestedReply(missingDimensions []string) string {
+	missingDimensions = compactNonEmptyStrings(missingDimensions)
+	if len(missingDimensions) == 0 {
+		return ""
+	}
+	return "请按上述维度逐项补充，例如：" + strings.Join(missingDimensions, "、") + "。"
 }
 
 func formatClarifierStepDetail(decision ClarifierDecision) string {
@@ -381,6 +402,8 @@ func appendAcceptanceSummary(answer string, review AcceptanceReview, revised boo
 	parts := []string{"验收摘要：" + verdictText + "，评分 " + strconv.Itoa(score) + "/100"}
 	if matchedDimensions := compactNonEmptyStrings(review.MatchedDimensions); len(matchedDimensions) > 0 {
 		parts = append(parts, "已覆盖："+strings.Join(matchedDimensions, "、"))
+	} else {
+		parts = append(parts, "已覆盖：AcceptanceAgent 未返回具体覆盖维度")
 	}
 	if revised {
 		if revisionInstruction := strings.TrimSpace(review.RevisionInstruction); revisionInstruction != "" {
@@ -399,6 +422,8 @@ func appendAcceptanceSummary(answer string, review AcceptanceReview, revised boo
 	}
 	if missingDimensions := compactNonEmptyStrings(review.MissingDimensions); len(missingDimensions) > 0 {
 		parts = append(parts, "仍需注意："+strings.Join(missingDimensions, "、"))
+	} else {
+		parts = append(parts, "仍需注意：未发现明确缺失维度")
 	}
 	if unsupportedClaims := compactNonEmptyStrings(review.UnsupportedClaims); len(unsupportedClaims) > 0 {
 		parts = append(parts, "证据限制："+strings.Join(unsupportedClaims, "、"))
@@ -438,9 +463,13 @@ func formatAcceptanceStepDetail(review AcceptanceReview, revised bool) string {
 	}
 	if matchedDimensions := compactNonEmptyStrings(review.MatchedDimensions); len(matchedDimensions) > 0 {
 		parts = append(parts, "已覆盖："+strings.Join(matchedDimensions, "、"))
+	} else {
+		parts = append(parts, "已覆盖：AcceptanceAgent 未返回具体覆盖维度")
 	}
 	if missingDimensions := compactNonEmptyStrings(review.MissingDimensions); len(missingDimensions) > 0 {
 		parts = append(parts, "缺失维度："+strings.Join(missingDimensions, "、"))
+	} else {
+		parts = append(parts, "缺失维度：未发现明确缺失维度")
 	}
 	if revised {
 		parts = append(parts, "处理方式：初稿需要修订，已自动补充关键缺失项")
