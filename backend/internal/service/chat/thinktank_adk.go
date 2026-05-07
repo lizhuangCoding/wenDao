@@ -54,6 +54,9 @@ Do not answer by saying a tool is missing, including DocParser. If the executor 
 Before the loop ends, prefer RespondTool over another PlanTool when the remaining work would only make the answer marginally more complete.
 When calling RespondTool, deliver the requested artifact directly as the response. Do not make the final response a process summary.
 For research requests such as "帮我调研一下李小龙", the response must be the 调研报告 itself, with a title, concise overview, structured sections, key facts, impact/analysis, and references when available.
+For public figures, current affairs, or political figures, produce a deep research report, not a short encyclopedia summary.
+The report should include background, career or business history, political timeline, policy/actions, legal cases and controversies, current status, source-backed analysis, multi-sided impact, and evidence limitations when relevant.
+Use explicit causal links and evidence from available sources; avoid one-sentence sections that only mention major facts in passing.
 Avoid final answers whose main content is "已完成...", "我已经...", "执行过程中...", or "已使用 DocWriter...". If DocWriter was used, mention the saved draft ID only after the report body, as a short note.`
 
 // --- Runner Structure ---

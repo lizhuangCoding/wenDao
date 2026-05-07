@@ -98,6 +98,21 @@ func TestThinkTankReplannerInstruction_DeliversFinalArtifactInsteadOfProcessSumm
 	}
 }
 
+func TestThinkTankReplannerInstruction_RequiresDeepResearchReport(t *testing.T) {
+	required := []string{
+		"deep research report",
+		"political timeline",
+		"legal cases and controversies",
+		"current status",
+		"source-backed analysis",
+	}
+	for _, text := range required {
+		if !strings.Contains(thinkTankReplannerInstruction, text) {
+			t.Fatalf("replanner instruction must contain %q", text)
+		}
+	}
+}
+
 func TestThinkTankReplannerInstruction_UsesEvidenceInsteadOfMissingToolComplaint(t *testing.T) {
 	required := []string{
 		"Do not answer by saying a tool is missing",

@@ -77,17 +77,19 @@ func (o *thinkTankOrchestrator) reviewAnswer(ctx context.Context, question strin
 	if s.acceptanceReviewer == nil || strings.TrimSpace(answer) == "" {
 		return defaultAcceptanceReview(), false
 	}
-	review, err := s.acceptanceReviewer.Review(ctx, AcceptanceReviewInput{
+	input := AcceptanceReviewInput{
 		OriginalQuestion: question,
 		AgentQuery:       queryForAgents,
 		Decision:         decision,
 		Answer:           answer,
 		RevisionCount:    revisionCount,
-	})
+	}
+	review, err := s.acceptanceReviewer.Review(ctx, input)
 	if err != nil {
 		s.runs.logStage(nil, nil, "acceptance_warning", "Acceptance review failed; returning generated answer", err.Error())
 		return defaultAcceptanceReview(), false
 	}
+	review = enforceAcceptanceQuality(review, input)
 	shouldRevise := normalizeAcceptanceVerdict(review.Verdict) == acceptanceVerdictRevise && revisionCount < s.maxReviewRevisions
 	return review, shouldRevise
 }

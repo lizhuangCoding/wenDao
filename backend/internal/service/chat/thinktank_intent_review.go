@@ -111,6 +111,7 @@ func parseClarifierDecision(raw string, originalQuestion string) ClarifierDecisi
 	if decision.AmbiguityLevel == "" {
 		decision.AmbiguityLevel = "low"
 	}
+	decision.TargetDimensions = compactNonEmptyStrings(decision.TargetDimensions)
 	decision.ClarificationQuestion = strings.TrimSpace(decision.ClarificationQuestion)
 	decision.NeedSummary = strings.TrimSpace(decision.NeedSummary)
 	if decision.NeedSummary == "" {
@@ -125,19 +126,50 @@ func parseClarifierDecision(raw string, originalQuestion string) ClarifierDecisi
 	if decision.ShouldAskUser && len(decision.MissingDimensions) == 0 && decision.ClarificationQuestion == "" {
 		decision.ShouldAskUser = false
 	}
+	decision = applyResearchClarifierProfile(decision, originalQuestion)
 	return decision
 }
 
 func defaultClarifierDecision(originalQuestion string) ClarifierDecision {
 	question := strings.TrimSpace(originalQuestion)
-	return ClarifierDecision{
+	decision := ClarifierDecision{
 		NormalizedQuestion: question,
 		Intent:             question,
 		AnswerGoal:         "explain",
 		AmbiguityLevel:     "low",
 		ShouldAskUser:      false,
-		Reason:             "clarifier output unavailable; continuing with original question",
+		Reason:             "ClarifierAgent 未返回结构化结果，已按原问题继续回答。",
 	}
+	if isResearchReportQuestion(question) {
+		decision.AnswerGoal = "research_report"
+		decision.TargetDimensions = defaultResearchTargetDimensions(question)
+		decision.Constraints.Depth = "深度调研"
+		decision.Constraints.Style = "结构化调研报告"
+		decision.Constraints.SourcePolicy = "优先使用可追溯来源，并标注证据限制"
+		decision.Reason = "ClarifierAgent 未返回结构化结果，已按调研任务自动推断回答维度继续。"
+	}
+	return decision
+}
+
+func applyResearchClarifierProfile(decision ClarifierDecision, originalQuestion string) ClarifierDecision {
+	if !isResearchReportQuestion(originalQuestion) && !isResearchReportQuestion(decision.NormalizedQuestion) {
+		return decision
+	}
+	decision.AnswerGoal = "research_report"
+	decision.TargetDimensions = mergeUniqueStrings(decision.TargetDimensions, defaultResearchTargetDimensions(originalQuestion))
+	if decision.Constraints.Depth == "" {
+		decision.Constraints.Depth = "深度调研"
+	}
+	if decision.Constraints.Style == "" {
+		decision.Constraints.Style = "结构化调研报告"
+	}
+	if decision.Constraints.SourcePolicy == "" {
+		decision.Constraints.SourcePolicy = "优先使用可追溯来源，并标注证据限制"
+	}
+	if strings.TrimSpace(decision.Reason) == "" {
+		decision.Reason = "已按调研任务自动推断回答维度继续。"
+	}
+	return decision
 }
 
 func parseAcceptanceReview(raw string) AcceptanceReview {
@@ -559,4 +591,129 @@ func appendAcceptanceLimitations(answer string, review AcceptanceReview) string 
 		return answer
 	}
 	return strings.TrimSpace(answer) + "\n\n回答限制：\n- " + strings.Join(parts, "\n- ")
+}
+
+func enforceAcceptanceQuality(review AcceptanceReview, input AcceptanceReviewInput) AcceptanceReview {
+	if !review.Available || !isResearchReportQuestion(input.OriginalQuestion) {
+		return review
+	}
+	missingDimensions := missingRequiredResearchDimensions(input.OriginalQuestion, input.Answer)
+	if len(missingDimensions) == 0 {
+		return review
+	}
+
+	review.Verdict = acceptanceVerdictRevise
+	if review.Score == 0 || review.Score > 65 {
+		review.Score = 65
+	}
+	review.MissingDimensions = mergeUniqueStrings(review.MissingDimensions, missingDimensions)
+	if strings.TrimSpace(review.Summary) == "" || strings.Contains(review.Summary, "判定通过") || strings.Contains(review.Summary, "满足") {
+		review.Summary = "调研报告仍缺少关键维度或深度不足，不能判定为充分完成用户调研需求。"
+	}
+	reason := "调研类问题需要覆盖核心事实、时间线、争议/法律风险、当前状态、影响分析和来源边界；当前答案缺少：" + strings.Join(missingDimensions, "、") + "。"
+	if strings.TrimSpace(review.Reason) == "" {
+		review.Reason = reason
+	} else if !strings.Contains(review.Reason, reason) {
+		review.Reason = strings.TrimSpace(review.Reason) + "\n" + reason
+	}
+	review.RevisionInstruction = "请重写为深度调研报告，补充：" + strings.Join(missingDimensions, "、") + "；每个关键结论尽量给出来源依据，并避免只用概述性表述。"
+	return review
+}
+
+func isResearchReportQuestion(question string) bool {
+	question = strings.TrimSpace(question)
+	return containsAny(question, "调研", "研究一下", "研究报告", "调研报告", "深度研究")
+}
+
+type researchDimensionRule struct {
+	name     string
+	keywords []string
+}
+
+func defaultResearchTargetDimensions(question string) []string {
+	if isTrumpQuestion(question) {
+		return []string{
+			"个人背景与商业经历",
+			"政治生涯时间线",
+			"政策主张与举措",
+			"法律案件与争议",
+			"当前身份与最新动态",
+			"国内外影响与多方评价",
+			"来源依据与证据限制",
+		}
+	}
+	return []string{
+		"背景与基本事实",
+		"关键事件时间线",
+		"核心观点或贡献",
+		"争议与证据限制",
+		"影响分析",
+		"参考来源",
+	}
+}
+
+func missingRequiredResearchDimensions(question string, answer string) []string {
+	if !isResearchReportQuestion(question) {
+		return nil
+	}
+	answer = strings.TrimSpace(answer)
+	rules := defaultResearchDimensionRules(question)
+	missing := make([]string, 0, len(rules))
+	for _, rule := range rules {
+		if !containsAny(answer, rule.keywords...) {
+			missing = append(missing, rule.name)
+		}
+	}
+	return missing
+}
+
+func defaultResearchDimensionRules(question string) []researchDimensionRule {
+	if isTrumpQuestion(question) {
+		return []researchDimensionRule{
+			{name: "个人背景与商业经历", keywords: []string{"商业经历", "房地产", "特朗普集团", "媒体人物", "电视节目", "品牌授权"}},
+			{name: "政治生涯时间线", keywords: []string{"政治生涯", "时间线", "2016", "2020", "2024", "第47任", "第二任期", "竞选历程"}},
+			{name: "政策主张与举措", keywords: []string{"移民政策", "贸易政策", "关税", "税改", "外交政策", "能源政策", "司法任命"}},
+			{name: "法律案件与争议", keywords: []string{"法律案件", "刑事", "民事", "诉讼", "弹劾", "定罪", "争议"}},
+			{name: "当前身份与最新动态", keywords: []string{"第47任", "现任", "当前", "第二任期", "2025", "2026", "JD Vance", "万斯"}},
+			{name: "国内外影响与多方评价", keywords: []string{"支持者", "批评者", "两极化", "国内影响", "国际影响", "多方评价", "反对者"}},
+			{name: "来源依据与证据限制", keywords: []string{"参考", "来源", "证据", "链接", "资料限制", "检索限制"}},
+		}
+	}
+	return []researchDimensionRule{
+		{name: "背景与基本事实", keywords: []string{"背景", "基本信息", "概述", "简介"}},
+		{name: "关键事件时间线", keywords: []string{"时间线", "阶段", "历程", "关键事件"}},
+		{name: "核心观点或贡献", keywords: []string{"核心", "贡献", "主张", "关键事实"}},
+		{name: "争议与证据限制", keywords: []string{"争议", "限制", "不足", "风险", "证据"}},
+		{name: "影响分析", keywords: []string{"影响", "分析", "意义", "评价"}},
+		{name: "参考来源", keywords: []string{"参考", "来源", "链接"}},
+	}
+}
+
+func isTrumpQuestion(question string) bool {
+	return containsAny(question, "特朗普", "川普", "Donald Trump", "Trump")
+}
+
+func containsAny(text string, needles ...string) bool {
+	for _, needle := range needles {
+		if strings.Contains(text, needle) {
+			return true
+		}
+	}
+	return false
+}
+
+func mergeUniqueStrings(base []string, extra []string) []string {
+	result := compactNonEmptyStrings(base)
+	seen := make(map[string]struct{}, len(result)+len(extra))
+	for _, item := range result {
+		seen[item] = struct{}{}
+	}
+	for _, item := range compactNonEmptyStrings(extra) {
+		if _, ok := seen[item]; ok {
+			continue
+		}
+		seen[item] = struct{}{}
+		result = append(result, item)
+	}
+	return result
 }

@@ -48,6 +48,52 @@ func TestParseClarifierDecision_DefaultsWhenJSONInvalid(t *testing.T) {
 	}
 }
 
+func TestParseClarifierDecision_DefaultsToVisibleResearchProfile(t *testing.T) {
+	got := parseClarifierDecision("not json", "帮我调研一下特朗普")
+	if got.ShouldAskUser {
+		t.Fatalf("research fallback should continue without asking user, got %#v", got)
+	}
+	if got.AnswerGoal != "research_report" {
+		t.Fatalf("expected research_report answer goal, got %q", got.AnswerGoal)
+	}
+	for _, want := range []string{"政治生涯时间线", "政策主张与举措", "法律案件与争议", "当前身份与最新动态"} {
+		if !containsString(got.TargetDimensions, want) {
+			t.Fatalf("expected fallback target dimensions to contain %q, got %#v", want, got.TargetDimensions)
+		}
+	}
+	stepDetail := formatClarifierStepDetail(got)
+	for _, want := range []string{"实际需求：帮我调研一下特朗普", "政治生涯时间线", "无需追问"} {
+		if !strings.Contains(stepDetail, want) {
+			t.Fatalf("expected fallback step detail to contain %q, got %q", want, stepDetail)
+		}
+	}
+	if strings.Contains(stepDetail, "unavailable") {
+		t.Fatalf("fallback step detail should not expose unavailable internals, got %q", stepDetail)
+	}
+}
+
+func TestParseClarifierDecision_FillsSparseResearchDimensions(t *testing.T) {
+	raw := `{
+  "normalized_question": "调研特朗普",
+  "intent": "调研特朗普",
+  "answer_goal": "research",
+  "target_dimensions": [],
+  "ambiguity_level": "low",
+  "should_ask_user": false,
+  "reason": "问题足够明确"
+}`
+
+	got := parseClarifierDecision(raw, "帮我调研一下特朗普")
+	if got.AnswerGoal != "research_report" {
+		t.Fatalf("expected sparse research output to use research_report goal, got %q", got.AnswerGoal)
+	}
+	for _, want := range []string{"政治生涯时间线", "法律案件与争议", "当前身份与最新动态"} {
+		if !containsString(got.TargetDimensions, want) {
+			t.Fatalf("expected sparse research dimensions to contain %q, got %#v", want, got.TargetDimensions)
+		}
+	}
+}
+
 func TestParseClarifierDecision_IncludesVisibleNeedProfile(t *testing.T) {
 	raw := `{
   "normalized_question": "制定 AI 学习计划",
@@ -404,6 +450,53 @@ func TestAppendAcceptanceSummary_SkipsUnavailableReview(t *testing.T) {
 	}
 }
 
+func TestEnforceAcceptanceQuality_ResearchReportRequiresCoreDepth(t *testing.T) {
+	review := AcceptanceReview{
+		Verdict:           acceptanceVerdictPass,
+		Score:             80,
+		MatchedDimensions: []string{"个人基本信息", "关键事实", "影响分析"},
+		Summary:           "答案较为全面，判定通过。",
+		Available:         true,
+	}
+	input := AcceptanceReviewInput{
+		OriginalQuestion: "帮我调研一下特朗普",
+		Decision:         defaultClarifierDecision("帮我调研一下特朗普"),
+		Answer: `### 特朗普调研报告
+
+#### 一、概述
+唐纳德·特朗普是美国政治家、媒体人物和商人，曾任美国总统。
+
+#### 二、个人基本信息
+特朗普出生于 1946 年，是共和党人。
+
+#### 三、关键事实
+他在商业和政治领域都有活动，推行过移民、贸易等政策。
+
+#### 四、影响/分析
+他的政策对美国和全球政治经济产生了影响。
+
+#### 五、参考信息
+- https://example.com`,
+		RevisionCount: 0,
+	}
+
+	got := enforceAcceptanceQuality(review, input)
+	if got.Verdict != acceptanceVerdictRevise {
+		t.Fatalf("expected shallow research report to require revision, got %#v", got)
+	}
+	if got.Score >= review.Score {
+		t.Fatalf("expected quality gate to lower score below %d, got %d", review.Score, got.Score)
+	}
+	for _, want := range []string{"政治生涯时间线", "法律案件与争议", "当前身份与最新动态"} {
+		if !containsString(got.MissingDimensions, want) {
+			t.Fatalf("expected missing dimensions to include %q, got %#v", want, got.MissingDimensions)
+		}
+	}
+	if !strings.Contains(got.RevisionInstruction, "深度调研报告") {
+		t.Fatalf("expected revision instruction to require deep report, got %q", got.RevisionInstruction)
+	}
+}
+
 func TestFormatAcceptanceQuestion_ShowsReasonAndQuestion(t *testing.T) {
 	review := AcceptanceReview{
 		Verdict:      acceptanceVerdictAskUser,
@@ -534,6 +627,8 @@ func TestAcceptanceInstruction_BoundsReviewStrictness(t *testing.T) {
 		"ask_user only when",
 		"score",
 		"summary",
+		"deep research report",
+		"legal cases and controversies",
 		"valid JSON",
 	}
 	for _, text := range required {
@@ -541,6 +636,15 @@ func TestAcceptanceInstruction_BoundsReviewStrictness(t *testing.T) {
 			t.Fatalf("acceptance instruction must contain %q", text)
 		}
 	}
+}
+
+func containsString(items []string, want string) bool {
+	for _, item := range items {
+		if item == want {
+			return true
+		}
+	}
+	return false
 }
 
 func TestBuildClarifierPrompt_IncludesOriginalQuestionAndAgentQuery(t *testing.T) {
