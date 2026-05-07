@@ -48,6 +48,42 @@ func TestParseClarifierDecision_DefaultsWhenJSONInvalid(t *testing.T) {
 	}
 }
 
+func TestParseClarifierDecision_DefaultsToLearningClarificationWhenGoalMissing(t *testing.T) {
+	got := parseClarifierDecision("not json", "我要学习")
+	if !got.ShouldAskUser {
+		t.Fatalf("vague learning intent should ask for key dimensions, got %#v", got)
+	}
+	for _, want := range []string{"学习领域", "当前基础", "学习目标", "可投入时间"} {
+		if !containsString(got.MissingDimensions, want) {
+			t.Fatalf("expected missing learning dimensions to contain %q, got %#v", want, got.MissingDimensions)
+		}
+	}
+	stepDetail := formatClarifierStepDetail(got)
+	for _, want := range []string{"实际需求：制定一个可执行的学习计划", "处理方式：需要用户补充关键维度"} {
+		if !strings.Contains(stepDetail, want) {
+			t.Fatalf("expected learning clarification step to contain %q, got %q", want, stepDetail)
+		}
+	}
+	if strings.Contains(stepDetail, "无需追问") || strings.Contains(stepDetail, "unavailable") {
+		t.Fatalf("vague learning fallback should not continue or expose internals, got %q", stepDetail)
+	}
+}
+
+func TestParseClarifierDecision_KeepsSpecificLearningCareerGoalWithoutAsking(t *testing.T) {
+	got := parseClarifierDecision("not json", "我要学习ai最新的知识，目标是能够找到一个agent开发岗位")
+	if got.ShouldAskUser {
+		t.Fatalf("specific career learning goal should continue, got %#v", got)
+	}
+	if got.AnswerGoal != "career_learning_plan" {
+		t.Fatalf("expected career learning answer goal, got %q", got.AnswerGoal)
+	}
+	for _, want := range []string{"Agent 开发岗位能力要求", "AI 最新知识学习路线", "项目作品与实践路径", "求职准备"} {
+		if !containsString(got.TargetDimensions, want) {
+			t.Fatalf("expected career learning dimensions to contain %q, got %#v", want, got.TargetDimensions)
+		}
+	}
+}
+
 func TestParseClarifierDecision_DefaultsToVisibleResearchProfile(t *testing.T) {
 	got := parseClarifierDecision("not json", "帮我调研一下特朗普")
 	if got.ShouldAskUser {
@@ -161,7 +197,7 @@ func TestParseClarifierDecision_KeepsAskUserWhenVisibleProfileCanRenderQuestion(
 	}
 }
 
-func TestParseClarifierDecision_DisablesAskUserWithoutConcreteMissingDimension(t *testing.T) {
+func TestParseClarifierDecision_FillsVagueLearningAskUserWhenMissingDimensionsEmpty(t *testing.T) {
 	raw := `{
   "normalized_question": "制定 AI 学习计划",
   "intent": "学习 AI",
@@ -179,8 +215,13 @@ func TestParseClarifierDecision_DisablesAskUserWithoutConcreteMissingDimension(t
 }`
 
 	got := parseClarifierDecision(raw, "我要学习知识")
-	if got.ShouldAskUser {
-		t.Fatalf("expected ask-user path to be disabled without concrete missing dimension, got %#v", got)
+	if !got.ShouldAskUser {
+		t.Fatalf("expected vague learning fallback to ask user, got %#v", got)
+	}
+	for _, want := range []string{"学习领域", "当前基础", "学习目标", "可投入时间"} {
+		if !containsString(got.MissingDimensions, want) {
+			t.Fatalf("expected fallback missing dimensions to contain %q, got %#v", want, got.MissingDimensions)
+		}
 	}
 }
 
@@ -497,6 +538,34 @@ func TestEnforceAcceptanceQuality_ResearchReportRequiresCoreDepth(t *testing.T) 
 	}
 }
 
+func TestEnforceAcceptanceQuality_LearningCareerAnswerCannotStopAtInfoCollection(t *testing.T) {
+	input := AcceptanceReviewInput{
+		OriginalQuestion: "我要学习ai最新的知识，目标是能够找到一个agent开发岗位",
+		Decision:         defaultClarifierDecision("我要学习ai最新的知识，目标是能够找到一个agent开发岗位"),
+		Answer: `根据你的需求，我们已完成了学习AI最新知识以满足Agent开发岗位要求的信息收集和整理工作。
+
+- 核心技能：Prompt工程、RAG、工具调用、记忆管理和LLMOps。
+- 架构设计：ReAct、Plan-and-Execute、多Agent协同。
+- 工程实践：评估体系、上下文工程、安全与可控性、成本优化。
+
+接下来，我们将依据这些关键信息，为你制定一份详细的学习计划。至此，已完成目标中信息收集和整理的部分，后续将继续完成学习计划的制定。`,
+		RevisionCount: 0,
+	}
+
+	got := enforceAcceptanceQuality(defaultAcceptanceReview(), input)
+	if got.Verdict != acceptanceVerdictRevise || !got.Available {
+		t.Fatalf("expected incomplete career learning answer to require revision, got %#v", got)
+	}
+	for _, want := range []string{"可执行学习路线与时间安排", "项目作品与实践路径", "求职准备"} {
+		if !containsString(got.MissingDimensions, want) {
+			t.Fatalf("expected missing learning dimensions to contain %q, got %#v", want, got.MissingDimensions)
+		}
+	}
+	if !strings.Contains(got.RevisionInstruction, "直接输出求职导向学习计划") {
+		t.Fatalf("expected revision instruction to require direct learning plan, got %q", got.RevisionInstruction)
+	}
+}
+
 func TestFormatAcceptanceQuestion_ShowsReasonAndQuestion(t *testing.T) {
 	review := AcceptanceReview{
 		Verdict:      acceptanceVerdictAskUser,
@@ -629,6 +698,8 @@ func TestAcceptanceInstruction_BoundsReviewStrictness(t *testing.T) {
 		"summary",
 		"deep research report",
 		"legal cases and controversies",
+		"career-oriented learning plan",
+		"project portfolio",
 		"valid JSON",
 	}
 	for _, text := range required {

@@ -113,6 +113,22 @@ func TestThinkTankReplannerInstruction_RequiresDeepResearchReport(t *testing.T) 
 	}
 }
 
+func TestThinkTankReplannerInstruction_RequiresCareerLearningPlan(t *testing.T) {
+	required := []string{
+		"career-oriented learning plan",
+		"do not stop at information collection",
+		"skills map",
+		"phased roadmap",
+		"project portfolio",
+		"job-search preparation",
+	}
+	for _, text := range required {
+		if !strings.Contains(thinkTankReplannerInstruction, text) {
+			t.Fatalf("replanner instruction must contain %q", text)
+		}
+	}
+}
+
 func TestThinkTankReplannerInstruction_UsesEvidenceInsteadOfMissingToolComplaint(t *testing.T) {
 	required := []string{
 		"Do not answer by saying a tool is missing",

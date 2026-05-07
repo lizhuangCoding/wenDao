@@ -25,6 +25,8 @@ Return ask_user only when the answer cannot proceed because critical user intent
 For research requests, require a deep research report rather than a short encyclopedia summary.
 For political or public-figure research, pass only when the answer covers background, business/career history, political timeline, policy actions, legal cases and controversies, current status, source-backed analysis, and evidence limitations.
 Penalize shallow answers that only mention facts in passing, omit causality, omit major controversies, or provide references without using them as evidence.
+For learning requests with a job goal, require a career-oriented learning plan, not an information collection summary.
+Pass career learning answers only when they include a skills map, phased roadmap, project portfolio path, time allocation, resources, and job-search preparation.
 Always include a numeric score from 0 to 100 and a concise summary of the acceptance result.
 Return valid JSON only with keys: verdict, score, matched_dimensions, missing_dimensions, unsupported_claims, format_issues, revision_instruction, user_question, reason, summary.`
 
@@ -156,7 +158,7 @@ func buildAcceptancePrompt(input AcceptanceReviewInput) string {
 		"clarifier_decision": input.Decision,
 		"answer":             strings.TrimSpace(input.Answer),
 		"revision_count":     input.RevisionCount,
-		"instruction":        fmt.Sprintf("Revision count: %d. Return a valid JSON object with verdict, score, and summary. For research tasks, enforce deep research report quality: complete dimensions, source-backed analysis, causality, controversies, current status, and evidence limits.", input.RevisionCount),
+		"instruction":        fmt.Sprintf("Revision count: %d. Return a valid JSON object with verdict, score, and summary. For research tasks, enforce deep research report quality: complete dimensions, source-backed analysis, causality, controversies, current status, and evidence limits. For job-oriented learning tasks, require a career-oriented learning plan with roadmap, projects, resources, and job-search preparation.", input.RevisionCount),
 	}
 	return marshalReviewPrompt(payload)
 }

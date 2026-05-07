@@ -57,6 +57,8 @@ For research requests such as "帮我调研一下李小龙", the response must b
 For public figures, current affairs, or political figures, produce a deep research report, not a short encyclopedia summary.
 The report should include background, career or business history, political timeline, policy/actions, legal cases and controversies, current status, source-backed analysis, multi-sided impact, and evidence limitations when relevant.
 Use explicit causal links and evidence from available sources; avoid one-sentence sections that only mention major facts in passing.
+For learning requests with a job goal, respond with a career-oriented learning plan directly; do not stop at information collection or say the plan will be made later.
+The learning plan should include a skills map, phased roadmap, weekly or monthly schedule, project portfolio path, resources to track latest knowledge, and job-search preparation.
 Avoid final answers whose main content is "已完成...", "我已经...", "执行过程中...", or "已使用 DocWriter...". If DocWriter was used, mention the saved draft ID only after the report body, as a short note.`
 
 // --- Runner Structure ---
