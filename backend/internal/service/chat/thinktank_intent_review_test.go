@@ -84,6 +84,29 @@ func TestParseClarifierDecision_KeepsSpecificLearningCareerGoalWithoutAsking(t *
 	}
 }
 
+func TestParseClarifierDecision_GeneralizesCareerLearningPhrases(t *testing.T) {
+	questions := []string{
+		"想转 AI Agent 工程师，应该怎么准备？",
+		"想进智能体开发岗，给我一条学习路线",
+		"怎么系统准备大模型应用开发面试和项目作品？",
+	}
+
+	for _, question := range questions {
+		got := parseClarifierDecision("not json", question)
+		if got.ShouldAskUser {
+			t.Fatalf("career learning phrase %q should continue with inferred dimensions, got %#v", question, got)
+		}
+		if got.AnswerGoal != "career_learning_plan" {
+			t.Fatalf("expected career learning goal for %q, got %q", question, got.AnswerGoal)
+		}
+		for _, want := range []string{"Agent 开发岗位能力要求", "可执行学习路线与时间安排", "项目作品与实践路径", "求职准备"} {
+			if !containsString(got.TargetDimensions, want) {
+				t.Fatalf("expected career dimensions for %q to contain %q, got %#v", question, want, got.TargetDimensions)
+			}
+		}
+	}
+}
+
 func TestParseClarifierDecision_DefaultsToVisibleResearchProfile(t *testing.T) {
 	got := parseClarifierDecision("not json", "帮我调研一下特朗普")
 	if got.ShouldAskUser {
@@ -563,6 +586,30 @@ func TestEnforceAcceptanceQuality_LearningCareerAnswerCannotStopAtInfoCollection
 	}
 	if !strings.Contains(got.RevisionInstruction, "直接输出求职导向学习计划") {
 		t.Fatalf("expected revision instruction to require direct learning plan, got %q", got.RevisionInstruction)
+	}
+}
+
+func TestEnforceAcceptanceQuality_GeneralizesCareerLearningPhrases(t *testing.T) {
+	input := AcceptanceReviewInput{
+		OriginalQuestion: "想进智能体开发岗，给我一条学习路线",
+		Decision:         defaultClarifierDecision("想进智能体开发岗，给我一条学习路线"),
+		Answer:           "核心技能包括 Prompt、RAG、工具调用和多Agent。后续我会继续整理详细计划。",
+		RevisionCount:    0,
+	}
+
+	got := enforceAcceptanceQuality(AcceptanceReview{
+		Verdict:   acceptanceVerdictPass,
+		Score:     80,
+		Summary:   "回答满足用户学习需求。",
+		Available: true,
+	}, input)
+	if got.Verdict != acceptanceVerdictRevise {
+		t.Fatalf("expected generic career learning phrase to require revision, got %#v", got)
+	}
+	for _, want := range []string{"直接输出完整学习计划", "可执行学习路线与时间安排", "项目作品与实践路径", "求职准备"} {
+		if !containsString(got.MissingDimensions, want) {
+			t.Fatalf("expected generic career missing dimensions to contain %q, got %#v", want, got.MissingDimensions)
+		}
 	}
 }
 

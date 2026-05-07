@@ -717,10 +717,19 @@ func isVagueLearningQuestion(question string) bool {
 
 func isLearningCareerQuestion(question string) bool {
 	normalized := normalizeQuestionText(question)
-	if !containsAny(normalized, "学习", "想学", "我要学", "知识") {
-		return false
-	}
-	return containsAny(normalized, "岗位", "求职", "找工作", "就业", "面试", "agent开发", "agent工程师", "智能体开发")
+	hasLearningOrPrepIntent := containsAny(normalized,
+		"学习", "想学", "我要学", "知识", "路线", "怎么准备", "准备", "提升", "转", "转行", "入门", "系统",
+	)
+	hasCareerGoal := containsAny(normalized,
+		"岗位", "求职", "找工作", "就业", "面试", "工作", "offer", "简历", "jd", "工程师", "开发岗", "研发岗",
+	)
+	hasAIDomain := containsAny(normalized,
+		"ai", "人工智能", "agent", "智能体", "大模型", "llm", "rag", "prompt", "aigc",
+	)
+	hasDevelopmentRole := containsAny(normalized,
+		"开发", "研发", "工程师", "应用", "后端", "算法", "架构",
+	)
+	return hasLearningOrPrepIntent && hasCareerGoal && (hasAIDomain || hasDevelopmentRole)
 }
 
 type researchDimensionRule struct {
@@ -772,7 +781,7 @@ func missingRequiredCareerLearningDimensions(answer string) []string {
 		{name: "资源与更新渠道", keywords: []string{"资源", "课程", "文档", "社区", "论文", "博客", "技术报告"}},
 	}
 	missing := make([]string, 0, len(rules)+1)
-	if containsAny(answer, "信息收集和整理", "接下来", "后续将", "后续继续", "将依据这些关键信息") {
+	if containsAny(answer, "信息收集和整理", "接下来", "后续", "将依据这些关键信息", "继续整理详细计划") {
 		missing = append(missing, "直接输出完整学习计划")
 	}
 	for _, rule := range rules {
