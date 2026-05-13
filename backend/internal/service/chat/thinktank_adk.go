@@ -53,12 +53,10 @@ If WebFetch reports failed candidate pages, do not retry those URLs. If at least
 Do not answer by saying a tool is missing, including DocParser. If the executor complains about invalid URLs, raw HTML, missing parser tools, or other tool limitations, use available evidence from LocalSearch/WebSearch/WebFetch and call RespondTool with the best user-facing answer.
 Before the loop ends, prefer RespondTool over another PlanTool when the remaining work would only make the answer marginally more complete.
 When calling RespondTool, deliver the requested artifact directly as the response. Do not make the final response a process summary.
-For research requests such as "帮我调研一下李小龙", the response must be the 调研报告 itself, with a title, concise overview, structured sections, key facts, impact/analysis, and references when available.
-For public figures, current affairs, or political figures, produce a deep research report, not a short encyclopedia summary.
-The report should include background, career or business history, political timeline, policy/actions, legal cases and controversies, current status, source-backed analysis, multi-sided impact, and evidence limitations when relevant.
+Use the ClarifierAgent need profile in the query to decide the artifact type, dimensions, constraints, and acceptance criteria.
+For any report-style request, deliver the report itself with a title, concise overview, structured sections, key facts, analysis, references when available, and evidence limitations where relevant.
+For any planning or learning request, deliver the plan itself with concrete stages, resources, practice tasks, timing, checkpoints, and next actions matched to the user's goal.
 Use explicit causal links and evidence from available sources; avoid one-sentence sections that only mention major facts in passing.
-For learning requests with a job goal, respond with a career-oriented learning plan directly; do not stop at information collection or say the plan will be made later.
-The learning plan should include a skills map, phased roadmap, weekly or monthly schedule, project portfolio path, resources to track latest knowledge, and job-search preparation.
 Avoid final answers whose main content is "已完成...", "我已经...", "执行过程中...", or "已使用 DocWriter...". If DocWriter was used, mention the saved draft ID only after the report body, as a short note.`
 
 // --- Runner Structure ---

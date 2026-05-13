@@ -13,6 +13,7 @@ func TestParseClarifierDecision_UsesModelJSON(t *testing.T) {
   "intent": "了解 AI Agent 的发展趋势",
   "answer_goal": "research",
   "target_dimensions": ["技术演进", "商业落地"],
+  "acceptance_criteria": ["解释关键技术变化", "说明商业化约束"],
   "constraints": {"time_range": "未来三年", "audience": "创业者", "depth": "深入", "style": "结构化", "source_policy": "优先引用来源"},
   "ambiguity_level": "low",
   "should_ask_user": false,
@@ -29,6 +30,9 @@ func TestParseClarifierDecision_UsesModelJSON(t *testing.T) {
 	}
 	if len(got.TargetDimensions) != 2 || got.TargetDimensions[0] != "技术演进" {
 		t.Fatalf("unexpected target dimensions %#v", got.TargetDimensions)
+	}
+	if len(got.AcceptanceCriteria) != 2 || got.AcceptanceCriteria[0] != "解释关键技术变化" {
+		t.Fatalf("unexpected acceptance criteria %#v", got.AcceptanceCriteria)
 	}
 	if got.Constraints.Audience != "创业者" {
 		t.Fatalf("expected constraints to be parsed, got %#v", got.Constraints)
@@ -48,108 +52,48 @@ func TestParseClarifierDecision_DefaultsWhenJSONInvalid(t *testing.T) {
 	}
 }
 
-func TestParseClarifierDecision_DefaultsToLearningClarificationWhenGoalMissing(t *testing.T) {
-	got := parseClarifierDecision("not json", "我要学习")
-	if !got.ShouldAskUser {
-		t.Fatalf("vague learning intent should ask for key dimensions, got %#v", got)
-	}
-	for _, want := range []string{"学习领域", "当前基础", "学习目标", "可投入时间"} {
-		if !containsString(got.MissingDimensions, want) {
-			t.Fatalf("expected missing learning dimensions to contain %q, got %#v", want, got.MissingDimensions)
-		}
-	}
-	stepDetail := formatClarifierStepDetail(got)
-	for _, want := range []string{"实际需求：制定一个可执行的学习计划", "处理方式：需要用户补充关键维度"} {
-		if !strings.Contains(stepDetail, want) {
-			t.Fatalf("expected learning clarification step to contain %q, got %q", want, stepDetail)
-		}
-	}
-	if strings.Contains(stepDetail, "无需追问") || strings.Contains(stepDetail, "unavailable") {
-		t.Fatalf("vague learning fallback should not continue or expose internals, got %q", stepDetail)
-	}
-}
-
-func TestParseClarifierDecision_KeepsSpecificLearningCareerGoalWithoutAsking(t *testing.T) {
-	got := parseClarifierDecision("not json", "我要学习ai最新的知识，目标是能够找到一个agent开发岗位")
-	if got.ShouldAskUser {
-		t.Fatalf("specific career learning goal should continue, got %#v", got)
-	}
-	if got.AnswerGoal != "career_learning_plan" {
-		t.Fatalf("expected career learning answer goal, got %q", got.AnswerGoal)
-	}
-	for _, want := range []string{"Agent 开发岗位能力要求", "AI 最新知识学习路线", "项目作品与实践路径", "求职准备"} {
-		if !containsString(got.TargetDimensions, want) {
-			t.Fatalf("expected career learning dimensions to contain %q, got %#v", want, got.TargetDimensions)
-		}
-	}
-}
-
-func TestParseClarifierDecision_GeneralizesCareerLearningPhrases(t *testing.T) {
+func TestParseClarifierDecision_InvalidJSONDoesNotInferIntentFromKeywords(t *testing.T) {
 	questions := []string{
-		"想转 AI Agent 工程师，应该怎么准备？",
-		"想进智能体开发岗，给我一条学习路线",
-		"怎么系统准备大模型应用开发面试和项目作品？",
+		"我要学习",
+		"我要学习ai最新的知识，目标是能够找到一个agent开发岗位",
+		"帮我调研一下特朗普",
 	}
 
 	for _, question := range questions {
 		got := parseClarifierDecision("not json", question)
 		if got.ShouldAskUser {
-			t.Fatalf("career learning phrase %q should continue with inferred dimensions, got %#v", question, got)
+			t.Fatalf("fallback for %q should not fabricate clarification from keywords, got %#v", question, got)
 		}
-		if got.AnswerGoal != "career_learning_plan" {
-			t.Fatalf("expected career learning goal for %q, got %q", question, got.AnswerGoal)
+		if got.AnswerGoal != "explain" {
+			t.Fatalf("fallback for %q should keep neutral answer goal, got %q", question, got.AnswerGoal)
 		}
-		for _, want := range []string{"Agent 开发岗位能力要求", "可执行学习路线与时间安排", "项目作品与实践路径", "求职准备"} {
-			if !containsString(got.TargetDimensions, want) {
-				t.Fatalf("expected career dimensions for %q to contain %q, got %#v", question, want, got.TargetDimensions)
-			}
+		if len(got.TargetDimensions) != 0 {
+			t.Fatalf("fallback for %q should not fabricate target dimensions, got %#v", question, got.TargetDimensions)
+		}
+		stepDetail := formatClarifierStepDetail(got)
+		if strings.Contains(stepDetail, "按推断维度") || strings.Contains(stepDetail, "无需追问") {
+			t.Fatalf("fallback step detail should not claim keyword-based inference, got %q", stepDetail)
 		}
 	}
 }
 
-func TestParseClarifierDecision_DefaultsToVisibleResearchProfile(t *testing.T) {
-	got := parseClarifierDecision("not json", "帮我调研一下特朗普")
-	if got.ShouldAskUser {
-		t.Fatalf("research fallback should continue without asking user, got %#v", got)
-	}
-	if got.AnswerGoal != "research_report" {
-		t.Fatalf("expected research_report answer goal, got %q", got.AnswerGoal)
-	}
-	for _, want := range []string{"政治生涯时间线", "政策主张与举措", "法律案件与争议", "当前身份与最新动态"} {
-		if !containsString(got.TargetDimensions, want) {
-			t.Fatalf("expected fallback target dimensions to contain %q, got %#v", want, got.TargetDimensions)
-		}
-	}
-	stepDetail := formatClarifierStepDetail(got)
-	for _, want := range []string{"实际需求：帮我调研一下特朗普", "政治生涯时间线", "无需追问"} {
-		if !strings.Contains(stepDetail, want) {
-			t.Fatalf("expected fallback step detail to contain %q, got %q", want, stepDetail)
-		}
-	}
-	if strings.Contains(stepDetail, "unavailable") {
-		t.Fatalf("fallback step detail should not expose unavailable internals, got %q", stepDetail)
-	}
-}
-
-func TestParseClarifierDecision_FillsSparseResearchDimensions(t *testing.T) {
+func TestParseClarifierDecision_KeepsModelDimensionsWithoutKeywordProfiles(t *testing.T) {
 	raw := `{
   "normalized_question": "调研特朗普",
   "intent": "调研特朗普",
   "answer_goal": "research",
-  "target_dimensions": [],
+  "target_dimensions": ["历史影响"],
   "ambiguity_level": "low",
   "should_ask_user": false,
   "reason": "问题足够明确"
 }`
 
 	got := parseClarifierDecision(raw, "帮我调研一下特朗普")
-	if got.AnswerGoal != "research_report" {
-		t.Fatalf("expected sparse research output to use research_report goal, got %q", got.AnswerGoal)
+	if got.AnswerGoal != "research" {
+		t.Fatalf("expected model answer goal to be preserved, got %q", got.AnswerGoal)
 	}
-	for _, want := range []string{"政治生涯时间线", "法律案件与争议", "当前身份与最新动态"} {
-		if !containsString(got.TargetDimensions, want) {
-			t.Fatalf("expected sparse research dimensions to contain %q, got %#v", want, got.TargetDimensions)
-		}
+	if len(got.TargetDimensions) != 1 || got.TargetDimensions[0] != "历史影响" {
+		t.Fatalf("expected model dimensions to be preserved without hardcoded profile merge, got %#v", got.TargetDimensions)
 	}
 }
 
@@ -220,7 +164,7 @@ func TestParseClarifierDecision_KeepsAskUserWhenVisibleProfileCanRenderQuestion(
 	}
 }
 
-func TestParseClarifierDecision_FillsVagueLearningAskUserWhenMissingDimensionsEmpty(t *testing.T) {
+func TestParseClarifierDecision_DoesNotFabricateAskUserDimensionsWhenModelOmittedThem(t *testing.T) {
 	raw := `{
   "normalized_question": "制定 AI 学习计划",
   "intent": "学习 AI",
@@ -238,13 +182,11 @@ func TestParseClarifierDecision_FillsVagueLearningAskUserWhenMissingDimensionsEm
 }`
 
 	got := parseClarifierDecision(raw, "我要学习知识")
-	if !got.ShouldAskUser {
-		t.Fatalf("expected vague learning fallback to ask user, got %#v", got)
+	if got.ShouldAskUser {
+		t.Fatalf("parser should not fabricate ask-user dimensions from question keywords, got %#v", got)
 	}
-	for _, want := range []string{"学习领域", "当前基础", "学习目标", "可投入时间"} {
-		if !containsString(got.MissingDimensions, want) {
-			t.Fatalf("expected fallback missing dimensions to contain %q, got %#v", want, got.MissingDimensions)
-		}
+	if len(got.MissingDimensions) != 0 {
+		t.Fatalf("parser should preserve empty missing dimensions, got %#v", got.MissingDimensions)
 	}
 }
 
@@ -514,101 +456,36 @@ func TestAppendAcceptanceSummary_SkipsUnavailableReview(t *testing.T) {
 	}
 }
 
-func TestEnforceAcceptanceQuality_ResearchReportRequiresCoreDepth(t *testing.T) {
+func TestEnforceAcceptanceQuality_DoesNotOverrideAgentReviewWithQuestionKeywords(t *testing.T) {
 	review := AcceptanceReview{
 		Verdict:           acceptanceVerdictPass,
 		Score:             80,
-		MatchedDimensions: []string{"个人基本信息", "关键事实", "影响分析"},
-		Summary:           "答案较为全面，判定通过。",
+		MatchedDimensions: []string{"用户目标"},
+		Summary:           "答案满足用户目标。",
 		Available:         true,
 	}
-	input := AcceptanceReviewInput{
-		OriginalQuestion: "帮我调研一下特朗普",
-		Decision:         defaultClarifierDecision("帮我调研一下特朗普"),
-		Answer: `### 特朗普调研报告
-
-#### 一、概述
-唐纳德·特朗普是美国政治家、媒体人物和商人，曾任美国总统。
-
-#### 二、个人基本信息
-特朗普出生于 1946 年，是共和党人。
-
-#### 三、关键事实
-他在商业和政治领域都有活动，推行过移民、贸易等政策。
-
-#### 四、影响/分析
-他的政策对美国和全球政治经济产生了影响。
-
-#### 五、参考信息
-- https://example.com`,
-		RevisionCount: 0,
+	cases := []AcceptanceReviewInput{
+		{
+			OriginalQuestion: "帮我调研一下特朗普",
+			Decision:         defaultClarifierDecision("帮我调研一下特朗普"),
+			Answer:           "短答案。",
+			RevisionCount:    0,
+		},
+		{
+			OriginalQuestion: "我要学习ai最新的知识，目标是能够找到一个agent开发岗位",
+			Decision:         defaultClarifierDecision("我要学习ai最新的知识，目标是能够找到一个agent开发岗位"),
+			Answer:           "短答案。",
+			RevisionCount:    0,
+		},
 	}
 
-	got := enforceAcceptanceQuality(review, input)
-	if got.Verdict != acceptanceVerdictRevise {
-		t.Fatalf("expected shallow research report to require revision, got %#v", got)
-	}
-	if got.Score >= review.Score {
-		t.Fatalf("expected quality gate to lower score below %d, got %d", review.Score, got.Score)
-	}
-	for _, want := range []string{"政治生涯时间线", "法律案件与争议", "当前身份与最新动态"} {
-		if !containsString(got.MissingDimensions, want) {
-			t.Fatalf("expected missing dimensions to include %q, got %#v", want, got.MissingDimensions)
+	for _, input := range cases {
+		got := enforceAcceptanceQuality(review, input)
+		if got.Verdict != acceptanceVerdictPass {
+			t.Fatalf("Go quality gate should not keyword-override agent review for %q, got %#v", input.OriginalQuestion, got)
 		}
-	}
-	if !strings.Contains(got.RevisionInstruction, "深度调研报告") {
-		t.Fatalf("expected revision instruction to require deep report, got %q", got.RevisionInstruction)
-	}
-}
-
-func TestEnforceAcceptanceQuality_LearningCareerAnswerCannotStopAtInfoCollection(t *testing.T) {
-	input := AcceptanceReviewInput{
-		OriginalQuestion: "我要学习ai最新的知识，目标是能够找到一个agent开发岗位",
-		Decision:         defaultClarifierDecision("我要学习ai最新的知识，目标是能够找到一个agent开发岗位"),
-		Answer: `根据你的需求，我们已完成了学习AI最新知识以满足Agent开发岗位要求的信息收集和整理工作。
-
-- 核心技能：Prompt工程、RAG、工具调用、记忆管理和LLMOps。
-- 架构设计：ReAct、Plan-and-Execute、多Agent协同。
-- 工程实践：评估体系、上下文工程、安全与可控性、成本优化。
-
-接下来，我们将依据这些关键信息，为你制定一份详细的学习计划。至此，已完成目标中信息收集和整理的部分，后续将继续完成学习计划的制定。`,
-		RevisionCount: 0,
-	}
-
-	got := enforceAcceptanceQuality(defaultAcceptanceReview(), input)
-	if got.Verdict != acceptanceVerdictRevise || !got.Available {
-		t.Fatalf("expected incomplete career learning answer to require revision, got %#v", got)
-	}
-	for _, want := range []string{"可执行学习路线与时间安排", "项目作品与实践路径", "求职准备"} {
-		if !containsString(got.MissingDimensions, want) {
-			t.Fatalf("expected missing learning dimensions to contain %q, got %#v", want, got.MissingDimensions)
-		}
-	}
-	if !strings.Contains(got.RevisionInstruction, "直接输出求职导向学习计划") {
-		t.Fatalf("expected revision instruction to require direct learning plan, got %q", got.RevisionInstruction)
-	}
-}
-
-func TestEnforceAcceptanceQuality_GeneralizesCareerLearningPhrases(t *testing.T) {
-	input := AcceptanceReviewInput{
-		OriginalQuestion: "想进智能体开发岗，给我一条学习路线",
-		Decision:         defaultClarifierDecision("想进智能体开发岗，给我一条学习路线"),
-		Answer:           "核心技能包括 Prompt、RAG、工具调用和多Agent。后续我会继续整理详细计划。",
-		RevisionCount:    0,
-	}
-
-	got := enforceAcceptanceQuality(AcceptanceReview{
-		Verdict:   acceptanceVerdictPass,
-		Score:     80,
-		Summary:   "回答满足用户学习需求。",
-		Available: true,
-	}, input)
-	if got.Verdict != acceptanceVerdictRevise {
-		t.Fatalf("expected generic career learning phrase to require revision, got %#v", got)
-	}
-	for _, want := range []string{"直接输出完整学习计划", "可执行学习路线与时间安排", "项目作品与实践路径", "求职准备"} {
-		if !containsString(got.MissingDimensions, want) {
-			t.Fatalf("expected generic career missing dimensions to contain %q, got %#v", want, got.MissingDimensions)
+		if len(got.MissingDimensions) != 0 {
+			t.Fatalf("Go quality gate should not fabricate missing dimensions for %q, got %#v", input.OriginalQuestion, got.MissingDimensions)
 		}
 	}
 }
@@ -727,6 +604,7 @@ func TestClarifierInstruction_OnlyAsksForCriticalMissingInfo(t *testing.T) {
 		"Only ask the user when missing information would change what should be answered",
 		"broad but clear",
 		"target_dimensions",
+		"acceptance_criteria",
 		"valid JSON",
 	}
 	for _, text := range required {
@@ -741,12 +619,11 @@ func TestAcceptanceInstruction_BoundsReviewStrictness(t *testing.T) {
 		"Return pass when the answer substantially satisfies",
 		"revise only when",
 		"ask_user only when",
+		"clarified target dimensions",
+		"acceptance_criteria",
+		"Do not judge by keyword presence",
 		"score",
 		"summary",
-		"deep research report",
-		"legal cases and controversies",
-		"career-oriented learning plan",
-		"project portfolio",
 		"valid JSON",
 	}
 	for _, text := range required {
@@ -782,12 +659,13 @@ func TestBuildAcceptancePrompt_IncludesReviewContext(t *testing.T) {
 		OriginalQuestion: "帮我分析一下 AI Agent 的发展趋势",
 		AgentQuery:       "用户关心维度：技术演进、商业落地",
 		Decision: ClarifierDecision{
-			TargetDimensions: []string{"技术演进", "商业落地"},
+			TargetDimensions:   []string{"技术演进", "商业落地"},
+			AcceptanceCriteria: []string{"解释关键技术变化", "说明商业化约束"},
 		},
 		Answer:        "AI Agent 正在发展。",
 		RevisionCount: 0,
 	})
-	for _, want := range []string{"AI Agent", "技术演进", "商业落地", "Revision count: 0", "verdict", "score", "summary"} {
+	for _, want := range []string{"AI Agent", "技术演进", "商业落地", "解释关键技术变化", "Revision count: 0", "verdict", "score", "summary"} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("expected acceptance prompt to contain %q, got %q", want, got)
 		}

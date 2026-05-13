@@ -30,6 +30,7 @@ type ClarifierDecision struct {
 	Intent                string               `json:"intent"`
 	AnswerGoal            string               `json:"answer_goal"`
 	TargetDimensions      []string             `json:"target_dimensions"`
+	AcceptanceCriteria    []string             `json:"acceptance_criteria"`
 	Constraints           ClarifierConstraints `json:"constraints"`
 	AmbiguityLevel        string               `json:"ambiguity_level"`
 	ShouldAskUser         bool                 `json:"should_ask_user"`
@@ -112,6 +113,7 @@ func parseClarifierDecision(raw string, originalQuestion string) ClarifierDecisi
 		decision.AmbiguityLevel = "low"
 	}
 	decision.TargetDimensions = compactNonEmptyStrings(decision.TargetDimensions)
+	decision.AcceptanceCriteria = compactNonEmptyStrings(decision.AcceptanceCriteria)
 	decision.ClarificationQuestion = strings.TrimSpace(decision.ClarificationQuestion)
 	decision.NeedSummary = strings.TrimSpace(decision.NeedSummary)
 	if decision.NeedSummary == "" {
@@ -126,8 +128,6 @@ func parseClarifierDecision(raw string, originalQuestion string) ClarifierDecisi
 	if decision.ShouldAskUser && len(decision.MissingDimensions) == 0 && decision.ClarificationQuestion == "" {
 		decision.ShouldAskUser = false
 	}
-	decision = applyLearningClarifierProfile(decision, originalQuestion)
-	decision = applyResearchClarifierProfile(decision, originalQuestion)
 	return decision
 }
 
@@ -140,91 +140,6 @@ func defaultClarifierDecision(originalQuestion string) ClarifierDecision {
 		AmbiguityLevel:     "low",
 		ShouldAskUser:      false,
 		Reason:             "ClarifierAgent 未返回结构化结果，已按原问题继续回答。",
-	}
-	if isVagueLearningQuestion(question) {
-		return defaultVagueLearningClarifierDecision(question)
-	}
-	if isLearningCareerQuestion(question) {
-		decision.AnswerGoal = "career_learning_plan"
-		decision.TargetDimensions = defaultCareerLearningTargetDimensions()
-		decision.Constraints.Depth = "求职导向"
-		decision.Constraints.Style = "可执行学习路线"
-		decision.Constraints.SourcePolicy = "结合岗位要求和最新 AI Agent 技术趋势"
-		decision.Reason = "ClarifierAgent 未返回结构化结果，已按求职导向学习目标自动推断回答维度继续。"
-		return decision
-	}
-	if isResearchReportQuestion(question) {
-		decision.AnswerGoal = "research_report"
-		decision.TargetDimensions = defaultResearchTargetDimensions(question)
-		decision.Constraints.Depth = "深度调研"
-		decision.Constraints.Style = "结构化调研报告"
-		decision.Constraints.SourcePolicy = "优先使用可追溯来源，并标注证据限制"
-		decision.Reason = "ClarifierAgent 未返回结构化结果，已按调研任务自动推断回答维度继续。"
-	}
-	return decision
-}
-
-func defaultVagueLearningClarifierDecision(question string) ClarifierDecision {
-	return ClarifierDecision{
-		NormalizedQuestion:    strings.TrimSpace(question),
-		Intent:                "制定一个可执行的学习计划",
-		AnswerGoal:            "learning_plan",
-		AmbiguityLevel:        "high",
-		ShouldAskUser:         true,
-		ClarificationQuestion: "你想学习哪个领域、当前基础如何、目标是什么、每周能投入多少时间？",
-		Reason:                "学习目标过于宽泛，缺少领域、基础、目标和时间投入，直接回答会变成泛泛建议。",
-		NeedSummary:           "制定一个可执行的学习计划",
-		MissingDimensions:     []string{"学习领域", "当前基础", "学习目标", "可投入时间"},
-		WhyNeeded:             "不同领域、基础、目标和时间投入会决定学习路线、资料难度、项目练习和阶段安排。",
-		SuggestedReply:        "我想学 AI，目前有 Go/React 基础，目标是 3 个月内做出 Agent 项目并找相关岗位，每周能投入 15 小时。",
-	}
-}
-
-func applyLearningClarifierProfile(decision ClarifierDecision, originalQuestion string) ClarifierDecision {
-	if isVagueLearningQuestion(originalQuestion) {
-		if decision.ShouldAskUser && len(decision.MissingDimensions) > 0 {
-			return decision
-		}
-		return defaultVagueLearningClarifierDecision(originalQuestion)
-	}
-	if !isLearningCareerQuestion(originalQuestion) && !isLearningCareerQuestion(decision.NormalizedQuestion) {
-		return decision
-	}
-	decision.AnswerGoal = "career_learning_plan"
-	decision.ShouldAskUser = false
-	decision.TargetDimensions = mergeUniqueStrings(decision.TargetDimensions, defaultCareerLearningTargetDimensions())
-	if decision.Constraints.Depth == "" {
-		decision.Constraints.Depth = "求职导向"
-	}
-	if decision.Constraints.Style == "" {
-		decision.Constraints.Style = "可执行学习路线"
-	}
-	if decision.Constraints.SourcePolicy == "" {
-		decision.Constraints.SourcePolicy = "结合岗位要求和最新 AI Agent 技术趋势"
-	}
-	if strings.TrimSpace(decision.Reason) == "" || strings.Contains(decision.Reason, "未返回结构化结果") {
-		decision.Reason = "已识别为求职导向学习目标，按岗位能力、学习路线、项目作品和求职准备继续。"
-	}
-	return decision
-}
-
-func applyResearchClarifierProfile(decision ClarifierDecision, originalQuestion string) ClarifierDecision {
-	if !isResearchReportQuestion(originalQuestion) && !isResearchReportQuestion(decision.NormalizedQuestion) {
-		return decision
-	}
-	decision.AnswerGoal = "research_report"
-	decision.TargetDimensions = mergeUniqueStrings(decision.TargetDimensions, defaultResearchTargetDimensions(originalQuestion))
-	if decision.Constraints.Depth == "" {
-		decision.Constraints.Depth = "深度调研"
-	}
-	if decision.Constraints.Style == "" {
-		decision.Constraints.Style = "结构化调研报告"
-	}
-	if decision.Constraints.SourcePolicy == "" {
-		decision.Constraints.SourcePolicy = "优先使用可追溯来源，并标注证据限制"
-	}
-	if strings.TrimSpace(decision.Reason) == "" {
-		decision.Reason = "已按调研任务自动推断回答维度继续。"
 	}
 	return decision
 }
@@ -336,6 +251,10 @@ func buildClarifiedAgentQuery(base string, decision ClarifierDecision) string {
 	if len(decision.TargetDimensions) > 0 {
 		b.WriteString("\n用户关心维度：")
 		b.WriteString(strings.Join(decision.TargetDimensions, "、"))
+	}
+	if len(decision.AcceptanceCriteria) > 0 {
+		b.WriteString("\n验收标准：")
+		b.WriteString(strings.Join(decision.AcceptanceCriteria, "、"))
 	}
 	if decision.Constraints.TimeRange != "" || decision.Constraints.Audience != "" || decision.Constraints.Depth != "" || decision.Constraints.Style != "" || decision.Constraints.SourcePolicy != "" {
 		b.WriteString("\n约束：")
@@ -451,10 +370,15 @@ func formatClarifierStepDetail(decision ClarifierDecision) string {
 	} else if missingDimensions := compactNonEmptyStrings(decision.MissingDimensions); len(missingDimensions) > 0 {
 		parts = append(parts, "回答维度："+strings.Join(missingDimensions, "、"))
 	}
+	if criteria := compactNonEmptyStrings(decision.AcceptanceCriteria); len(criteria) > 0 {
+		parts = append(parts, "验收标准："+strings.Join(criteria, "、"))
+	}
 	if decision.ShouldAskUser {
 		parts = append(parts, "处理方式：需要用户补充关键维度")
+	} else if len(compactNonEmptyStrings(decision.TargetDimensions)) == 0 && strings.Contains(decision.Reason, "未返回结构化结果") {
+		parts = append(parts, "处理方式：ClarifierAgent 未返回结构化结果，按原问题继续处理")
 	} else {
-		parts = append(parts, "处理方式：无需追问，按推断维度继续调研")
+		parts = append(parts, "处理方式：无需追问，按意图画像继续处理")
 	}
 	if reason := strings.TrimSpace(decision.Reason); reason != "" {
 		parts = append(parts, "原因："+reason)
@@ -651,214 +575,6 @@ func appendAcceptanceLimitations(answer string, review AcceptanceReview) string 
 }
 
 func enforceAcceptanceQuality(review AcceptanceReview, input AcceptanceReviewInput) AcceptanceReview {
-	if !isResearchReportQuestion(input.OriginalQuestion) && !isLearningCareerQuestion(input.OriginalQuestion) {
-		return review
-	}
-	if isLearningCareerQuestion(input.OriginalQuestion) {
-		missingDimensions := missingRequiredCareerLearningDimensions(input.Answer)
-		if len(missingDimensions) == 0 {
-			return review
-		}
-		return forceAcceptanceRevision(
-			review,
-			missingDimensions,
-			"学习计划仍停留在信息摘要或缺少可执行求职路径，不能判定为完成用户目标。",
-			"求职导向学习问题需要直接给出岗位能力拆解、阶段学习路线、项目作品、时间安排和求职准备；当前答案缺少："+strings.Join(missingDimensions, "、")+"。",
-			"请直接输出求职导向学习计划，补充："+strings.Join(missingDimensions, "、")+"；不要停留在信息收集总结或承诺后续再制定。",
-		)
-	}
-
-	missingDimensions := missingRequiredResearchDimensions(input.OriginalQuestion, input.Answer)
-	if len(missingDimensions) == 0 {
-		return review
-	}
-	return forceAcceptanceRevision(
-		review,
-		missingDimensions,
-		"调研报告仍缺少关键维度或深度不足，不能判定为充分完成用户调研需求。",
-		"调研类问题需要覆盖核心事实、时间线、争议/法律风险、当前状态、影响分析和来源边界；当前答案缺少："+strings.Join(missingDimensions, "、")+"。",
-		"请重写为深度调研报告，补充："+strings.Join(missingDimensions, "、")+"；每个关键结论尽量给出来源依据，并避免只用概述性表述。",
-	)
-}
-
-func forceAcceptanceRevision(review AcceptanceReview, missingDimensions []string, summary string, reason string, instruction string) AcceptanceReview {
-	review.Available = true
-	review.Verdict = acceptanceVerdictRevise
-	if review.Score == 0 || review.Score > 65 {
-		review.Score = 65
-	}
-	review.MissingDimensions = mergeUniqueStrings(review.MissingDimensions, missingDimensions)
-	if strings.TrimSpace(review.Summary) == "" || strings.Contains(review.Summary, "判定通过") || strings.Contains(review.Summary, "满足") {
-		review.Summary = summary
-	}
-	if strings.TrimSpace(review.Reason) == "" {
-		review.Reason = reason
-	} else if !strings.Contains(review.Reason, reason) {
-		review.Reason = strings.TrimSpace(review.Reason) + "\n" + reason
-	}
-	review.RevisionInstruction = instruction
+	_ = input
 	return review
-}
-
-func isResearchReportQuestion(question string) bool {
-	question = strings.TrimSpace(question)
-	return containsAny(question, "调研", "研究一下", "研究报告", "调研报告", "深度研究")
-}
-
-func isVagueLearningQuestion(question string) bool {
-	question = normalizeQuestionText(question)
-	switch question {
-	case "我要学习", "我想学习", "我要学", "我想学", "想学习", "想学", "我要学习知识", "我想学习知识":
-		return true
-	default:
-		return false
-	}
-}
-
-func isLearningCareerQuestion(question string) bool {
-	normalized := normalizeQuestionText(question)
-	hasLearningOrPrepIntent := containsAny(normalized,
-		"学习", "想学", "我要学", "知识", "路线", "怎么准备", "准备", "提升", "转", "转行", "入门", "系统",
-	)
-	hasCareerGoal := containsAny(normalized,
-		"岗位", "求职", "找工作", "就业", "面试", "工作", "offer", "简历", "jd", "工程师", "开发岗", "研发岗",
-	)
-	hasAIDomain := containsAny(normalized,
-		"ai", "人工智能", "agent", "智能体", "大模型", "llm", "rag", "prompt", "aigc",
-	)
-	hasDevelopmentRole := containsAny(normalized,
-		"开发", "研发", "工程师", "应用", "后端", "算法", "架构",
-	)
-	return hasLearningOrPrepIntent && hasCareerGoal && (hasAIDomain || hasDevelopmentRole)
-}
-
-type researchDimensionRule struct {
-	name     string
-	keywords []string
-}
-
-func defaultResearchTargetDimensions(question string) []string {
-	if isTrumpQuestion(question) {
-		return []string{
-			"个人背景与商业经历",
-			"政治生涯时间线",
-			"政策主张与举措",
-			"法律案件与争议",
-			"当前身份与最新动态",
-			"国内外影响与多方评价",
-			"来源依据与证据限制",
-		}
-	}
-	return []string{
-		"背景与基本事实",
-		"关键事件时间线",
-		"核心观点或贡献",
-		"争议与证据限制",
-		"影响分析",
-		"参考来源",
-	}
-}
-
-func defaultCareerLearningTargetDimensions() []string {
-	return []string{
-		"Agent 开发岗位能力要求",
-		"AI 最新知识学习路线",
-		"可执行学习路线与时间安排",
-		"项目作品与实践路径",
-		"求职准备",
-		"资源与更新渠道",
-	}
-}
-
-func missingRequiredCareerLearningDimensions(answer string) []string {
-	answer = strings.TrimSpace(answer)
-	rules := []researchDimensionRule{
-		{name: "Agent 开发岗位能力要求", keywords: []string{"岗位要求", "能力要求", "任职要求", "岗位职责", "JD", "招聘要求"}},
-		{name: "AI 最新知识学习路线", keywords: []string{"Prompt", "RAG", "工具调用", "Function Calling", "记忆", "LLMOps", "多Agent", "MCP"}},
-		{name: "可执行学习路线与时间安排", keywords: []string{"第1", "第2", "第3", "周", "月", "时间安排", "阶段目标", "里程碑"}},
-		{name: "项目作品与实践路径", keywords: []string{"项目", "作品", "Portfolio", "Demo", "GitHub", "作品集"}},
-		{name: "求职准备", keywords: []string{"简历", "面试", "投递", "求职", "面试题", "作品集"}},
-		{name: "资源与更新渠道", keywords: []string{"资源", "课程", "文档", "社区", "论文", "博客", "技术报告"}},
-	}
-	missing := make([]string, 0, len(rules)+1)
-	if containsAny(answer, "信息收集和整理", "接下来", "后续", "将依据这些关键信息", "继续整理详细计划") {
-		missing = append(missing, "直接输出完整学习计划")
-	}
-	for _, rule := range rules {
-		if !containsAny(answer, rule.keywords...) {
-			missing = append(missing, rule.name)
-		}
-	}
-	return missing
-}
-
-func missingRequiredResearchDimensions(question string, answer string) []string {
-	if !isResearchReportQuestion(question) {
-		return nil
-	}
-	answer = strings.TrimSpace(answer)
-	rules := defaultResearchDimensionRules(question)
-	missing := make([]string, 0, len(rules))
-	for _, rule := range rules {
-		if !containsAny(answer, rule.keywords...) {
-			missing = append(missing, rule.name)
-		}
-	}
-	return missing
-}
-
-func defaultResearchDimensionRules(question string) []researchDimensionRule {
-	if isTrumpQuestion(question) {
-		return []researchDimensionRule{
-			{name: "个人背景与商业经历", keywords: []string{"商业经历", "房地产", "特朗普集团", "媒体人物", "电视节目", "品牌授权"}},
-			{name: "政治生涯时间线", keywords: []string{"政治生涯", "时间线", "2016", "2020", "2024", "第47任", "第二任期", "竞选历程"}},
-			{name: "政策主张与举措", keywords: []string{"移民政策", "贸易政策", "关税", "税改", "外交政策", "能源政策", "司法任命"}},
-			{name: "法律案件与争议", keywords: []string{"法律案件", "刑事", "民事", "诉讼", "弹劾", "定罪", "争议"}},
-			{name: "当前身份与最新动态", keywords: []string{"第47任", "现任", "当前", "第二任期", "2025", "2026", "JD Vance", "万斯"}},
-			{name: "国内外影响与多方评价", keywords: []string{"支持者", "批评者", "两极化", "国内影响", "国际影响", "多方评价", "反对者"}},
-			{name: "来源依据与证据限制", keywords: []string{"参考", "来源", "证据", "链接", "资料限制", "检索限制"}},
-		}
-	}
-	return []researchDimensionRule{
-		{name: "背景与基本事实", keywords: []string{"背景", "基本信息", "概述", "简介"}},
-		{name: "关键事件时间线", keywords: []string{"时间线", "阶段", "历程", "关键事件"}},
-		{name: "核心观点或贡献", keywords: []string{"核心", "贡献", "主张", "关键事实"}},
-		{name: "争议与证据限制", keywords: []string{"争议", "限制", "不足", "风险", "证据"}},
-		{name: "影响分析", keywords: []string{"影响", "分析", "意义", "评价"}},
-		{name: "参考来源", keywords: []string{"参考", "来源", "链接"}},
-	}
-}
-
-func isTrumpQuestion(question string) bool {
-	return containsAny(question, "特朗普", "川普", "Donald Trump", "Trump")
-}
-
-func containsAny(text string, needles ...string) bool {
-	for _, needle := range needles {
-		if strings.Contains(text, needle) {
-			return true
-		}
-	}
-	return false
-}
-
-func normalizeQuestionText(question string) string {
-	replacer := strings.NewReplacer(" ", "", "\t", "", "\n", "", "\r", "", "，", "", "。", "", "！", "", "？", "", ",", "", ".", "", "!", "", "?", "")
-	return strings.ToLower(replacer.Replace(strings.TrimSpace(question)))
-}
-
-func mergeUniqueStrings(base []string, extra []string) []string {
-	result := compactNonEmptyStrings(base)
-	seen := make(map[string]struct{}, len(result)+len(extra))
-	for _, item := range result {
-		seen[item] = struct{}{}
-	}
-	for _, item := range compactNonEmptyStrings(extra) {
-		if _, ok := seen[item]; ok {
-			continue
-		}
-		seen[item] = struct{}{}
-		result = append(result, item)
-	}
-	return result
 }

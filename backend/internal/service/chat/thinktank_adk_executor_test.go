@@ -87,7 +87,7 @@ func TestThinkTankReplannerInstruction_DeliversFinalArtifactInsteadOfProcessSumm
 	required := []string{
 		"deliver the requested artifact directly",
 		"Do not make the final response a process summary",
-		"调研报告",
+		"ClarifierAgent need profile",
 		"已完成",
 		"DocWriter",
 	}
@@ -98,13 +98,13 @@ func TestThinkTankReplannerInstruction_DeliversFinalArtifactInsteadOfProcessSumm
 	}
 }
 
-func TestThinkTankReplannerInstruction_RequiresDeepResearchReport(t *testing.T) {
+func TestThinkTankReplannerInstruction_UsesGenericReportQuality(t *testing.T) {
 	required := []string{
-		"deep research report",
-		"political timeline",
-		"legal cases and controversies",
-		"current status",
-		"source-backed analysis",
+		"report-style request",
+		"structured sections",
+		"key facts",
+		"analysis",
+		"evidence limitations",
 	}
 	for _, text := range required {
 		if !strings.Contains(thinkTankReplannerInstruction, text) {
@@ -113,14 +113,14 @@ func TestThinkTankReplannerInstruction_RequiresDeepResearchReport(t *testing.T) 
 	}
 }
 
-func TestThinkTankReplannerInstruction_RequiresCareerLearningPlan(t *testing.T) {
+func TestThinkTankReplannerInstruction_UsesGenericPlanningQuality(t *testing.T) {
 	required := []string{
-		"career-oriented learning plan",
-		"do not stop at information collection",
-		"skills map",
-		"phased roadmap",
-		"project portfolio",
-		"job-search preparation",
+		"planning or learning request",
+		"concrete stages",
+		"resources",
+		"practice tasks",
+		"checkpoints",
+		"next actions",
 	}
 	for _, text := range required {
 		if !strings.Contains(thinkTankReplannerInstruction, text) {

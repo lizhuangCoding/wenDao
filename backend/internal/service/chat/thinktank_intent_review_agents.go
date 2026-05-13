@@ -14,19 +14,18 @@ import (
 const thinkTankClarifierInstruction = `You are the ThinkTank Clarifier.
 Only ask the user when missing information would change what should be answered.
 Do not ask follow-up questions for broad but clear research, explanation, comparison, or writing requests.
-Infer reasonable target_dimensions, answer_goal, and constraints from the original question and context.
+Infer reasonable target_dimensions, answer_goal, constraints, and acceptance_criteria from the original question and context.
+Use the user's wording, context, and goals to build a query-specific need profile. Do not rely on fixed keyword categories.
 When asking the user, include a visible need profile: what need you understood, which dimensions are missing, why they matter, and an example reply.
-Return valid JSON only with keys: normalized_question, intent, answer_goal, target_dimensions, constraints, ambiguity_level, should_ask_user, clarification_question, reason, need_summary, missing_dimensions, why_needed, suggested_reply.`
+Return valid JSON only with keys: normalized_question, intent, answer_goal, target_dimensions, acceptance_criteria, constraints, ambiguity_level, should_ask_user, clarification_question, reason, need_summary, missing_dimensions, why_needed, suggested_reply.`
 
 const thinkTankAcceptanceInstruction = `You are the ThinkTank Acceptance Reviewer.
 Return pass when the answer substantially satisfies the user's original question and clarified target dimensions.
 Return revise only when important requested dimensions, evidence, or answer structure are missing and can be fixed without asking the user.
 Return ask_user only when the answer cannot proceed because critical user intent or constraints are still unknown.
-For research requests, require a deep research report rather than a short encyclopedia summary.
-For political or public-figure research, pass only when the answer covers background, business/career history, political timeline, policy actions, legal cases and controversies, current status, source-backed analysis, and evidence limitations.
-Penalize shallow answers that only mention facts in passing, omit causality, omit major controversies, or provide references without using them as evidence.
-For learning requests with a job goal, require a career-oriented learning plan, not an information collection summary.
-Pass career learning answers only when they include a skills map, phased roadmap, project portfolio path, time allocation, resources, and job-search preparation.
+Evaluate against the clarified target dimensions, acceptance_criteria, constraints, and the user's original wording.
+Do not judge by keyword presence. Judge whether each required dimension is substantively answered with enough specificity, structure, evidence, and actionability for the user's goal.
+Penalize answers that mainly summarize the process, promise future work, list sources without using them, or omit important reasoning and limitations.
 Always include a numeric score from 0 to 100 and a concise summary of the acceptance result.
 Return valid JSON only with keys: verdict, score, matched_dimensions, missing_dimensions, unsupported_claims, format_issues, revision_instruction, user_question, reason, summary.`
 
@@ -145,6 +144,7 @@ func buildClarifierPrompt(input ClarifierInput) string {
 		"policy": map[string]any{
 			"should_ask_user":       "only when missing information would change what should be answered",
 			"visible_clarification": "when asking the user, explain understood need, missing dimensions, why they matter, and a suggested reply",
+			"rubric":                "derive query-specific acceptance_criteria; do not use fixed keyword categories",
 			"output":                "Return valid JSON.",
 		},
 	}
@@ -158,7 +158,7 @@ func buildAcceptancePrompt(input AcceptanceReviewInput) string {
 		"clarifier_decision": input.Decision,
 		"answer":             strings.TrimSpace(input.Answer),
 		"revision_count":     input.RevisionCount,
-		"instruction":        fmt.Sprintf("Revision count: %d. Return a valid JSON object with verdict, score, and summary. For research tasks, enforce deep research report quality: complete dimensions, source-backed analysis, causality, controversies, current status, and evidence limits. For job-oriented learning tasks, require a career-oriented learning plan with roadmap, projects, resources, and job-search preparation.", input.RevisionCount),
+		"instruction":        fmt.Sprintf("Revision count: %d. Return a valid JSON object with verdict, score, and summary. Evaluate the answer against the original question, clarifier_decision.target_dimensions, clarifier_decision.acceptance_criteria, and constraints. Do not judge by keyword presence; judge substantive coverage, specificity, evidence, reasoning, limitations, and whether the requested artifact is directly delivered.", input.RevisionCount),
 	}
 	return marshalReviewPrompt(payload)
 }
