@@ -1,6 +1,7 @@
 package comment
 
 import (
+	"math"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -128,10 +129,11 @@ func (h *CommentHandler) AdminList(c *gin.Context) {
 	}
 
 	response.Success(c, gin.H{
-		"data":     comments,
-		"total":    total,
-		"page":     page,
-		"pageSize": pageSize,
+		"data":       comments,
+		"total":      total,
+		"page":       page,
+		"pageSize":   pageSize,
+		"totalPages": int(math.Ceil(float64(total) / float64(pageSize))),
 	})
 }
 

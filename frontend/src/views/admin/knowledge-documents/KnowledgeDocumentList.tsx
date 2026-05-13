@@ -20,6 +20,7 @@ export const KnowledgeDocumentList = () => {
   });
 
   const documents = documentsData?.data ?? [];
+  const totalPages = Math.max(1, documentsData?.totalPages ?? 1);
   const currentPageIds = documents.map((doc) => doc.id);
   const allCurrentPageSelected =
     currentPageIds.length > 0 && currentPageIds.every((id) => selectedIds.includes(id));
@@ -162,7 +163,7 @@ export const KnowledgeDocumentList = () => {
         </div>
       </div>
 
-      {documentsData && documentsData.totalPages > 1 && (
+      {documentsData && (
         <div className="flex items-center justify-center gap-3">
           <button
             type="button"
@@ -176,15 +177,15 @@ export const KnowledgeDocumentList = () => {
             上一页
           </button>
           <span className="px-4 py-2 text-sm font-medium text-neutral-600 dark:text-neutral-400">
-            {page} / {documentsData.totalPages}
+            {page} / {totalPages}
           </span>
           <button
             type="button"
             onClick={() => {
-              setPage((currentPage) => Math.min(documentsData.totalPages, currentPage + 1));
+              setPage((currentPage) => Math.min(totalPages, currentPage + 1));
               setSelectedIds([]);
             }}
-            disabled={page === documentsData.totalPages}
+            disabled={page === totalPages}
             className="rounded-xl bg-neutral-100 px-4 py-2 text-sm font-medium text-neutral-700 transition-all hover:bg-neutral-200 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-700"
           >
             下一页

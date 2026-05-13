@@ -37,6 +37,7 @@ export const Home = () => {
         keyword: searchKeyword,
       }),
   });
+  const totalPages = Math.max(1, articlesData?.totalPages ?? 1);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -143,7 +144,7 @@ export const Home = () => {
             )}
 
             {/* Pagination */}
-            {articlesData && articlesData.totalPages > 1 && (
+            {articlesData && (
               <div className="mt-40 flex items-center justify-between border-t border-neutral-100 dark:border-neutral-800 pt-16">
                 <button
                   onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
@@ -153,7 +154,7 @@ export const Home = () => {
                   <span className="group-hover:-translate-x-2 transition-transform">←</span> {t('home.newer')}
                 </button>
                 <div className="flex gap-6">
-                  {[...Array(articlesData.totalPages)].map((_, i) => (
+                  {[...Array(totalPages)].map((_, i) => (
                     <button
                       key={i}
                       onClick={() => setCurrentPage(i + 1)}
@@ -168,8 +169,8 @@ export const Home = () => {
                   ))}
                 </div>
                 <button
-                  onClick={() => setCurrentPage((p) => Math.min(articlesData.totalPages, p + 1))}
-                  disabled={currentPage === articlesData.totalPages}
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
                   className="group flex items-center gap-3 text-xs font-bold tracking-[0.2em] text-neutral-400 dark:text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 disabled:opacity-20 transition-all uppercase"
                 >
                   {t('home.older')} <span className="group-hover:translate-x-2 transition-transform">→</span>

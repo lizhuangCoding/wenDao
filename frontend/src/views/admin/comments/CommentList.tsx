@@ -26,6 +26,7 @@ export const CommentList = () => {
     queryKey: ['admin-comments', page],
     queryFn: () => commentApi.getAdminComments({ page, pageSize: 15 }),
   });
+  const totalPages = Math.max(1, commentsData?.totalPages ?? 1);
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) => commentApi.adminDeleteComment(id),
@@ -140,7 +141,7 @@ export const CommentList = () => {
       </motion.div>
 
       {/* 分页 */}
-      {commentsData && commentsData.totalPages > 1 && (
+      {commentsData && (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -158,11 +159,11 @@ export const CommentList = () => {
             {t('admin.previous')}
           </button>
           <span className="px-4 py-2 text-neutral-600 dark:text-neutral-400 font-medium">
-            {page} / {commentsData.totalPages}
+            {page} / {totalPages}
           </span>
           <button
-            onClick={() => setPage((p) => Math.min(commentsData.totalPages, p + 1))}
-            disabled={page === commentsData.totalPages}
+            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            disabled={page === totalPages}
             className="flex items-center gap-2 px-4 py-2 bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 rounded-xl font-medium hover:bg-neutral-200 dark:hover:bg-neutral-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
           >
             {t('admin.next')}

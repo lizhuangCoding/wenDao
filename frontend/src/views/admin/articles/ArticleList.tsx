@@ -28,6 +28,7 @@ export const ArticleList = () => {
       sort_by_popularity: sortMode?.enabled
     }),
   });
+  const totalPages = Math.max(1, articlesData?.totalPages ?? 1);
 
   const sortModeMutation = useMutation({
     mutationFn: (enabled: boolean) => siteApi.setSortMode(enabled),
@@ -208,7 +209,7 @@ export const ArticleList = () => {
         </table>
       </motion.div>
 
-      {articlesData && articlesData.totalPages > 1 && (
+      {articlesData && (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -226,11 +227,11 @@ export const ArticleList = () => {
             {t('admin.previous')}
           </button>
           <span className="px-4 py-2 text-neutral-600 dark:text-neutral-400 font-medium">
-            {page} / {articlesData.totalPages}
+            {page} / {totalPages}
           </span>
           <button
-            onClick={() => setPage((p) => Math.min(articlesData.totalPages, p + 1))}
-            disabled={page === articlesData.totalPages}
+            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            disabled={page === totalPages}
             className="flex items-center gap-2 px-4 py-2 bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 rounded-xl font-medium hover:bg-neutral-200 dark:hover:bg-neutral-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
           >
             {t('admin.next')}
