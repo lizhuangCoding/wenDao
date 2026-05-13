@@ -1,12 +1,13 @@
 package comment
 
 import (
-	"math"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
 
+	"wenDao/internal/pkg/pagination"
 	"wenDao/internal/pkg/response"
+	"wenDao/internal/repository"
 	"wenDao/internal/service"
 )
 
@@ -24,42 +25,16 @@ func NewCommentHandler(commentService service.CommentService, statService *servi
 	}
 }
 
-func parsePaginationQuery(c *gin.Context) (int, int) {
-	page := parsePositiveInt(c.Query("page"), 1)
-	pageSize := c.Query("page_size")
-	if pageSize == "" {
-		pageSize = c.Query("pageSize")
-	}
-	return page, normalizePageSize(parsePositiveInt(pageSize, 20))
-}
-
-func parsePositiveInt(value string, fallback int) int {
-	if value == "" {
-		return fallback
-	}
-	parsed, err := strconv.Atoi(value)
-	if err != nil || parsed <= 0 {
-		return fallback
-	}
-	return parsed
-}
-
-func normalizePageSize(pageSize int) int {
-	if pageSize <= 0 {
-		return 20
-	}
-	if pageSize > 100 {
-		return 100
-	}
-	return pageSize
-}
-
 // CreateCommentRequest 创建评论请求
 type CreateCommentRequest struct {
 	ArticleID     int64  `json:"article_id" binding:"required"`
 	Content       string `json:"content" binding:"required,min=1,max=1000"`
 	ParentID      *int64 `json:"parent_id"`
 	ReplyToUserID *int64 `json:"reply_to_user_id"`
+}
+
+type BatchDeleteCommentRequest struct {
+	IDs []int64 `json:"ids" binding:"required,min=1"`
 }
 
 // Create 发表评论（需要认证）
@@ -89,13 +64,15 @@ func (h *CommentHandler) Create(c *gin.Context) {
 		case "cannot reply to a reply comment (only two levels allowed)":
 			response.InvalidParams(c, "Cannot reply to a reply comment (only two levels allowed)")
 		default:
-			response.InternalError(c, "Failed to create comment")
+			response.InternalErrorWithErr(c, "Failed to create comment", err)
 		}
 		return
 	}
 
 	// 记录评论数统计（异步）
-	go h.statService.RecordCommentCount()
+	if h.statService != nil {
+		go h.statService.RecordCommentCount()
+	}
 
 	response.Success(c, comment)
 }
@@ -111,7 +88,7 @@ func (h *CommentHandler) GetByArticleID(c *gin.Context) {
 
 	comments, err := h.commentService.GetByArticleID(articleID)
 	if err != nil {
-		response.InternalError(c, "Failed to get comments")
+		response.InternalErrorWithErr(c, "Failed to get comments", err)
 		return
 	}
 
@@ -120,20 +97,25 @@ func (h *CommentHandler) GetByArticleID(c *gin.Context) {
 
 // AdminList 获取所有评论列表（管理员）
 func (h *CommentHandler) AdminList(c *gin.Context) {
-	page, pageSize := parsePaginationQuery(c)
+	p := pagination.FromQuery(c)
 
-	comments, total, err := h.commentService.ListAll(page, pageSize)
+	comments, total, err := h.commentService.ListAll(repository.CommentFilter{
+		Status:   c.Query("status"),
+		Keyword:  c.Query("keyword"),
+		Page:     p.Page,
+		PageSize: p.PageSize,
+	})
 	if err != nil {
-		response.InternalError(c, "Failed to get comments")
+		response.InternalErrorWithErr(c, "Failed to get comments", err)
 		return
 	}
 
 	response.Success(c, gin.H{
 		"data":       comments,
 		"total":      total,
-		"page":       page,
-		"pageSize":   pageSize,
-		"totalPages": int(math.Ceil(float64(total) / float64(pageSize))),
+		"page":       p.Page,
+		"pageSize":   p.PageSize,
+		"totalPages": pagination.TotalPages(total, p.PageSize),
 	})
 }
 
@@ -160,7 +142,7 @@ func (h *CommentHandler) Delete(c *gin.Context) {
 		case "comment already deleted":
 			response.InvalidParams(c, "Comment already deleted")
 		default:
-			response.InternalError(c, "Failed to delete comment")
+			response.InternalErrorWithErr(c, "Failed to delete comment", err)
 		}
 		return
 	}
@@ -168,6 +150,46 @@ func (h *CommentHandler) Delete(c *gin.Context) {
 	response.Success(c, gin.H{
 		"message": "Comment deleted successfully",
 	})
+}
+
+// BatchDelete 批量删除评论（管理员）
+func (h *CommentHandler) BatchDelete(c *gin.Context) {
+	var req BatchDeleteCommentRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.InvalidParams(c, "请选择要删除的评论")
+		return
+	}
+	ids, ok := normalizeCommentIDs(req.IDs)
+	if !ok {
+		response.InvalidParams(c, "评论 ID 无效")
+		return
+	}
+
+	userID, _ := c.Get("user_id")
+	userRole, _ := c.Get("user_role")
+	isAdmin := userRole.(string) == "admin"
+	if err := h.commentService.DeleteBatch(ids, userID.(int64), isAdmin); err != nil {
+		response.InternalErrorWithErr(c, "批量删除评论失败", err)
+		return
+	}
+
+	response.Success(c, gin.H{"message": "Comments deleted successfully", "deleted_count": len(ids)})
+}
+
+func normalizeCommentIDs(ids []int64) ([]int64, bool) {
+	seen := make(map[int64]struct{}, len(ids))
+	normalized := make([]int64, 0, len(ids))
+	for _, id := range ids {
+		if id <= 0 {
+			return nil, false
+		}
+		if _, exists := seen[id]; exists {
+			continue
+		}
+		seen[id] = struct{}{}
+		normalized = append(normalized, id)
+	}
+	return normalized, len(normalized) > 0
 }
 
 // Restore 恢复评论（管理员）
@@ -186,7 +208,7 @@ func (h *CommentHandler) Restore(c *gin.Context) {
 		case "comment is not deleted":
 			response.InvalidParams(c, "Comment is not deleted")
 		default:
-			response.InternalError(c, "Failed to restore comment")
+			response.InternalErrorWithErr(c, "Failed to restore comment", err)
 		}
 		return
 	}

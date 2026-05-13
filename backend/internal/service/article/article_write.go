@@ -113,6 +113,24 @@ func (s *articleService) Delete(id int64) error {
 	return nil
 }
 
+// DeleteBatch 批量删除文章，复用单条删除的依赖清理和计数逻辑
+func (s *articleService) DeleteBatch(ids []int64) error {
+	seen := make(map[int64]struct{}, len(ids))
+	for _, id := range ids {
+		if id <= 0 {
+			return fmt.Errorf("invalid article id: %d", id)
+		}
+		if _, exists := seen[id]; exists {
+			continue
+		}
+		seen[id] = struct{}{}
+		if err := s.Delete(id); err != nil {
+			return fmt.Errorf("failed to delete article %d: %w", id, err)
+		}
+	}
+	return nil
+}
+
 // AutoSave 自动保存文章草稿
 func (s *articleService) AutoSave(id int64, title, content, summary string) error {
 	article, err := s.getArticleByIDOrNotFound(id)

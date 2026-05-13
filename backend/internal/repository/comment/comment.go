@@ -1,17 +1,27 @@
 package comment
 
 import (
+	"strings"
+
 	"gorm.io/gorm"
 
 	"wenDao/internal/model"
 )
+
+// CommentFilter 评论筛选条件
+type CommentFilter struct {
+	Status   string
+	Keyword  string
+	Page     int
+	PageSize int
+}
 
 // CommentRepository 评论数据访问接口
 type CommentRepository interface {
 	Create(comment *model.Comment) error
 	GetByID(id int64) (*model.Comment, error)
 	GetByArticleID(articleID int64) ([]*model.Comment, error)
-	ListAll(page, pageSize int) ([]*model.Comment, int64, error)
+	ListAll(filter CommentFilter) ([]*model.Comment, int64, error)
 	Delete(id int64) error
 	Restore(id int64) error
 }
@@ -52,20 +62,30 @@ func (r *commentRepository) GetByArticleID(articleID int64) ([]*model.Comment, e
 }
 
 // ListAll 获取所有评论列表（管理员，包含软删除的）
-func (r *commentRepository) ListAll(page, pageSize int) ([]*model.Comment, int64, error) {
+func (r *commentRepository) ListAll(filter CommentFilter) ([]*model.Comment, int64, error) {
 	var comments []*model.Comment
 	var total int64
 
 	query := r.db.Model(&model.Comment{})
+	if filter.Status != "" {
+		query = query.Where("comments.status = ?", filter.Status)
+	}
+	if strings.TrimSpace(filter.Keyword) != "" {
+		keyword := "%" + strings.TrimSpace(filter.Keyword) + "%"
+		query = query.
+			Joins("LEFT JOIN users ON users.id = comments.user_id").
+			Joins("LEFT JOIN articles ON articles.id = comments.article_id").
+			Where("comments.content LIKE ? OR users.username LIKE ? OR articles.title LIKE ?", keyword, keyword, keyword)
+	}
 
 	if err := query.Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
 
-	offset := (page - 1) * pageSize
+	offset := (filter.Page - 1) * filter.PageSize
 	err := query.Preload("User").Preload("ReplyToUser").Preload("Article").
-		Order("created_at DESC").
-		Offset(offset).Limit(pageSize).
+		Order("comments.created_at DESC").
+		Offset(offset).Limit(filter.PageSize).
 		Find(&comments).Error
 
 	return comments, total, err

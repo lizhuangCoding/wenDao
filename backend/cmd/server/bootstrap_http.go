@@ -165,6 +165,7 @@ func registerRoutes(
 			articles := admin.Group("/articles")
 			{
 				articles.GET("", articleHandler.AdminList)
+				articles.POST("/batch-delete", articleHandler.BatchDelete)
 				articles.GET("/:id", articleHandler.GetByID)
 				articles.POST("", articleHandler.Create)
 				articles.PUT("/:id", articleHandler.Update)
@@ -184,6 +185,7 @@ func registerRoutes(
 			comments := admin.Group("/comments")
 			{
 				comments.GET("", commentHandler.AdminList)
+				comments.POST("/batch-delete", commentHandler.BatchDelete)
 				comments.DELETE("/:id", commentHandler.Delete)
 				comments.POST("/:id/restore", commentHandler.Restore)
 			}

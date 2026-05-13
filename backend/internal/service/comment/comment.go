@@ -14,15 +14,16 @@ import (
 type CommentService interface {
 	Create(articleID, userID int64, content string, parentID, replyToUserID *int64) (*model.Comment, error)
 	GetByArticleID(articleID int64) ([]*model.Comment, error)
-	ListAll(page, pageSize int) ([]*model.Comment, int64, error)
+	ListAll(filter repository.CommentFilter) ([]*model.Comment, int64, error)
 	Delete(id, userID int64, isAdmin bool) error
+	DeleteBatch(ids []int64, userID int64, isAdmin bool) error
 	Restore(id int64) error
 }
 
 // commentService 评论服务实现
 type commentService struct {
-	commentRepo  repository.CommentRepository
-	articleRepo  repository.ArticleRepository
+	commentRepo repository.CommentRepository
+	articleRepo repository.ArticleRepository
 }
 
 // NewCommentService 创建评论服务实例
@@ -31,8 +32,8 @@ func NewCommentService(
 	articleRepo repository.ArticleRepository,
 ) CommentService {
 	return &commentService{
-		commentRepo:  commentRepo,
-		articleRepo:  articleRepo,
+		commentRepo: commentRepo,
+		articleRepo: articleRepo,
 	}
 }
 
@@ -134,15 +135,15 @@ func (s *commentService) GetByArticleID(articleID int64) ([]*model.Comment, erro
 }
 
 // ListAll 获取所有评论（管理员）
-func (s *commentService) ListAll(page, pageSize int) ([]*model.Comment, int64, error) {
-	if page <= 0 {
-		page = 1
+func (s *commentService) ListAll(filter repository.CommentFilter) ([]*model.Comment, int64, error) {
+	if filter.Page <= 0 {
+		filter.Page = 1
 	}
-	if pageSize <= 0 {
-		pageSize = 20
+	if filter.PageSize <= 0 {
+		filter.PageSize = 20
 	}
 
-	return s.commentRepo.ListAll(page, pageSize)
+	return s.commentRepo.ListAll(filter)
 }
 
 // buildCommentTree 构建评论树（两级）
@@ -203,6 +204,27 @@ func (s *commentService) Delete(id, userID int64, isAdmin bool) error {
 	// 减少文章的评论数
 	s.articleRepo.DecrementCommentCount(comment.ArticleID)
 
+	return nil
+}
+
+// DeleteBatch 批量删除评论，复用单条删除的权限和计数逻辑
+func (s *commentService) DeleteBatch(ids []int64, userID int64, isAdmin bool) error {
+	seen := make(map[int64]struct{}, len(ids))
+	for _, id := range ids {
+		if id <= 0 {
+			return fmt.Errorf("invalid comment id: %d", id)
+		}
+		if _, exists := seen[id]; exists {
+			continue
+		}
+		seen[id] = struct{}{}
+		if err := s.Delete(id, userID, isAdmin); err != nil {
+			if err.Error() == "comment already deleted" {
+				continue
+			}
+			return fmt.Errorf("failed to delete comment %d: %w", id, err)
+		}
+	}
 	return nil
 }
 

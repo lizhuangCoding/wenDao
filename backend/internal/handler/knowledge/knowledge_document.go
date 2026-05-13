@@ -1,11 +1,11 @@
 package knowledge
 
 import (
-	"math"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
 
+	"wenDao/internal/pkg/pagination"
 	"wenDao/internal/pkg/response"
 	"wenDao/internal/repository"
 	"wenDao/internal/service"
@@ -38,59 +38,29 @@ func parseInt64Param(c *gin.Context, name string) (int64, bool) {
 	return id, true
 }
 
-func parsePaginationQuery(c *gin.Context) (int, int) {
-	page := parsePositiveInt(c.Query("page"), 1)
-	pageSize := c.Query("page_size")
-	if pageSize == "" {
-		pageSize = c.Query("pageSize")
-	}
-	return page, normalizePageSize(parsePositiveInt(pageSize, 20))
-}
-
-func parsePositiveInt(value string, fallback int) int {
-	if value == "" {
-		return fallback
-	}
-	parsed, err := strconv.Atoi(value)
-	if err != nil || parsed <= 0 {
-		return fallback
-	}
-	return parsed
-}
-
-func normalizePageSize(pageSize int) int {
-	if pageSize <= 0 {
-		return 20
-	}
-	if pageSize > 100 {
-		return 100
-	}
-	return pageSize
-}
-
 // List 获取知识文档列表（管理员）
 func (h *KnowledgeDocumentHandler) List(c *gin.Context) {
 	status := c.Query("status")
 	keyword := c.Query("keyword")
-	page, pageSize := parsePaginationQuery(c)
+	p := pagination.FromQuery(c)
 
 	docs, total, err := h.service.List(repository.KnowledgeDocumentFilter{
 		Status:   status,
 		Keyword:  keyword,
-		Page:     page,
-		PageSize: pageSize,
+		Page:     p.Page,
+		PageSize: p.PageSize,
 	})
 	if err != nil {
-		response.InternalError(c, "获取知识文档列表失败")
+		response.InternalErrorWithErr(c, "获取知识文档列表失败", err)
 		return
 	}
 
 	response.Success(c, gin.H{
 		"data":       docs,
 		"total":      total,
-		"page":       page,
-		"pageSize":   pageSize,
-		"totalPages": int(math.Ceil(float64(total) / float64(pageSize))),
+		"page":       p.Page,
+		"pageSize":   p.PageSize,
+		"totalPages": pagination.TotalPages(total, p.PageSize),
 	})
 }
 
@@ -102,7 +72,7 @@ func (h *KnowledgeDocumentHandler) Get(c *gin.Context) {
 	}
 	doc, sources, err := h.service.GetByID(id)
 	if err != nil {
-		response.InternalError(c, "获取知识文档详情失败")
+		response.InternalErrorWithErr(c, "获取知识文档详情失败", err)
 		return
 	}
 	response.Success(c, gin.H{"document": doc, "sources": sources})
@@ -119,7 +89,7 @@ func (h *KnowledgeDocumentHandler) Approve(c *gin.Context) {
 	uid, _ := c.Get("user_id")
 	doc, err := h.service.Approve(id, uid.(int64), req.ReviewNote)
 	if err != nil {
-		response.InternalError(c, "审核通过失败")
+		response.InternalErrorWithErr(c, "审核通过失败", err)
 		return
 	}
 	response.Success(c, doc)
@@ -136,7 +106,7 @@ func (h *KnowledgeDocumentHandler) Reject(c *gin.Context) {
 	uid, _ := c.Get("user_id")
 	doc, err := h.service.Reject(id, uid.(int64), req.ReviewNote)
 	if err != nil {
-		response.InternalError(c, "拒绝知识文档失败")
+		response.InternalErrorWithErr(c, "拒绝知识文档失败", err)
 		return
 	}
 	response.Success(c, doc)
@@ -149,7 +119,7 @@ func (h *KnowledgeDocumentHandler) Delete(c *gin.Context) {
 		return
 	}
 	if err := h.service.Delete(id); err != nil {
-		response.InternalError(c, "删除知识文档失败")
+		response.InternalErrorWithErr(c, "删除知识文档失败", err)
 		return
 	}
 	response.Success(c, gin.H{"message": "知识文档已删除"})
@@ -168,7 +138,7 @@ func (h *KnowledgeDocumentHandler) BatchDelete(c *gin.Context) {
 		return
 	}
 	if err := h.service.DeleteBatch(ids); err != nil {
-		response.InternalError(c, "批量删除知识文档失败")
+		response.InternalErrorWithErr(c, "批量删除知识文档失败", err)
 		return
 	}
 	response.Success(c, gin.H{"message": "知识文档已删除", "deleted_count": len(ids)})

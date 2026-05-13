@@ -1,11 +1,11 @@
 package article
 
 import (
-	"math"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
 
+	"wenDao/internal/pkg/pagination"
 	"wenDao/internal/pkg/response"
 	"wenDao/internal/service"
 )
@@ -31,36 +31,6 @@ func isAdminRequest(c *gin.Context) bool {
 	return exists && role == "admin"
 }
 
-func parsePaginationQuery(c *gin.Context) (int, int) {
-	page := parsePositiveInt(c.Query("page"), 1)
-	pageSize := c.Query("page_size")
-	if pageSize == "" {
-		pageSize = c.Query("pageSize")
-	}
-	return page, normalizePageSize(parsePositiveInt(pageSize, 20))
-}
-
-func parsePositiveInt(value string, fallback int) int {
-	if value == "" {
-		return fallback
-	}
-	parsed, err := strconv.Atoi(value)
-	if err != nil || parsed <= 0 {
-		return fallback
-	}
-	return parsed
-}
-
-func normalizePageSize(pageSize int) int {
-	if pageSize <= 0 {
-		return 20
-	}
-	if pageSize > 100 {
-		return 100
-	}
-	return pageSize
-}
-
 // GetSortMode 获取全站排序模式
 func (h *ArticleHandler) GetSortMode(c *gin.Context) {
 	enabled := h.settingService.GetSortByPopularity()
@@ -78,7 +48,7 @@ func (h *ArticleHandler) SetSortMode(c *gin.Context) {
 	}
 
 	if err := h.settingService.SetSortByPopularity(req.Enabled); err != nil {
-		response.InternalError(c, "Failed to set sort mode")
+		response.InternalErrorWithErr(c, "Failed to set sort mode", err)
 		return
 	}
 
@@ -102,6 +72,10 @@ type UpdateArticleRequest struct {
 	Summary    string  `json:"summary" binding:"max=500"`
 	CategoryID int64   `json:"category_id" binding:"required"`
 	CoverImage *string `json:"cover_image"`
+}
+
+type BatchDeleteArticleRequest struct {
+	IDs []int64 `json:"ids" binding:"required,min=1"`
 }
 
 // AutoSaveRequest 自动保存请求
@@ -135,7 +109,7 @@ func (h *ArticleHandler) Create(c *gin.Context) {
 			response.NotFound(c, "Category not found")
 			return
 		}
-		response.InternalError(c, "Failed to create article")
+		response.InternalErrorWithErr(c, "Failed to create article", err)
 		return
 	}
 
@@ -157,7 +131,7 @@ func (h *ArticleHandler) GetByID(c *gin.Context) {
 			response.NotFound(c, "Article not found")
 			return
 		}
-		response.InternalError(c, "Failed to get article")
+		response.InternalErrorWithErr(c, "Failed to get article", err)
 		return
 	}
 
@@ -183,7 +157,7 @@ func (h *ArticleHandler) GetBySlug(c *gin.Context) {
 			response.NotFound(c, "Article not found")
 			return
 		}
-		response.InternalError(c, "Failed to get article")
+		response.InternalErrorWithErr(c, "Failed to get article", err)
 		return
 	}
 
@@ -217,25 +191,25 @@ func (h *ArticleHandler) List(c *gin.Context) {
 	} else {
 		sortByPopularity = sortByPopularityStr == "true"
 	}
-	page, pageSize := parsePaginationQuery(c)
+	p := pagination.FromQuery(c)
 	categoryID, _ := strconv.ParseInt(categoryIDStr, 10, 64)
 
 	if status == "" {
 		status = "published"
 	}
 
-	articles, total, err := h.articleService.List(status, categoryID, keyword, sortByPopularity, page, pageSize)
+	articles, total, err := h.articleService.List(status, categoryID, keyword, sortByPopularity, p.Page, p.PageSize)
 	if err != nil {
-		response.InternalError(c, "Failed to list articles")
+		response.InternalErrorWithErr(c, "Failed to list articles", err)
 		return
 	}
 
 	response.Success(c, gin.H{
 		"data":       articles,
 		"total":      total,
-		"page":       page,
-		"pageSize":   pageSize,
-		"totalPages": int(math.Ceil(float64(total) / float64(pageSize))),
+		"page":       p.Page,
+		"pageSize":   p.PageSize,
+		"totalPages": pagination.TotalPages(total, p.PageSize),
 	})
 }
 
@@ -251,21 +225,21 @@ func (h *ArticleHandler) AdminList(c *gin.Context) {
 	} else {
 		sortByPopularity = sortByPopularityStr == "true"
 	}
-	page, pageSize := parsePaginationQuery(c)
+	p := pagination.FromQuery(c)
 	categoryID, _ := strconv.ParseInt(categoryIDStr, 10, 64)
 
-	articles, total, err := h.articleService.List(status, categoryID, keyword, sortByPopularity, page, pageSize)
+	articles, total, err := h.articleService.List(status, categoryID, keyword, sortByPopularity, p.Page, p.PageSize)
 	if err != nil {
-		response.InternalError(c, "Failed to list articles")
+		response.InternalErrorWithErr(c, "Failed to list articles", err)
 		return
 	}
 
 	response.Success(c, gin.H{
 		"data":       articles,
 		"total":      total,
-		"page":       page,
-		"pageSize":   pageSize,
-		"totalPages": int(math.Ceil(float64(total) / float64(pageSize))),
+		"page":       p.Page,
+		"pageSize":   p.PageSize,
+		"totalPages": pagination.TotalPages(total, p.PageSize),
 	})
 }
 
@@ -284,7 +258,7 @@ func (h *ArticleHandler) ToggleTop(c *gin.Context) {
 			response.NotFound(c, "Article not found")
 			return
 		}
-		response.InternalError(c, "Failed to toggle top status")
+		response.InternalErrorWithErr(c, "Failed to toggle top status", err)
 		return
 	}
 
@@ -294,7 +268,7 @@ func (h *ArticleHandler) ToggleTop(c *gin.Context) {
 // UpdatePopularityScores 手动触发更新文章活跃度分数（管理员）
 func (h *ArticleHandler) UpdatePopularityScores(c *gin.Context) {
 	if err := h.articleService.UpdatePopularityScores(); err != nil {
-		response.InternalError(c, "Failed to update popularity scores")
+		response.InternalErrorWithErr(c, "Failed to update popularity scores", err)
 		return
 	}
 	response.Success(c, gin.H{"message": "Popularity scores updated successfully"})
@@ -332,7 +306,7 @@ func (h *ArticleHandler) Update(c *gin.Context) {
 			response.NotFound(c, "Category not found")
 			return
 		}
-		response.InternalError(c, "Failed to update article")
+		response.InternalErrorWithErr(c, "Failed to update article", err)
 		return
 	}
 
@@ -353,13 +327,48 @@ func (h *ArticleHandler) Delete(c *gin.Context) {
 			response.NotFound(c, "Article not found")
 			return
 		}
-		response.InternalError(c, "Failed to delete article")
+		response.InternalErrorWithErr(c, "Failed to delete article", err)
 		return
 	}
 
 	response.Success(c, gin.H{
 		"message": "Article deleted successfully",
 	})
+}
+
+// BatchDelete 批量删除文章（管理员）
+func (h *ArticleHandler) BatchDelete(c *gin.Context) {
+	var req BatchDeleteArticleRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.InvalidParams(c, "请选择要删除的文章")
+		return
+	}
+	ids, ok := normalizeIDs(req.IDs)
+	if !ok {
+		response.InvalidParams(c, "文章 ID 无效")
+		return
+	}
+	if err := h.articleService.DeleteBatch(ids); err != nil {
+		response.InternalErrorWithErr(c, "批量删除文章失败", err)
+		return
+	}
+	response.Success(c, gin.H{"message": "Articles deleted successfully", "deleted_count": len(ids)})
+}
+
+func normalizeIDs(ids []int64) ([]int64, bool) {
+	seen := make(map[int64]struct{}, len(ids))
+	normalized := make([]int64, 0, len(ids))
+	for _, id := range ids {
+		if id <= 0 {
+			return nil, false
+		}
+		if _, exists := seen[id]; exists {
+			continue
+		}
+		seen[id] = struct{}{}
+		normalized = append(normalized, id)
+	}
+	return normalized, len(normalized) > 0
 }
 
 // Publish 发布文章（管理员）
@@ -380,7 +389,7 @@ func (h *ArticleHandler) Publish(c *gin.Context) {
 			response.Error(c, response.CodeInvalidParams, "Article is already published")
 			return
 		}
-		response.InternalError(c, "Failed to publish article")
+		response.InternalErrorWithErr(c, "Failed to publish article", err)
 		return
 	}
 
@@ -407,7 +416,7 @@ func (h *ArticleHandler) Draft(c *gin.Context) {
 			response.Error(c, response.CodeInvalidParams, "Article is already draft")
 			return
 		}
-		response.InternalError(c, "Failed to draft article")
+		response.InternalErrorWithErr(c, "Failed to draft article", err)
 		return
 	}
 
@@ -436,7 +445,7 @@ func (h *ArticleHandler) AutoSave(c *gin.Context) {
 			response.NotFound(c, "Article not found")
 			return
 		}
-		response.InternalError(c, "Failed to auto-save article")
+		response.InternalErrorWithErr(c, "Failed to auto-save article", err)
 		return
 	}
 

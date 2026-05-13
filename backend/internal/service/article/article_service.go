@@ -20,6 +20,7 @@ type ArticleService interface {
 	List(status string, categoryID int64, keyword string, sortByPopularity bool, page, pageSize int) ([]*model.Article, int64, error)
 	Update(id int64, title, content, summary string, categoryID int64, coverImage *string) (*model.Article, error)
 	Delete(id int64) error
+	DeleteBatch(ids []int64) error
 	Publish(id int64) error
 	Draft(id int64) error
 	AutoSave(id int64, title, content, summary string) error

@@ -1,6 +1,7 @@
 package article
 
 import (
+	"bytes"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -17,6 +18,7 @@ type stubArticleService struct {
 	incrViewCountIDs []int64
 	listPage         int
 	listPageSize     int
+	batchIDs         []int64
 }
 
 func (s *stubArticleService) Create(title, content, summary string, categoryID, authorID int64, coverImage *string, status string) (*model.Article, error) {
@@ -34,7 +36,11 @@ func (s *stubArticleService) List(status string, categoryID int64, keyword strin
 func (s *stubArticleService) Update(id int64, title, content, summary string, categoryID int64, coverImage *string) (*model.Article, error) {
 	return nil, nil
 }
-func (s *stubArticleService) Delete(id int64) error                                   { return nil }
+func (s *stubArticleService) Delete(id int64) error { return nil }
+func (s *stubArticleService) DeleteBatch(ids []int64) error {
+	s.batchIDs = ids
+	return nil
+}
 func (s *stubArticleService) Publish(id int64) error                                  { return nil }
 func (s *stubArticleService) Draft(id int64) error                                    { return nil }
 func (s *stubArticleService) AutoSave(id int64, title, content, summary string) error { return nil }
@@ -121,5 +127,43 @@ func TestArticleHandlerList_AcceptsCamelCasePageSize(t *testing.T) {
 	}
 	if articleSvc.listPage != 3 || articleSvc.listPageSize != 9 {
 		t.Fatalf("expected page 3 pageSize 9, got page %d pageSize %d", articleSvc.listPage, articleSvc.listPageSize)
+	}
+}
+
+func TestArticleHandlerBatchDelete_DeletesSelectedArticles(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	articleSvc := &stubArticleService{}
+	h := NewArticleHandler(articleSvc, nil, &stubSettingService{})
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest(http.MethodPost, "/api/admin/articles/batch-delete", bytes.NewBufferString(`{"ids":[4,5,5,6]}`))
+	c.Request.Header.Set("Content-Type", "application/json")
+
+	h.BatchDelete(c)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d and body %s", w.Code, w.Body.String())
+	}
+	expected := []int64{4, 5, 6}
+	if len(articleSvc.batchIDs) != len(expected) {
+		t.Fatalf("expected ids %v, got %v", expected, articleSvc.batchIDs)
+	}
+	for i := range expected {
+		if articleSvc.batchIDs[i] != expected[i] {
+			t.Fatalf("expected ids %v, got %v", expected, articleSvc.batchIDs)
+		}
+	}
+
+	var payload struct {
+		Data struct {
+			DeletedCount int `json:"deleted_count"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if payload.Data.DeletedCount != 3 {
+		t.Fatalf("expected deleted_count 3, got %d", payload.Data.DeletedCount)
 	}
 }

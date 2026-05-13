@@ -94,3 +94,12 @@ func ServiceUnavailable(c *gin.Context, message string) {
 func InternalError(c *gin.Context, message string) {
 	Error(c, CodeInternalError, message)
 }
+
+// InternalErrorWithErr attaches the underlying error to gin.Context so middleware
+// can write the real cause to server logs while the client still receives a safe message.
+func InternalErrorWithErr(c *gin.Context, message string, err error) {
+	if err != nil {
+		_ = c.Error(err)
+	}
+	InternalError(c, message)
+}

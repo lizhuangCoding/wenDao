@@ -47,6 +47,11 @@ export const articleApi = {
     return request.delete(`/admin/articles/${id}`);
   },
 
+  // 批量删除文章
+  batchDeleteArticles: (ids: number[]) => {
+    return request.post<{ message: string; deleted_count: number }>('/admin/articles/batch-delete', { ids });
+  },
+
   // 发布文章
   publishArticle: (id: number) => {
     return request.patch(`/admin/articles/${id}/publish`);

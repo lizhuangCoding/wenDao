@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { articleApi, categoryApi, siteApi } from '@/api';
-import { Layout, Loading } from '@/components/common';
+import { Layout, Loading, Pagination, EmptyState, ErrorState } from '@/components/common';
 import { ArticleCard } from '@/components/article';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -27,7 +27,7 @@ export const Home = () => {
   });
 
   // 获取文章列表
-  const { data: articlesData, isLoading } = useQuery({
+  const { data: articlesData, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['articles', currentPage, selectedCategory, searchKeyword],
     queryFn: () =>
       articleApi.getArticles({
@@ -119,6 +119,8 @@ export const Home = () => {
         {/* Article Grid */}
         {isLoading ? (
           <div className="py-20 flex justify-center"><Loading /></div>
+        ) : isError ? (
+          <ErrorState message={(error as any)?.message || '文章列表加载失败'} onRetry={() => refetch()} />
         ) : (
           <>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-12 gap-y-24">
@@ -138,44 +140,18 @@ export const Home = () => {
             </div>
 
             {articlesData?.data?.length === 0 && (
-              <div className="text-center py-32 border-2 border-dashed border-neutral-100 dark:border-neutral-800 rounded-3xl">
-                <p className="text-neutral-400 dark:text-neutral-500 font-serif text-2xl italic">{t('home.noResults')}</p>
-              </div>
+              <EmptyState title={t('home.noResults')} className="py-32" />
             )}
 
-            {/* Pagination */}
             {articlesData && (
-              <div className="mt-40 flex items-center justify-between border-t border-neutral-100 dark:border-neutral-800 pt-16">
-                <button
-                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                  disabled={currentPage === 1}
-                  className="group flex items-center gap-3 text-xs font-bold tracking-[0.2em] text-neutral-400 dark:text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 disabled:opacity-20 transition-all uppercase"
-                >
-                  <span className="group-hover:-translate-x-2 transition-transform">←</span> {t('home.newer')}
-                </button>
-                <div className="flex gap-6">
-                  {[...Array(totalPages)].map((_, i) => (
-                    <button
-                      key={i}
-                      onClick={() => setCurrentPage(i + 1)}
-                      className={`text-sm font-bold transition-all ${
-                        currentPage === i + 1
-                          ? 'text-primary-600 dark:text-primary-400 scale-125 underline underline-offset-8 decoration-2'
-                          : 'text-neutral-300 dark:text-neutral-600 hover:text-neutral-900 dark:hover:text-neutral-100'
-                      }`}
-                    >
-                      {String(i + 1).padStart(2, '0')}
-                    </button>
-                  ))}
-                </div>
-                <button
-                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                  disabled={currentPage === totalPages}
-                  className="group flex items-center gap-3 text-xs font-bold tracking-[0.2em] text-neutral-400 dark:text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 disabled:opacity-20 transition-all uppercase"
-                >
-                  {t('home.older')} <span className="group-hover:translate-x-2 transition-transform">→</span>
-                </button>
-              </div>
+              <Pagination
+                page={currentPage}
+                totalPages={totalPages}
+                onChange={setCurrentPage}
+                previousLabel={t('home.newer')}
+                nextLabel={t('home.older')}
+                className="mt-40 border-t border-neutral-100 pt-16 dark:border-neutral-800"
+              />
             )}
           </>
         )}
