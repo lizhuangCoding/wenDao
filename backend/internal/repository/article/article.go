@@ -134,7 +134,21 @@ func (r *articleRepository) Update(article *model.Article) error {
 
 // Delete 删除文章
 func (r *articleRepository) Delete(id int64) error {
-	return r.db.Delete(&model.Article{}, id).Error
+	return r.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("article_id = ? AND parent_id IS NOT NULL", id).Delete(&model.Comment{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("article_id = ?", id).Delete(&model.Comment{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("article_id = ?", id).Delete(&model.ArticleStat{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Model(&model.KnowledgeDocument{}).Where("article_id = ?", id).Update("article_id", nil).Error; err != nil {
+			return err
+		}
+		return tx.Delete(&model.Article{}, id).Error
+	})
 }
 
 // UpdateSlug 更新文章的 slug
