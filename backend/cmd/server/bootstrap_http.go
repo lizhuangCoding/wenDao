@@ -190,6 +190,7 @@ func registerRoutes(
 			knowledgeDocs := admin.Group("/knowledge-documents")
 			{
 				knowledgeDocs.GET("", knowledgeDocumentHandler.List)
+				knowledgeDocs.POST("/batch-delete", knowledgeDocumentHandler.BatchDelete)
 				knowledgeDocs.GET("/:id", knowledgeDocumentHandler.Get)
 				knowledgeDocs.POST("/:id/approve", knowledgeDocumentHandler.Approve)
 				knowledgeDocs.POST("/:id/reject", knowledgeDocumentHandler.Reject)

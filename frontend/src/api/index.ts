@@ -4,6 +4,7 @@ export * from './article';
 export * from './category';
 export * from './comment';
 export * from './chat';
+export * from './knowledgeDocument';
 export * from './site';
 export * from './stat';
 export * from './upload';

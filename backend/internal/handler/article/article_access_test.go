@@ -15,35 +15,41 @@ type stubArticleService struct {
 	articleByID      *model.Article
 	articleBySlug    *model.Article
 	incrViewCountIDs []int64
+	listPage         int
+	listPageSize     int
 }
 
 func (s *stubArticleService) Create(title, content, summary string, categoryID, authorID int64, coverImage *string, status string) (*model.Article, error) {
 	return nil, nil
 }
-func (s *stubArticleService) GetByID(id int64) (*model.Article, error)      { return s.articleByID, nil }
-func (s *stubArticleService) GetBySlug(slug string) (*model.Article, error) { return s.articleBySlug, nil }
+func (s *stubArticleService) GetByID(id int64) (*model.Article, error) { return s.articleByID, nil }
+func (s *stubArticleService) GetBySlug(slug string) (*model.Article, error) {
+	return s.articleBySlug, nil
+}
 func (s *stubArticleService) List(status string, categoryID int64, keyword string, sortByPopularity bool, page, pageSize int) ([]*model.Article, int64, error) {
+	s.listPage = page
+	s.listPageSize = pageSize
 	return nil, 0, nil
 }
 func (s *stubArticleService) Update(id int64, title, content, summary string, categoryID int64, coverImage *string) (*model.Article, error) {
 	return nil, nil
 }
-func (s *stubArticleService) Delete(id int64) error                          { return nil }
-func (s *stubArticleService) Publish(id int64) error                         { return nil }
-func (s *stubArticleService) Draft(id int64) error                           { return nil }
+func (s *stubArticleService) Delete(id int64) error                                   { return nil }
+func (s *stubArticleService) Publish(id int64) error                                  { return nil }
+func (s *stubArticleService) Draft(id int64) error                                    { return nil }
 func (s *stubArticleService) AutoSave(id int64, title, content, summary string) error { return nil }
 func (s *stubArticleService) IncrViewCount(id int64) error {
 	s.incrViewCountIDs = append(s.incrViewCountIDs, id)
 	return nil
 }
-func (s *stubArticleService) LikeArticle(id int64) error                      { return nil }
-func (s *stubArticleService) UnlikeArticle(id int64) error                    { return nil }
-func (s *stubArticleService) ToggleTop(id int64) (*model.Article, error)      { return nil, nil }
-func (s *stubArticleService) UpdatePopularityScores() error                   { return nil }
+func (s *stubArticleService) LikeArticle(id int64) error                 { return nil }
+func (s *stubArticleService) UnlikeArticle(id int64) error               { return nil }
+func (s *stubArticleService) ToggleTop(id int64) (*model.Article, error) { return nil, nil }
+func (s *stubArticleService) UpdatePopularityScores() error              { return nil }
 
 type stubSettingService struct{}
 
-func (s *stubSettingService) GetSortByPopularity() bool { return false }
+func (s *stubSettingService) GetSortByPopularity() bool              { return false }
 func (s *stubSettingService) SetSortByPopularity(enabled bool) error { return nil }
 
 func TestArticleHandlerGetByID_HidesDraftFromPublicRoute(t *testing.T) {
@@ -96,5 +102,24 @@ func TestArticleHandlerGetByID_AllowsAdminToReadDraft(t *testing.T) {
 	}
 	if len(articleSvc.incrViewCountIDs) != 0 {
 		t.Fatalf("expected admin article fetch to avoid public view increments, got %v", articleSvc.incrViewCountIDs)
+	}
+}
+
+func TestArticleHandlerList_AcceptsCamelCasePageSize(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	articleSvc := &stubArticleService{}
+	h := NewArticleHandler(articleSvc, nil, &stubSettingService{})
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest(http.MethodGet, "/api/articles?page=3&pageSize=9", nil)
+
+	h.List(c)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", w.Code)
+	}
+	if articleSvc.listPage != 3 || articleSvc.listPageSize != 9 {
+		t.Fatalf("expected page 3 pageSize 9, got page %d pageSize %d", articleSvc.listPage, articleSvc.listPageSize)
 	}
 }

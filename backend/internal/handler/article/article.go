@@ -31,6 +31,36 @@ func isAdminRequest(c *gin.Context) bool {
 	return exists && role == "admin"
 }
 
+func parsePaginationQuery(c *gin.Context) (int, int) {
+	page := parsePositiveInt(c.Query("page"), 1)
+	pageSize := c.Query("page_size")
+	if pageSize == "" {
+		pageSize = c.Query("pageSize")
+	}
+	return page, normalizePageSize(parsePositiveInt(pageSize, 20))
+}
+
+func parsePositiveInt(value string, fallback int) int {
+	if value == "" {
+		return fallback
+	}
+	parsed, err := strconv.Atoi(value)
+	if err != nil || parsed <= 0 {
+		return fallback
+	}
+	return parsed
+}
+
+func normalizePageSize(pageSize int) int {
+	if pageSize <= 0 {
+		return 20
+	}
+	if pageSize > 100 {
+		return 100
+	}
+	return pageSize
+}
+
 // GetSortMode 获取全站排序模式
 func (h *ArticleHandler) GetSortMode(c *gin.Context) {
 	enabled := h.settingService.GetSortByPopularity()
@@ -187,11 +217,7 @@ func (h *ArticleHandler) List(c *gin.Context) {
 	} else {
 		sortByPopularity = sortByPopularityStr == "true"
 	}
-	pageStr := c.DefaultQuery("page", "1")
-	pageSizeStr := c.DefaultQuery("page_size", "20")
-
-	page, _ := strconv.Atoi(pageStr)
-	pageSize, _ := strconv.Atoi(pageSizeStr)
+	page, pageSize := parsePaginationQuery(c)
 	categoryID, _ := strconv.ParseInt(categoryIDStr, 10, 64)
 
 	if status == "" {
@@ -225,11 +251,7 @@ func (h *ArticleHandler) AdminList(c *gin.Context) {
 	} else {
 		sortByPopularity = sortByPopularityStr == "true"
 	}
-	pageStr := c.DefaultQuery("page", "1")
-	pageSizeStr := c.DefaultQuery("page_size", "20")
-
-	page, _ := strconv.Atoi(pageStr)
-	pageSize, _ := strconv.Atoi(pageSizeStr)
+	page, pageSize := parsePaginationQuery(c)
 	categoryID, _ := strconv.ParseInt(categoryIDStr, 10, 64)
 
 	articles, total, err := h.articleService.List(status, categoryID, keyword, sortByPopularity, page, pageSize)

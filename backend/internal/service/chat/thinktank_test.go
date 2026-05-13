@@ -698,6 +698,10 @@ func (s *stubKnowledgeDocumentService) Delete(id int64) error {
 	return nil
 }
 
+func (s *stubKnowledgeDocumentService) DeleteBatch(ids []int64) error {
+	return nil
+}
+
 func TestThinkTankService_ChatStream_PersistsSummarizedRunEventsWithoutChunkSnapshots(t *testing.T) {
 	librarian := &stubLibrarian{result: LibrarianResult{CoverageStatus: "insufficient", Summary: "站内资料不足"}}
 	journalist := &stubJournalist{result: &JournalistResult{Summary: "外部调研摘要", Sources: []SourceRef{{Kind: "web", Title: "外部来源", URL: "https://example.com"}}}}

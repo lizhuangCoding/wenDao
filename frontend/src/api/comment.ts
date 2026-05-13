@@ -1,5 +1,6 @@
 import { request } from './client';
 import type { Comment, CreateCommentRequest, PaginatedResponse, PaginationParams } from '@/types';
+import { toPaginationQuery } from './pagination';
 
 // 评论 API
 export const commentApi = {
@@ -10,7 +11,7 @@ export const commentApi = {
 
   // 获取所有评论（管理员）
   getAdminComments: (params: PaginationParams) => {
-    return request.get<PaginatedResponse<Comment>>('/admin/comments', { params });
+    return request.get<PaginatedResponse<Comment>>('/admin/comments', { params: toPaginationQuery(params) });
   },
 
   // 创建评论

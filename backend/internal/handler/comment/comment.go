@@ -23,6 +23,36 @@ func NewCommentHandler(commentService service.CommentService, statService *servi
 	}
 }
 
+func parsePaginationQuery(c *gin.Context) (int, int) {
+	page := parsePositiveInt(c.Query("page"), 1)
+	pageSize := c.Query("page_size")
+	if pageSize == "" {
+		pageSize = c.Query("pageSize")
+	}
+	return page, normalizePageSize(parsePositiveInt(pageSize, 20))
+}
+
+func parsePositiveInt(value string, fallback int) int {
+	if value == "" {
+		return fallback
+	}
+	parsed, err := strconv.Atoi(value)
+	if err != nil || parsed <= 0 {
+		return fallback
+	}
+	return parsed
+}
+
+func normalizePageSize(pageSize int) int {
+	if pageSize <= 0 {
+		return 20
+	}
+	if pageSize > 100 {
+		return 100
+	}
+	return pageSize
+}
+
 // CreateCommentRequest 创建评论请求
 type CreateCommentRequest struct {
 	ArticleID     int64  `json:"article_id" binding:"required"`
@@ -89,11 +119,7 @@ func (h *CommentHandler) GetByArticleID(c *gin.Context) {
 
 // AdminList 获取所有评论列表（管理员）
 func (h *CommentHandler) AdminList(c *gin.Context) {
-	pageStr := c.DefaultQuery("page", "1")
-	pageSizeStr := c.DefaultQuery("page_size", "20")
-
-	page, _ := strconv.Atoi(pageStr)
-	pageSize, _ := strconv.Atoi(pageSizeStr)
+	page, pageSize := parsePaginationQuery(c)
 
 	comments, total, err := h.commentService.ListAll(page, pageSize)
 	if err != nil {
@@ -102,10 +128,10 @@ func (h *CommentHandler) AdminList(c *gin.Context) {
 	}
 
 	response.Success(c, gin.H{
-		"data":      comments,
-		"total":     total,
-		"page":      page,
-		"pageSize":  pageSize,
+		"data":     comments,
+		"total":    total,
+		"page":     page,
+		"pageSize": pageSize,
 	})
 }
 

@@ -38,6 +38,7 @@ type KnowledgeDocumentService interface {
 	GetByID(id int64) (*model.KnowledgeDocument, []*model.KnowledgeDocumentSource, error)
 	List(filter repository.KnowledgeDocumentFilter) ([]*model.KnowledgeDocument, int64, error)
 	Delete(id int64) error
+	DeleteBatch(ids []int64) error
 }
 
 type knowledgeDocumentService struct {
@@ -314,4 +315,21 @@ func (s *knowledgeDocumentService) Delete(id int64) error {
 		}
 	}
 	return s.docRepo.Delete(doc.ID)
+}
+
+func (s *knowledgeDocumentService) DeleteBatch(ids []int64) error {
+	seen := make(map[int64]struct{}, len(ids))
+	for _, id := range ids {
+		if id <= 0 {
+			return fmt.Errorf("invalid knowledge document id: %d", id)
+		}
+		if _, exists := seen[id]; exists {
+			continue
+		}
+		seen[id] = struct{}{}
+		if err := s.Delete(id); err != nil {
+			return fmt.Errorf("failed to delete knowledge document %d: %w", id, err)
+		}
+	}
+	return nil
 }
