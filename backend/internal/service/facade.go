@@ -50,6 +50,7 @@ type StatService = statsvc.StatService
 type DashboardStats = statsvc.DashboardStats
 type AILogger = aisvc.AILogger
 type AILogEntry = aisvc.AILogEntry
+type LogRotationConfig = aisvc.LogRotationConfig
 type ThinkTankService = chatcore.ThinkTankService
 type StreamEvent = chatcore.StreamEvent
 type ResearchConfig = chatsvc.ResearchConfig
@@ -95,7 +96,10 @@ func NewUploadService(repo uploadrepo.UploadRepository, cfg *config.Config) Uplo
 func NewStatService(repo *statrepo.StatRepository, rdb *redis.Client) *StatService {
 	return statsvc.NewStatService(repo, rdb)
 }
-func NewAILogger(logDir string) (AILogger, error)        { return aisvc.NewAILogger(logDir) }
+func NewAILogger(logDir string) (AILogger, error) { return aisvc.NewAILogger(logDir) }
+func NewAILoggerWithRotation(logDir string, rotation LogRotationConfig) (AILogger, error) {
+	return aisvc.NewAILoggerWithRotation(logDir, rotation)
+}
 func NewLibrarianService(chain *eino.RAGChain) Librarian { return chatsvc.NewLibrarianService(chain) }
 func NewJournalist(cfg *config.AIConfig) Journalist      { return chatsvc.NewJournalist(cfg) }
 func NewThinkTankSynthesizer(llm eino.LLMClient) ThinkTankSynthesizer {

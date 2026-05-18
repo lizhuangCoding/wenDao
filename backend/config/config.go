@@ -88,9 +88,13 @@ type UploadConfig struct {
 
 // LogConfig 日志配置
 type LogConfig struct {
-	Level  string `mapstructure:"level"`
-	Format string `mapstructure:"format"`
-	Output string `mapstructure:"output"`
+	Level      string `mapstructure:"level"`
+	Format     string `mapstructure:"format"`
+	Output     string `mapstructure:"output"`
+	MaxSizeMB  int    `mapstructure:"max_size_mb"`
+	MaxBackups int    `mapstructure:"max_backups"`
+	MaxAgeDays int    `mapstructure:"max_age_days"`
+	Compress   bool   `mapstructure:"compress"`
 }
 
 // AIConfig AI 配置
@@ -126,6 +130,10 @@ func LoadConfig() (*Config, error) {
 	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 
 	viper.AutomaticEnv()
+	viper.SetDefault("log.max_size_mb", 100)
+	viper.SetDefault("log.max_backups", 7)
+	viper.SetDefault("log.max_age_days", 28)
+	viper.SetDefault("log.compress", true)
 
 	_ = viper.BindEnv("database.host", "DB_HOST")
 	_ = viper.BindEnv("database.port", "DB_PORT")
@@ -150,6 +158,13 @@ func LoadConfig() (*Config, error) {
 	_ = viper.BindEnv("ai.research_api_key", "RESEARCH_API_KEY")
 	_ = viper.BindEnv("upload.storage_path", "UPLOAD_PATH")
 	_ = viper.BindEnv("site.url", "SITE_URL")
+	_ = viper.BindEnv("log.level", "LOG_LEVEL")
+	_ = viper.BindEnv("log.format", "LOG_FORMAT")
+	_ = viper.BindEnv("log.output", "LOG_OUTPUT")
+	_ = viper.BindEnv("log.max_size_mb", "LOG_MAX_SIZE_MB")
+	_ = viper.BindEnv("log.max_backups", "LOG_MAX_BACKUPS")
+	_ = viper.BindEnv("log.max_age_days", "LOG_MAX_AGE_DAYS")
+	_ = viper.BindEnv("log.compress", "LOG_COMPRESS")
 
 	_ = viper.BindEnv("oauth.github.client_id", "GITHUB_CLIENT_ID")
 	_ = viper.BindEnv("oauth.github.client_secret", "GITHUB_CLIENT_SECRET")
@@ -181,6 +196,15 @@ func LoadConfig() (*Config, error) {
 	}
 	if cfg.Upload.MaxImageHeight <= 0 {
 		cfg.Upload.MaxImageHeight = 2560
+	}
+	if cfg.Log.MaxSizeMB <= 0 {
+		cfg.Log.MaxSizeMB = 100
+	}
+	if cfg.Log.MaxBackups <= 0 {
+		cfg.Log.MaxBackups = 7
+	}
+	if cfg.Log.MaxAgeDays <= 0 {
+		cfg.Log.MaxAgeDays = 28
 	}
 	if cfg.JWT.Secret == placeholderJWTSecret {
 		return nil, fmt.Errorf("invalid placeholder JWT secret: configure a non-placeholder JWT secret before startup")
