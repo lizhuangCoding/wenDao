@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"path/filepath"
 
 	"go.uber.org/zap"
 
@@ -43,7 +42,12 @@ func initServices(cfg *config.Config, logger *zap.Logger, repos *repositories, i
 		} else {
 			knowledgeDocumentService = service.NewKnowledgeDocumentService(repos.knowledgeDocument, repos.knowledgeDocumentSource, vectorService, repos.article, repos.category, logger)
 
-			aiEventLogger, err := service.NewAILogger(filepath.Dir(cfg.Log.Output))
+			aiEventLogger, err := service.NewAILoggerWithRotation(aiLogDir(cfg.Log.Output), service.LogRotationConfig{
+				MaxSizeMB:  cfg.Log.MaxSizeMB,
+				MaxBackups: cfg.Log.MaxBackups,
+				MaxAgeDays: cfg.Log.MaxAgeDays,
+				Compress:   cfg.Log.Compress,
+			})
 			if err != nil {
 				logger.Warn("AI event logger unavailable, continuing in degraded mode", zap.Error(err))
 			} else {

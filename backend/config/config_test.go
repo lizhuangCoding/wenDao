@@ -158,6 +158,10 @@ log:
   level: "info"
   format: "console"
   output: "log/"
+  max_size_mb: 100
+  max_backups: 7
+  max_age_days: 28
+  compress: true
 `
 	if err := os.WriteFile(filepath.Join(configDir, "config.yaml"), []byte(configContent), 0o644); err != nil {
 		t.Fatalf("failed to write config file: %v", err)
@@ -175,6 +179,10 @@ log:
 	t.Setenv("SERVER_MODE", "release")
 	t.Setenv("LOG_FORMAT", "json")
 	t.Setenv("LOG_OUTPUT", "stdout")
+	t.Setenv("LOG_MAX_SIZE_MB", "64")
+	t.Setenv("LOG_MAX_BACKUPS", "5")
+	t.Setenv("LOG_MAX_AGE_DAYS", "14")
+	t.Setenv("LOG_COMPRESS", "false")
 
 	if err := os.Chdir(tempDir); err != nil {
 		t.Fatalf("failed to change working directory: %v", err)
@@ -195,6 +203,18 @@ log:
 	}
 	if cfg.Log.Output != "stdout" {
 		t.Fatalf("expected log output from env binding, got %q", cfg.Log.Output)
+	}
+	if cfg.Log.MaxSizeMB != 64 {
+		t.Fatalf("expected log max size from env binding, got %d", cfg.Log.MaxSizeMB)
+	}
+	if cfg.Log.MaxBackups != 5 {
+		t.Fatalf("expected log max backups from env binding, got %d", cfg.Log.MaxBackups)
+	}
+	if cfg.Log.MaxAgeDays != 14 {
+		t.Fatalf("expected log max age from env binding, got %d", cfg.Log.MaxAgeDays)
+	}
+	if cfg.Log.Compress {
+		t.Fatalf("expected log compression from env binding to be false")
 	}
 }
 
