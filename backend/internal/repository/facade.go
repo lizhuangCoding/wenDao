@@ -18,6 +18,7 @@ type UserRepository = userrepo.UserRepository
 type ArticleRepository = articlerepo.ArticleRepository
 type ArticleFilter = articlerepo.ArticleFilter
 type CategoryRepository = categoryrepo.CategoryRepository
+type CategoryFilter = categoryrepo.CategoryFilter
 type CommentRepository = commentrepo.CommentRepository
 type CommentFilter = commentrepo.CommentFilter
 type ChatMessageRepository = chatrepo.ChatMessageRepository

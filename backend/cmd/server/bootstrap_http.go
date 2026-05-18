@@ -178,6 +178,8 @@ func registerRoutes(
 			}
 			categories := admin.Group("/categories")
 			{
+				categories.GET("", categoryHandler.AdminList)
+				categories.POST("/batch-delete", categoryHandler.BatchDelete)
 				categories.POST("", categoryHandler.Create)
 				categories.PUT("/:id", categoryHandler.Update)
 				categories.DELETE("/:id", categoryHandler.Delete)

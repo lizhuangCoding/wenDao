@@ -6,12 +6,19 @@ import (
 	"wenDao/internal/model"
 )
 
+// CategoryFilter 分类筛选条件
+type CategoryFilter struct {
+	Page     int
+	PageSize int
+}
+
 // CategoryRepository 分类数据访问接口
 type CategoryRepository interface {
 	Create(category *model.Category) error
 	GetByID(id int64) (*model.Category, error)
 	GetBySlug(slug string) (*model.Category, error)
 	List() ([]*model.Category, error)
+	ListPaginated(filter CategoryFilter) ([]*model.Category, int64, error)
 	Update(category *model.Category) error
 	Delete(id int64) error
 	IncrementArticleCount(id int64) error
@@ -58,6 +65,25 @@ func (r *categoryRepository) List() ([]*model.Category, error) {
 	var categories []*model.Category
 	err := r.db.Order("sort_order ASC, created_at DESC").Find(&categories).Error
 	return categories, err
+}
+
+// ListPaginated 获取分类分页列表（按 sort_order 排序）
+func (r *categoryRepository) ListPaginated(filter CategoryFilter) ([]*model.Category, int64, error) {
+	var categories []*model.Category
+	var total int64
+
+	query := r.db.Model(&model.Category{})
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	if filter.Page > 0 && filter.PageSize > 0 {
+		offset := (filter.Page - 1) * filter.PageSize
+		query = query.Offset(offset).Limit(filter.PageSize)
+	}
+
+	err := query.Order("sort_order ASC, created_at DESC").Find(&categories).Error
+	return categories, total, err
 }
 
 // Update 更新分类

@@ -29,17 +29,17 @@ func (r *viewCountArticleRepoStub) GetBySource(sourceType string, sourceID int64
 func (r *viewCountArticleRepoStub) List(filter repository.ArticleFilter) ([]*model.Article, int64, error) {
 	return nil, 0, nil
 }
-func (r *viewCountArticleRepoStub) Update(article *model.Article) error                { return nil }
-func (r *viewCountArticleRepoStub) Delete(id int64) error                              { return nil }
-func (r *viewCountArticleRepoStub) UpdateSlug(id int64, slug string) error             { return nil }
-func (r *viewCountArticleRepoStub) UpdateAIIndexStatus(id int64, status string) error  { return nil }
-func (r *viewCountArticleRepoStub) IncrementCommentCount(id int64) error               { return nil }
-func (r *viewCountArticleRepoStub) DecrementCommentCount(id int64) error               { return nil }
-func (r *viewCountArticleRepoStub) IncrementLikeCount(id int64) error                  { return nil }
-func (r *viewCountArticleRepoStub) DecrementLikeCount(id int64) error                  { return nil }
-func (r *viewCountArticleRepoStub) UpdateTop(id int64, isTop bool) error               { return nil }
+func (r *viewCountArticleRepoStub) Update(article *model.Article) error                 { return nil }
+func (r *viewCountArticleRepoStub) Delete(id int64) error                               { return nil }
+func (r *viewCountArticleRepoStub) UpdateSlug(id int64, slug string) error              { return nil }
+func (r *viewCountArticleRepoStub) UpdateAIIndexStatus(id int64, status string) error   { return nil }
+func (r *viewCountArticleRepoStub) IncrementCommentCount(id int64) error                { return nil }
+func (r *viewCountArticleRepoStub) DecrementCommentCount(id int64) error                { return nil }
+func (r *viewCountArticleRepoStub) IncrementLikeCount(id int64) error                   { return nil }
+func (r *viewCountArticleRepoStub) DecrementLikeCount(id int64) error                   { return nil }
+func (r *viewCountArticleRepoStub) UpdateTop(id int64, isTop bool) error                { return nil }
 func (r *viewCountArticleRepoStub) UpdatePopularity(id int64, popularity float64) error { return nil }
-func (r *viewCountArticleRepoStub) GetAllPublished() ([]*model.Article, error)         { return nil, nil }
+func (r *viewCountArticleRepoStub) GetAllPublished() ([]*model.Article, error)          { return nil, nil }
 func (r *viewCountArticleRepoStub) IncrementViewCount(id int64) error {
 	if r.incrementCh != nil {
 		r.incrementCh <- id
@@ -49,14 +49,17 @@ func (r *viewCountArticleRepoStub) IncrementViewCount(id int64) error {
 
 type viewCountCategoryRepoStub struct{}
 
-func (r *viewCountCategoryRepoStub) Create(category *model.Category) error                       { return nil }
-func (r *viewCountCategoryRepoStub) GetByID(id int64) (*model.Category, error)                  { return nil, nil }
-func (r *viewCountCategoryRepoStub) GetBySlug(slug string) (*model.Category, error)             { return nil, nil }
-func (r *viewCountCategoryRepoStub) List() ([]*model.Category, error)                           { return nil, nil }
-func (r *viewCountCategoryRepoStub) Update(category *model.Category) error                       { return nil }
-func (r *viewCountCategoryRepoStub) Delete(id int64) error                                       { return nil }
-func (r *viewCountCategoryRepoStub) IncrementArticleCount(id int64) error                        { return nil }
-func (r *viewCountCategoryRepoStub) DecrementArticleCount(id int64) error                        { return nil }
+func (r *viewCountCategoryRepoStub) Create(category *model.Category) error          { return nil }
+func (r *viewCountCategoryRepoStub) GetByID(id int64) (*model.Category, error)      { return nil, nil }
+func (r *viewCountCategoryRepoStub) GetBySlug(slug string) (*model.Category, error) { return nil, nil }
+func (r *viewCountCategoryRepoStub) List() ([]*model.Category, error)               { return nil, nil }
+func (r *viewCountCategoryRepoStub) ListPaginated(filter repository.CategoryFilter) ([]*model.Category, int64, error) {
+	return nil, 0, nil
+}
+func (r *viewCountCategoryRepoStub) Update(category *model.Category) error { return nil }
+func (r *viewCountCategoryRepoStub) Delete(id int64) error                 { return nil }
+func (r *viewCountCategoryRepoStub) IncrementArticleCount(id int64) error  { return nil }
+func (r *viewCountCategoryRepoStub) DecrementArticleCount(id int64) error  { return nil }
 
 func newArticleServiceForViewCountTest(repo repository.ArticleRepository) ArticleService {
 	return NewArticleService(

@@ -16,8 +16,10 @@ type CategoryService interface {
 	GetByID(id int64) (*model.Category, error)
 	GetBySlug(slug string) (*model.Category, error)
 	List() ([]*model.Category, error)
+	ListPaginated(filter repository.CategoryFilter) ([]*model.Category, int64, error)
 	Update(id int64, name, slug, description string, sortOrder int) (*model.Category, error)
 	Delete(id int64) error
+	DeleteBatch(ids []int64) error
 }
 
 // categoryService 分类服务实现
@@ -91,6 +93,21 @@ func (s *categoryService) List() ([]*model.Category, error) {
 	return categories, nil
 }
 
+// ListPaginated 获取分类分页列表
+func (s *categoryService) ListPaginated(filter repository.CategoryFilter) ([]*model.Category, int64, error) {
+	if filter.Page <= 0 {
+		filter.Page = 1
+	}
+	if filter.PageSize <= 0 {
+		filter.PageSize = 20
+	}
+	categories, total, err := s.categoryRepo.ListPaginated(filter)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to list categories: %w", err)
+	}
+	return categories, total, nil
+}
+
 // Update 更新分类
 func (s *categoryService) Update(id int64, name, slug, description string, sortOrder int) (*model.Category, error) {
 	// 检查分类是否存在
@@ -146,5 +163,23 @@ func (s *categoryService) Delete(id int64) error {
 		return fmt.Errorf("failed to delete category: %w", err)
 	}
 
+	return nil
+}
+
+// DeleteBatch 批量删除分类，复用单条删除的文章计数保护逻辑
+func (s *categoryService) DeleteBatch(ids []int64) error {
+	seen := make(map[int64]struct{}, len(ids))
+	for _, id := range ids {
+		if id <= 0 {
+			return fmt.Errorf("invalid category id: %d", id)
+		}
+		if _, exists := seen[id]; exists {
+			continue
+		}
+		seen[id] = struct{}{}
+		if err := s.Delete(id); err != nil {
+			return fmt.Errorf("failed to delete category %d: %w", id, err)
+		}
+	}
 	return nil
 }

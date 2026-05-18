@@ -152,6 +152,10 @@ func (r *stubKnowledgeCategoryRepository) List() ([]*model.Category, error) {
 	}
 	return []*model.Category{{ID: 3, Name: "默认分类", Slug: "default"}}, nil
 }
+func (r *stubKnowledgeCategoryRepository) ListPaginated(filter repository.CategoryFilter) ([]*model.Category, int64, error) {
+	categories, err := r.List()
+	return categories, int64(len(categories)), err
+}
 func (r *stubKnowledgeCategoryRepository) Update(category *model.Category) error { return nil }
 func (r *stubKnowledgeCategoryRepository) Delete(id int64) error                 { return nil }
 func (r *stubKnowledgeCategoryRepository) IncrementArticleCount(id int64) error {

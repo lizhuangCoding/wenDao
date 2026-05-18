@@ -2,10 +2,13 @@ package category
 
 import (
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 
+	"wenDao/internal/pkg/pagination"
 	"wenDao/internal/pkg/response"
+	"wenDao/internal/repository"
 	"wenDao/internal/service"
 )
 
@@ -37,6 +40,10 @@ type UpdateCategoryRequest struct {
 	SortOrder   int    `json:"sort_order"`
 }
 
+type BatchDeleteCategoryRequest struct {
+	IDs []int64 `json:"ids" binding:"required,min=1"`
+}
+
 // Create 创建分类（管理员）
 func (h *CategoryHandler) Create(c *gin.Context) {
 	var req CreateCategoryRequest
@@ -51,7 +58,7 @@ func (h *CategoryHandler) Create(c *gin.Context) {
 			response.Error(c, response.CodeInvalidParams, "Slug already exists")
 			return
 		}
-		response.InternalError(c, "Failed to create category")
+		response.InternalErrorWithErr(c, "Failed to create category", err)
 		return
 	}
 
@@ -73,7 +80,7 @@ func (h *CategoryHandler) GetByID(c *gin.Context) {
 			response.NotFound(c, "Category not found")
 			return
 		}
-		response.InternalError(c, "Failed to get category")
+		response.InternalErrorWithErr(c, "Failed to get category", err)
 		return
 	}
 
@@ -90,7 +97,7 @@ func (h *CategoryHandler) GetBySlug(c *gin.Context) {
 			response.NotFound(c, "Category not found")
 			return
 		}
-		response.InternalError(c, "Failed to get category")
+		response.InternalErrorWithErr(c, "Failed to get category", err)
 		return
 	}
 
@@ -101,11 +108,32 @@ func (h *CategoryHandler) GetBySlug(c *gin.Context) {
 func (h *CategoryHandler) List(c *gin.Context) {
 	categories, err := h.categoryService.List()
 	if err != nil {
-		response.InternalError(c, "Failed to list categories")
+		response.InternalErrorWithErr(c, "Failed to list categories", err)
 		return
 	}
 
 	response.Success(c, categories)
+}
+
+// AdminList 获取分类分页列表（管理员）
+func (h *CategoryHandler) AdminList(c *gin.Context) {
+	p := pagination.FromQuery(c)
+	categories, total, err := h.categoryService.ListPaginated(repository.CategoryFilter{
+		Page:     p.Page,
+		PageSize: p.PageSize,
+	})
+	if err != nil {
+		response.InternalErrorWithErr(c, "Failed to list categories", err)
+		return
+	}
+
+	response.Success(c, gin.H{
+		"data":       categories,
+		"total":      total,
+		"page":       p.Page,
+		"pageSize":   p.PageSize,
+		"totalPages": pagination.TotalPages(total, p.PageSize),
+	})
 }
 
 // Update 更新分类（管理员）
@@ -133,7 +161,7 @@ func (h *CategoryHandler) Update(c *gin.Context) {
 			response.Error(c, response.CodeInvalidParams, "Slug already exists")
 			return
 		}
-		response.InternalError(c, "Failed to update category")
+		response.InternalErrorWithErr(c, "Failed to update category", err)
 		return
 	}
 
@@ -158,11 +186,50 @@ func (h *CategoryHandler) Delete(c *gin.Context) {
 			response.Error(c, response.CodeInvalidParams, "Cannot delete category with articles")
 			return
 		}
-		response.InternalError(c, "Failed to delete category")
+		response.InternalErrorWithErr(c, "Failed to delete category", err)
 		return
 	}
 
 	response.Success(c, gin.H{
 		"message": "Category deleted successfully",
 	})
+}
+
+// BatchDelete 批量删除分类（管理员）
+func (h *CategoryHandler) BatchDelete(c *gin.Context) {
+	var req BatchDeleteCategoryRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.InvalidParams(c, "请选择要删除的分类")
+		return
+	}
+	ids, ok := normalizeCategoryIDs(req.IDs)
+	if !ok {
+		response.InvalidParams(c, "分类 ID 无效")
+		return
+	}
+	if err := h.categoryService.DeleteBatch(ids); err != nil {
+		if strings.Contains(err.Error(), "cannot delete category with articles") {
+			response.Error(c, response.CodeInvalidParams, "Cannot delete category with articles")
+			return
+		}
+		response.InternalErrorWithErr(c, "批量删除分类失败", err)
+		return
+	}
+	response.Success(c, gin.H{"message": "Categories deleted successfully", "deleted_count": len(ids)})
+}
+
+func normalizeCategoryIDs(ids []int64) ([]int64, bool) {
+	seen := make(map[int64]struct{}, len(ids))
+	normalized := make([]int64, 0, len(ids))
+	for _, id := range ids {
+		if id <= 0 {
+			return nil, false
+		}
+		if _, exists := seen[id]; exists {
+			continue
+		}
+		seen[id] = struct{}{}
+		normalized = append(normalized, id)
+	}
+	return normalized, len(normalized) > 0
 }
