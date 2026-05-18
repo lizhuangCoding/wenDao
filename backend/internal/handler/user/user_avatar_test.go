@@ -24,6 +24,16 @@ import (
 type stubUserService struct {
 	currentUser        *model.User
 	getCurrentUserErr  error
+	registerEmail      string
+	registerPassword   string
+	registerUsername   string
+	registerUser       *model.User
+	registerErr        error
+	loginEmail         string
+	loginPassword      string
+	loginToken         string
+	loginUser          *model.User
+	loginErr           error
 	updateAvatarUserID int64
 	updateAvatarURL    string
 	updateAvatarErr    error
@@ -41,11 +51,22 @@ type stubUserService struct {
 }
 
 func (s *stubUserService) Register(email, password, username string) (*model.User, error) {
-	return nil, nil
+	s.registerEmail = email
+	s.registerPassword = password
+	s.registerUsername = username
+	if s.registerErr != nil {
+		return nil, s.registerErr
+	}
+	return s.registerUser, nil
 }
 
 func (s *stubUserService) Login(email, password string) (string, *model.User, error) {
-	return "", nil, nil
+	s.loginEmail = email
+	s.loginPassword = password
+	if s.loginErr != nil {
+		return "", nil, s.loginErr
+	}
+	return s.loginToken, s.loginUser, nil
 }
 
 func (s *stubUserService) GitHubOAuthLogin(code string) (string, *model.User, error) {
@@ -133,6 +154,97 @@ func (s *stubOAuthService) GetGitHubAuthURL(state string) string {
 
 func (s *stubOAuthService) ExchangeGitHubCode(code string) (*service.GitHubUserInfo, error) {
 	return nil, nil
+}
+
+func TestUserHandlerRegister_ReturnsAuthTokensAndSetsCookies(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	passwordHash := "secret"
+	registeredUser := &model.User{
+		ID:           18,
+		Email:        "new@example.com",
+		Username:     "new-user",
+		Role:         "user",
+		Status:       "active",
+		PasswordHash: &passwordHash,
+	}
+	userService := &stubUserService{
+		registerUser: registeredUser,
+		loginToken:   "access-token-value",
+		loginUser:    registeredUser,
+		refreshToken: "refresh-token-value",
+	}
+	cfg := &config.Config{
+		Server: config.ServerConfig{Mode: "release"},
+		JWT: config.JWTConfig{
+			AccessExpireHours: 1,
+			RefreshExpireDays: 7,
+		},
+	}
+	h := NewUserHandler(userService, &stubUploadService{}, &stubOAuthService{}, cfg)
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest(http.MethodPost, "/api/auth/register", strings.NewReader(`{"email":"new@example.com","password":"password123","username":"new-user"}`))
+	c.Request.Header.Set("Content-Type", "application/json")
+
+	h.Register(c)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d with body %s", http.StatusOK, w.Code, w.Body.String())
+	}
+	if userService.registerEmail != "new@example.com" || userService.registerPassword != "password123" || userService.registerUsername != "new-user" {
+		t.Fatalf("expected register credentials to be forwarded, got email=%q password=%q username=%q", userService.registerEmail, userService.registerPassword, userService.registerUsername)
+	}
+	if userService.loginEmail != "new@example.com" || userService.loginPassword != "password123" {
+		t.Fatalf("expected login credentials to be forwarded after registration, got email=%q password=%q", userService.loginEmail, userService.loginPassword)
+	}
+	if userService.refreshTokenUserID != 18 {
+		t.Fatalf("expected refresh token user id 18, got %d", userService.refreshTokenUserID)
+	}
+	if userService.refreshTokenRole != "user" {
+		t.Fatalf("expected refresh token role user, got %q", userService.refreshTokenRole)
+	}
+
+	var resp response.Response
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	data, ok := resp.Data.(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected auth response object, got %T", resp.Data)
+	}
+	if got := data["access_token"]; got != "access-token-value" {
+		t.Fatalf("expected access_token %q, got %#v", "access-token-value", got)
+	}
+	if got := data["refresh_token"]; got != "refresh-token-value" {
+		t.Fatalf("expected refresh_token %q, got %#v", "refresh-token-value", got)
+	}
+	if got := int(data["expires_in"].(float64)); got != 3600 {
+		t.Fatalf("expected expires_in 3600, got %d", got)
+	}
+	userData, ok := data["user"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected nested user object, got %T", data["user"])
+	}
+	if _, exists := userData["password_hash"]; exists {
+		t.Fatalf("expected password_hash to be omitted from response")
+	}
+
+	tokenCookie := findCookieByName(t, w.Result(), "token")
+	if tokenCookie.Value != "access-token-value" {
+		t.Fatalf("expected token cookie value to be set")
+	}
+	if !tokenCookie.Secure {
+		t.Fatalf("expected token cookie to be secure in release mode")
+	}
+	refreshCookie := findCookieByName(t, w.Result(), "refresh_token")
+	if refreshCookie.Value != "refresh-token-value" {
+		t.Fatalf("expected refresh token cookie value to be set")
+	}
+	if !refreshCookie.Secure {
+		t.Fatalf("expected refresh token cookie to be secure in release mode")
+	}
 }
 
 func TestAuthHandlerGetUserInfo_IncludesAvatarURL(t *testing.T) {

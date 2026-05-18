@@ -67,10 +67,50 @@ func (h *UserHandler) Register(c *gin.Context) {
 		return
 	}
 
+	token, loginUser, err := h.userService.Login(req.Email, req.Password)
+	if err != nil {
+		response.InternalError(c, "Failed to login after registration")
+		return
+	}
+	if loginUser != nil {
+		user = loginUser
+	}
+
+	refreshToken, err := h.userService.GenerateRefreshToken(user.ID, user.Role)
+	if err != nil {
+		response.InternalError(c, "Failed to generate refresh token")
+		return
+	}
+
 	// 清除敏感信息
 	user.PasswordHash = nil
 
-	response.Success(c, user)
+	isRelease := h.cfg.Server.Mode == "release"
+	c.SetCookie(
+		"token",
+		token,
+		h.cfg.JWT.AccessExpireHours*3600,
+		"/",
+		"",
+		isRelease,
+		true,
+	)
+	c.SetCookie(
+		"refresh_token",
+		refreshToken,
+		h.cfg.JWT.RefreshExpireDays*24*3600,
+		"/",
+		"",
+		isRelease,
+		true,
+	)
+
+	response.Success(c, gin.H{
+		"access_token":  token,
+		"refresh_token": refreshToken,
+		"expires_in":    h.cfg.JWT.AccessExpireHours * 3600,
+		"user":          user,
+	})
 }
 
 // Login 用户登录
