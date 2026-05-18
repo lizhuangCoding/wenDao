@@ -186,6 +186,7 @@ VITE_API_BASE_URL=/api
 ## Notes
 
 - 仓库中不应提交真实的 `.env`、日志、上传文件和本地构建产物
+- 日志保留与轮转的技术实现说明见 [docs/2026-05-18-log-retention-implementation.md](./docs/2026-05-18-log-retention-implementation.md)
 - 当前前端子项目已有单独的说明文档，见 [frontend/README.md](./frontend/README.md)
 - `docs/` 目录中保留了较多设计稿与计划文档，可作为后续迭代参考
 
