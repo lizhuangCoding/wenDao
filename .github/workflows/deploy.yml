@@ -12,108 +12,50 @@ concurrency:
 
 permissions:
   contents: read
-  packages: write
 
 env:
-  REGISTRY: ghcr.io
-  BACKEND_IMAGE_NAME: wendao-backend
-  FRONTEND_IMAGE_NAME: wendao-frontend
-  VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL || '/api' }}
-  DEPLOY_COMPOSE_FILES: ${{ vars.DEPLOY_COMPOSE_FILES || '-f docker-compose.prod.yml -f docker-compose.ip.yml -f docker-compose.ghcr.yml' }}
+  DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+  DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+  DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+  DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+  DEPLOY_PORT: ${{ secrets.DEPLOY_PORT || '22' }}
+  DEPLOY_COMPOSE_FILES: ${{ vars.DEPLOY_COMPOSE_FILES || '-f docker-compose.prod.yml -f docker-compose.ip.yml' }}
 
 jobs:
-  build:
-    name: Build and push images
-    runs-on: ubuntu-latest
-    outputs:
-      backend_image: ${{ steps.images.outputs.backend_image }}
-      frontend_image: ${{ steps.images.outputs.frontend_image }}
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Prepare image names
-        id: images
-        shell: bash
-        run: |
-          set -euo pipefail
-          owner="$(echo "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')"
-          short_sha="${GITHUB_SHA::12}"
-          backend_repo="${REGISTRY}/${owner}/${BACKEND_IMAGE_NAME}"
-          frontend_repo="${REGISTRY}/${owner}/${FRONTEND_IMAGE_NAME}"
-
-          echo "backend_image=${backend_repo}:sha-${short_sha}" >> "$GITHUB_OUTPUT"
-          echo "backend_latest=${backend_repo}:latest" >> "$GITHUB_OUTPUT"
-          echo "frontend_image=${frontend_repo}:sha-${short_sha}" >> "$GITHUB_OUTPUT"
-          echo "frontend_latest=${frontend_repo}:latest" >> "$GITHUB_OUTPUT"
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ github.token }}
-
-      - name: Build and push backend image
-        uses: docker/build-push-action@v6
-        with:
-          context: ./backend
-          push: true
-          tags: |
-            ${{ steps.images.outputs.backend_image }}
-            ${{ steps.images.outputs.backend_latest }}
-          cache-from: type=gha,scope=backend
-          cache-to: type=gha,mode=max,scope=backend
-
-      - name: Build and push frontend image
-        uses: docker/build-push-action@v6
-        with:
-          context: ./frontend
-          push: true
-          build-args: |
-            VITE_API_BASE_URL=${{ env.VITE_API_BASE_URL }}
-          tags: |
-            ${{ steps.images.outputs.frontend_image }}
-            ${{ steps.images.outputs.frontend_latest }}
-          cache-from: type=gha,scope=frontend
-          cache-to: type=gha,mode=max,scope=frontend
-
   deploy:
-    name: Deploy to server
+    name: SSH deploy
     runs-on: ubuntu-latest
-    needs: build
 
     steps:
       - name: Configure SSH
         shell: bash
         run: |
           set -euo pipefail
+
+          for name in DEPLOY_HOST DEPLOY_USER DEPLOY_SSH_KEY DEPLOY_PATH; do
+            if [[ -z "${!name}" ]]; then
+              echo "::error::${name} is not configured"
+              exit 1
+            fi
+          done
+
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
-          printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
 
-          ssh_port="${{ secrets.DEPLOY_PORT || '22' }}"
-          ssh-keyscan -p "${ssh_port}" -H "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts
+          ssh-keyscan -p "$DEPLOY_PORT" -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts
 
-      - name: Pull images and restart compose stack
+      - name: Pull latest code and rebuild stack
         shell: bash
         run: |
           set -euo pipefail
-          ssh_port="${{ secrets.DEPLOY_PORT || '22' }}"
 
-          ssh -i ~/.ssh/deploy_key -p "${ssh_port}" "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
-            "DEPLOY_PATH='${{ secrets.DEPLOY_PATH }}' \
-             BACKEND_IMAGE='${{ needs.build.outputs.backend_image }}' \
-             FRONTEND_IMAGE='${{ needs.build.outputs.frontend_image }}' \
-             DEPLOY_COMPOSE_FILES='${{ env.DEPLOY_COMPOSE_FILES }}' \
-             GHCR_USERNAME='${{ github.actor }}' \
-             GHCR_TOKEN='${{ github.token }}' \
-             bash -s" <<'REMOTE'
+          deploy_path_q="$(printf '%q' "$DEPLOY_PATH")"
+          compose_files_q="$(printf '%q' "$DEPLOY_COMPOSE_FILES")"
+
+          ssh -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" \
+            "DEPLOY_PATH=${deploy_path_q} DEPLOY_COMPOSE_FILES=${compose_files_q} bash -s" <<'REMOTE'
           set -euo pipefail
 
           cd "$DEPLOY_PATH"
@@ -121,11 +63,7 @@ jobs:
           git checkout -B main origin/main
           git reset --hard origin/main
 
-          printf '%s' "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USERNAME" --password-stdin
-
-          export BACKEND_IMAGE FRONTEND_IMAGE
-          docker compose --env-file .env.production ${DEPLOY_COMPOSE_FILES} pull backend frontend
-          docker compose --env-file .env.production ${DEPLOY_COMPOSE_FILES} up -d --no-build
+          docker compose --env-file .env.production ${DEPLOY_COMPOSE_FILES} up -d --build
           docker compose --env-file .env.production ${DEPLOY_COMPOSE_FILES} ps
           docker image prune -f
           REMOTE

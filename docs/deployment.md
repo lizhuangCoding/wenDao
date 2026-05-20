@@ -86,9 +86,9 @@ Then visit:
 http://your-server-ip:8081
 ```
 
-### GitHub Actions image deployment
+### GitHub Actions SSH deployment
 
-The repository includes `.github/workflows/deploy.yml` for automatic deployment from the `main` branch. The workflow builds the backend and frontend images in GitHub Actions, pushes them to GitHub Container Registry, then SSHes into the server and restarts Docker Compose with the pulled images. This avoids running the frontend `npm run build` on a small server.
+The repository includes `.github/workflows/deploy.yml` for automatic deployment from the `main` branch. The workflow SSHes into the server, pulls the latest code, then rebuilds and restarts the Docker Compose stack on the server.
 
 Create these GitHub repository secrets:
 
@@ -101,18 +101,27 @@ Create these GitHub repository secrets:
 For IP-only deployment, no repository variables are required. The workflow uses these compose files by default:
 
 ```text
--f docker-compose.prod.yml -f docker-compose.ip.yml -f docker-compose.ghcr.yml
+-f docker-compose.prod.yml -f docker-compose.ip.yml
 ```
 
 For domain deployment with Caddy enabled, set repository variable `DEPLOY_COMPOSE_FILES` to:
 
 ```text
--f docker-compose.prod.yml -f docker-compose.ghcr.yml
+-f docker-compose.prod.yml
 ```
 
-Optional repository variable:
+If the frontend needs a custom build-time API base URL, set `VITE_API_BASE_URL` in the server-side `.env.production`. The Compose build arg defaults to `/api`.
 
-- `VITE_API_BASE_URL`: frontend API base URL used at build time; defaults to `/api`
+Because this deployment builds frontend and backend images on the server, make sure the server has enough memory or swap. On small servers, a 4G swap file is usually enough to avoid `npm run build` being killed:
+
+```bash
+fallocate -l 4G /swapfile
+chmod 600 /swapfile
+mkswap /swapfile
+swapon /swapfile
+grep -q '^/swapfile ' /etc/fstab || echo '/swapfile none swap sw 0 0' >> /etc/fstab
+free -h
+```
 
 Prepare the server once:
 
@@ -121,10 +130,10 @@ cd /root/wenDao
 git fetch origin main
 git checkout -B main origin/main
 test -f .env.production
-docker login ghcr.io
+docker compose version
 ```
 
-The workflow logs in to GHCR again during deployment with the short-lived GitHub Actions token, so the manual `docker login ghcr.io` step is mainly a quick connectivity check. Keep `.env.production` only on the server; do not commit it.
+The server checkout must be able to pull from GitHub without interactive input. For a private repository, add a deploy key to the GitHub repository and install the matching private key on the server, or configure HTTPS credentials for the server's git remote. Keep `.env.production` only on the server; do not commit it.
 
 After secrets are configured, push to `main` or run the workflow manually from GitHub Actions. The deployment step runs the equivalent of:
 
@@ -132,13 +141,10 @@ After secrets are configured, push to `main` or run the workflow manually from G
 git fetch --prune origin main
 git checkout -B main origin/main
 git reset --hard origin/main
-BACKEND_IMAGE=ghcr.io/<owner>/wendao-backend:sha-<commit> \
-FRONTEND_IMAGE=ghcr.io/<owner>/wendao-frontend:sha-<commit> \
 docker compose --env-file .env.production \
   -f docker-compose.prod.yml \
   -f docker-compose.ip.yml \
-  -f docker-compose.ghcr.yml \
-  up -d --no-build
+  up -d --build
 ```
 
 Do not keep uncommitted tracked changes on the server checkout. The workflow resets tracked files to `origin/main` before restarting the stack. Ignored runtime files such as `.env.production` are preserved.
