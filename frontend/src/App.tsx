@@ -3,6 +3,7 @@ import { RouterProvider } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { router } from './router';
 import { useAuthStore, useUIStore } from './store';
+import { shouldFetchCurrentUser } from './utils/pageBehavior';
 import './styles/index.css';
 import './styles/markdown.css';
 
@@ -51,7 +52,9 @@ function App() {
   const { token, fetchCurrentUser } = useAuthStore();
 
   useEffect(() => {
-    fetchCurrentUser({ silent: !token });
+    if (shouldFetchCurrentUser(token)) {
+      fetchCurrentUser({ silent: false });
+    }
   }, [token, fetchCurrentUser]);
 
   return (

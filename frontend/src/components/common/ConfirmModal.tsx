@@ -10,6 +10,7 @@ interface ConfirmModalProps {
   onConfirm: () => void;
   onCancel: () => void;
   isDanger?: boolean;
+  isConfirming?: boolean;
 }
 
 export const ConfirmModal = ({
@@ -21,6 +22,7 @@ export const ConfirmModal = ({
   onConfirm,
   onCancel,
   isDanger = false,
+  isConfirming = false,
 }: ConfirmModalProps) => {
   const { t } = useTranslation();
 
@@ -33,7 +35,11 @@ export const ConfirmModal = ({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            onClick={onCancel}
+            onClick={() => {
+              if (!isConfirming) {
+                onCancel();
+              }
+            }}
             className="fixed inset-0 bg-neutral-900/40 backdrop-blur-sm z-[999]"
           />
 
@@ -56,13 +62,15 @@ export const ConfirmModal = ({
                 <div className="flex gap-3">
                   <button
                     onClick={onCancel}
-                    className="flex-1 px-6 py-3 rounded-2xl text-[10px] font-black tracking-widest uppercase transition-all border border-neutral-100 dark:border-neutral-700 text-neutral-400 hover:bg-neutral-50 dark:hover:bg-neutral-700"
+                    disabled={isConfirming}
+                    className="flex-1 px-6 py-3 rounded-2xl text-[10px] font-black tracking-widest uppercase transition-all border border-neutral-100 dark:border-neutral-700 text-neutral-400 hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-60 dark:hover:bg-neutral-700"
                   >
                     {cancelText || t('common.cancel')}
                   </button>
                   <button
                     onClick={onConfirm}
-                    className={`flex-1 px-6 py-3 rounded-2xl text-[10px] font-black tracking-widest uppercase transition-all shadow-soft active:scale-95 text-white ${
+                    disabled={isConfirming}
+                    className={`flex-1 px-6 py-3 rounded-2xl text-[10px] font-black tracking-widest uppercase transition-all shadow-soft active:scale-95 text-white disabled:cursor-not-allowed disabled:opacity-60 ${
                       isDanger
                         ? 'bg-red-500 hover:bg-red-600 shadow-red-200 dark:shadow-none'
                         : 'bg-neutral-900 dark:bg-primary-600 hover:bg-primary-600'

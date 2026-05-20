@@ -417,6 +417,7 @@ export const ArticleList = () => {
           }
         }}
         onCancel={() => setDeleteId(null)}
+        isConfirming={deleteMutation.isPending}
         isDanger
       />
 
@@ -427,6 +428,7 @@ export const ArticleList = () => {
         confirmText="删除"
         onConfirm={() => batchDeleteMutation.mutate(selectedIds)}
         onCancel={() => setConfirmBatchDelete(false)}
+        isConfirming={batchDeleteMutation.isPending}
         isDanger
       />
     </div>

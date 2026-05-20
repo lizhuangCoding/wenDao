@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { DateRangePicker } from 'tdesign-react';
 import { statApi } from '@/api';
-import { Loading } from '@/components/common';
+import { ErrorState, Loading } from '@/components/common';
 import { motion } from 'framer-motion';
 import dayjs from 'dayjs';
 import 'tdesign-react/es/style/index.css';
@@ -29,7 +29,13 @@ export const Dashboard = () => {
   const [startDateInput, setStartDateInput] = useState('');
   const [endDateInput, setEndDateInput] = useState('');
 
-  const { data: stats, isLoading } = useQuery({
+  const {
+    data: stats,
+    isLoading,
+    isError,
+    error,
+    refetch,
+  } = useQuery({
     queryKey: ['dashboard-stats', queryType, dateRange],
     queryFn: () => {
       if (queryType === '7days') {
@@ -99,6 +105,15 @@ export const Dashboard = () => {
   };
 
   if (isLoading) return <Loading />;
+  if (isError) {
+    return (
+      <ErrorState
+        title="统计加载失败"
+        message={(error as any)?.message || '无法加载访问统计，请稍后重试。'}
+        onRetry={() => refetch()}
+      />
+    );
+  }
 
   return (
     <div className="space-y-8">

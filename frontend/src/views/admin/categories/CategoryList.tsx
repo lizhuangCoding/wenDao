@@ -258,6 +258,7 @@ export const CategoryList = () => {
           }
         }}
         onCancel={() => setDeleteId(null)}
+        isConfirming={deleteMutation.isPending}
         isDanger
       />
 
@@ -268,6 +269,7 @@ export const CategoryList = () => {
         confirmText="删除"
         onConfirm={() => batchDeleteMutation.mutate(selectedIds)}
         onCancel={() => setConfirmBatchDelete(false)}
+        isConfirming={batchDeleteMutation.isPending}
         isDanger
       />
 

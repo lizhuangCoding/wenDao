@@ -1,37 +1,126 @@
-import { useState } from 'react';
+import { useRef, useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff, Loader2 } from 'lucide-react';
 import { authApi } from '@/api';
+import { AuthFormMessage, AuthTextField } from '@/components/auth';
 import { GitHubAuthButton } from '@/components/common';
 import { useAuth } from '@/hooks';
 import { useUIStore } from '@/store';
+import {
+  mapAuthErrorToForm,
+  validateLoginForm,
+  type AuthField,
+  type LoginFormValues,
+} from '@/utils/authForm';
+
+type LoginField = Extract<AuthField, 'email' | 'password'>;
+
+const loginFieldOrder: LoginField[] = ['email', 'password'];
 
 export const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<Partial<Record<AuthField, string>>>({});
+  const [formError, setFormError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const emailInputRef = useRef<HTMLInputElement>(null);
+  const passwordInputRef = useRef<HTMLInputElement>(null);
   const { t } = useTranslation();
   const { login } = useAuth();
   const { showToast } = useUIStore();
   const navigate = useNavigate();
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const resolveMessage = (messageKey: string, fallbackMessage?: string) => {
+    const translated = t(messageKey);
+    return translated === messageKey ? fallbackMessage || t('auth.loginFailed') : translated;
+  };
 
-    if (!email || !password) {
-      showToast(t('admin.pleaseFillComplete'), 'error');
+  const getFieldError = (field: LoginField) => {
+    const errorKey = fieldErrors[field];
+    return errorKey ? resolveMessage(errorKey) : undefined;
+  };
+
+  const getValues = (nextValues: Partial<LoginFormValues> = {}): LoginFormValues => ({
+    email,
+    password,
+    ...nextValues,
+  });
+
+  const focusField = (field: LoginField) => {
+    const ref = field === 'email' ? emailInputRef : passwordInputRef;
+    requestAnimationFrame(() => ref.current?.focus());
+  };
+
+  const setFieldError = (field: LoginField, errorKey?: string) => {
+    setFieldErrors((current) => {
+      const next = { ...current };
+      if (errorKey) {
+        next[field] = errorKey;
+      } else {
+        delete next[field];
+      }
+      return next;
+    });
+  };
+
+  const validateField = (field: LoginField, values: LoginFormValues) => {
+    const result = validateLoginForm(values);
+    setFieldError(field, result.fieldErrors[field]);
+  };
+
+  const handleEmailChange = (nextEmail: string) => {
+    setEmail(nextEmail);
+    setFormError('');
+    if (fieldErrors.email) {
+      validateField('email', getValues({ email: nextEmail }));
+    }
+  };
+
+  const handlePasswordChange = (nextPassword: string) => {
+    setPassword(nextPassword);
+    setFormError('');
+    if (fieldErrors.password) {
+      validateField('password', getValues({ password: nextPassword }));
+    }
+  };
+
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    setFormError('');
+
+    const validation = validateLoginForm({ email, password });
+    setEmail(validation.values.email);
+
+    if (!validation.isValid) {
+      setFieldErrors(validation.fieldErrors);
+      const firstInvalidField = loginFieldOrder.find((field) => validation.fieldErrors[field]);
+      if (firstInvalidField) {
+        focusField(firstInvalidField);
+      }
       return;
     }
 
+    setFieldErrors({});
     setIsLoading(true);
     try {
-      await login(email, password);
+      await login(validation.values.email, validation.values.password);
       showToast(t('auth.loginSuccess'), 'success');
       navigate('/');
     } catch (error: any) {
-      showToast(error.message || t('auth.login'), 'error');
+      const feedback = mapAuthErrorToForm(error?.message, 'login');
+      const message = resolveMessage(feedback.messageKey, feedback.fallbackMessage);
+
+      if (feedback.target === 'email' || feedback.target === 'password') {
+        setFieldError(feedback.target, feedback.messageKey);
+        focusField(feedback.target);
+      } else {
+        setFormError(message);
+        if (feedback.messageKey === 'auth.invalidCredentials') {
+          focusField('password');
+        }
+      }
     } finally {
       setIsLoading(false);
     }
@@ -53,51 +142,64 @@ export const Login = () => {
           </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div>
-            <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-              {t('auth.email')}
-            </label>
-            <input
-              type="text"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="your@email.com"
-              disabled={isLoading}
-              className="input w-full dark:bg-neutral-800 dark:border-neutral-700 dark:text-neutral-100 dark:placeholder-neutral-500 dark:focus:bg-neutral-800"
-            />
-          </div>
+        <form onSubmit={handleSubmit} className="space-y-5" noValidate>
+          <AuthFormMessage message={formError} />
 
-          <div>
-            <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-              {t('auth.password')}
-            </label>
-            <div className="relative">
-              <input
-                type={showPassword ? 'text' : 'password'}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                disabled={isLoading}
-                className="input w-full pr-14 dark:bg-neutral-800 dark:border-neutral-700 dark:text-neutral-100 dark:placeholder-neutral-500 dark:focus:bg-neutral-800"
-              />
+          <AuthTextField
+            ref={emailInputRef}
+            id="login-email"
+            label={t('auth.email')}
+            type="email"
+            value={email}
+            onChange={(e) => handleEmailChange(e.target.value)}
+            onBlur={() => validateField('email', getValues())}
+            placeholder="your@email.com"
+            autoComplete="email"
+            inputMode="email"
+            disabled={isLoading}
+            error={getFieldError('email')}
+          />
+
+          <AuthTextField
+            ref={passwordInputRef}
+            id="login-password"
+            label={t('auth.password')}
+            type={showPassword ? 'text' : 'password'}
+            value={password}
+            onChange={(e) => handlePasswordChange(e.target.value)}
+            onBlur={() => validateField('password', getValues())}
+            placeholder="••••••••"
+            autoComplete="current-password"
+            disabled={isLoading}
+            error={getFieldError('password')}
+            trailing={
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-4 top-1/2 -translate-y-1/2 p-2 text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 transition-colors focus:outline-none"
-                tabIndex={-1}
+                disabled={isLoading}
+                aria-label={showPassword ? t('auth.hidePassword') : t('auth.showPassword')}
+                aria-pressed={showPassword}
+                title={showPassword ? t('auth.hidePassword') : t('auth.showPassword')}
+                className="inline-flex h-9 w-9 items-center justify-center rounded-full text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700 focus:outline-none focus-visible:ring-4 focus-visible:ring-primary-500/10 disabled:cursor-not-allowed dark:hover:bg-neutral-700 dark:hover:text-neutral-100"
               >
                 {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
               </button>
-            </div>
-          </div>
+            }
+          />
 
           <button
             type="submit"
             disabled={isLoading}
             className="btn btn-primary w-full justify-center disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            {isLoading ? `${t('auth.login')}...` : t('auth.login')}
+            {isLoading ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                {t('auth.loggingIn')}
+              </>
+            ) : (
+              t('auth.login')
+            )}
           </button>
         </form>
 
@@ -124,4 +226,4 @@ export const Login = () => {
       </div>
     </div>
   );
-}
+};

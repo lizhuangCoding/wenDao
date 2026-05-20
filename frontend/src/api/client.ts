@@ -1,5 +1,6 @@
 import axios, { AxiosError, AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
 import type { ApiResponse, ApiError } from '@/types';
+import { shouldAttemptTokenRefresh } from '@/utils/pageBehavior';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 
@@ -68,10 +69,13 @@ apiClient.interceptors.response.use(
 
     // 401 未授权，且不是刷新 token 请求，且不是重试请求
     if (
-      error.response?.status === 401 &&
       originalRequest &&
-      !originalRequest.url?.includes('/auth/refresh') &&
-      !originalRequest._retry
+      shouldAttemptTokenRefresh({
+        status: error.response?.status,
+        url: originalRequest.url,
+        alreadyRetried: originalRequest._retry,
+        skipAuthRedirect: originalRequest.skipAuthRedirect,
+      })
     ) {
       if (isRefreshing) {
         // 正在刷新 token，等待并重试

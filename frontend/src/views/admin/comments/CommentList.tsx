@@ -322,6 +322,7 @@ export const CommentList = () => {
           }
         }}
         onCancel={() => setConfirmConfig({ ...confirmConfig, isOpen: false })}
+        isConfirming={deleteMutation.isPending || restoreMutation.isPending}
         isDanger={confirmConfig.type === 'delete'}
       />
 
@@ -332,6 +333,7 @@ export const CommentList = () => {
         confirmText="删除"
         onConfirm={() => batchDeleteMutation.mutate(selectedIds)}
         onCancel={() => setConfirmBatchDelete(false)}
+        isConfirming={batchDeleteMutation.isPending}
         isDanger
       />
     </div>

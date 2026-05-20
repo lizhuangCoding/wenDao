@@ -229,6 +229,7 @@ export const KnowledgeDocumentList = () => {
         confirmText="删除"
         onConfirm={() => batchDeleteMutation.mutate(selectedIds)}
         onCancel={() => setConfirmBatchDelete(false)}
+        isConfirming={batchDeleteMutation.isPending}
         isDanger
       />
     </div>

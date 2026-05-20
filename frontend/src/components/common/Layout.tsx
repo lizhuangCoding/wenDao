@@ -12,7 +12,7 @@ export const Layout = ({ children, hideHeader = false, hideFooter = false }: Lay
   return (
     <div className="min-h-screen flex flex-col bg-white dark:bg-neutral-900">
       {!hideHeader && <Header />}
-      <main className={`flex-1 ${hideHeader ? 'pt-0' : 'pt-16'}`}>{children}</main>
+      <main className={`flex-1 ${hideHeader ? 'pt-0' : 'pt-20'}`}>{children}</main>
       {!hideFooter && <Footer />}
     </div>
   );

@@ -5,6 +5,7 @@ import { Select } from 'tdesign-react';
 import { articleApi, categoryApi, uploadApi, chatApi } from '@/api';
 import { Loading } from '@/components/common';
 import { useUIStore } from '@/store';
+import { getArticlePrimaryActionLabel } from '@/utils/pageBehavior';
 import 'tdesign-react/es/style/index.css';
 
 const ArticlePreview = lazy(() =>
@@ -29,6 +30,10 @@ export const ArticleEditor = () => {
     cover_image: '',
     category_id: undefined as number | undefined,
     status: 'draft' as 'draft' | 'published',
+  });
+  const primaryActionLabel = getArticlePrimaryActionLabel({
+    isEdit,
+    status: formData.status,
   });
 
   // 使用 Ref 实时跟踪最新数据，彻底解决 setInterval 闭包拿不到最新状态的问题
@@ -250,7 +255,7 @@ export const ArticleEditor = () => {
             disabled={saveMutation.isPending}
             className="btn btn-primary"
           >
-            {saveMutation.isPending ? '保存中...' : isEdit ? '更新文章' : '发布文章'}
+            {saveMutation.isPending ? '保存中...' : primaryActionLabel}
           </button>
         </div>
       </div>

@@ -190,6 +190,7 @@ export const AIChat = () => {
   const [draftTitle, setDraftTitle] = useState('');
   const [activeMenuId, setActiveMenuId] = useState<number | null>(null);
   const [deleteId, setDeleteId] = useState<number | null>(null);
+  const [isDeletingChat, setIsDeletingChat] = useState(false);
   const [expandedProcessIds, setExpandedProcessIds] = useState<Set<string>>(new Set());
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
     if (typeof window === 'undefined') return false;
@@ -305,10 +306,17 @@ export const AIChat = () => {
   };
 
   const handleDeleteConfirm = async () => {
-    if (deleteId) {
-      await deleteChat(deleteId);
-      setDeleteId(null);
-      showToast(t('chat.deleteSuccess'), 'success');
+    if (deleteId && !isDeletingChat) {
+      setIsDeletingChat(true);
+      try {
+        await deleteChat(deleteId);
+        setDeleteId(null);
+        showToast(t('chat.deleteSuccess'), 'success');
+      } catch (err: any) {
+        showToast(err.message || '删除会话失败，请重试', 'error');
+      } finally {
+        setIsDeletingChat(false);
+      }
     }
   };
 
@@ -799,6 +807,7 @@ export const AIChat = () => {
         message={t('chat.deleteConfirm')}
         onConfirm={handleDeleteConfirm}
         onCancel={() => setDeleteId(null)}
+        isConfirming={isDeletingChat}
         isDanger
       />
     </Layout>

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { knowledgeDocumentApi } from '@/api/knowledgeDocument';
+import { ConfirmModal, ErrorState, Loading } from '@/components/common';
 import { useUIStore } from '@/store';
 
 export const KnowledgeDocumentDetail = () => {
@@ -10,15 +11,24 @@ export const KnowledgeDocumentDetail = () => {
   const queryClient = useQueryClient();
   const { showToast } = useUIStore();
   const [reviewNote, setReviewNote] = useState('');
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+  const documentId = Number(id);
+  const hasValidDocumentId = Boolean(id) && Number.isFinite(documentId);
 
-  const { data, isLoading } = useQuery({
+  const {
+    data,
+    isLoading,
+    isError,
+    error,
+    refetch,
+  } = useQuery({
     queryKey: ['admin-knowledge-document', id],
-    queryFn: () => knowledgeDocumentApi.getKnowledgeDocument(Number(id)),
-    enabled: Boolean(id),
+    queryFn: () => knowledgeDocumentApi.getKnowledgeDocument(documentId),
+    enabled: hasValidDocumentId,
   });
 
   const approveMutation = useMutation({
-    mutationFn: () => knowledgeDocumentApi.approveKnowledgeDocument(Number(id), reviewNote),
+    mutationFn: () => knowledgeDocumentApi.approveKnowledgeDocument(documentId, reviewNote),
     onSuccess: () => {
       showToast('知识文档已通过审核', 'success');
       queryClient.invalidateQueries({ queryKey: ['admin-knowledge-documents'] });
@@ -26,29 +36,54 @@ export const KnowledgeDocumentDetail = () => {
       queryClient.invalidateQueries({ queryKey: ['articles'] });
       navigate('/admin/knowledge-documents');
     },
+    onError: (err: any) => {
+      showToast(err.message || '审核通过失败，请重试', 'error');
+    },
   });
 
   const rejectMutation = useMutation({
-    mutationFn: () => knowledgeDocumentApi.rejectKnowledgeDocument(Number(id), reviewNote),
+    mutationFn: () => knowledgeDocumentApi.rejectKnowledgeDocument(documentId, reviewNote),
     onSuccess: () => {
       showToast('知识文档已拒绝', 'success');
       queryClient.invalidateQueries({ queryKey: ['admin-knowledge-documents'] });
       navigate('/admin/knowledge-documents');
     },
+    onError: (err: any) => {
+      showToast(err.message || '拒绝失败，请重试', 'error');
+    },
   });
 
   const deleteMutation = useMutation({
-    mutationFn: () => knowledgeDocumentApi.deleteKnowledgeDocument(Number(id)),
+    mutationFn: () => knowledgeDocumentApi.deleteKnowledgeDocument(documentId),
     onSuccess: () => {
       showToast('知识文档已删除，对应文章已同步删除', 'success');
       queryClient.invalidateQueries({ queryKey: ['admin-knowledge-documents'] });
       queryClient.invalidateQueries({ queryKey: ['articles'] });
       navigate('/admin/knowledge-documents');
     },
+    onError: (err: any) => {
+      showToast(err.message || '删除失败，请重试', 'error');
+    },
   });
 
+  const isReviewing = approveMutation.isPending || rejectMutation.isPending;
+
+  if (!hasValidDocumentId) {
+    return <ErrorState title="文档不存在" message="知识文档 ID 无效，请返回列表重新选择。" />;
+  }
+
   if (isLoading) {
-    return <div className="p-6 text-sm text-neutral-500">加载中...</div>;
+    return <Loading />;
+  }
+
+  if (isError || !data) {
+    return (
+      <ErrorState
+        title="知识文档加载失败"
+        message={(error as any)?.message || '无法加载知识文档详情，请稍后重试。'}
+        onRetry={() => refetch()}
+      />
+    );
   }
 
   return (
@@ -61,15 +96,12 @@ export const KnowledgeDocumentDetail = () => {
           )}
         </div>
         <button
-          onClick={() => {
-            if (window.confirm('确定删除这篇知识文档吗？如果它已生成文章，对应文章也会被删除。')) {
-              deleteMutation.mutate();
-            }
-          }}
+          type="button"
+          onClick={() => setIsDeleteConfirmOpen(true)}
           className="rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
           disabled={deleteMutation.isPending}
         >
-          删除知识文档
+          {deleteMutation.isPending ? '删除中...' : '删除知识文档'}
         </button>
       </div>
       <div className="rounded-2xl border border-neutral-100 bg-white p-6 dark:border-neutral-800 dark:bg-neutral-900">
@@ -91,13 +123,24 @@ export const KnowledgeDocumentDetail = () => {
       </div>
       <textarea className="w-full rounded-xl border border-neutral-200 bg-white px-4 py-3 text-sm dark:border-neutral-700 dark:bg-neutral-900" value={reviewNote} onChange={(e) => setReviewNote(e.target.value)} placeholder="审核备注" />
       <div className="flex gap-3">
-        <button onClick={() => approveMutation.mutate()} className="rounded-xl bg-primary-600 px-4 py-2 text-sm font-semibold text-white" disabled={data?.document.status === 'approved'}>
-          审核通过
+        <button onClick={() => approveMutation.mutate()} className="rounded-xl bg-primary-600 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60" disabled={data.document.status === 'approved' || isReviewing}>
+          {approveMutation.isPending ? '审核中...' : '审核通过'}
         </button>
-        <button onClick={() => rejectMutation.mutate()} className="rounded-xl bg-neutral-200 px-4 py-2 text-sm font-semibold text-neutral-800 dark:bg-neutral-700 dark:text-neutral-100" disabled={data?.document.status === 'approved'}>
-          拒绝
+        <button onClick={() => rejectMutation.mutate()} className="rounded-xl bg-neutral-200 px-4 py-2 text-sm font-semibold text-neutral-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-neutral-700 dark:text-neutral-100" disabled={data.document.status === 'approved' || isReviewing}>
+          {rejectMutation.isPending ? '提交中...' : '拒绝'}
         </button>
       </div>
+
+      <ConfirmModal
+        isOpen={isDeleteConfirmOpen}
+        title="删除知识文档"
+        message="确定删除这篇知识文档吗？如果它已生成文章，对应文章也会被删除。"
+        confirmText="删除"
+        onConfirm={() => deleteMutation.mutate()}
+        onCancel={() => setIsDeleteConfirmOpen(false)}
+        isConfirming={deleteMutation.isPending}
+        isDanger
+      />
     </div>
   );
 };

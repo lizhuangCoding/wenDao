@@ -13,7 +13,7 @@ const (
 // User 用户模型 (普通用户：只能评论、聊天)
 type User struct {
 	ID       int64  `gorm:"primaryKey;autoIncrement" json:"id"`
-	Username string `gorm:"size:50;not null;uniqueIndex" json:"username"`
+	Username string `gorm:"size:50;not null" json:"username"`
 	Email    string `gorm:"size:100;not null;uniqueIndex" json:"email"`
 	// PasswordHash 密码哈希（OAuth用户为空）
 	PasswordHash *string `gorm:"size:255" json:"-"`
