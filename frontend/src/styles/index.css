@@ -62,6 +62,99 @@
     @apply dark:bg-neutral-800/50 dark:border-neutral-700 dark:text-neutral-100 dark:focus:bg-neutral-800 dark:focus:border-primary-500;
   }
 
+  .admin-markdown-editor {
+    font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    tab-size: 2;
+  }
+
+  .admin-markdown-editor::placeholder {
+    @apply text-neutral-400;
+  }
+
+  .dark .admin-markdown-editor::placeholder {
+    @apply text-neutral-500;
+  }
+
+  .admin-markdown-preview {
+    @apply text-neutral-700 dark:text-neutral-200;
+    font-size: 15px;
+    line-height: 1.8;
+  }
+
+  .admin-markdown-preview h1 {
+    @apply mb-4 mt-2 text-3xl font-black text-neutral-900 dark:text-neutral-100;
+  }
+
+  .admin-markdown-preview h2 {
+    @apply mb-3 mt-7 text-2xl font-bold text-neutral-900 dark:text-neutral-100;
+  }
+
+  .admin-markdown-preview h3 {
+    @apply mb-2 mt-6 text-xl font-semibold text-neutral-800 dark:text-neutral-100;
+  }
+
+  .admin-markdown-preview p {
+    @apply my-4;
+  }
+
+  .admin-markdown-preview a {
+    @apply text-primary-600 underline underline-offset-4 dark:text-primary-400;
+  }
+
+  .admin-markdown-preview blockquote {
+    @apply my-5 border-l-4 border-primary-500 bg-primary-50/60 py-2 pl-4 pr-3 text-neutral-600 dark:bg-primary-900/10 dark:text-neutral-300;
+  }
+
+  .admin-markdown-preview ul,
+  .admin-markdown-preview ol {
+    @apply my-4 pl-6;
+  }
+
+  .admin-markdown-preview ul {
+    @apply list-disc;
+  }
+
+  .admin-markdown-preview ol {
+    @apply list-decimal;
+  }
+
+  .admin-markdown-preview li {
+    @apply my-1;
+  }
+
+  .admin-markdown-preview code {
+    @apply rounded-md bg-neutral-100 px-1.5 py-0.5 font-mono text-[0.9em] text-primary-700 dark:bg-neutral-800 dark:text-primary-300;
+  }
+
+  .admin-markdown-preview pre {
+    @apply my-5 overflow-x-auto rounded-xl bg-neutral-950 p-4 text-neutral-100 dark:bg-black;
+  }
+
+  .admin-markdown-preview pre code {
+    @apply bg-transparent p-0 text-neutral-100;
+  }
+
+  .admin-markdown-preview table {
+    @apply my-5 w-full border-collapse overflow-hidden text-sm;
+  }
+
+  .admin-markdown-preview th,
+  .admin-markdown-preview td {
+    @apply border border-neutral-200 px-3 py-2 dark:border-neutral-700;
+  }
+
+  .admin-markdown-preview th {
+    @apply bg-neutral-100 font-semibold dark:bg-neutral-800;
+  }
+
+  .admin-markdown-preview img {
+    @apply my-5 max-w-full rounded-xl border border-neutral-100 shadow-sm dark:border-neutral-800;
+  }
+
+  .admin-markdown-preview hr {
+    @apply my-8 border-neutral-200 dark:border-neutral-700;
+  }
+
   /* Refined Prose for Editorial Reading */
   .prose-refined {
     @apply text-neutral-700 leading-[1.7] text-lg;

@@ -1,16 +1,51 @@
-import { Suspense, lazy, useEffect, useRef, useState } from 'react';
+import { type ChangeEvent, Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { Select } from 'tdesign-react';
+import {
+  Bold,
+  Code,
+  Eye,
+  Heading2,
+  ImagePlus,
+  Link as LinkIcon,
+  List,
+  ListOrdered,
+  Minus,
+  PanelLeft,
+  Pilcrow,
+  Quote,
+  SplitSquareHorizontal,
+  type LucideIcon,
+} from 'lucide-react';
 import { articleApi, categoryApi, uploadApi, chatApi } from '@/api';
 import { Loading } from '@/components/common';
 import { useUIStore } from '@/store';
 import { getArticlePrimaryActionLabel } from '@/utils/pageBehavior';
+import { applyMarkdownAction, type MarkdownAction } from '@/utils/markdownEditor';
 import 'tdesign-react/es/style/index.css';
 
 const ArticlePreview = lazy(() =>
   import('./ArticlePreview').then((module) => ({ default: module.ArticlePreview }))
 );
+
+type EditorMode = 'edit' | 'split' | 'preview';
+
+const markdownToolbarActions: Array<{
+  action: MarkdownAction;
+  label: string;
+  icon: LucideIcon;
+}> = [
+  { action: 'heading', label: '二级标题', icon: Heading2 },
+  { action: 'bold', label: '加粗', icon: Bold },
+  { action: 'quote', label: '引用', icon: Quote },
+  { action: 'unordered-list', label: '无序列表', icon: List },
+  { action: 'ordered-list', label: '有序列表', icon: ListOrdered },
+  { action: 'inline-code', label: '行内代码', icon: Code },
+  { action: 'code-block', label: '代码块', icon: Pilcrow },
+  { action: 'link', label: '链接', icon: LinkIcon },
+  { action: 'divider', label: '分割线', icon: Minus },
+];
 
 export const ArticleEditor = () => {
   const { id } = useParams<{ id: string }>();
@@ -18,6 +53,8 @@ export const ArticleEditor = () => {
   const { showToast } = useUIStore();
   const isEdit = !!id;
   const contentInputRef = useRef<HTMLTextAreaElement>(null);
+  const contentImageInputRef = useRef<HTMLInputElement>(null);
+  const [editorMode, setEditorMode] = useState<EditorMode>('split');
   const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
   const [lastSavedTime, setLastSavedTime] = useState<string | null>(null);
   const [isAutoSaving, setIsAutoSaving] = useState(false);
@@ -155,6 +192,27 @@ export const ArticleEditor = () => {
     },
   });
 
+  const handleMarkdownAction = (action: MarkdownAction) => {
+    const textarea = contentInputRef.current;
+    const selectionStart = textarea?.selectionStart ?? formData.content.length;
+    const selectionEnd = textarea?.selectionEnd ?? selectionStart;
+
+    const result = applyMarkdownAction({
+      text: formData.content,
+      selectionStart,
+      selectionEnd,
+      action,
+    });
+
+    setFormData((prev) => ({ ...prev, content: result.text }));
+    requestAnimationFrame(() => {
+      const nextTextarea = contentInputRef.current;
+      if (!nextTextarea) return;
+      nextTextarea.focus();
+      nextTextarea.setSelectionRange(result.selection.start, result.selection.end);
+    });
+  };
+
   const handleImageUpload = async (file: File, type: 'cover' | 'content') => {
     try {
       const res = await uploadApi.uploadImage(file, type);
@@ -221,10 +279,29 @@ export const ArticleEditor = () => {
     }
   };
 
+  const contentStats = useMemo(() => {
+    const trimmed = formData.content.trim();
+    const lineCount = formData.content ? formData.content.split('\n').length : 0;
+    const cjkCount = (trimmed.match(/[\u4e00-\u9fff]/g) || []).length;
+    const wordCount =
+      trimmed
+        .replace(/[\u4e00-\u9fff]/g, '')
+        .split(/\s+/)
+        .filter(Boolean).length + cjkCount;
+    const readingMinutes = Math.max(1, Math.ceil(wordCount / 450));
+
+    return {
+      characters: formData.content.length,
+      lines: lineCount,
+      words: wordCount,
+      readingMinutes,
+    };
+  }, [formData.content]);
+
   if (isEdit && isArticleLoading) return <Loading />;
 
   return (
-    <div className="max-w-5xl mx-auto pb-12">
+    <div className="max-w-6xl mx-auto pb-12">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold text-neutral-700 dark:text-neutral-100">
           {isEdit ? '编辑文章' : '新建文章'}
@@ -384,50 +461,125 @@ export const ArticleEditor = () => {
           </div>
         </div>
 
-        <div>
-          <div className="flex justify-between items-center mb-1">
-            <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">内容 (Markdown)</label>
-            <div className="relative">
-              <button className="text-sm text-primary-600 dark:text-primary-400 hover:text-primary-700 flex items-center gap-1">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd" />
-                </svg>
-                插入图片
-                <input
-                  type="file"
-                  className="absolute inset-0 opacity-0 cursor-pointer"
-                  accept="image/*"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) handleImageUpload(file, 'content');
-                  }}
-                />
-              </button>
+        <div className="space-y-3">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <label className="block text-sm font-semibold text-neutral-700 dark:text-neutral-200">内容 (Markdown)</label>
+              <p className="mt-1 text-xs text-neutral-400 dark:text-neutral-500">
+                支持工具栏插入常用 Markdown，粘贴图片会自动上传。
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              {(['edit', 'split', 'preview'] as const).map((mode) => {
+                const Icon =
+                  mode === 'edit' ? PanelLeft : mode === 'split' ? SplitSquareHorizontal : Eye;
+                return (
+                  <button
+                    key={mode}
+                    type="button"
+                    onClick={() => setEditorMode(mode)}
+                    className={`inline-flex h-9 items-center gap-2 rounded-xl px-3 text-xs font-semibold transition-colors ${
+                      editorMode === mode
+                        ? 'bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900'
+                        : 'bg-neutral-100 text-neutral-500 hover:text-neutral-900 dark:bg-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-100'
+                    }`}
+                  >
+                    <Icon className="h-4 w-4" />
+                    {mode === 'edit' ? '编辑' : mode === 'split' ? '分屏' : '预览'}
+                  </button>
+                );
+              })}
             </div>
           </div>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            <div>
-              <textarea
-                ref={contentInputRef}
-                className="input w-full h-[500px] font-mono py-2 text-sm leading-relaxed"
-                value={formData.content}
-                onChange={(e) => setFormData({ ...formData, content: e.target.value })}
-                onPaste={handleContentPaste}
-                placeholder="使用 Markdown 编写内容..."
+
+          <div className="rounded-2xl border border-neutral-200 bg-neutral-50/70 p-3 dark:border-neutral-800 dark:bg-neutral-950/40">
+            <div className="mb-3 flex flex-wrap items-center gap-2">
+              {markdownToolbarActions.map((item) => (
+                <button
+                  key={item.action}
+                  type="button"
+                  title={item.label}
+                  onClick={() => handleMarkdownAction(item.action)}
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-xl text-neutral-500 transition-colors hover:bg-white hover:text-neutral-900 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-100"
+                >
+                  <item.icon className="h-4 w-4" />
+                </button>
+              ))}
+              <button
+                type="button"
+                title="插入图片"
+                onClick={() => contentImageInputRef.current?.click()}
+                className="inline-flex h-9 items-center gap-2 rounded-xl px-3 text-xs font-semibold text-primary-600 transition-colors hover:bg-white dark:text-primary-400 dark:hover:bg-neutral-800"
+              >
+                <ImagePlus className="h-4 w-4" />
+                图片
+              </button>
+              <input
+                ref={contentImageInputRef}
+                type="file"
+                className="hidden"
+                accept="image/*"
+                onChange={(e: ChangeEvent<HTMLInputElement>) => {
+                  const file = e.target.files?.[0];
+                  if (file) handleImageUpload(file, 'content');
+                  e.target.value = '';
+                }}
               />
-              {lastSavedTime && (
-                <div className="mt-2 flex items-center gap-2 text-[10px] text-neutral-400 font-bold uppercase tracking-wider">
-                  <div className={`w-1.5 h-1.5 rounded-full ${isAutoSaving ? 'bg-amber-400 animate-pulse' : 'bg-emerald-400'}`}></div>
-                  {isAutoSaving ? '正在自动保存...' : `草稿已于 ${lastSavedTime} 自动保存`}
-                </div>
-              )}
-            </div>
-            <div className="flex flex-col">
-              <div className="flex-1 bg-neutral-50 dark:bg-neutral-800/50 rounded-lg p-6 overflow-y-auto h-[500px] border border-neutral-200 dark:border-neutral-700 prose dark:prose-invert prose-neutral max-w-none">
-                <Suspense fallback={<div className="h-full animate-pulse rounded-xl bg-neutral-100 dark:bg-neutral-800" />}>
-                  <ArticlePreview content={formData.content} />
-                </Suspense>
+              <div className="ml-auto flex flex-wrap items-center gap-3 text-[11px] font-medium text-neutral-400 dark:text-neutral-500">
+                <span>{contentStats.characters} 字符</span>
+                <span>{contentStats.lines} 行</span>
+                <span>{contentStats.words} 词</span>
+                <span>约 {contentStats.readingMinutes} 分钟</span>
               </div>
+            </div>
+
+            <div className={`grid gap-4 ${editorMode === 'split' ? 'lg:grid-cols-2' : 'grid-cols-1'}`}>
+              {editorMode !== 'preview' && (
+                <section className="flex min-h-[540px] flex-col overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
+                  <div className="flex items-center justify-between border-b border-neutral-100 px-4 py-3 dark:border-neutral-800">
+                    <div>
+                      <div className="text-sm font-semibold text-neutral-700 dark:text-neutral-200">Markdown</div>
+                      <div className="text-[11px] text-neutral-400 dark:text-neutral-500">原文编辑</div>
+                    </div>
+                    {lastSavedTime && (
+                      <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-neutral-400">
+                        <div className={`h-1.5 w-1.5 rounded-full ${isAutoSaving ? 'animate-pulse bg-amber-400' : 'bg-emerald-400'}`} />
+                        {isAutoSaving ? '正在自动保存' : `已保存 ${lastSavedTime}`}
+                      </div>
+                    )}
+                  </div>
+                  <textarea
+                    ref={contentInputRef}
+                    className="admin-markdown-editor min-h-[480px] flex-1 resize-none border-0 bg-transparent px-5 py-4 text-sm leading-7 text-neutral-800 outline-none dark:text-neutral-100"
+                    value={formData.content}
+                    onChange={(e) => setFormData({ ...formData, content: e.target.value })}
+                    onPaste={handleContentPaste}
+                    placeholder="使用 Markdown 编写内容..."
+                  />
+                </section>
+              )}
+
+              {editorMode !== 'edit' && (
+                <section className="flex min-h-[540px] flex-col overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
+                  <div className="flex items-center justify-between border-b border-neutral-100 px-4 py-3 dark:border-neutral-800">
+                    <div>
+                      <div className="text-sm font-semibold text-neutral-700 dark:text-neutral-200">Preview</div>
+                      <div className="text-[11px] text-neutral-400 dark:text-neutral-500">编辑时预览</div>
+                    </div>
+                  </div>
+                  <div className="admin-markdown-preview flex-1 overflow-y-auto px-6 py-5">
+                    {formData.content.trim() ? (
+                      <Suspense fallback={<div className="h-full animate-pulse rounded-xl bg-neutral-100 dark:bg-neutral-800" />}>
+                        <ArticlePreview content={formData.content} />
+                      </Suspense>
+                    ) : (
+                      <div className="flex h-full min-h-[420px] items-center justify-center rounded-xl border border-dashed border-neutral-200 text-sm text-neutral-400 dark:border-neutral-800 dark:text-neutral-500">
+                        预览会在这里显示
+                      </div>
+                    )}
+                  </div>
+                </section>
+              )}
             </div>
           </div>
         </div>
