@@ -615,7 +615,7 @@ export const ArticleEditor = () => {
                       <div className="text-[11px] text-neutral-400 dark:text-neutral-500">编辑时预览</div>
                     </div>
                   </div>
-                  <div className="admin-markdown-preview flex-1 overflow-y-auto px-6 py-5">
+                  <div className="article-reading-body admin-markdown-preview flex-1 overflow-y-auto px-6 py-5">
                     {formData.content.trim() ? (
                       <Suspense fallback={<div className="h-full animate-pulse rounded-xl bg-neutral-100 dark:bg-neutral-800" />}>
                         <ArticlePreview content={formData.content} />

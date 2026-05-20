@@ -158,3 +158,175 @@
 .dark .markdown-body .hljs {
   @apply bg-neutral-800;
 }
+
+/* Shared article reading surface for public detail and admin preview. */
+.article-reading-body {
+  @apply text-neutral-700 dark:text-neutral-200;
+  font-size: 16px;
+  line-height: 1.85;
+}
+
+.article-reading-body .markdown-body {
+  color: inherit;
+  font-size: inherit;
+  line-height: inherit;
+}
+
+.article-reading-body > :first-child,
+.article-reading-body .markdown-body > :first-child {
+  @apply mt-0;
+}
+
+.article-reading-body > :last-child,
+.article-reading-body .markdown-body > :last-child {
+  @apply mb-0;
+}
+
+.article-reading-body h1 {
+  @apply mb-5 mt-12 border-b border-neutral-100 pb-4 font-serif text-3xl font-black tracking-tight text-neutral-900 dark:border-neutral-800 dark:text-neutral-100;
+  line-height: 1.2;
+}
+
+.article-reading-body h2 {
+  @apply mb-4 mt-11 font-serif text-2xl font-black tracking-tight text-neutral-900 dark:text-neutral-100;
+  line-height: 1.25;
+}
+
+.article-reading-body h3 {
+  @apply mb-3 mt-9 text-xl font-bold text-neutral-900 dark:text-neutral-100;
+  line-height: 1.35;
+}
+
+.article-reading-body h4,
+.article-reading-body h5,
+.article-reading-body h6 {
+  @apply mb-3 mt-7 text-lg font-bold text-neutral-800 dark:text-neutral-100;
+  line-height: 1.4;
+}
+
+.article-reading-body p {
+  @apply my-5;
+}
+
+.article-reading-body strong {
+  @apply font-black text-neutral-900 dark:text-neutral-50;
+}
+
+.article-reading-body em {
+  @apply text-neutral-600 dark:text-neutral-300;
+}
+
+.article-reading-body a {
+  @apply font-semibold text-primary-700 underline underline-offset-4 transition-colors hover:text-primary-600 dark:text-primary-300 dark:hover:text-primary-200;
+  text-decoration-color: rgb(16 185 129 / 0.35);
+}
+
+.article-reading-body a:hover {
+  text-decoration-color: rgb(16 185 129 / 0.75);
+}
+
+.article-reading-body blockquote {
+  @apply my-8 rounded-r-2xl border-l-4 border-primary-500 bg-primary-50/70 py-4 pl-5 pr-5 text-base not-italic text-neutral-700 shadow-sm dark:bg-primary-900/10 dark:text-neutral-300;
+  line-height: 1.85;
+}
+
+.article-reading-body blockquote p {
+  @apply my-2;
+}
+
+.article-reading-body ul {
+  @apply my-6 space-y-2 pl-0;
+  list-style: none;
+}
+
+.article-reading-body ol {
+  @apply my-6 list-decimal space-y-2 pl-6;
+}
+
+.article-reading-body li {
+  @apply text-neutral-700 dark:text-neutral-200;
+}
+
+.article-reading-body ul > li {
+  @apply relative pl-6;
+}
+
+.article-reading-body ul > li::before {
+  @apply absolute left-1 h-1.5 w-1.5 rounded-full bg-primary-500;
+  content: "";
+  top: 0.72em;
+}
+
+.article-reading-body ol > li {
+  @apply pl-1;
+}
+
+.article-reading-body ol > li::marker {
+  @apply font-bold text-primary-600 dark:text-primary-400;
+}
+
+.article-reading-body li > ul,
+.article-reading-body li > ol {
+  @apply mb-2 mt-2;
+}
+
+.article-reading-body li:has(> input[type="checkbox"]) {
+  @apply pl-0;
+}
+
+.article-reading-body li:has(> input[type="checkbox"])::before {
+  @apply hidden;
+}
+
+.article-reading-body input[type="checkbox"] {
+  @apply mr-2 align-middle;
+  accent-color: #10b981;
+}
+
+.article-reading-body code {
+  @apply rounded-md border border-primary-100 bg-primary-50 px-1.5 py-0.5 font-mono text-[0.9em] text-primary-700 dark:border-primary-900/50 dark:bg-primary-900/20 dark:text-primary-300;
+}
+
+.article-reading-body pre {
+  @apply my-8 overflow-x-auto rounded-2xl border border-neutral-800 bg-neutral-950 p-5 text-sm leading-7 text-neutral-100 shadow-elevated dark:border-neutral-700 dark:bg-black;
+}
+
+.article-reading-body pre code {
+  @apply border-0 bg-transparent p-0 text-neutral-100;
+  font-size: inherit;
+}
+
+.article-reading-body .hljs {
+  background: transparent;
+}
+
+.article-reading-body table {
+  @apply my-8 w-full border-collapse text-sm;
+}
+
+.article-reading-body th,
+.article-reading-body td {
+  @apply border border-neutral-200 px-4 py-3 text-left align-top dark:border-neutral-700;
+}
+
+.article-reading-body th {
+  @apply bg-neutral-100 font-bold text-neutral-800 dark:bg-neutral-800 dark:text-neutral-100;
+}
+
+.article-reading-body tr:nth-child(even) td {
+  @apply bg-neutral-50/60 dark:bg-neutral-900/60;
+}
+
+.article-reading-body img {
+  @apply my-10 h-auto max-w-full rounded-2xl border border-neutral-100 shadow-soft dark:border-neutral-800;
+}
+
+.article-reading-body hr {
+  @apply my-12 border-0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgb(209 213 209), transparent);
+}
+
+.dark .article-reading-body hr {
+  background: linear-gradient(90deg, transparent, rgb(38 38 38), transparent);
+}

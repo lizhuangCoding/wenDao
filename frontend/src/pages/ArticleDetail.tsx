@@ -112,7 +112,7 @@ export const ArticleDetail = () => {
               )}
             </header>
 
-            <div className="prose-refined">
+            <div className="article-reading-body">
               <ArticleContent content={article.content} />
             </div>
 

@@ -26,12 +26,7 @@ const createHeadingComponent = (level: number) => {
     const id = slugify(text);
 
     const Tag = `h${level}` as keyof JSX.IntrinsicElements;
-    const className = level === 1 ? 'text-3xl font-bold mt-8 mb-4 scroll-mt-24' :
-      level === 2 ? 'text-2xl font-bold mt-6 mb-3 scroll-mt-24' :
-        level === 3 ? 'text-xl font-bold mt-4 mb-2 scroll-mt-24' :
-          level === 4 ? 'text-lg font-bold mt-3 mb-2 scroll-mt-24' :
-            level === 5 ? 'text-base font-bold mt-2 mb-1 scroll-mt-24' :
-              'text-sm font-bold mt-2 mb-1 scroll-mt-24';
+    const className = 'scroll-mt-24';
 
     return <Tag id={id} className={className}>{children}</Tag>;
   };
