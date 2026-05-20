@@ -1,14 +1,18 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { Layout, ConfirmModal } from '@/components/common';
 import { ArticleContent } from '@/components/article';
+import { ChatQuestionNavigator } from '@/components/chat/ChatQuestionNavigator';
 import { useChatStore, useUIStore } from '@/store';
 import { useAuth } from '@/hooks';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
-import type { ChatArticleReference, ChatReferenceGroups, ChatStep } from '@/types';
+import { ArrowDown, SendHorizontal } from 'lucide-react';
+import { buildChatQuestionNavItems } from '@/utils/chatQuestionNavigator';
+import type { ChatArticleReference, ChatMessage, ChatReferenceGroups, ChatStep } from '@/types';
 
 const CHAT_SIDEBAR_STORAGE_KEY = 'wendao.aiChat.sidebar';
 const CHAT_IMMERSIVE_STORAGE_KEY = 'wendao.aiChat.immersive';
+const EMPTY_CHAT_MESSAGES: ChatMessage[] = [];
 
 type AgentProcessPanelProps = {
   messageId: string;
@@ -204,8 +208,10 @@ export const AIChat = () => {
   const [processingStartedAt, setProcessingStartedAt] = useState<number | null>(null);
   const [processingElapsedMs, setProcessingElapsedMs] = useState(0);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const composerRef = useRef<HTMLTextAreaElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const [isNearBottom, setIsNearBottom] = useState(true);
+  const [activeQuestionId, setActiveQuestionId] = useState<string | null>(null);
   const {
     conversations,
     activeId,
@@ -248,9 +254,37 @@ export const AIChat = () => {
   const activeChat = activeId ? conversations[activeId] : null;
   const activeChatTitle = activeChat?.title ?? '';
   const activeChatMessages = activeChat?.messages;
-  const messages = activeChatMessages ?? [];
+  const messages = activeChatMessages ?? EMPTY_CHAT_MESSAGES;
   const isAssistantProcessing = runStatus === 'running';
   const processingDurationLabel = formatProcessingDuration(processingElapsedMs);
+  const questionNavItems = useMemo(() => buildChatQuestionNavItems(messages), [messages]);
+  const questionAnchorByMessageId = useMemo(
+    () => new Map(questionNavItems.map((item) => [item.messageId, item.anchorId])),
+    [questionNavItems]
+  );
+
+  const updateActiveQuestionFromScroll = useCallback(() => {
+    const container = scrollContainerRef.current;
+    if (!container || questionNavItems.length === 0) {
+      setActiveQuestionId(null);
+      return;
+    }
+
+    const markerTop = container.scrollTop + 140;
+    let nextActiveId = questionNavItems[0].anchorId;
+
+    for (const item of questionNavItems) {
+      const element = document.getElementById(item.anchorId);
+      if (!element) continue;
+      if (element.offsetTop <= markerTop) {
+        nextActiveId = item.anchorId;
+      } else {
+        break;
+      }
+    }
+
+    setActiveQuestionId((current) => (current === nextActiveId ? current : nextActiveId));
+  }, [questionNavItems]);
 
   useEffect(() => {
     if (!isAssistantProcessing) {
@@ -281,23 +315,70 @@ export const AIChat = () => {
     const container = scrollContainerRef.current;
     if (!container || !isNearBottom) return;
     container.scrollTop = container.scrollHeight;
-  }, [activeChatMessages, isTyping, isStreaming, isNearBottom]);
+    updateActiveQuestionFromScroll();
+  }, [activeChatMessages, isTyping, isStreaming, isNearBottom, updateActiveQuestionFromScroll]);
 
-  const handleScroll = () => {
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(updateActiveQuestionFromScroll);
+    return () => window.cancelAnimationFrame(frame);
+  }, [activeId, updateActiveQuestionFromScroll]);
+
+  useEffect(() => {
+    const textarea = composerRef.current;
+    if (!textarea) return;
+    textarea.style.height = 'auto';
+    textarea.style.height = `${Math.min(textarea.scrollHeight, 160)}px`;
+  }, [input]);
+
+  const handleScroll = useCallback(() => {
     const container = scrollContainerRef.current;
     if (!container) return;
     const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
     setIsNearBottom(distanceFromBottom <= 80);
-  };
+    updateActiveQuestionFromScroll();
+  }, [updateActiveQuestionFromScroll]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const submitMessage = useCallback(async () => {
     if (!input.trim() || isTyping) return;
 
     const message = input.trim();
     setInput('');
     await sendMessage(message);
+  }, [input, isTyping, sendMessage]);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    void submitMessage();
   };
+
+  const handleComposerKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key !== 'Enter' || e.shiftKey || e.nativeEvent.isComposing) return;
+    e.preventDefault();
+    void submitMessage();
+  };
+
+  const scrollToQuestion = useCallback((anchorId: string) => {
+    const container = scrollContainerRef.current;
+    const element = document.getElementById(anchorId);
+    if (!container || !element) return;
+
+    container.scrollTo({
+      top: Math.max(element.offsetTop - 24, 0),
+      behavior: 'smooth',
+    });
+    setActiveQuestionId(anchorId);
+  }, []);
+
+  const scrollToBottom = useCallback(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    container.scrollTo({
+      top: container.scrollHeight,
+      behavior: 'smooth',
+    });
+    setIsNearBottom(true);
+  }, []);
 
   const handleRenameSave = async () => {
     if (!activeChat || !draftTitle.trim()) return;
@@ -526,7 +607,9 @@ export const AIChat = () => {
         <aside className={`${isSidebarCollapsed ? 'w-16 pr-3' : 'w-80 pr-6'} hidden lg:flex flex-col gap-4 h-full border-r border-neutral-100 dark:border-neutral-800 transition-all duration-200 ${isImmersive ? 'pl-4 py-4 bg-white dark:bg-neutral-900' : ''}`}>
           <button
             onClick={() => setIsSidebarCollapsed((value) => !value)}
+            data-chat-history-toggle="sidebar"
             className="w-12 h-12 flex items-center justify-center rounded-2xl border border-neutral-100 dark:border-neutral-700 text-neutral-500 dark:text-neutral-300 hover:text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors"
+            aria-label={isSidebarCollapsed ? '展开会话历史' : '收起会话历史'}
             title={isSidebarCollapsed ? '展开会话历史' : '收起会话历史'}
           >
             <svg xmlns="http://www.w3.org/2000/svg" className={`h-5 w-5 transition-transform ${isSidebarCollapsed ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -557,15 +640,6 @@ export const AIChat = () => {
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h10M4 18h16" />
-                </svg>
-              </button>
-              <button
-                onClick={() => setIsSidebarCollapsed((value) => !value)}
-                className="hidden lg:flex w-10 h-10 items-center justify-center rounded-xl border border-neutral-100 dark:border-neutral-700 text-neutral-500 dark:text-neutral-300 hover:text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors"
-                aria-label={isSidebarCollapsed ? '展开会话历史' : '收起会话历史'}
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className={`h-5 w-5 transition-transform ${isSidebarCollapsed ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                 </svg>
               </button>
               <div className="min-w-0">
@@ -643,6 +717,12 @@ export const AIChat = () => {
             </div>
           </header>
 
+          <ChatQuestionNavigator
+            activeId={activeQuestionId}
+            items={questionNavItems}
+            onSelect={scrollToQuestion}
+          />
+
           <div
             ref={scrollContainerRef}
             onScroll={handleScroll}
@@ -680,13 +760,17 @@ export const AIChat = () => {
               const articleRefs = message.role === 'assistant'
                 ? splitArticleReferences(message.content)
                 : { body: message.content, references: emptyReferenceGroups() };
+              const questionAnchorId = message.role === 'user'
+                ? questionAnchorByMessageId.get(message.id)
+                : undefined;
 
               return (
                 <motion.div
                   key={message.id}
+                  id={questionAnchorId}
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                  className={`scroll-mt-8 flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
                 >
                 <div className={`flex gap-4 ${message.role === 'user' ? 'max-w-[85%] flex-row-reverse' : 'w-full max-w-5xl flex-row'}`}>
                   {message.role === 'user' ? (
@@ -774,24 +858,43 @@ export const AIChat = () => {
             )}
           </div>
 
+          <AnimatePresence>
+            {!isNearBottom && (
+              <motion.button
+                type="button"
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 8 }}
+                onClick={scrollToBottom}
+                className="absolute bottom-28 left-1/2 z-20 hidden -translate-x-1/2 items-center gap-2 rounded-full border border-neutral-200 bg-white/95 px-4 py-2 text-xs font-bold text-neutral-600 shadow-soft backdrop-blur transition-colors hover:border-primary-200 hover:text-primary-600 sm:inline-flex dark:border-neutral-700 dark:bg-neutral-900/95 dark:text-neutral-300 dark:hover:border-primary-800 dark:hover:text-primary-300"
+                aria-label="回到底部"
+              >
+                <ArrowDown className="h-4 w-4" aria-hidden="true" />
+                回到底部
+              </motion.button>
+            )}
+          </AnimatePresence>
+
           <div className="px-4 sm:px-8 lg:px-10 py-5 lg:py-8 bg-white dark:bg-neutral-800 border-t border-neutral-100 dark:border-neutral-700 rounded-b-[32px]">
             <form onSubmit={handleSubmit} className="relative group">
-              <input
-                type="text"
+              <textarea
+                ref={composerRef}
+                rows={1}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
+                onKeyDown={handleComposerKeyDown}
                 placeholder={requiresUserInput && pendingQuestion ? pendingQuestion : t('chat.messagePlaceholder')}
-                className="w-full bg-neutral-50 dark:bg-neutral-700 border-2 border-neutral-100 dark:border-neutral-600 rounded-2xl py-4 px-6 pr-16 text-sm font-bold text-neutral-900 dark:text-neutral-100 placeholder-neutral-400 dark:placeholder-neutral-500 transition-all focus:outline-none focus:border-primary-500 focus:bg-white dark:focus:bg-neutral-600 focus:shadow-elevated"
+                className="max-h-40 min-h-[56px] w-full resize-none overflow-y-auto bg-neutral-50 dark:bg-neutral-700 border-2 border-neutral-100 dark:border-neutral-600 rounded-2xl py-4 px-6 pr-16 text-sm font-bold leading-6 text-neutral-900 dark:text-neutral-100 placeholder-neutral-400 dark:placeholder-neutral-500 transition-all focus:outline-none focus:border-primary-500 focus:bg-white dark:focus:bg-neutral-600 focus:shadow-elevated"
                 disabled={isTyping}
+                aria-label="给 AI 助手发送消息，Shift+Enter 换行"
               />
               <button
                 type="submit"
                 disabled={isTyping || !input.trim()}
-                className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 bg-neutral-900 dark:bg-primary-600 text-white rounded-xl flex items-center justify-center transition-all hover:bg-primary-600 dark:hover:bg-primary-500 disabled:opacity-20 active:scale-90"
+                className="absolute bottom-3 right-3 w-10 h-10 bg-neutral-900 dark:bg-primary-600 text-white rounded-xl flex items-center justify-center transition-all hover:bg-primary-600 dark:hover:bg-primary-500 disabled:opacity-20 active:scale-90"
+                aria-label="发送消息"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                  <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" />
-                </svg>
+                <SendHorizontal className="h-5 w-5" aria-hidden="true" />
               </button>
             </form>
             <p className="text-[10px] text-center text-neutral-300 dark:text-neutral-600 font-bold uppercase tracking-widest mt-4">
