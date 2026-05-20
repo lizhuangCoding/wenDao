@@ -21,9 +21,7 @@ func InitMySQL(cfg *config.DatabaseConfig) (*gorm.DB, error) {
 		cfg.DBName,
 	)
 
-	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{
-		Logger: logger.Default.LogMode(logger.Info), // 记录慢查询
-	})
+	db, err := gorm.Open(mysql.Open(dsn), newGORMConfig(logger.Default.LogMode(logger.Info)))
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to database: %w", err)
 	}
@@ -40,4 +38,11 @@ func InitMySQL(cfg *config.DatabaseConfig) (*gorm.DB, error) {
 	sqlDB.SetConnMaxLifetime(time.Hour)
 
 	return db, nil
+}
+
+func newGORMConfig(log logger.Interface) *gorm.Config {
+	return &gorm.Config{
+		Logger:                                   log, // 记录慢查询
+		DisableForeignKeyConstraintWhenMigrating: true,
+	}
 }
