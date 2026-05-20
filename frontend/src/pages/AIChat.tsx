@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { Layout, ConfirmModal } from '@/components/common';
 import { ArticleContent } from '@/components/article';
+import { AgentMoodIndicator, AIProcessingHalo } from '@/components/chat/AgentMoodIndicator';
 import { ChatQuestionNavigator } from '@/components/chat/ChatQuestionNavigator';
 import { useChatStore, useUIStore } from '@/store';
 import { useAuth } from '@/hooks';
@@ -95,9 +96,13 @@ const AgentProcessPanel = ({ messageId, steps, expandedIds, onToggle }: AgentPro
                 className="w-full flex items-start gap-3 px-4 py-3 text-left hover:bg-neutral-50 dark:hover:bg-neutral-700/60 transition-colors"
                 aria-expanded={isExpanded}
               >
-                <span className={`mt-1 h-2 w-2 flex-shrink-0 rounded-full ${
-                  isFailed ? 'bg-red-500' : isRunning ? 'bg-primary-500 animate-pulse' : 'bg-neutral-400'
-                }`} />
+                <AgentMoodIndicator
+                  agentName={step.agent_name}
+                  showText={false}
+                  size="sm"
+                  status={isFailed ? 'failed' : isRunning ? 'running' : step.status}
+                  summary={step.summary}
+                />
                 <span className="min-w-0 flex-1">
                   <span className="block text-xs font-bold text-neutral-800 dark:text-neutral-100">
                     {step.summary || `${step.agent_name} 正在协作`}
@@ -258,6 +263,7 @@ export const AIChat = () => {
   const {
     conversations,
     activeId,
+    currentStage,
     isTyping,
     isStreaming,
     currentStageLabel,
@@ -305,6 +311,17 @@ export const AIChat = () => {
     () => new Map(questionNavItems.map((item) => [item.messageId, item.anchorId])),
     [questionNavItems]
   );
+  const activeAgentStep = useMemo(() => {
+    const steps = messages.flatMap((message) => message.processSteps || []);
+
+    for (let index = steps.length - 1; index >= 0; index -= 1) {
+      if (steps[index].status === 'running') {
+        return steps[index];
+      }
+    }
+
+    return steps[steps.length - 1] || null;
+  }, [messages]);
 
   const updateActiveQuestionFromScroll = useCallback(() => {
     const container = scrollContainerRef.current;
@@ -779,7 +796,17 @@ export const AIChat = () => {
             {currentStageLabel && (
               <div className="mb-4 rounded-xl border border-primary-200 bg-primary-50 px-4 py-3 text-sm text-primary-700 dark:border-primary-800 dark:bg-primary-900/20 dark:text-primary-300">
                 <div className="flex flex-wrap items-center gap-2 justify-between">
-                  <span>
+                  <span className="inline-flex items-center gap-2">
+                    {isAssistantProcessing && (
+                      <AgentMoodIndicator
+                        agentName={activeAgentStep?.agent_name}
+                        showText={false}
+                        size="sm"
+                        stage={currentStage}
+                        status={activeAgentStep?.status}
+                        summary={activeAgentStep?.summary}
+                      />
+                    )}
                     {currentStageLabel}
                     {requiresUserInput && pendingQuestion ? `：${pendingQuestion}` : ''}
                   </span>
@@ -926,17 +953,21 @@ export const AIChat = () => {
                 className="flex justify-start"
               >
                 <div className="flex gap-4">
-                  <div className="w-8 h-8 rounded-full bg-primary-500 flex items-center justify-center">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                    </svg>
-                  </div>
+                  <AgentMoodIndicator
+                    agentName={activeAgentStep?.agent_name}
+                    showText={false}
+                    size="sm"
+                    stage={currentStage}
+                    status={activeAgentStep?.status || 'running'}
+                    summary={activeAgentStep?.summary}
+                  />
                   <div className="bg-white dark:bg-neutral-700 border border-neutral-100 dark:border-neutral-600 px-6 py-4 rounded-[24px] rounded-tl-none shadow-sm">
-                    <div className="flex gap-1.5">
-                      <motion.div animate={{ scale: [1, 1.2, 1] }} transition={{ repeat: Infinity, duration: 1 }} className="w-1.5 h-1.5 bg-primary-400 rounded-full" />
-                      <motion.div animate={{ scale: [1, 1.2, 1] }} transition={{ repeat: Infinity, duration: 1, delay: 0.2 }} className="w-1.5 h-1.5 bg-primary-400 rounded-full" />
-                      <motion.div animate={{ scale: [1, 1.2, 1] }} transition={{ repeat: Infinity, duration: 1, delay: 0.4 }} className="w-1.5 h-1.5 bg-primary-400 rounded-full" />
-                    </div>
+                    <AgentMoodIndicator
+                      agentName={activeAgentStep?.agent_name}
+                      stage={currentStage}
+                      status={activeAgentStep?.status || 'running'}
+                      summary={activeAgentStep?.summary}
+                    />
                     <p className="mt-3 text-[11px] font-bold text-neutral-500 dark:text-neutral-400">
                       AI 助手处理中{isAssistantProcessing ? ` · 已耗时 ${processingDurationLabel}` : '...'}
                     </p>
@@ -964,6 +995,18 @@ export const AIChat = () => {
           </AnimatePresence>
 
           <div className="px-4 sm:px-8 lg:px-10 py-5 lg:py-8 bg-white dark:bg-neutral-800 border-t border-neutral-100 dark:border-neutral-700 rounded-b-[32px]">
+            <AnimatePresence>
+              {isAssistantProcessing && (
+                <AIProcessingHalo
+                  agentName={activeAgentStep?.agent_name}
+                  elapsedLabel={`已耗时 ${processingDurationLabel}`}
+                  stage={currentStage}
+                  stageLabel={currentStageLabel}
+                  status={activeAgentStep?.status || 'running'}
+                  summary={activeAgentStep?.summary}
+                />
+              )}
+            </AnimatePresence>
             <form onSubmit={handleSubmit} className="relative group">
               <textarea
                 ref={composerRef}

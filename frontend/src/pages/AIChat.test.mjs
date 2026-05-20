@@ -45,3 +45,13 @@ test('AIChat message flow uses layout animation and smooth bottom following', as
   assert.match(source, /requestAnimationFrame/);
   assert.doesNotMatch(source, /scrollTop\s*=\s*container\.scrollHeight/);
 });
+
+test('AIChat uses expressive agent status indicators while processing', async () => {
+  const source = await loadAIChatSource();
+
+  assert.match(source, /AgentMoodIndicator/);
+  assert.match(source, /AIProcessingHalo/);
+  assert.match(source, /activeAgentStep/);
+  assert.match(source, /currentStage/);
+  assert.doesNotMatch(source, /animate-pulse' : 'bg-neutral-400'/);
+});
