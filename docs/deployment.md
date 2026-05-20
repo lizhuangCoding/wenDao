@@ -86,6 +86,63 @@ Then visit:
 http://your-server-ip:8081
 ```
 
+### GitHub Actions image deployment
+
+The repository includes `.github/workflows/deploy.yml` for automatic deployment from the `main` branch. The workflow builds the backend and frontend images in GitHub Actions, pushes them to GitHub Container Registry, then SSHes into the server and restarts Docker Compose with the pulled images. This avoids running the frontend `npm run build` on a small server.
+
+Create these GitHub repository secrets:
+
+- `DEPLOY_HOST`: server IP or hostname, for example `1.2.3.4`
+- `DEPLOY_USER`: SSH user, for example `root`
+- `DEPLOY_SSH_KEY`: private key whose public key is in the server user's `~/.ssh/authorized_keys`
+- `DEPLOY_PATH`: absolute path to the checked-out repository on the server, for example `/root/wenDao`
+- `DEPLOY_PORT`: optional SSH port; defaults to `22` when omitted
+
+For IP-only deployment, no repository variables are required. The workflow uses these compose files by default:
+
+```text
+-f docker-compose.prod.yml -f docker-compose.ip.yml -f docker-compose.ghcr.yml
+```
+
+For domain deployment with Caddy enabled, set repository variable `DEPLOY_COMPOSE_FILES` to:
+
+```text
+-f docker-compose.prod.yml -f docker-compose.ghcr.yml
+```
+
+Optional repository variable:
+
+- `VITE_API_BASE_URL`: frontend API base URL used at build time; defaults to `/api`
+
+Prepare the server once:
+
+```bash
+cd /root/wenDao
+git fetch origin main
+git checkout -B main origin/main
+test -f .env.production
+docker login ghcr.io
+```
+
+The workflow logs in to GHCR again during deployment with the short-lived GitHub Actions token, so the manual `docker login ghcr.io` step is mainly a quick connectivity check. Keep `.env.production` only on the server; do not commit it.
+
+After secrets are configured, push to `main` or run the workflow manually from GitHub Actions. The deployment step runs the equivalent of:
+
+```bash
+git fetch --prune origin main
+git checkout -B main origin/main
+git reset --hard origin/main
+BACKEND_IMAGE=ghcr.io/<owner>/wendao-backend:sha-<commit> \
+FRONTEND_IMAGE=ghcr.io/<owner>/wendao-frontend:sha-<commit> \
+docker compose --env-file .env.production \
+  -f docker-compose.prod.yml \
+  -f docker-compose.ip.yml \
+  -f docker-compose.ghcr.yml \
+  up -d --no-build
+```
+
+Do not keep uncommitted tracked changes on the server checkout. The workflow resets tracked files to `origin/main` before restarting the stack. Ignored runtime files such as `.env.production` are preserved.
+
 ## 4. Create the first admin user
 
 Run the admin bootstrap command inside the backend container. It creates the user if it does not exist, or promotes an existing user with the same email to `admin`.
