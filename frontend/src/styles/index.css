@@ -182,7 +182,8 @@
   }
 
   .prose-refined blockquote {
-    @apply pl-8 border-l-4 border-primary-500 italic text-2xl text-neutral-500 my-12;
+    @apply pl-6 border-l-4 border-primary-500 italic text-base text-neutral-600 my-8;
+    line-height: 1.8;
   }
 
   .dark .prose-refined blockquote {
