@@ -22,7 +22,11 @@ import { articleApi, categoryApi, uploadApi, chatApi } from '@/api';
 import { Loading } from '@/components/common';
 import { useUIStore } from '@/store';
 import { getArticlePrimaryActionLabel } from '@/utils/pageBehavior';
-import { applyMarkdownAction, type MarkdownAction } from '@/utils/markdownEditor';
+import {
+  applyMarkdownAction,
+  type ApplyMarkdownActionResult,
+  type MarkdownAction,
+} from '@/utils/markdownEditor';
 import 'tdesign-react/es/style/index.css';
 
 const ArticlePreview = lazy(() =>
@@ -46,6 +50,47 @@ const markdownToolbarActions: Array<{
   { action: 'link', label: '链接', icon: LinkIcon },
   { action: 'divider', label: '分割线', icon: Minus },
 ];
+
+const restoreTextareaSelection = (
+  textarea: HTMLTextAreaElement,
+  result: ApplyMarkdownActionResult
+) => {
+  requestAnimationFrame(() => {
+    textarea.focus();
+    textarea.setSelectionRange(result.selection.start, result.selection.end);
+  });
+};
+
+const insertMarkdownWithUndoStack = (
+  textarea: HTMLTextAreaElement,
+  result: ApplyMarkdownActionResult
+) => {
+  textarea.focus();
+  textarea.setSelectionRange(result.edit.start, result.edit.end);
+
+  try {
+    const canInsertText =
+      !document.queryCommandSupported || document.queryCommandSupported('insertText');
+    if (!canInsertText) return false;
+
+    const didInsert = document.execCommand('insertText', false, result.edit.replacement);
+    if (!didInsert) return false;
+
+    const inputEvent =
+      typeof InputEvent === 'function'
+        ? new InputEvent('input', {
+            bubbles: true,
+            inputType: 'insertText',
+            data: result.edit.replacement,
+          })
+        : new Event('input', { bubbles: true });
+    textarea.dispatchEvent(inputEvent);
+    restoreTextareaSelection(textarea, result);
+    return true;
+  } catch {
+    return false;
+  }
+};
 
 export const ArticleEditor = () => {
   const { id } = useParams<{ id: string }>();
@@ -204,13 +249,10 @@ export const ArticleEditor = () => {
       action,
     });
 
+    if (textarea && insertMarkdownWithUndoStack(textarea, result)) return;
+
     setFormData((prev) => ({ ...prev, content: result.text }));
-    requestAnimationFrame(() => {
-      const nextTextarea = contentInputRef.current;
-      if (!nextTextarea) return;
-      nextTextarea.focus();
-      nextTextarea.setSelectionRange(result.selection.start, result.selection.end);
-    });
+    if (textarea) restoreTextareaSelection(textarea, result);
   };
 
   const handleImageUpload = async (file: File, type: 'cover' | 'content') => {
@@ -498,21 +540,27 @@ export const ArticleEditor = () => {
                 <button
                   key={item.action}
                   type="button"
-                  title={item.label}
+                  aria-label={item.label}
                   onClick={() => handleMarkdownAction(item.action)}
-                  className="inline-flex h-9 w-9 items-center justify-center rounded-xl text-neutral-500 transition-colors hover:bg-white hover:text-neutral-900 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-100"
+                  className="group relative inline-flex h-9 w-9 items-center justify-center rounded-xl text-neutral-500 transition-colors hover:bg-white hover:text-neutral-900 focus-visible:bg-white focus-visible:text-neutral-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/30 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-100 dark:focus-visible:bg-neutral-800 dark:focus-visible:text-neutral-100"
                 >
-                  <item.icon className="h-4 w-4" />
+                  <item.icon className="h-4 w-4" aria-hidden="true" />
+                  <span className="pointer-events-none absolute left-1/2 top-full z-30 mt-2 -translate-x-1/2 whitespace-nowrap rounded-md border border-neutral-200 bg-white px-2 py-1 text-[11px] font-medium text-neutral-600 opacity-0 shadow-sm transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200">
+                    {item.label}
+                  </span>
                 </button>
               ))}
               <button
                 type="button"
-                title="插入图片"
+                aria-label="插入图片"
                 onClick={() => contentImageInputRef.current?.click()}
-                className="inline-flex h-9 items-center gap-2 rounded-xl px-3 text-xs font-semibold text-primary-600 transition-colors hover:bg-white dark:text-primary-400 dark:hover:bg-neutral-800"
+                className="group relative inline-flex h-9 items-center gap-2 rounded-xl px-3 text-xs font-semibold text-primary-600 transition-colors hover:bg-white focus-visible:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/30 dark:text-primary-400 dark:hover:bg-neutral-800 dark:focus-visible:bg-neutral-800"
               >
-                <ImagePlus className="h-4 w-4" />
+                <ImagePlus className="h-4 w-4" aria-hidden="true" />
                 图片
+                <span className="pointer-events-none absolute left-1/2 top-full z-30 mt-2 -translate-x-1/2 whitespace-nowrap rounded-md border border-neutral-200 bg-white px-2 py-1 text-[11px] font-medium text-neutral-600 opacity-0 shadow-sm transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200">
+                  插入图片
+                </span>
               </button>
               <input
                 ref={contentImageInputRef}

@@ -16,14 +16,22 @@ interface ApplyMarkdownActionInput {
   action: MarkdownAction;
 }
 
-interface TextSelection {
+export interface TextSelection {
   start: number;
   end: number;
 }
 
-interface ApplyMarkdownActionResult {
+export interface MarkdownTextEdit {
+  start: number;
+  end: number;
+  replacement: string;
+  selection: TextSelection;
+}
+
+export interface ApplyMarkdownActionResult {
   text: string;
   selection: TextSelection;
+  edit: MarkdownTextEdit;
 }
 
 const replaceRange = (
@@ -35,6 +43,12 @@ const replaceRange = (
 ): ApplyMarkdownActionResult => ({
   text: `${text.slice(0, start)}${replacement}${text.slice(end)}`,
   selection,
+  edit: {
+    start,
+    end,
+    replacement,
+    selection,
+  },
 });
 
 const getSelectedText = ({ text, selectionStart, selectionEnd }: ApplyMarkdownActionInput) =>

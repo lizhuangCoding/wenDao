@@ -36,6 +36,12 @@ test('applyMarkdownAction wraps selected text in bold markers', async () => {
 
   assert.equal(result.text, 'hello **world**');
   assert.deepEqual(result.selection, { start: 8, end: 13 });
+  assert.deepEqual(result.edit, {
+    start: 6,
+    end: 11,
+    replacement: '**world**',
+    selection: { start: 8, end: 13 },
+  });
 });
 
 test('applyMarkdownAction inserts heading marker at the current line', async () => {
