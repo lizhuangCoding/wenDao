@@ -57,3 +57,43 @@ test('resolveAgentMood celebrates strong matches on completed steps', async () =
   assert.equal(mood.key, 'found');
   assert.equal(mood.label, '发现高匹配答案');
 });
+
+test('resolveAgentMood celebrates sufficient local coverage from step detail', async () => {
+  const { resolveAgentMood } = await loadAgentMood();
+
+  const mood = resolveAgentMood({
+    agentName: 'Librarian',
+    detail: '检索完成。找到 3 个相关来源。覆盖状态：sufficient\n\n站内知识摘要：站内资料充足',
+    status: 'completed',
+    summary: '正在检索站内知识',
+  });
+
+  assert.equal(mood.key, 'found');
+});
+
+test('selectFeaturedAgentStep keeps a recent strong match visible over later running steps', async () => {
+  const { selectFeaturedAgentStep } = await loadAgentMood();
+
+  const step = selectFeaturedAgentStep([
+    {
+      id: 1,
+      agent_name: 'Librarian',
+      type: 'thinking',
+      summary: '正在检索站内知识',
+      detail: '检索完成。找到 2 个相关来源。覆盖状态：sufficient',
+      status: 'completed',
+      created_at: '2026-05-20T10:00:00Z',
+    },
+    {
+      id: 2,
+      agent_name: 'Synthesizer',
+      type: 'thinking',
+      summary: '正在整合专家结果',
+      detail: '',
+      status: 'running',
+      created_at: '2026-05-20T10:00:01Z',
+    },
+  ]);
+
+  assert.equal(step?.agent_name, 'Librarian');
+});

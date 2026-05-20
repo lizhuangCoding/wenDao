@@ -14,6 +14,7 @@ export type AgentMoodKey =
 
 export interface AgentMoodInput {
   agentName?: string | null;
+  detail?: string | null;
   stage?: ChatStage | 'streaming' | null;
   status?: ChatStep['status'];
   summary?: string | null;
@@ -28,18 +29,43 @@ export interface AgentMood {
 
 const normalize = (value?: string | null) => (value || '').trim().toLowerCase();
 
-const hasMatchedAnswerSignal = (summary?: string | null) => {
-  const normalized = normalize(summary);
-  return /匹配|命中|充足|可直接|sufficient|matched|found/.test(normalized);
+const hasMatchedAnswerSignal = (summary?: string | null, detail?: string | null) => {
+  const normalized = normalize(`${summary || ''}\n${detail || ''}`);
+  const hasExplicitCoverage = /覆盖状态[:：]\s*sufficient|coverage_status["']?\s*[:=]\s*["']?sufficient\b/.test(normalized);
+  const hasPositiveSignal = /匹配|命中|资料充足|站内资料充足|可直接回答|\bsufficient\b|\bmatched\b|\bfound\b/.test(normalized);
+  const hasNegativeSignal = /不匹配|未命中|无匹配|资料不足|站内资料不足|不充足|未覆盖|没有覆盖|没有关于|\binsufficient\b/.test(normalized);
+
+  return hasExplicitCoverage || (hasPositiveSignal && !hasNegativeSignal);
+};
+
+export const isMatchedAnswerStep = (step: ChatStep) => {
+  return step.status === 'completed' && hasMatchedAnswerSignal(step.summary, step.detail);
+};
+
+export const selectFeaturedAgentStep = (steps: ChatStep[]) => {
+  for (let index = steps.length - 1; index >= 0; index -= 1) {
+    if (isMatchedAnswerStep(steps[index])) {
+      return steps[index];
+    }
+  }
+
+  for (let index = steps.length - 1; index >= 0; index -= 1) {
+    if (steps[index].status === 'running') {
+      return steps[index];
+    }
+  }
+
+  return steps[steps.length - 1] || null;
 };
 
 export const resolveAgentMood = ({
   agentName,
+  detail,
   stage,
   status,
   summary,
 }: AgentMoodInput): AgentMood => {
-  if (status === 'completed' && hasMatchedAnswerSignal(summary)) {
+  if (status === 'completed' && hasMatchedAnswerSignal(summary, detail)) {
     return {
       caption: '找到了值得展开的线索',
       key: 'found',

@@ -51,7 +51,8 @@ test('AIChat uses expressive agent status indicators while processing', async ()
 
   assert.match(source, /AgentMoodIndicator/);
   assert.match(source, /AIProcessingHalo/);
-  assert.match(source, /activeAgentStep/);
+  assert.match(source, /featuredAgentStep/);
+  assert.match(source, /detail={featuredAgentStep\?\.detail}/);
   assert.match(source, /currentStage/);
   assert.doesNotMatch(source, /animate-pulse' : 'bg-neutral-400'/);
 });

@@ -18,6 +18,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { buildChatQuestionNavItems } from '@/utils/chatQuestionNavigator';
+import { selectFeaturedAgentStep } from '@/utils/agentMood';
 import type { ChatArticleReference, ChatMessage, ChatReferenceGroups, ChatStep } from '@/types';
 
 const CHAT_SIDEBAR_STORAGE_KEY = 'wendao.aiChat.sidebar';
@@ -98,6 +99,7 @@ const AgentProcessPanel = ({ messageId, steps, expandedIds, onToggle }: AgentPro
               >
                 <AgentMoodIndicator
                   agentName={step.agent_name}
+                  detail={step.detail}
                   showText={false}
                   size="sm"
                   status={isFailed ? 'failed' : isRunning ? 'running' : step.status}
@@ -311,17 +313,20 @@ export const AIChat = () => {
     () => new Map(questionNavItems.map((item) => [item.messageId, item.anchorId])),
     [questionNavItems]
   );
-  const activeAgentStep = useMemo(() => {
-    const steps = messages.flatMap((message) => message.processSteps || []);
-
-    for (let index = steps.length - 1; index >= 0; index -= 1) {
-      if (steps[index].status === 'running') {
-        return steps[index];
+  const latestProcessSteps = useMemo(() => {
+    for (let index = messages.length - 1; index >= 0; index -= 1) {
+      const steps = messages[index].processSteps || [];
+      if (steps.length > 0) {
+        return steps;
       }
     }
 
-    return steps[steps.length - 1] || null;
+    return [];
   }, [messages]);
+
+  const featuredAgentStep = useMemo(() => {
+    return selectFeaturedAgentStep(latestProcessSteps);
+  }, [latestProcessSteps]);
 
   const updateActiveQuestionFromScroll = useCallback(() => {
     const container = scrollContainerRef.current;
@@ -799,12 +804,13 @@ export const AIChat = () => {
                   <span className="inline-flex items-center gap-2">
                     {isAssistantProcessing && (
                       <AgentMoodIndicator
-                        agentName={activeAgentStep?.agent_name}
+                        agentName={featuredAgentStep?.agent_name}
+                        detail={featuredAgentStep?.detail}
                         showText={false}
                         size="sm"
                         stage={currentStage}
-                        status={activeAgentStep?.status}
-                        summary={activeAgentStep?.summary}
+                        status={featuredAgentStep?.status}
+                        summary={featuredAgentStep?.summary}
                       />
                     )}
                     {currentStageLabel}
@@ -954,19 +960,21 @@ export const AIChat = () => {
               >
                 <div className="flex gap-4">
                   <AgentMoodIndicator
-                    agentName={activeAgentStep?.agent_name}
+                    agentName={featuredAgentStep?.agent_name}
+                    detail={featuredAgentStep?.detail}
                     showText={false}
                     size="sm"
                     stage={currentStage}
-                    status={activeAgentStep?.status || 'running'}
-                    summary={activeAgentStep?.summary}
+                    status={featuredAgentStep?.status || 'running'}
+                    summary={featuredAgentStep?.summary}
                   />
                   <div className="bg-white dark:bg-neutral-700 border border-neutral-100 dark:border-neutral-600 px-6 py-4 rounded-[24px] rounded-tl-none shadow-sm">
                     <AgentMoodIndicator
-                      agentName={activeAgentStep?.agent_name}
+                      agentName={featuredAgentStep?.agent_name}
+                      detail={featuredAgentStep?.detail}
                       stage={currentStage}
-                      status={activeAgentStep?.status || 'running'}
-                      summary={activeAgentStep?.summary}
+                      status={featuredAgentStep?.status || 'running'}
+                      summary={featuredAgentStep?.summary}
                     />
                     <p className="mt-3 text-[11px] font-bold text-neutral-500 dark:text-neutral-400">
                       AI 助手处理中{isAssistantProcessing ? ` · 已耗时 ${processingDurationLabel}` : '...'}
@@ -998,12 +1006,13 @@ export const AIChat = () => {
             <AnimatePresence>
               {isAssistantProcessing && (
                 <AIProcessingHalo
-                  agentName={activeAgentStep?.agent_name}
+                  agentName={featuredAgentStep?.agent_name}
+                  detail={featuredAgentStep?.detail}
                   elapsedLabel={`已耗时 ${processingDurationLabel}`}
                   stage={currentStage}
                   stageLabel={currentStageLabel}
-                  status={activeAgentStep?.status || 'running'}
-                  summary={activeAgentStep?.summary}
+                  status={featuredAgentStep?.status || 'running'}
+                  summary={featuredAgentStep?.summary}
                 />
               )}
             </AnimatePresence>
