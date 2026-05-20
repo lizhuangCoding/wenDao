@@ -6,13 +6,56 @@ import { useChatStore, useUIStore } from '@/store';
 import { useAuth } from '@/hooks';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowDown, SendHorizontal } from 'lucide-react';
+import {
+  ArrowDown,
+  BookOpen,
+  Boxes,
+  Network,
+  Search,
+  SendHorizontal,
+  Sparkles,
+  type LucideIcon,
+} from 'lucide-react';
 import { buildChatQuestionNavItems } from '@/utils/chatQuestionNavigator';
 import type { ChatArticleReference, ChatMessage, ChatReferenceGroups, ChatStep } from '@/types';
 
 const CHAT_SIDEBAR_STORAGE_KEY = 'wendao.aiChat.sidebar';
 const CHAT_IMMERSIVE_STORAGE_KEY = 'wendao.aiChat.immersive';
 const EMPTY_CHAT_MESSAGES: ChatMessage[] = [];
+
+interface StarterPrompt {
+  title: string;
+  description: string;
+  prompt: string;
+  icon: LucideIcon;
+}
+
+const STARTER_PROMPTS: StarterPrompt[] = [
+  {
+    title: '调研 K8s',
+    description: '从架构、组件、场景和学习路径切入',
+    prompt: '帮我调研一下 K8s，请从核心架构、关键组件、典型使用场景和学习路径四个角度总结。',
+    icon: Boxes,
+  },
+  {
+    title: '总结分布式系统',
+    description: '提炼核心概念、常见问题和工程取舍',
+    prompt: '帮我总结一下分布式系统的核心概念，包括一致性、可用性、分区容错、共识、事务和可观测性。',
+    icon: Network,
+  },
+  {
+    title: '做技术选型',
+    description: '比较方案优劣，给出可执行建议',
+    prompt: '我想做一个技术选型，请帮我按场景、成本、复杂度、风险和长期维护性做一份对比分析。',
+    icon: Search,
+  },
+  {
+    title: '生成文章大纲',
+    description: '把一个主题拆成清晰的写作结构',
+    prompt: '请帮我为一篇技术文章生成大纲，要求结构清晰、观点明确，并给出每一节应该写什么。',
+    icon: BookOpen,
+  },
+];
 
 type AgentProcessPanelProps = {
   messageId: string;
@@ -286,6 +329,18 @@ export const AIChat = () => {
     setActiveQuestionId((current) => (current === nextActiveId ? current : nextActiveId));
   }, [questionNavItems]);
 
+  const scrollToBottom = useCallback((behavior: ScrollBehavior = 'smooth') => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    container.scrollTo({
+      top: container.scrollHeight,
+      behavior,
+    });
+    setIsNearBottom(true);
+    window.requestAnimationFrame(updateActiveQuestionFromScroll);
+  }, [updateActiveQuestionFromScroll]);
+
   useEffect(() => {
     if (!isAssistantProcessing) {
       setProcessingStartedAt(null);
@@ -314,9 +369,9 @@ export const AIChat = () => {
   useEffect(() => {
     const container = scrollContainerRef.current;
     if (!container || !isNearBottom) return;
-    container.scrollTop = container.scrollHeight;
-    updateActiveQuestionFromScroll();
-  }, [activeChatMessages, isTyping, isStreaming, isNearBottom, updateActiveQuestionFromScroll]);
+    const frame = window.requestAnimationFrame(() => scrollToBottom('smooth'));
+    return () => window.cancelAnimationFrame(frame);
+  }, [activeChatMessages, isTyping, isStreaming, isNearBottom, scrollToBottom]);
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(updateActiveQuestionFromScroll);
@@ -338,10 +393,10 @@ export const AIChat = () => {
     updateActiveQuestionFromScroll();
   }, [updateActiveQuestionFromScroll]);
 
-  const submitMessage = useCallback(async () => {
-    if (!input.trim() || isTyping) return;
+  const submitMessage = useCallback(async (overrideMessage?: string) => {
+    const message = (overrideMessage ?? input).trim();
+    if (!message || isTyping) return;
 
-    const message = input.trim();
     setInput('');
     await sendMessage(message);
   }, [input, isTyping, sendMessage]);
@@ -369,16 +424,9 @@ export const AIChat = () => {
     setActiveQuestionId(anchorId);
   }, []);
 
-  const scrollToBottom = useCallback(() => {
-    const container = scrollContainerRef.current;
-    if (!container) return;
-
-    container.scrollTo({
-      top: container.scrollHeight,
-      behavior: 'smooth',
-    });
-    setIsNearBottom(true);
-  }, []);
+  const handleStarterPromptSelect = useCallback((prompt: string) => {
+    void submitMessage(prompt);
+  }, [submitMessage]);
 
   const handleRenameSave = async () => {
     if (!activeChat || !draftTitle.trim()) return;
@@ -745,14 +793,46 @@ export const AIChat = () => {
             )}
 
             {messages.length === 0 && (
-              <div className="h-full flex flex-col items-center justify-center text-center max-w-sm mx-auto">
-                <div className="w-20 h-20 bg-primary-50 dark:bg-primary-900/30 rounded-full flex items-center justify-center mb-6">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-primary-500 dark:text-primary-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-                  </svg>
+              <div className="flex min-h-full flex-col items-center justify-center text-center">
+                <div className="mx-auto max-w-3xl">
+                  <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary-50 text-primary-500 shadow-soft dark:bg-primary-900/30 dark:text-primary-300">
+                    <Sparkles className="h-8 w-8" aria-hidden="true" />
+                  </div>
+                  <h3 className="mb-2 text-2xl font-serif font-black text-neutral-900 dark:text-neutral-100">
+                    {t('chat.howCanIHelp')}
+                  </h3>
+                  <p className="mx-auto max-w-md text-sm font-medium leading-6 text-neutral-400 dark:text-neutral-500">
+                    {t('chat.askAbout')}
+                  </p>
+
+                  <div className="mt-8 grid gap-3 sm:grid-cols-2">
+                    {STARTER_PROMPTS.map((starterPrompt) => {
+                      const Icon = starterPrompt.icon;
+
+                      return (
+                        <button
+                          key={starterPrompt.title}
+                          type="button"
+                          disabled={isTyping}
+                          onClick={() => handleStarterPromptSelect(starterPrompt.prompt)}
+                          className="group flex min-h-28 items-start gap-4 rounded-2xl border border-neutral-100 bg-white p-4 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary-200 hover:shadow-soft disabled:cursor-not-allowed disabled:opacity-60 dark:border-neutral-700 dark:bg-neutral-800 dark:hover:border-primary-800"
+                        >
+                          <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-neutral-100 text-neutral-500 transition-colors group-hover:bg-primary-50 group-hover:text-primary-600 dark:bg-neutral-700 dark:text-neutral-300 dark:group-hover:bg-primary-900/30 dark:group-hover:text-primary-300">
+                            <Icon className="h-5 w-5" aria-hidden="true" />
+                          </span>
+                          <span className="min-w-0">
+                            <span className="block text-sm font-black text-neutral-800 dark:text-neutral-100">
+                              {starterPrompt.title}
+                            </span>
+                            <span className="mt-1 block text-xs font-medium leading-5 text-neutral-500 dark:text-neutral-400">
+                              {starterPrompt.description}
+                            </span>
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
-                <h3 className="text-2xl font-serif font-black text-neutral-900 dark:text-neutral-100 mb-2">{t('chat.howCanIHelp')}</h3>
-                <p className="text-sm text-neutral-400 dark:text-neutral-500 font-medium">{t('chat.askAbout')}</p>
               </div>
             )}
 
@@ -768,8 +848,10 @@ export const AIChat = () => {
                 <motion.div
                   key={message.id}
                   id={questionAnchorId}
+                  layout="position"
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.22, ease: 'easeOut', layout: { duration: 0.2 } }}
                   className={`scroll-mt-8 flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
                 >
                 <div className={`flex gap-4 ${message.role === 'user' ? 'max-w-[85%] flex-row-reverse' : 'w-full max-w-5xl flex-row'}`}>
@@ -836,7 +918,13 @@ export const AIChat = () => {
             })}
 
             {isTyping && (
-              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex justify-start">
+              <motion.div
+                layout="position"
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.2, ease: 'easeOut', layout: { duration: 0.2 } }}
+                className="flex justify-start"
+              >
                 <div className="flex gap-4">
                   <div className="w-8 h-8 rounded-full bg-primary-500 flex items-center justify-center">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -865,7 +953,7 @@ export const AIChat = () => {
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 8 }}
-                onClick={scrollToBottom}
+                onClick={() => scrollToBottom('smooth')}
                 className="absolute bottom-28 left-1/2 z-20 hidden -translate-x-1/2 items-center gap-2 rounded-full border border-neutral-200 bg-white/95 px-4 py-2 text-xs font-bold text-neutral-600 shadow-soft backdrop-blur transition-colors hover:border-primary-200 hover:text-primary-600 sm:inline-flex dark:border-neutral-700 dark:bg-neutral-900/95 dark:text-neutral-300 dark:hover:border-primary-800 dark:hover:text-primary-300"
                 aria-label="回到底部"
               >

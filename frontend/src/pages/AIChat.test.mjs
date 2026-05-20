@@ -26,3 +26,22 @@ test('AIChat includes question navigator and multiline composer affordances', as
   assert.match(source, /Shift/);
   assert.match(source, /scrollToBottom/);
 });
+
+test('AIChat empty state exposes starter prompts', async () => {
+  const source = await loadAIChatSource();
+
+  assert.match(source, /STARTER_PROMPTS/);
+  assert.match(source, /K8s/);
+  assert.match(source, /分布式系统/);
+  assert.match(source, /handleStarterPromptSelect/);
+  assert.match(source, /starterPrompt\.prompt/);
+});
+
+test('AIChat message flow uses layout animation and smooth bottom following', async () => {
+  const source = await loadAIChatSource();
+
+  assert.match(source, /layout="position"/);
+  assert.match(source, /behavior:\s*'smooth'/);
+  assert.match(source, /requestAnimationFrame/);
+  assert.doesNotMatch(source, /scrollTop\s*=\s*container\.scrollHeight/);
+});
