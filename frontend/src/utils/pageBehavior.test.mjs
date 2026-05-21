@@ -56,6 +56,24 @@ test('shouldAttemptTokenRefresh respects silent auth checks', async () => {
   );
 });
 
+test('current user failure does not clear auth created after the request started', async () => {
+  const { shouldClearAuthAfterCurrentUserFailure } = await loadPageBehavior();
+
+  assert.equal(shouldClearAuthAfterCurrentUserFailure(null, 'new-login-token'), false);
+  assert.equal(shouldClearAuthAfterCurrentUserFailure('old-token', 'new-login-token'), false);
+  assert.equal(shouldClearAuthAfterCurrentUserFailure(null, null), true);
+  assert.equal(shouldClearAuthAfterCurrentUserFailure('expired-token', 'expired-token'), true);
+});
+
+test('current user response only applies to the auth state that requested it', async () => {
+  const { shouldApplyCurrentUserResult } = await loadPageBehavior();
+
+  assert.equal(shouldApplyCurrentUserResult(null, null), true);
+  assert.equal(shouldApplyCurrentUserResult('same-token', 'same-token'), true);
+  assert.equal(shouldApplyCurrentUserResult(null, 'new-login-token'), false);
+  assert.equal(shouldApplyCurrentUserResult('old-token', 'new-login-token'), false);
+});
+
 test('getArticlePrimaryActionLabel matches the submitted article status', async () => {
   const { getArticlePrimaryActionLabel } = await loadPageBehavior();
 

@@ -2,6 +2,10 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { User } from '@/types';
 import { authApi } from '@/api';
+import {
+  shouldApplyCurrentUserResult,
+  shouldClearAuthAfterCurrentUserFailure,
+} from '@/utils/pageBehavior';
 
 interface AuthState {
   user: User | null;
@@ -86,14 +90,20 @@ export const useAuthStore = create<AuthState>()(
       },
 
       fetchCurrentUser: async (options) => {
+        const requestToken = get().token;
         try {
           const response = await authApi.getCurrentUser({
             skipAuthRedirect: options?.silent,
           });
+          if (!shouldApplyCurrentUserResult(requestToken, get().token)) {
+            return false;
+          }
           get().setUser(response.user);
           return true;
         } catch (error) {
-          get().clearAuth();
+          if (shouldClearAuthAfterCurrentUserFailure(requestToken, get().token)) {
+            get().clearAuth();
+          }
           return false;
         }
       },

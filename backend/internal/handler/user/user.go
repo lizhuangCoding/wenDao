@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 
 	"wenDao/config"
 	"wenDao/internal/pkg/response"
@@ -21,16 +22,22 @@ type UserHandler struct {
 	oauthService        service.OAuthService
 	verificationService service.VerificationService
 	cfg                 *config.Config
+	logger              *zap.Logger
 }
 
 // NewUserHandler 创建用户处理器实例
 func NewUserHandler(userService service.UserService, uploadService service.UploadService, oauthService service.OAuthService, verificationService service.VerificationService, cfg *config.Config) *UserHandler {
+	logger := zap.L()
+	if logger == nil {
+		logger = zap.NewNop()
+	}
 	return &UserHandler{
 		userService:         userService,
 		uploadService:       uploadService,
 		oauthService:        oauthService,
 		verificationService: verificationService,
 		cfg:                 cfg,
+		logger:              logger,
 	}
 }
 

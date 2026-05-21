@@ -30,6 +30,7 @@ type appServices struct {
 func initServices(cfg *config.Config, logger *zap.Logger, repos *repositories, infra *infrastructure, aiCore *aiComponents) (*appServices, func(), error) {
 	oauthService := service.NewOAuthService(cfg)
 	var rdb = infra.rdb
+	logVerificationEmailConfig(cfg, logger)
 	verificationService := service.NewVerificationService(cfg, rdb, nil)
 	userService := service.NewUserService(repos.user, oauthService, cfg, rdb)
 	categoryService := service.NewCategoryService(repos.category)
@@ -122,6 +123,19 @@ func initServices(cfg *config.Config, logger *zap.Logger, repos *repositories, i
 		upload:            service.NewUploadService(repos.upload, cfg),
 		stat:              service.NewStatService(repos.stat, infra.rdb),
 	}, cleanup, nil
+}
+
+func logVerificationEmailConfig(cfg *config.Config, logger *zap.Logger) {
+	if cfg == nil || logger == nil {
+		return
+	}
+	logger.Info("Verification email config loaded",
+		zap.String("smtp_host", cfg.Email.SMTPHost),
+		zap.Int("smtp_port", cfg.Email.SMTPPort),
+		zap.Bool("username_configured", cfg.Email.Username != ""),
+		zap.Bool("password_configured", cfg.Email.Password != ""),
+		zap.Bool("from_address_configured", cfg.Email.FromAddress != ""),
+	)
 }
 
 func syncPublishedArticleVectors(articleRepo repository.ArticleRepository, vectorService service.VectorService, logger *zap.Logger) error {

@@ -59,7 +59,9 @@ func Run() error {
 	}
 
 	logger := deps.initLogger(cfg.Log)
+	undoGlobalLogger := zap.ReplaceGlobals(logger)
 	defer func() {
+		undoGlobalLogger()
 		_ = logger.Sync()
 	}()
 

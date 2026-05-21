@@ -17,6 +17,18 @@ export const shouldFetchCurrentUser = (
   hasCheckedCookieAuth = false
 ) => Boolean(token) || !hasCheckedCookieAuth;
 
+export const shouldApplyCurrentUserResult = (
+  requestToken: string | null | undefined,
+  currentToken: string | null | undefined
+) => {
+  if (!requestToken) {
+    return !currentToken;
+  }
+  return currentToken === requestToken;
+};
+
+export const shouldClearAuthAfterCurrentUserFailure = shouldApplyCurrentUserResult;
+
 export const shouldAttemptTokenRefresh = ({
   status,
   url = '',

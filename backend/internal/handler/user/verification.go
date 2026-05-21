@@ -63,6 +63,7 @@ func (h *UserHandler) RequestPasswordResetCode(c *gin.Context) {
 		return
 	}
 	if !exists {
+		h.log().Info("Password reset verification email skipped for unknown account", userEmailLogFields(req.Email)...)
 		response.Success(c, gin.H{"message": "If the email exists, a verification code has been sent"})
 		return
 	}

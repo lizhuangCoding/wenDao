@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/redis/go-redis/v9"
+	"go.uber.org/zap"
 
 	"wenDao/config"
 )
@@ -60,6 +61,7 @@ type verificationService struct {
 	store         verificationStore
 	sender        VerificationEmailSender
 	codeGenerator func() (string, error)
+	logger        *zap.Logger
 }
 
 func NewVerificationService(cfg *config.Config, rdb *redis.Client, sender VerificationEmailSender) VerificationService {
@@ -75,7 +77,7 @@ func NewVerificationService(cfg *config.Config, rdb *redis.Client, sender Verifi
 		store = &redisVerificationStore{rdb: rdb}
 	}
 
-	return newVerificationServiceWithDeps(cfg.Verification, cfg.JWT.Secret, store, sender, generateNumericCode)
+	return newVerificationServiceWithDepsAndLogger(cfg.Verification, cfg.JWT.Secret, store, sender, generateNumericCode, zap.L())
 }
 
 func newVerificationServiceWithDeps(
@@ -85,37 +87,63 @@ func newVerificationServiceWithDeps(
 	sender VerificationEmailSender,
 	codeGenerator func() (string, error),
 ) *verificationService {
+	return newVerificationServiceWithDepsAndLogger(cfg, secret, store, sender, codeGenerator, zap.NewNop())
+}
+
+func newVerificationServiceWithDepsAndLogger(
+	cfg config.VerificationConfig,
+	secret string,
+	store verificationStore,
+	sender VerificationEmailSender,
+	codeGenerator func() (string, error),
+	logger *zap.Logger,
+) *verificationService {
 	cfg = normalizeVerificationConfig(cfg)
+	if logger == nil {
+		logger = zap.NewNop()
+	}
 	return &verificationService{
 		cfg:           cfg,
 		secret:        secret,
 		store:         store,
 		sender:        sender,
 		codeGenerator: codeGenerator,
+		logger:        logger,
 	}
 }
 
 func (s *verificationService) SendCode(ctx context.Context, email string, purpose VerificationPurpose) error {
 	if s == nil || s.store == nil || s.sender == nil || s.secret == "" {
+		if s != nil {
+			s.log().Warn("Verification service unavailable",
+				zap.Bool("store_configured", s.store != nil),
+				zap.Bool("sender_configured", s.sender != nil),
+				zap.Bool("secret_configured", s.secret != ""),
+			)
+		}
 		return ErrVerificationUnavailable
 	}
 	normalizedEmail := normalizeVerificationEmail(email)
 	if normalizedEmail == "" || !isKnownVerificationPurpose(purpose) {
 		return ErrVerificationCodeInvalid
 	}
+	fields := verificationLogFields(normalizedEmail, purpose)
 
 	cooldownKey := s.cooldownKey(normalizedEmail, purpose)
 	cooldownReserved, err := s.store.ReserveCooldown(ctx, cooldownKey, s.cooldown())
 	if err != nil {
+		s.log().Warn("Verification cooldown reservation failed", append(fields, zap.Error(err))...)
 		return fmt.Errorf("%w: %v", ErrVerificationUnavailable, err)
 	}
 	if !cooldownReserved {
+		s.log().Info("Verification code send throttled", fields...)
 		return ErrVerificationCodeTooFrequent
 	}
 
 	code, err := s.codeGenerator()
 	if err != nil {
 		_ = s.store.Delete(ctx, cooldownKey)
+		s.log().Error("Verification code generation failed", append(fields, zap.Error(err))...)
 		return fmt.Errorf("failed to generate verification code: %w", err)
 	}
 
@@ -126,14 +154,17 @@ func (s *verificationService) SendCode(ctx context.Context, email string, purpos
 	}
 	if err := s.store.SetCode(ctx, s.codeKey(normalizedEmail, purpose), record, ttl); err != nil {
 		_ = s.store.Delete(ctx, cooldownKey)
+		s.log().Warn("Verification code store failed", append(fields, zap.Error(err))...)
 		return fmt.Errorf("%w: %v", ErrVerificationUnavailable, err)
 	}
 
 	if err := s.sender.SendVerificationCode(ctx, normalizedEmail, purpose, code, ttl); err != nil {
 		_ = s.store.Delete(ctx, s.codeKey(normalizedEmail, purpose))
 		_ = s.store.Delete(ctx, cooldownKey)
+		s.log().Error("Verification email send failed", append(fields, zap.Error(err))...)
 		return err
 	}
+	s.log().Info("Verification email sent", append(fields, zap.Duration("ttl", ttl))...)
 	return nil
 }
 
@@ -205,6 +236,13 @@ func (s *verificationService) maxAttempts() int {
 	return s.cfg.MaxVerificationAttempts
 }
 
+func (s *verificationService) log() *zap.Logger {
+	if s == nil || s.logger == nil {
+		return zap.NewNop()
+	}
+	return s.logger
+}
+
 func normalizeVerificationConfig(cfg config.VerificationConfig) config.VerificationConfig {
 	if cfg.CodeTTLMinutes <= 0 {
 		cfg.CodeTTLMinutes = 10
@@ -229,6 +267,35 @@ func isKnownVerificationPurpose(purpose VerificationPurpose) bool {
 func hashKey(value string) string {
 	sum := sha256.Sum256([]byte(value))
 	return hex.EncodeToString(sum[:])
+}
+
+func verificationLogFields(email string, purpose VerificationPurpose) []zap.Field {
+	fields := []zap.Field{
+		zap.String("purpose", string(purpose)),
+	}
+	if email != "" {
+		fields = append(fields,
+			zap.String("email_hash", shortVerificationHash(email)),
+			zap.String("email_domain", verificationEmailDomain(email)),
+		)
+	}
+	return fields
+}
+
+func shortVerificationHash(value string) string {
+	hash := hashKey(normalizeVerificationEmail(value))
+	if len(hash) < 12 {
+		return hash
+	}
+	return hash[:12]
+}
+
+func verificationEmailDomain(email string) string {
+	_, domain, ok := strings.Cut(normalizeVerificationEmail(email), "@")
+	if !ok {
+		return ""
+	}
+	return domain
 }
 
 func generateNumericCode() (string, error) {
