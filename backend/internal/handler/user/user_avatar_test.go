@@ -583,10 +583,11 @@ func TestUserHandlerGitHubLogin_UsesSecureStateCookieInReleaseMode(t *testing.T)
 
 	h := NewUserHandler(&stubUserService{}, &stubUploadService{}, &stubOAuthService{}, nil, &config.Config{
 		Server: config.ServerConfig{Mode: "release"},
+		Site:   config.SiteConfig{URL: "https://frontend.example.com"},
 		OAuth: config.OAuthConfig{GitHub: config.GitHubOAuthConfig{
 			ClientID:     "test-client-id",
 			ClientSecret: "test-client-secret",
-			CallbackURL:  "http://localhost:8089/api/auth/github/callback",
+			CallbackURL:  "https://frontend.example.com/api/auth/github/callback",
 		}},
 	})
 
@@ -603,6 +604,35 @@ func TestUserHandlerGitHubLogin_UsesSecureStateCookieInReleaseMode(t *testing.T)
 	stateCookie := findCookieByName(t, w.Result(), "oauth_state")
 	if !stateCookie.Secure {
 		t.Fatalf("expected oauth_state cookie to be secure in release mode")
+	}
+}
+
+func TestUserHandlerGitHubLogin_UsesNonSecureStateCookieForHTTPPublicSite(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	h := NewUserHandler(&stubUserService{}, &stubUploadService{}, &stubOAuthService{}, nil, &config.Config{
+		Server: config.ServerConfig{Mode: "release"},
+		Site:   config.SiteConfig{URL: "http://39.105.1.8:8081"},
+		OAuth: config.OAuthConfig{GitHub: config.GitHubOAuthConfig{
+			ClientID:     "test-client-id",
+			ClientSecret: "test-client-secret",
+			CallbackURL:  "http://39.105.1.8:8081/api/auth/github/callback",
+		}},
+	})
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest(http.MethodGet, "/api/auth/github", nil)
+
+	h.GitHubLogin(c)
+
+	if w.Code != http.StatusFound {
+		t.Fatalf("expected status %d, got %d", http.StatusFound, w.Code)
+	}
+
+	stateCookie := findCookieByName(t, w.Result(), "oauth_state")
+	if stateCookie.Secure {
+		t.Fatalf("expected oauth_state cookie not to be secure for HTTP public site")
 	}
 }
 

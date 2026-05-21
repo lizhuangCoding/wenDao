@@ -8,6 +8,7 @@ import (
 	"github.com/redis/go-redis/v9"
 
 	"wenDao/config"
+	"wenDao/internal/pkg/httpcookie"
 	"wenDao/internal/pkg/jwt"
 	"wenDao/internal/pkg/response"
 	"wenDao/internal/service"
@@ -84,7 +85,6 @@ func (h *AuthHandler) Refresh(c *gin.Context) {
 	}
 
 	// 设置新的 Refresh Token Cookie
-	isRelease := h.cfg.Server.Mode == "release"
 	c.SetSameSite(http.SameSiteLaxMode)
 	c.SetCookie(
 		"refresh_token",
@@ -92,8 +92,8 @@ func (h *AuthHandler) Refresh(c *gin.Context) {
 		h.cfg.JWT.RefreshExpireDays*24*3600,
 		"/",
 		"",
-		isRelease, // secure
-		true,      // httpOnly
+		httpcookie.ShouldUseSecureCookies(h.cfg), // secure
+		true,                                     // httpOnly
 	)
 
 	response.Success(c, gin.H{

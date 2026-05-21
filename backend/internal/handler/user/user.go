@@ -11,6 +11,7 @@ import (
 	"go.uber.org/zap"
 
 	"wenDao/config"
+	"wenDao/internal/pkg/httpcookie"
 	"wenDao/internal/pkg/response"
 	"wenDao/internal/service"
 )
@@ -115,7 +116,7 @@ func (h *UserHandler) Register(c *gin.Context) {
 	// 清除敏感信息
 	user.PasswordHash = nil
 
-	isRelease := h.cfg.Server.Mode == "release"
+	secureCookie := httpcookie.ShouldUseSecureCookies(h.cfg)
 	c.SetSameSite(http.SameSiteLaxMode)
 	c.SetCookie(
 		"token",
@@ -123,7 +124,7 @@ func (h *UserHandler) Register(c *gin.Context) {
 		h.cfg.JWT.AccessExpireHours*3600,
 		"/",
 		"",
-		isRelease,
+		secureCookie,
 		true,
 	)
 	c.SetCookie(
@@ -132,7 +133,7 @@ func (h *UserHandler) Register(c *gin.Context) {
 		h.cfg.JWT.RefreshExpireDays*24*3600,
 		"/",
 		"",
-		isRelease,
+		secureCookie,
 		true,
 	)
 
@@ -177,7 +178,7 @@ func (h *UserHandler) Login(c *gin.Context) {
 	user.PasswordHash = nil
 
 	// 设置 Access Token Cookie
-	isRelease := h.cfg.Server.Mode == "release"
+	secureCookie := httpcookie.ShouldUseSecureCookies(h.cfg)
 	c.SetSameSite(http.SameSiteLaxMode)
 	c.SetCookie(
 		"token",
@@ -185,7 +186,7 @@ func (h *UserHandler) Login(c *gin.Context) {
 		h.cfg.JWT.AccessExpireHours*3600,
 		"/",
 		"",
-		isRelease,
+		secureCookie,
 		true,
 	)
 
@@ -196,7 +197,7 @@ func (h *UserHandler) Login(c *gin.Context) {
 		h.cfg.JWT.RefreshExpireDays*24*3600,
 		"/",
 		"",
-		isRelease,
+		secureCookie,
 		true,
 	)
 
@@ -337,9 +338,9 @@ func (h *UserHandler) GitHubLogin(c *gin.Context) {
 	}
 
 	state := generateRandomState()
-	isRelease := h.cfg.Server.Mode == "release"
+	secureCookie := httpcookie.ShouldUseSecureCookies(h.cfg)
 	c.SetSameSite(http.SameSiteLaxMode)
-	c.SetCookie("oauth_state", state, 600, "/", "", isRelease, true)
+	c.SetCookie("oauth_state", state, 600, "/", "", secureCookie, true)
 
 	authURL := h.oauthService.GetGitHubAuthURL(state)
 	c.Redirect(302, authURL)
@@ -378,10 +379,10 @@ func (h *UserHandler) GitHubCallback(c *gin.Context) {
 		return
 	}
 
-	isRelease := h.cfg.Server.Mode == "release"
+	secureCookie := httpcookie.ShouldUseSecureCookies(h.cfg)
 	c.SetSameSite(http.SameSiteLaxMode)
-	c.SetCookie("token", token, h.cfg.JWT.AccessExpireHours*3600, "/", "", isRelease, true)
-	c.SetCookie("refresh_token", refreshToken, h.cfg.JWT.RefreshExpireDays*24*3600, "/", "", isRelease, true)
+	c.SetCookie("token", token, h.cfg.JWT.AccessExpireHours*3600, "/", "", secureCookie, true)
+	c.SetCookie("refresh_token", refreshToken, h.cfg.JWT.RefreshExpireDays*24*3600, "/", "", secureCookie, true)
 
 	redirectURL := h.cfg.Site.URL
 	if redirectURL == "" {
