@@ -19,6 +19,17 @@ export interface RegisterRequest {
   username: string;
   email: string;
   password: string;
+  verification_code: string;
+}
+
+export interface VerificationCodeRequest {
+  email: string;
+}
+
+export interface PasswordResetConfirmRequest {
+  email: string;
+  password: string;
+  verification_code: string;
 }
 
 export interface AuthResponse {

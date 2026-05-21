@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { RouterProvider } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { router } from './router';
@@ -50,10 +50,15 @@ const Toast = () => {
 
 function App() {
   const { token, fetchCurrentUser } = useAuthStore();
+  const hasCheckedCookieAuthRef = useRef(false);
 
   useEffect(() => {
-    if (shouldFetchCurrentUser(token)) {
-      fetchCurrentUser({ silent: false });
+    const hasCheckedCookieAuth = hasCheckedCookieAuthRef.current;
+    if (shouldFetchCurrentUser(token, hasCheckedCookieAuth)) {
+      if (!token) {
+        hasCheckedCookieAuthRef.current = true;
+      }
+      fetchCurrentUser({ silent: !token });
     }
   }, [token, fetchCurrentUser]);
 

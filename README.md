@@ -164,6 +164,10 @@ npm run preview
 - `GITHUB_CALLBACK_URL`
 - `REDIS_HOST`
 - `REDIS_VECTOR_HOST`
+- `EMAIL_SMTP_HOST`
+- `EMAIL_FROM_ADDRESS`
+- `EMAIL_USERNAME`
+- `EMAIL_PASSWORD`
 
 前端可通过 `frontend/.env` 指定：
 

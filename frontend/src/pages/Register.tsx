@@ -3,24 +3,35 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Eye, EyeOff, Loader2 } from 'lucide-react';
 import { authApi } from '@/api';
-import { AuthFormMessage, AuthTextField } from '@/components/auth';
+import { AuthFormMessage, AuthTextField, VerificationCodeField } from '@/components/auth';
 import { GitHubAuthButton } from '@/components/common';
-import { useAuth } from '@/hooks';
+import { useAuth, useCountdown } from '@/hooks';
 import { useUIStore } from '@/store';
 import {
   mapAuthErrorToForm,
+  validateAuthEmail,
   validateRegisterForm,
   type AuthField,
   type RegisterFormValues,
 } from '@/utils/authForm';
 
-type RegisterField = Extract<AuthField, 'username' | 'email' | 'password' | 'confirmPassword'>;
+type RegisterField = Extract<
+  AuthField,
+  'username' | 'email' | 'verificationCode' | 'password' | 'confirmPassword'
+>;
 
-const registerFieldOrder: RegisterField[] = ['username', 'email', 'password', 'confirmPassword'];
+const registerFieldOrder: RegisterField[] = [
+  'username',
+  'email',
+  'verificationCode',
+  'password',
+  'confirmPassword',
+];
 
 export const Register = () => {
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
+  const [verificationCode, setVerificationCode] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<AuthField, string>>>({});
@@ -28,14 +39,17 @@ export const Register = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isCodeSending, setIsCodeSending] = useState(false);
   const usernameInputRef = useRef<HTMLInputElement>(null);
   const emailInputRef = useRef<HTMLInputElement>(null);
+  const verificationCodeInputRef = useRef<HTMLInputElement>(null);
   const passwordInputRef = useRef<HTMLInputElement>(null);
   const confirmPasswordInputRef = useRef<HTMLInputElement>(null);
   const { t } = useTranslation();
   const { register } = useAuth();
   const { showToast } = useUIStore();
   const navigate = useNavigate();
+  const codeCooldown = useCountdown();
 
   const passwordProgress = Math.min(password.length / 6, 1) * 100;
   const passwordMeetsRequirement = password.length >= 6;
@@ -53,6 +67,7 @@ export const Register = () => {
   const getValues = (nextValues: Partial<RegisterFormValues> = {}): RegisterFormValues => ({
     username,
     email,
+    verificationCode,
     password,
     confirmPassword,
     ...nextValues,
@@ -62,6 +77,7 @@ export const Register = () => {
     const refs = {
       username: usernameInputRef,
       email: emailInputRef,
+      verificationCode: verificationCodeInputRef,
       password: passwordInputRef,
       confirmPassword: confirmPasswordInputRef,
     };
@@ -112,6 +128,15 @@ export const Register = () => {
     }
   };
 
+  const handleVerificationCodeChange = (nextCode: string) => {
+    const normalizedCode = nextCode.replace(/\D/g, '').slice(0, 6);
+    setVerificationCode(normalizedCode);
+    setFormError('');
+    if (fieldErrors.verificationCode) {
+      validateFields(['verificationCode'], getValues({ verificationCode: normalizedCode }));
+    }
+  };
+
   const handlePasswordChange = (nextPassword: string) => {
     setPassword(nextPassword);
     setFormError('');
@@ -131,11 +156,51 @@ export const Register = () => {
     }
   };
 
+  const handleSendVerificationCode = async () => {
+    setFormError('');
+    const emailValidation = validateAuthEmail(email);
+    setEmail(emailValidation.value);
+
+    if (!emailValidation.isValid) {
+      setFieldErrors((current) => ({ ...current, ...emailValidation.fieldErrors }));
+      focusField('email');
+      return;
+    }
+
+    setFieldError('email');
+    setIsCodeSending(true);
+    try {
+      await authApi.requestRegisterCode({ email: emailValidation.value });
+      codeCooldown.start(60);
+      showToast(t('auth.verificationCodeSent'), 'success');
+      requestAnimationFrame(() => verificationCodeInputRef.current?.focus());
+    } catch (error: any) {
+      const feedback = mapAuthErrorToForm(error?.message, 'register');
+      const message = resolveMessage(feedback.messageKey, feedback.fallbackMessage);
+
+      if (registerFieldOrder.includes(feedback.target as RegisterField)) {
+        const target = feedback.target as RegisterField;
+        setFieldError(target, feedback.messageKey);
+        focusField(target);
+      } else {
+        setFormError(message);
+      }
+    } finally {
+      setIsCodeSending(false);
+    }
+  };
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setFormError('');
 
-    const validation = validateRegisterForm({ username, email, password, confirmPassword });
+    const validation = validateRegisterForm({
+      username,
+      email,
+      verificationCode,
+      password,
+      confirmPassword,
+    });
     setUsername(validation.values.username);
     setEmail(validation.values.email);
 
@@ -151,7 +216,12 @@ export const Register = () => {
     setFieldErrors({});
     setIsLoading(true);
     try {
-      await register(validation.values.username, validation.values.email, validation.values.password);
+      await register(
+        validation.values.username,
+        validation.values.email,
+        validation.values.password,
+        validation.values.verificationCode
+      );
       showToast(t('auth.registerSuccess'), 'success');
       navigate('/');
     } catch (error: any) {
@@ -216,6 +286,23 @@ export const Register = () => {
             inputMode="email"
             disabled={isLoading}
             error={getFieldError('email')}
+          />
+
+          <VerificationCodeField
+            ref={verificationCodeInputRef}
+            id="register-verification-code"
+            label={t('auth.verificationCode')}
+            value={verificationCode}
+            onChange={(e) => handleVerificationCodeChange(e.target.value)}
+            onBlur={() => validateFields(['verificationCode'], getValues())}
+            disabled={isLoading}
+            isSending={isCodeSending}
+            cooldownSeconds={codeCooldown.seconds}
+            error={getFieldError('verificationCode')}
+            onSendCode={handleSendVerificationCode}
+            sendLabel={t('auth.sendCode')}
+            sendingLabel={t('auth.sendingCode')}
+            countdownLabel={(seconds) => t('auth.resendIn', { seconds })}
           />
 
           <AuthTextField

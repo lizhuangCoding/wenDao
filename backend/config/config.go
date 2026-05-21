@@ -11,17 +11,19 @@ const placeholderJWTSecret = "your-secret-key-change-in-production"
 
 // Config 应用配置
 type Config struct {
-	Server      ServerConfig    `mapstructure:"server"`
-	Site        SiteConfig      `mapstructure:"site"`
-	Database    DatabaseConfig  `mapstructure:"database"`
-	Redis       RedisConfig     `mapstructure:"redis"`
-	RedisVector RedisConfig     `mapstructure:"redis_vector"`
-	JWT         JWTConfig       `mapstructure:"jwt"`
-	AI          AIConfig        `mapstructure:"ai"`
-	OAuth       OAuthConfig     `mapstructure:"oauth"`
-	Upload      UploadConfig    `mapstructure:"upload"`
-	RateLimit   RateLimitConfig `mapstructure:"ratelimit"`
-	Log         LogConfig       `mapstructure:"log"`
+	Server       ServerConfig       `mapstructure:"server"`
+	Site         SiteConfig         `mapstructure:"site"`
+	Database     DatabaseConfig     `mapstructure:"database"`
+	Redis        RedisConfig        `mapstructure:"redis"`
+	RedisVector  RedisConfig        `mapstructure:"redis_vector"`
+	JWT          JWTConfig          `mapstructure:"jwt"`
+	AI           AIConfig           `mapstructure:"ai"`
+	OAuth        OAuthConfig        `mapstructure:"oauth"`
+	Upload       UploadConfig       `mapstructure:"upload"`
+	RateLimit    RateLimitConfig    `mapstructure:"ratelimit"`
+	Email        EmailConfig        `mapstructure:"email"`
+	Verification VerificationConfig `mapstructure:"verification"`
+	Log          LogConfig          `mapstructure:"log"`
 }
 
 // ServerConfig 服务器配置
@@ -115,10 +117,30 @@ type AIConfig struct {
 
 // RateLimitConfig 限流配置
 type RateLimitConfig struct {
-	Global   int `mapstructure:"global"`
-	Register int `mapstructure:"register"`
-	Login    int `mapstructure:"login"`
-	AIChat   int `mapstructure:"ai_chat"`
+	Global           int `mapstructure:"global"`
+	Register         int `mapstructure:"register"`
+	Login            int `mapstructure:"login"`
+	VerificationCode int `mapstructure:"verification_code"`
+	PasswordReset    int `mapstructure:"password_reset"`
+	Refresh          int `mapstructure:"refresh"`
+	AIChat           int `mapstructure:"ai_chat"`
+}
+
+// EmailConfig 邮件发送配置
+type EmailConfig struct {
+	SMTPHost    string `mapstructure:"smtp_host"`
+	SMTPPort    int    `mapstructure:"smtp_port"`
+	Username    string `mapstructure:"username"`
+	Password    string `mapstructure:"password"`
+	FromAddress string `mapstructure:"from_address"`
+	FromName    string `mapstructure:"from_name"`
+}
+
+// VerificationConfig 邮箱验证码配置
+type VerificationConfig struct {
+	CodeTTLMinutes          int `mapstructure:"code_ttl_minutes"`
+	ResendCooldownSeconds   int `mapstructure:"resend_cooldown_seconds"`
+	MaxVerificationAttempts int `mapstructure:"max_verification_attempts"`
 }
 
 // LoadConfig 加载配置文件
@@ -134,6 +156,14 @@ func LoadConfig() (*Config, error) {
 	viper.SetDefault("log.max_backups", 7)
 	viper.SetDefault("log.max_age_days", 28)
 	viper.SetDefault("log.compress", true)
+	viper.SetDefault("email.smtp_port", 587)
+	viper.SetDefault("email.from_name", "wenDao")
+	viper.SetDefault("verification.code_ttl_minutes", 10)
+	viper.SetDefault("verification.resend_cooldown_seconds", 60)
+	viper.SetDefault("verification.max_verification_attempts", 5)
+	viper.SetDefault("ratelimit.verification_code", 3)
+	viper.SetDefault("ratelimit.password_reset", 5)
+	viper.SetDefault("ratelimit.refresh", 30)
 
 	_ = viper.BindEnv("database.host", "DB_HOST")
 	_ = viper.BindEnv("database.port", "DB_PORT")
@@ -169,6 +199,15 @@ func LoadConfig() (*Config, error) {
 	_ = viper.BindEnv("oauth.github.client_id", "GITHUB_CLIENT_ID")
 	_ = viper.BindEnv("oauth.github.client_secret", "GITHUB_CLIENT_SECRET")
 	_ = viper.BindEnv("oauth.github.callback_url", "GITHUB_CALLBACK_URL")
+	_ = viper.BindEnv("email.smtp_host", "EMAIL_SMTP_HOST")
+	_ = viper.BindEnv("email.smtp_port", "EMAIL_SMTP_PORT")
+	_ = viper.BindEnv("email.username", "EMAIL_USERNAME")
+	_ = viper.BindEnv("email.password", "EMAIL_PASSWORD")
+	_ = viper.BindEnv("email.from_address", "EMAIL_FROM_ADDRESS")
+	_ = viper.BindEnv("email.from_name", "EMAIL_FROM_NAME")
+	_ = viper.BindEnv("verification.code_ttl_minutes", "VERIFICATION_CODE_TTL_MINUTES")
+	_ = viper.BindEnv("verification.resend_cooldown_seconds", "VERIFICATION_RESEND_COOLDOWN_SECONDS")
+	_ = viper.BindEnv("verification.max_verification_attempts", "VERIFICATION_MAX_ATTEMPTS")
 
 	if err := viper.ReadInConfig(); err != nil {
 		return nil, fmt.Errorf("failed to read config: %w", err)
@@ -205,6 +244,30 @@ func LoadConfig() (*Config, error) {
 	}
 	if cfg.Log.MaxAgeDays <= 0 {
 		cfg.Log.MaxAgeDays = 28
+	}
+	if cfg.Email.SMTPPort <= 0 {
+		cfg.Email.SMTPPort = 587
+	}
+	if cfg.Email.FromName == "" {
+		cfg.Email.FromName = "wenDao"
+	}
+	if cfg.Verification.CodeTTLMinutes <= 0 {
+		cfg.Verification.CodeTTLMinutes = 10
+	}
+	if cfg.Verification.ResendCooldownSeconds <= 0 {
+		cfg.Verification.ResendCooldownSeconds = 60
+	}
+	if cfg.Verification.MaxVerificationAttempts <= 0 {
+		cfg.Verification.MaxVerificationAttempts = 5
+	}
+	if cfg.RateLimit.VerificationCode <= 0 {
+		cfg.RateLimit.VerificationCode = 3
+	}
+	if cfg.RateLimit.PasswordReset <= 0 {
+		cfg.RateLimit.PasswordReset = 5
+	}
+	if cfg.RateLimit.Refresh <= 0 {
+		cfg.RateLimit.Refresh = 30
 	}
 	if cfg.JWT.Secret == placeholderJWTSecret {
 		return nil, fmt.Errorf("invalid placeholder JWT secret: configure a non-placeholder JWT secret before startup")

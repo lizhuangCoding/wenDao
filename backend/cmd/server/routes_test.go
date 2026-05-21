@@ -52,6 +52,9 @@ func TestBuildRouter_RegistersRequiredRoutes(t *testing.T) {
 		"GET /api/articles/slug/:slug",
 		"GET /api/categories/:id/articles",
 		"GET /api/comments/article/:id",
+		"POST /api/auth/register/code",
+		"POST /api/auth/password-reset/code",
+		"POST /api/auth/password-reset/confirm",
 		"POST /api/auth/refresh",
 		"GET /api/auth/me",
 		"POST /api/users/me/avatar",
@@ -70,6 +73,24 @@ func TestBuildRouter_RegistersRequiredRoutes(t *testing.T) {
 	for _, route := range required {
 		if _, ok := routes[route]; !ok {
 			t.Fatalf("expected route %s to be registered", route)
+		}
+	}
+}
+
+func TestAllowedCORSOriginsIncludesSiteURLAndLocalDev(t *testing.T) {
+	origins := allowedCORSOrigins(&config.Config{Site: config.SiteConfig{URL: "https://example.com"}})
+
+	required := []string{"http://localhost:3000", "http://127.0.0.1:3000", "https://example.com"}
+	for _, expected := range required {
+		found := false
+		for _, origin := range origins {
+			if origin == expected {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Fatalf("expected origin %q in %#v", expected, origins)
 		}
 	}
 }

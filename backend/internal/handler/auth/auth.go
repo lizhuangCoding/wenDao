@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"net/http"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -84,6 +85,7 @@ func (h *AuthHandler) Refresh(c *gin.Context) {
 
 	// 设置新的 Refresh Token Cookie
 	isRelease := h.cfg.Server.Mode == "release"
+	c.SetSameSite(http.SameSiteLaxMode)
 	c.SetCookie(
 		"refresh_token",
 		newRefreshToken,
@@ -126,6 +128,7 @@ func (h *AuthHandler) Logout(c *gin.Context) {
 	}
 
 	// 清除 Refresh Token Cookie
+	c.SetSameSite(http.SameSiteLaxMode)
 	c.SetCookie("refresh_token", "", -1, "/", "", false, true)
 
 	response.Success(c, gin.H{"message": "Logged out successfully"})

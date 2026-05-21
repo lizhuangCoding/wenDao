@@ -86,7 +86,25 @@ ratelimit:
   global: 100            # 全局 API 限流 (每秒)
   register: 5            # 注册接口限流 (每分钟)
   login: 10              # 登录接口限流 (每分钟)
+  verification_code: 3   # 邮箱验证码发送限流 (每分钟)
+  password_reset: 5      # 密码重置接口限流 (每分钟)
+  refresh: 30            # Token 刷新接口限流 (每分钟)
   ai_chat: 10            # AI 对话接口限流 (每分钟)
+
+# 邮件发送配置 (用于注册/重置密码验证码，建议通过环境变量注入)
+email:
+  smtp_host: ""          # SMTP 服务器地址，例如 smtp.example.com
+  smtp_port: 587         # SMTP 端口
+  username: ""           # SMTP 用户名
+  password: ""           # SMTP 密码或授权码
+  from_address: ""       # 发件人邮箱
+  from_name: "wenDao"    # 发件人名称
+
+# 邮箱验证码配置
+verification:
+  code_ttl_minutes: 10          # 验证码有效期
+  resend_cooldown_seconds: 60   # 同一邮箱重复发送冷却时间
+  max_verification_attempts: 5   # 单个验证码最多尝试次数
 
 # 日志配置
 log:

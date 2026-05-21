@@ -2,6 +2,8 @@ import { request, getApiUrl } from './client';
 import type {
   LoginRequest,
   RegisterRequest,
+  VerificationCodeRequest,
+  PasswordResetConfirmRequest,
   AuthResponse,
   CurrentUserResponse,
 } from '@/types';
@@ -16,6 +18,18 @@ export const authApi = {
   // 注册
   register: (data: RegisterRequest) => {
     return request.post<AuthResponse>('/auth/register', data);
+  },
+
+  requestRegisterCode: (data: VerificationCodeRequest) => {
+    return request.post('/auth/register/code', data);
+  },
+
+  requestPasswordResetCode: (data: VerificationCodeRequest) => {
+    return request.post('/auth/password-reset/code', data);
+  },
+
+  confirmPasswordReset: (data: PasswordResetConfirmRequest) => {
+    return request.post('/auth/password-reset/confirm', data);
   },
 
   // 登出

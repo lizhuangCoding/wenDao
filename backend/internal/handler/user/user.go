@@ -3,6 +3,7 @@ package user
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"net/http"
 	"net/url"
 	"strings"
 
@@ -15,27 +16,30 @@ import (
 
 // UserHandler 用户处理器
 type UserHandler struct {
-	userService   service.UserService
-	uploadService service.UploadService
-	oauthService  service.OAuthService
-	cfg           *config.Config
+	userService         service.UserService
+	uploadService       service.UploadService
+	oauthService        service.OAuthService
+	verificationService service.VerificationService
+	cfg                 *config.Config
 }
 
 // NewUserHandler 创建用户处理器实例
-func NewUserHandler(userService service.UserService, uploadService service.UploadService, oauthService service.OAuthService, cfg *config.Config) *UserHandler {
+func NewUserHandler(userService service.UserService, uploadService service.UploadService, oauthService service.OAuthService, verificationService service.VerificationService, cfg *config.Config) *UserHandler {
 	return &UserHandler{
-		userService:   userService,
-		uploadService: uploadService,
-		oauthService:  oauthService,
-		cfg:           cfg,
+		userService:         userService,
+		uploadService:       uploadService,
+		oauthService:        oauthService,
+		verificationService: verificationService,
+		cfg:                 cfg,
 	}
 }
 
 // RegisterRequest 注册请求
 type RegisterRequest struct {
-	Email    string `json:"email" binding:"required,email"`
-	Password string `json:"password" binding:"required,min=6"`
-	Username string `json:"username" binding:"required,min=2,max=50"`
+	Email            string `json:"email" binding:"required,email"`
+	Password         string `json:"password" binding:"required,min=6"`
+	Username         string `json:"username" binding:"required,min=2,max=50"`
+	VerificationCode string `json:"verification_code" binding:"required,min=4,max=10"`
 }
 
 // LoginRequest 登录请求
@@ -54,6 +58,25 @@ func (h *UserHandler) Register(c *gin.Context) {
 	var req RegisterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.InvalidParams(c, err.Error())
+		return
+	}
+
+	exists, err := h.userService.EmailExists(req.Email)
+	if err != nil {
+		response.InternalError(c, "Failed to check email")
+		return
+	}
+	if exists {
+		response.Error(c, response.CodeInvalidParams, "Email already exists")
+		return
+	}
+
+	if h.verificationService == nil {
+		response.ServiceUnavailable(c, "Verification service is unavailable")
+		return
+	}
+	if err := h.verificationService.VerifyCode(c.Request.Context(), req.Email, service.PurposeRegister, req.VerificationCode); err != nil {
+		h.handleVerificationVerifyError(c, err)
 		return
 	}
 
@@ -86,6 +109,7 @@ func (h *UserHandler) Register(c *gin.Context) {
 	user.PasswordHash = nil
 
 	isRelease := h.cfg.Server.Mode == "release"
+	c.SetSameSite(http.SameSiteLaxMode)
 	c.SetCookie(
 		"token",
 		token,
@@ -147,6 +171,7 @@ func (h *UserHandler) Login(c *gin.Context) {
 
 	// 设置 Access Token Cookie
 	isRelease := h.cfg.Server.Mode == "release"
+	c.SetSameSite(http.SameSiteLaxMode)
 	c.SetCookie(
 		"token",
 		token,
@@ -192,6 +217,7 @@ func (h *UserHandler) Logout(c *gin.Context) {
 		_ = h.userService.Logout(refreshToken)
 	}
 
+	c.SetSameSite(http.SameSiteLaxMode)
 	c.SetCookie("token", "", -1, "/", "", false, true)
 	c.SetCookie("refresh_token", "", -1, "/", "", false, true)
 
@@ -305,6 +331,7 @@ func (h *UserHandler) GitHubLogin(c *gin.Context) {
 
 	state := generateRandomState()
 	isRelease := h.cfg.Server.Mode == "release"
+	c.SetSameSite(http.SameSiteLaxMode)
 	c.SetCookie("oauth_state", state, 600, "/", "", isRelease, true)
 
 	authURL := h.oauthService.GetGitHubAuthURL(state)
@@ -327,6 +354,7 @@ func (h *UserHandler) GitHubCallback(c *gin.Context) {
 		return
 	}
 
+	c.SetSameSite(http.SameSiteLaxMode)
 	c.SetCookie("oauth_state", "", -1, "/", "", false, true)
 
 	token, user, err := h.userService.GitHubOAuthLogin(code)
@@ -344,6 +372,7 @@ func (h *UserHandler) GitHubCallback(c *gin.Context) {
 	}
 
 	isRelease := h.cfg.Server.Mode == "release"
+	c.SetSameSite(http.SameSiteLaxMode)
 	c.SetCookie("token", token, h.cfg.JWT.AccessExpireHours*3600, "/", "", isRelease, true)
 	c.SetCookie("refresh_token", refreshToken, h.cfg.JWT.RefreshExpireDays*24*3600, "/", "", isRelease, true)
 

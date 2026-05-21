@@ -310,6 +310,86 @@ oauth:
 	}
 }
 
+func TestLoadConfig_BindsEmailVerificationSettingsFromEnv(t *testing.T) {
+	viper.Reset()
+	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+	defer viper.Reset()
+
+	tempDir := t.TempDir()
+	configDir := filepath.Join(tempDir, "config")
+	if err := os.MkdirAll(configDir, 0o755); err != nil {
+		t.Fatalf("failed to create config dir: %v", err)
+	}
+
+	configContent := `server:
+  port: "8089"
+  mode: "debug"
+site:
+  slogan: "test"
+  url: "http://localhost:3000"
+jwt:
+  secret: "real-test-secret"
+  access_expire_hours: 1
+  refresh_expire_days: 7
+upload:
+  max_size: 10485760
+  allowed_types:
+    - "image/jpeg"
+  storage_path: "./uploads"
+`
+	if err := os.WriteFile(filepath.Join(configDir, "config.yaml"), []byte(configContent), 0o644); err != nil {
+		t.Fatalf("failed to write config file: %v", err)
+	}
+
+	oldWD, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("failed to get working directory: %v", err)
+	}
+	defer func() {
+		_ = os.Chdir(oldWD)
+	}()
+
+	t.Setenv("EMAIL_SMTP_HOST", "smtp.example.com")
+	t.Setenv("EMAIL_SMTP_PORT", "465")
+	t.Setenv("EMAIL_USERNAME", "mailer")
+	t.Setenv("EMAIL_PASSWORD", "mail-secret")
+	t.Setenv("EMAIL_FROM_ADDRESS", "noreply@example.com")
+	t.Setenv("EMAIL_FROM_NAME", "WenDao Mail")
+	t.Setenv("VERIFICATION_CODE_TTL_MINUTES", "15")
+	t.Setenv("VERIFICATION_RESEND_COOLDOWN_SECONDS", "90")
+	t.Setenv("VERIFICATION_MAX_ATTEMPTS", "4")
+
+	if err := os.Chdir(tempDir); err != nil {
+		t.Fatalf("failed to change working directory: %v", err)
+	}
+
+	cfg, err := LoadConfig()
+	if err != nil {
+		t.Fatalf("expected config to load, got %v", err)
+	}
+	if cfg.Email.SMTPHost != "smtp.example.com" {
+		t.Fatalf("expected smtp host from env binding, got %q", cfg.Email.SMTPHost)
+	}
+	if cfg.Email.SMTPPort != 465 {
+		t.Fatalf("expected smtp port from env binding, got %d", cfg.Email.SMTPPort)
+	}
+	if cfg.Email.Username != "mailer" || cfg.Email.Password != "mail-secret" {
+		t.Fatalf("expected smtp credentials from env binding")
+	}
+	if cfg.Email.FromAddress != "noreply@example.com" || cfg.Email.FromName != "WenDao Mail" {
+		t.Fatalf("expected sender fields from env binding, got address=%q name=%q", cfg.Email.FromAddress, cfg.Email.FromName)
+	}
+	if cfg.Verification.CodeTTLMinutes != 15 {
+		t.Fatalf("expected verification ttl 15, got %d", cfg.Verification.CodeTTLMinutes)
+	}
+	if cfg.Verification.ResendCooldownSeconds != 90 {
+		t.Fatalf("expected verification cooldown 90, got %d", cfg.Verification.ResendCooldownSeconds)
+	}
+	if cfg.Verification.MaxVerificationAttempts != 4 {
+		t.Fatalf("expected max attempts 4, got %d", cfg.Verification.MaxVerificationAttempts)
+	}
+}
+
 func TestLoadConfig_BindsAIAndOAuthEndpointsFromEnv(t *testing.T) {
 	viper.Reset()
 	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))

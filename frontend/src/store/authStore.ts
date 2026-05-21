@@ -14,7 +14,12 @@ interface AuthState {
   setUser: (user: User) => void;
   clearAuth: () => void;
   login: (email: string, password: string) => Promise<void>;
-  register: (username: string, email: string, password: string) => Promise<void>;
+  register: (
+    username: string,
+    email: string,
+    password: string,
+    verificationCode: string
+  ) => Promise<void>;
   logout: () => Promise<void>;
   fetchCurrentUser: (options?: { silent?: boolean }) => Promise<boolean>;
 }
@@ -60,8 +65,13 @@ export const useAuthStore = create<AuthState>()(
         get().setAuth(response.user, response.access_token);
       },
 
-      register: async (username, email, password) => {
-        const response = await authApi.register({ username, email, password });
+      register: async (username, email, password, verificationCode) => {
+        const response = await authApi.register({
+          username,
+          email,
+          password,
+          verification_code: verificationCode,
+        });
         get().setAuth(response.user, response.access_token);
       },
 

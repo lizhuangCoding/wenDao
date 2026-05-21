@@ -3,6 +3,7 @@ package middleware
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -16,12 +17,13 @@ type RateLimitType int
 
 const (
 	GlobalLimit RateLimitType = iota // 全局限流（所有请求）
-	IPLimit                           // IP 限流
-	UserLimit                         // 用户限流（需要认证）
+	IPLimit                          // IP 限流
+	UserLimit                        // 用户限流（需要认证）
 )
 
 // RateLimitConfig 限流配置
 type RateLimitConfig struct {
+	Name    string                    // 限流场景名称，避免不同窗口共用同一个 Redis key
 	Type    RateLimitType             // 限流类型
 	Limit   int                       // 请求数
 	Window  time.Duration             // 时间窗口
@@ -31,7 +33,7 @@ type RateLimitConfig struct {
 // RateLimit 创建限流中间件
 func RateLimit(rdb *redis.Client, config RateLimitConfig) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		if rdb == nil {
+		if rdb == nil || config.Limit <= 0 {
 			c.Next()
 			return
 		}
@@ -61,27 +63,45 @@ func RateLimit(rdb *redis.Client, config RateLimitConfig) gin.HandlerFunc {
 
 // generateRateLimitKey 生成限流 key
 func generateRateLimitKey(c *gin.Context, config RateLimitConfig) string {
+	scope := strings.TrimSpace(config.Name)
+	if scope == "" {
+		scope = rateLimitTypeName(config.Type)
+	}
+
 	// 如果提供了自定义 key 函数，使用自定义函数
 	if config.KeyFunc != nil {
-		return fmt.Sprintf("ratelimit:%s", config.KeyFunc(c))
+		return fmt.Sprintf("ratelimit:%s:%s", scope, config.KeyFunc(c))
 	}
 
 	// 根据类型生成默认 key
 	switch config.Type {
 	case GlobalLimit:
-		return "ratelimit:global"
+		return fmt.Sprintf("ratelimit:%s:global", scope)
 	case IPLimit:
-		return fmt.Sprintf("ratelimit:ip:%s", c.ClientIP())
+		return fmt.Sprintf("ratelimit:%s:ip:%s", scope, c.ClientIP())
 	case UserLimit:
 		// 从 context 中获取用户 ID（由 Auth 中间件注入）
 		userID, exists := c.Get("user_id")
 		if !exists {
 			// 未登录用户按 IP 限流
-			return fmt.Sprintf("ratelimit:ip:%s", c.ClientIP())
+			return fmt.Sprintf("ratelimit:%s:ip:%s", scope, c.ClientIP())
 		}
-		return fmt.Sprintf("ratelimit:user:%v", userID)
+		return fmt.Sprintf("ratelimit:%s:user:%v", scope, userID)
 	default:
-		return "ratelimit:unknown"
+		return fmt.Sprintf("ratelimit:%s:unknown", scope)
+	}
+}
+
+func rateLimitTypeName(limitType RateLimitType) string {
+	switch limitType {
+	case GlobalLimit:
+		return "global"
+	case IPLimit:
+		return "ip"
+	case UserLimit:
+		return "user"
+	default:
+		return "unknown"
 	}
 }
 

@@ -14,6 +14,7 @@ import (
 
 type appServices struct {
 	oauth             service.OAuthService
+	verification      service.VerificationService
 	user              service.UserService
 	category          service.CategoryService
 	setting           service.SettingService
@@ -28,7 +29,9 @@ type appServices struct {
 
 func initServices(cfg *config.Config, logger *zap.Logger, repos *repositories, infra *infrastructure, aiCore *aiComponents) (*appServices, func(), error) {
 	oauthService := service.NewOAuthService(cfg)
-	userService := service.NewUserService(repos.user, oauthService, cfg, infra.rdb)
+	var rdb = infra.rdb
+	verificationService := service.NewVerificationService(cfg, rdb, nil)
+	userService := service.NewUserService(repos.user, oauthService, cfg, rdb)
 	categoryService := service.NewCategoryService(repos.category)
 	settingService := service.NewSettingService(repos.setting)
 	knowledgeDocumentService := service.NewKnowledgeDocumentService(repos.knowledgeDocument, repos.knowledgeDocumentSource, nil, repos.article, repos.category, logger)
@@ -90,6 +93,7 @@ func initServices(cfg *config.Config, logger *zap.Logger, repos *repositories, i
 
 			return &appServices{
 				oauth:             oauthService,
+				verification:      verificationService,
 				user:              userService,
 				category:          categoryService,
 				setting:           settingService,
@@ -106,6 +110,7 @@ func initServices(cfg *config.Config, logger *zap.Logger, repos *repositories, i
 
 	return &appServices{
 		oauth:             oauthService,
+		verification:      verificationService,
 		user:              userService,
 		category:          categoryService,
 		setting:           settingService,

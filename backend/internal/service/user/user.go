@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -20,6 +21,8 @@ import (
 type UserService interface {
 	Register(email, password, username string) (*model.User, error)
 	Login(email, password string) (string, *model.User, error)
+	EmailExists(email string) (bool, error)
+	ResetPassword(email, password string) error
 	GitHubOAuthLogin(code string) (string, *model.User, error)
 	Logout(token string) error
 	GetCurrentUser(userID int64) (*model.User, error)
@@ -53,6 +56,9 @@ func NewUserService(
 
 // Register 用户注册
 func (s *userService) Register(email, password, username string) (*model.User, error) {
+	email = normalizeEmail(email)
+	username = strings.TrimSpace(username)
+
 	// 检查邮箱是否已存在
 	existingUser, err := s.userRepo.GetByEmail(email)
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
@@ -73,12 +79,13 @@ func (s *userService) Register(email, password, username string) (*model.User, e
 
 	// 创建用户
 	user := &model.User{
-		Email:        email,
-		Username:     username,
-		PasswordHash: &passwordHash,
-		AvatarURL:    &defaultAvatar,
-		AvatarSource: model.AvatarSourceDefault,
-		Status:       "active",
+		Email:         email,
+		Username:      username,
+		PasswordHash:  &passwordHash,
+		AvatarURL:     &defaultAvatar,
+		AvatarSource:  model.AvatarSourceDefault,
+		EmailVerified: true,
+		Status:        "active",
 	}
 
 	if err := s.userRepo.Create(user); err != nil {
@@ -90,6 +97,8 @@ func (s *userService) Register(email, password, username string) (*model.User, e
 
 // Login 用户登录
 func (s *userService) Login(email, password string) (string, *model.User, error) {
+	email = normalizeEmail(email)
+
 	// 查询用户
 	user, err := s.userRepo.GetByEmail(email)
 	if err != nil {
@@ -118,6 +127,36 @@ func (s *userService) Login(email, password string) (string, *model.User, error)
 	return token, user, nil
 }
 
+func (s *userService) EmailExists(email string) (bool, error) {
+	user, err := s.userRepo.GetByEmail(normalizeEmail(email))
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return false, nil
+		}
+		return false, fmt.Errorf("failed to check email: %w", err)
+	}
+	return user != nil, nil
+}
+
+func (s *userService) ResetPassword(email, password string) error {
+	user, err := s.userRepo.GetByEmail(normalizeEmail(email))
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return errors.New("user not found")
+		}
+		return fmt.Errorf("failed to get user: %w", err)
+	}
+
+	passwordHash, err := hash.HashPassword(password)
+	if err != nil {
+		return fmt.Errorf("failed to hash password: %w", err)
+	}
+
+	user.PasswordHash = &passwordHash
+	user.EmailVerified = true
+	return s.userRepo.Update(user)
+}
+
 // GitHubOAuthLogin GitHub OAuth 登录
 func (s *userService) GitHubOAuthLogin(code string) (string, *model.User, error) {
 	// 用 code 换取用户信息
@@ -135,11 +174,12 @@ func (s *userService) GitHubOAuthLogin(code string) (string, *model.User, error)
 
 	// 如果用户不存在，创建新用户
 	if user == nil {
-		if githubUser.Email == "" {
+		githubEmail := normalizeEmail(githubUser.Email)
+		if githubEmail == "" {
 			return "", nil, errors.New("github email is required")
 		}
 
-		existingByEmail, err := s.userRepo.GetByEmail(githubUser.Email)
+		existingByEmail, err := s.userRepo.GetByEmail(githubEmail)
 		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 			return "", nil, fmt.Errorf("failed to check github email: %w", err)
 		}
@@ -155,13 +195,14 @@ func (s *userService) GitHubOAuthLogin(code string) (string, *model.User, error)
 		provider := "github"
 		user = &model.User{
 			Username:      username,
-			Email:         githubUser.Email,
+			Email:         githubEmail,
 			Role:          "user",
 			Status:        "active",
 			OAuthProvider: &provider,
 			OAuthID:       &oauthID,
 			AvatarURL:     &githubUser.AvatarURL,
 			AvatarSource:  model.AvatarSourceGitHub,
+			EmailVerified: true,
 		}
 
 		if err := s.userRepo.Create(user); err != nil {
@@ -228,6 +269,10 @@ func trimUsernameBase(base string, maxLen int) string {
 
 func shouldSyncGitHubAvatar(avatarSource string) bool {
 	return avatarSource == "" || avatarSource == model.AvatarSourceDefault || avatarSource == model.AvatarSourceGitHub
+}
+
+func normalizeEmail(email string) string {
+	return strings.ToLower(strings.TrimSpace(email))
 }
 
 // Logout 用户登出（将 token 加入黑名单）

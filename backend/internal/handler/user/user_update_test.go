@@ -17,7 +17,7 @@ func TestUserHandlerUpdateUsername_Success(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	userService := &stubUserService{}
-	h := NewUserHandler(userService, &stubUploadService{}, &stubOAuthService{}, &config.Config{})
+	h := NewUserHandler(userService, &stubUploadService{}, &stubOAuthService{}, nil, &config.Config{})
 
 	reqBody, _ := json.Marshal(UpdateUsernameRequest{
 		Username: "new-username",
@@ -47,7 +47,7 @@ func TestUserHandlerUpdateUsername_Success(t *testing.T) {
 func TestUserHandlerUpdateUsername_Validation(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	h := NewUserHandler(&stubUserService{}, &stubUploadService{}, &stubOAuthService{}, &config.Config{})
+	h := NewUserHandler(&stubUserService{}, &stubUploadService{}, &stubOAuthService{}, nil, &config.Config{})
 
 	tests := []struct {
 		name     string
@@ -85,7 +85,7 @@ func TestUserHandlerUpdateUsername_Duplicate(t *testing.T) {
 	userService := &stubUserService{
 		updateUsernameErr: errors.New("username already exists"),
 	}
-	h := NewUserHandler(userService, &stubUploadService{}, &stubOAuthService{}, &config.Config{})
+	h := NewUserHandler(userService, &stubUploadService{}, &stubOAuthService{}, nil, &config.Config{})
 
 	reqBody, _ := json.Marshal(UpdateUsernameRequest{
 		Username: "user2",

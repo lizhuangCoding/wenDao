@@ -1,6 +1,11 @@
-export type AuthField = 'email' | 'password' | 'username' | 'confirmPassword';
+export type AuthField =
+  | 'email'
+  | 'password'
+  | 'username'
+  | 'confirmPassword'
+  | 'verificationCode';
 export type AuthErrorTarget = AuthField | 'form';
-export type AuthMode = 'login' | 'register';
+export type AuthMode = 'login' | 'register' | 'passwordReset';
 
 export interface LoginFormValues {
   email: string;
@@ -10,6 +15,12 @@ export interface LoginFormValues {
 export interface RegisterFormValues extends LoginFormValues {
   username: string;
   confirmPassword: string;
+  verificationCode: string;
+}
+
+export interface PasswordResetFormValues extends LoginFormValues {
+  confirmPassword: string;
+  verificationCode: string;
 }
 
 export interface AuthValidationResult<TValues> {
@@ -28,6 +39,23 @@ const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const hasErrors = (fieldErrors: Partial<Record<AuthField, string>>) =>
   Object.keys(fieldErrors).length > 0;
+
+export const validateAuthEmail = (email: string) => {
+  const normalizedEmail = email.trim();
+  const fieldErrors: Partial<Record<AuthField, string>> = {};
+
+  if (!normalizedEmail) {
+    fieldErrors.email = 'auth.emailRequired';
+  } else if (!emailPattern.test(normalizedEmail)) {
+    fieldErrors.email = 'auth.emailInvalid';
+  }
+
+  return {
+    value: normalizedEmail,
+    fieldErrors,
+    isValid: !hasErrors(fieldErrors),
+  };
+};
 
 export const validateLoginForm = (
   values: LoginFormValues
@@ -63,6 +91,7 @@ export const validateRegisterForm = (
     email: values.email.trim(),
     password: values.password,
     confirmPassword: values.confirmPassword,
+    verificationCode: values.verificationCode.trim(),
   };
   const fieldErrors: Partial<Record<AuthField, string>> = {};
 
@@ -92,6 +121,53 @@ export const validateRegisterForm = (
     fieldErrors.confirmPassword = 'auth.passwordMismatch';
   }
 
+  if (!normalizedValues.verificationCode) {
+    fieldErrors.verificationCode = 'auth.verificationCodeRequired';
+  } else if (!/^\d{6}$/.test(normalizedValues.verificationCode)) {
+    fieldErrors.verificationCode = 'auth.verificationCodeInvalid';
+  }
+
+  return {
+    values: normalizedValues,
+    fieldErrors,
+    isValid: !hasErrors(fieldErrors),
+  };
+};
+
+export const validatePasswordResetForm = (
+  values: PasswordResetFormValues
+): AuthValidationResult<PasswordResetFormValues> => {
+  const normalizedValues = {
+    email: values.email.trim(),
+    password: values.password,
+    confirmPassword: values.confirmPassword,
+    verificationCode: values.verificationCode.trim(),
+  };
+  const fieldErrors: Partial<Record<AuthField, string>> = {};
+
+  const emailValidation = validateAuthEmail(normalizedValues.email);
+  if (emailValidation.fieldErrors.email) {
+    fieldErrors.email = emailValidation.fieldErrors.email;
+  }
+
+  if (!normalizedValues.password) {
+    fieldErrors.password = 'auth.passwordRequired';
+  } else if (normalizedValues.password.length < 6) {
+    fieldErrors.password = 'auth.passwordTooShort';
+  }
+
+  if (!normalizedValues.confirmPassword) {
+    fieldErrors.confirmPassword = 'auth.confirmPasswordRequired';
+  } else if (normalizedValues.password !== normalizedValues.confirmPassword) {
+    fieldErrors.confirmPassword = 'auth.passwordMismatch';
+  }
+
+  if (!normalizedValues.verificationCode) {
+    fieldErrors.verificationCode = 'auth.verificationCodeRequired';
+  } else if (!/^\d{6}$/.test(normalizedValues.verificationCode)) {
+    fieldErrors.verificationCode = 'auth.verificationCodeInvalid';
+  }
+
   return {
     values: normalizedValues,
     fieldErrors,
@@ -117,6 +193,13 @@ export const mapAuthErrorToForm = (
     return {
       target: 'email',
       messageKey: 'auth.emailAlreadyExists',
+    };
+  }
+
+  if (lowerMessage.includes('verification code')) {
+    return {
+      target: 'verificationCode',
+      messageKey: lowerMessage.includes('recently') ? 'auth.codeTooFrequent' : 'auth.verificationCodeInvalid',
     };
   }
 
@@ -150,7 +233,12 @@ export const mapAuthErrorToForm = (
 
   return {
     target: 'form',
-    messageKey: mode === 'login' ? 'auth.loginFailed' : 'auth.registerFailed',
+    messageKey:
+      mode === 'login'
+        ? 'auth.loginFailed'
+        : mode === 'passwordReset'
+          ? 'auth.passwordResetFailed'
+          : 'auth.registerFailed',
     fallbackMessage: normalizedMessage || undefined,
   };
 };

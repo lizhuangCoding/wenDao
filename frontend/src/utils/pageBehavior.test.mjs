@@ -24,11 +24,12 @@ test.after(async () => {
   await rm(tempDir, { recursive: true, force: true });
 });
 
-test('shouldFetchCurrentUser only probes account state when a token exists', async () => {
+test('shouldFetchCurrentUser probes once without token to recover cookie auth', async () => {
   const { shouldFetchCurrentUser } = await loadPageBehavior();
 
-  assert.equal(shouldFetchCurrentUser(null), false);
-  assert.equal(shouldFetchCurrentUser(''), false);
+  assert.equal(shouldFetchCurrentUser(null, false), true);
+  assert.equal(shouldFetchCurrentUser('', false), true);
+  assert.equal(shouldFetchCurrentUser(null, true), false);
   assert.equal(shouldFetchCurrentUser('access-token'), true);
 });
 

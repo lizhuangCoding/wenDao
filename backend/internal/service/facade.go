@@ -34,6 +34,9 @@ import (
 
 type OAuthService = authsvc.OAuthService
 type GitHubUserInfo = authsvc.GitHubUserInfo
+type VerificationService = authsvc.VerificationService
+type VerificationPurpose = authsvc.VerificationPurpose
+type VerificationEmailSender = authsvc.VerificationEmailSender
 type UserService = usersvc.UserService
 type CategoryService = categorysvc.CategoryService
 type SettingService = settingsvc.SettingService
@@ -60,10 +63,22 @@ type Journalist = chatsvc.Journalist
 type ThinkTankSynthesizer = chatsvc.ThinkTankSynthesizer
 
 var ErrAIDisabled = aisvc.ErrAIDisabled
+var ErrVerificationCodeInvalid = authsvc.ErrVerificationCodeInvalid
+var ErrVerificationCodeTooFrequent = authsvc.ErrVerificationCodeTooFrequent
+var ErrVerificationUnavailable = authsvc.ErrVerificationUnavailable
+var ErrVerificationEmailNotConfigured = authsvc.ErrVerificationEmailNotConfigured
+
+const (
+	PurposeRegister      = authsvc.PurposeRegister
+	PurposePasswordReset = authsvc.PurposePasswordReset
+)
 
 func NewOAuthService(cfg *config.Config) OAuthService { return authsvc.NewOAuthService(cfg) }
 func ValidateGitHubOAuthConfig(cfg *config.Config) error {
 	return authsvc.ValidateGitHubOAuthConfig(cfg)
+}
+func NewVerificationService(cfg *config.Config, rdb *redis.Client, sender VerificationEmailSender) VerificationService {
+	return authsvc.NewVerificationService(cfg, rdb, sender)
 }
 func NewUserService(repo userrepo.UserRepository, oauth OAuthService, cfg *config.Config, rdb *redis.Client) UserService {
 	return usersvc.NewUserService(repo, oauth, cfg, rdb)

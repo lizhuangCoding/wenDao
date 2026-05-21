@@ -1,6 +1,7 @@
 package main
 
 import (
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -29,7 +30,7 @@ type appHandlers struct {
 
 func initHandlers(cfg *config.Config, repos *repositories, services *appServices, rdb *redis.Client) *appHandlers {
 	return &appHandlers{
-		user:              handler.NewUserHandler(services.user, services.upload, services.oauth, cfg),
+		user:              handler.NewUserHandler(services.user, services.upload, services.oauth, services.verification, cfg),
 		auth:              handler.NewAuthHandler(services.user, cfg, rdb),
 		category:          handler.NewCategoryHandler(services.category),
 		article:           handler.NewArticleHandler(services.article, services.stat, services.setting),
@@ -46,7 +47,12 @@ func initHandlers(cfg *config.Config, repos *repositories, services *appServices
 func buildRouter(cfg *config.Config, logger *zap.Logger, rdb *redis.Client, handlers *appHandlers) *gin.Engine {
 	gin.SetMode(cfg.Server.Mode)
 	router := gin.New()
-	router.Use(middleware.Logger(logger), middleware.Recovery(logger), middleware.CORS())
+	router.Use(
+		middleware.Logger(logger),
+		middleware.Recovery(logger),
+		middleware.SecurityHeaders(),
+		middleware.CORS(allowedCORSOrigins(cfg)...),
+	)
 
 	registerRoutes(
 		router,
@@ -66,6 +72,17 @@ func buildRouter(cfg *config.Config, logger *zap.Logger, rdb *redis.Client, hand
 	)
 
 	return router
+}
+
+func allowedCORSOrigins(cfg *config.Config) []string {
+	origins := []string{
+		"http://localhost:3000",
+		"http://127.0.0.1:3000",
+	}
+	if cfg != nil && strings.TrimSpace(cfg.Site.URL) != "" {
+		origins = append(origins, cfg.Site.URL)
+	}
+	return origins
 }
 
 func registerRoutes(
@@ -88,23 +105,49 @@ func registerRoutes(
 	{
 		auth := api.Group("/auth")
 		auth.Use(middleware.RateLimit(rdb, middleware.RateLimitConfig{
+			Name:   "auth-global",
 			Type:   middleware.IPLimit,
 			Limit:  cfg.RateLimit.Global,
 			Window: time.Second,
 		}))
 		{
+			auth.POST("/register/code", middleware.RateLimit(rdb, middleware.RateLimitConfig{
+				Name:   "auth-register-code",
+				Type:   middleware.IPLimit,
+				Limit:  cfg.RateLimit.VerificationCode,
+				Window: time.Minute,
+			}), userHandler.RequestRegisterCode)
 			auth.POST("/register", middleware.RateLimit(rdb, middleware.RateLimitConfig{
+				Name:   "auth-register",
 				Type:   middleware.IPLimit,
 				Limit:  cfg.RateLimit.Register,
 				Window: time.Minute,
 			}), userHandler.Register)
 			auth.POST("/login", middleware.RateLimit(rdb, middleware.RateLimitConfig{
+				Name:   "auth-login",
 				Type:   middleware.IPLimit,
 				Limit:  cfg.RateLimit.Login,
 				Window: time.Minute,
 			}), userHandler.Login)
+			auth.POST("/password-reset/code", middleware.RateLimit(rdb, middleware.RateLimitConfig{
+				Name:   "auth-password-reset-code",
+				Type:   middleware.IPLimit,
+				Limit:  cfg.RateLimit.PasswordReset,
+				Window: time.Minute,
+			}), userHandler.RequestPasswordResetCode)
+			auth.POST("/password-reset/confirm", middleware.RateLimit(rdb, middleware.RateLimitConfig{
+				Name:   "auth-password-reset-confirm",
+				Type:   middleware.IPLimit,
+				Limit:  cfg.RateLimit.PasswordReset,
+				Window: time.Minute,
+			}), userHandler.ConfirmPasswordReset)
 			auth.GET("/github", userHandler.GitHubLogin)
-			auth.POST("/refresh", authHandler.Refresh)
+			auth.POST("/refresh", middleware.RateLimit(rdb, middleware.RateLimitConfig{
+				Name:   "auth-refresh",
+				Type:   middleware.IPLimit,
+				Limit:  cfg.RateLimit.Refresh,
+				Window: time.Minute,
+			}), authHandler.Refresh)
 			auth.GET("/github/callback", userHandler.GitHubCallback)
 		}
 
@@ -132,16 +175,19 @@ func registerRoutes(
 		ai.Use(middleware.AuthRequired(cfg.JWT.Secret, rdb))
 		{
 			ai.POST("/chat", middleware.RateLimit(rdb, middleware.RateLimitConfig{
+				Name:   "ai-chat",
 				Type:   middleware.UserLimit,
 				Limit:  cfg.RateLimit.AIChat,
 				Window: time.Minute,
 			}), aiHandler.Chat)
 			ai.POST("/chat/stream", middleware.RateLimit(rdb, middleware.RateLimitConfig{
+				Name:   "ai-chat-stream",
 				Type:   middleware.UserLimit,
 				Limit:  cfg.RateLimit.AIChat,
 				Window: time.Minute,
 			}), aiHandler.ChatStream)
 			ai.POST("/chat/stream/resume", middleware.RateLimit(rdb, middleware.RateLimitConfig{
+				Name:   "ai-chat-stream-resume",
 				Type:   middleware.UserLimit,
 				Limit:  cfg.RateLimit.AIChat,
 				Window: time.Minute,

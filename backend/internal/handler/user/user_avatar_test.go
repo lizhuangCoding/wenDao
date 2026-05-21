@@ -2,6 +2,7 @@ package user
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
@@ -48,6 +49,11 @@ type stubUserService struct {
 	githubLoginToken   string
 	githubLoginUser    *model.User
 	githubLoginErr     error
+	emailExists        bool
+	emailExistsErr     error
+	resetPasswordEmail string
+	resetPasswordValue string
+	resetPasswordErr   error
 }
 
 func (s *stubUserService) Register(email, password, username string) (*model.User, error) {
@@ -67,6 +73,19 @@ func (s *stubUserService) Login(email, password string) (string, *model.User, er
 		return "", nil, s.loginErr
 	}
 	return s.loginToken, s.loginUser, nil
+}
+
+func (s *stubUserService) EmailExists(email string) (bool, error) {
+	if s.emailExistsErr != nil {
+		return false, s.emailExistsErr
+	}
+	return s.emailExists, nil
+}
+
+func (s *stubUserService) ResetPassword(email, password string) error {
+	s.resetPasswordEmail = email
+	s.resetPasswordValue = password
+	return s.resetPasswordErr
 }
 
 func (s *stubUserService) GitHubOAuthLogin(code string) (string, *model.User, error) {
@@ -156,6 +175,29 @@ func (s *stubOAuthService) ExchangeGitHubCode(code string) (*service.GitHubUserI
 	return nil, nil
 }
 
+type stubVerificationService struct {
+	sendEmail     string
+	sendPurpose   service.VerificationPurpose
+	sendErr       error
+	verifyEmail   string
+	verifyPurpose service.VerificationPurpose
+	verifyCode    string
+	verifyErr     error
+}
+
+func (s *stubVerificationService) SendCode(_ context.Context, email string, purpose service.VerificationPurpose) error {
+	s.sendEmail = email
+	s.sendPurpose = purpose
+	return s.sendErr
+}
+
+func (s *stubVerificationService) VerifyCode(_ context.Context, email string, purpose service.VerificationPurpose, code string) error {
+	s.verifyEmail = email
+	s.verifyPurpose = purpose
+	s.verifyCode = code
+	return s.verifyErr
+}
+
 func TestUserHandlerRegister_ReturnsAuthTokensAndSetsCookies(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
@@ -181,11 +223,12 @@ func TestUserHandlerRegister_ReturnsAuthTokensAndSetsCookies(t *testing.T) {
 			RefreshExpireDays: 7,
 		},
 	}
-	h := NewUserHandler(userService, &stubUploadService{}, &stubOAuthService{}, cfg)
+	verificationService := &stubVerificationService{}
+	h := NewUserHandler(userService, &stubUploadService{}, &stubOAuthService{}, verificationService, cfg)
 
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
-	c.Request = httptest.NewRequest(http.MethodPost, "/api/auth/register", strings.NewReader(`{"email":"new@example.com","password":"password123","username":"new-user"}`))
+	c.Request = httptest.NewRequest(http.MethodPost, "/api/auth/register", strings.NewReader(`{"email":"new@example.com","password":"password123","username":"new-user","verification_code":"123456"}`))
 	c.Request.Header.Set("Content-Type", "application/json")
 
 	h.Register(c)
@@ -195,6 +238,9 @@ func TestUserHandlerRegister_ReturnsAuthTokensAndSetsCookies(t *testing.T) {
 	}
 	if userService.registerEmail != "new@example.com" || userService.registerPassword != "password123" || userService.registerUsername != "new-user" {
 		t.Fatalf("expected register credentials to be forwarded, got email=%q password=%q username=%q", userService.registerEmail, userService.registerPassword, userService.registerUsername)
+	}
+	if verificationService.verifyEmail != "new@example.com" || verificationService.verifyPurpose != service.PurposeRegister || verificationService.verifyCode != "123456" {
+		t.Fatalf("expected register verification to run, got email=%q purpose=%q code=%q", verificationService.verifyEmail, verificationService.verifyPurpose, verificationService.verifyCode)
 	}
 	if userService.loginEmail != "new@example.com" || userService.loginPassword != "password123" {
 		t.Fatalf("expected login credentials to be forwarded after registration, got email=%q password=%q", userService.loginEmail, userService.loginPassword)
@@ -364,7 +410,7 @@ func TestUserHandlerUploadAvatar_UpdatesAvatarAndReturnsUser(t *testing.T) {
 			FilePath: avatarURL,
 		},
 	}
-	h := NewUserHandler(userService, uploadService, &stubOAuthService{}, &config.Config{})
+	h := NewUserHandler(userService, uploadService, &stubOAuthService{}, nil, &config.Config{})
 
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
@@ -434,7 +480,7 @@ func TestUserHandlerUploadAvatar_CleansUpUploadWhenAvatarUpdateFails(t *testing.
 	uploadService := &stubUploadService{
 		upload: &model.Upload{FilePath: uploadPath},
 	}
-	h := NewUserHandler(userService, uploadService, &stubOAuthService{}, &config.Config{})
+	h := NewUserHandler(userService, uploadService, &stubOAuthService{}, nil, &config.Config{})
 
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
@@ -487,7 +533,7 @@ func TestUserHandlerGitHubCallback_SetsCookiesAndRedirectsWithoutTokenQuery(t *t
 		},
 		Site: config.SiteConfig{URL: "https://frontend.example.com"},
 	}
-	h := NewUserHandler(userService, &stubUploadService{}, &stubOAuthService{}, cfg)
+	h := NewUserHandler(userService, &stubUploadService{}, &stubOAuthService{}, nil, cfg)
 
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
@@ -535,7 +581,7 @@ func TestUserHandlerGitHubCallback_SetsCookiesAndRedirectsWithoutTokenQuery(t *t
 func TestUserHandlerGitHubLogin_UsesSecureStateCookieInReleaseMode(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	h := NewUserHandler(&stubUserService{}, &stubUploadService{}, &stubOAuthService{}, &config.Config{
+	h := NewUserHandler(&stubUserService{}, &stubUploadService{}, &stubOAuthService{}, nil, &config.Config{
 		Server: config.ServerConfig{Mode: "release"},
 		OAuth: config.OAuthConfig{GitHub: config.GitHubOAuthConfig{
 			ClientID:     "test-client-id",
@@ -563,7 +609,7 @@ func TestUserHandlerGitHubLogin_UsesSecureStateCookieInReleaseMode(t *testing.T)
 func TestUserHandlerGitHubLogin_ReturnsBadRequestWhenConfigMissing(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	h := NewUserHandler(&stubUserService{}, &stubUploadService{}, &stubOAuthService{}, &config.Config{
+	h := NewUserHandler(&stubUserService{}, &stubUploadService{}, &stubOAuthService{}, nil, &config.Config{
 		OAuth: config.OAuthConfig{GitHub: config.GitHubOAuthConfig{}},
 	})
 

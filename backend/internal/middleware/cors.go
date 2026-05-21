@@ -1,37 +1,57 @@
 package middleware
 
 import (
+	"net/http"
+	"strings"
+
 	"github.com/gin-gonic/gin"
 )
 
-// CORS 创建跨域处理中间件
-func CORS() gin.HandlerFunc {
+// CORS 创建跨域处理中间件，只允许白名单来源携带 Cookie。
+func CORS(allowedOrigins ...string) gin.HandlerFunc {
+	allowed := make(map[string]struct{}, len(allowedOrigins))
+	for _, origin := range allowedOrigins {
+		origin = normalizeOrigin(origin)
+		if origin != "" {
+			allowed[origin] = struct{}{}
+		}
+	}
+
 	return func(c *gin.Context) {
 		method := c.Request.Method
-		origin := c.Request.Header.Get("Origin")
+		origin := normalizeOrigin(c.Request.Header.Get("Origin"))
 
-		// 设置允许的请求源
-		if origin != "" {
-			c.Header("Access-Control-Allow-Origin", origin)
-		} else {
-			c.Header("Access-Control-Allow-Origin", "*")
+		if origin == "" {
+			if method == http.MethodOptions {
+				c.AbortWithStatus(http.StatusNoContent)
+				return
+			}
+			c.Next()
+			return
 		}
 
-		// 设置允许的请求头
+		if _, ok := allowed[origin]; ok {
+			c.Header("Access-Control-Allow-Origin", origin)
+			c.Header("Access-Control-Allow-Credentials", "true")
+			c.Header("Vary", "Origin")
+		} else if method == http.MethodOptions {
+			c.AbortWithStatus(http.StatusForbidden)
+			return
+		}
+
 		c.Header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With, Accept, Origin")
-		// 设置允许的请求方法
 		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS")
-		// 允许浏览器发送凭证（Cookie）
-		c.Header("Access-Control-Allow-Credentials", "true")
-		// 预检请求缓存时间（24小时）
 		c.Header("Access-Control-Max-Age", "86400")
 
-		// 处理预检请求
-		if method == "OPTIONS" {
-			c.AbortWithStatus(204)
+		if method == http.MethodOptions {
+			c.AbortWithStatus(http.StatusNoContent)
 			return
 		}
 
 		c.Next()
 	}
+}
+
+func normalizeOrigin(origin string) string {
+	return strings.TrimRight(strings.TrimSpace(origin), "/")
 }

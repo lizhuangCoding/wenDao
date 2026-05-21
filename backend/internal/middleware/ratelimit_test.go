@@ -30,3 +30,21 @@ func TestRateLimit_AllowsRequestWhenRedisClientIsNil(t *testing.T) {
 		t.Fatalf("expected request to pass through without redis, got status %d", w.Code)
 	}
 }
+
+func TestGenerateRateLimitKeyIncludesConfiguredName(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest(http.MethodPost, "/api/auth/register", nil)
+	c.Request.RemoteAddr = "203.0.113.8:1234"
+
+	key := generateRateLimitKey(c, RateLimitConfig{
+		Name: "auth-register",
+		Type: IPLimit,
+	})
+
+	if key != "ratelimit:auth-register:ip:203.0.113.8" {
+		t.Fatalf("expected named IP key, got %q", key)
+	}
+}

@@ -12,7 +12,10 @@ interface ArticlePrimaryActionOptions {
   status: ArticleStatus;
 }
 
-export const shouldFetchCurrentUser = (token: string | null | undefined) => Boolean(token);
+export const shouldFetchCurrentUser = (
+  token: string | null | undefined,
+  hasCheckedCookieAuth = false
+) => Boolean(token) || !hasCheckedCookieAuth;
 
 export const shouldAttemptTokenRefresh = ({
   status,

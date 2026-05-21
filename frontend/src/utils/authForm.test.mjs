@@ -51,11 +51,13 @@ test('validateRegisterForm trims accepted values', async () => {
     email: '  lizi@example.com  ',
     password: 'secret123',
     confirmPassword: 'secret123',
+    verificationCode: ' 123456 ',
   });
 
   assert.equal(result.isValid, true);
   assert.equal(result.values.username, 'lizi');
   assert.equal(result.values.email, 'lizi@example.com');
+  assert.equal(result.values.verificationCode, '123456');
   assert.deepEqual(result.fieldErrors, {});
 });
 
@@ -67,12 +69,28 @@ test('validateRegisterForm reports username password and confirmation issues', a
     email: 'lizi@example.com',
     password: '123',
     confirmPassword: '1234',
+    verificationCode: 'abc',
   });
 
   assert.equal(result.isValid, false);
   assert.equal(result.fieldErrors.username, 'auth.usernameTooShort');
   assert.equal(result.fieldErrors.password, 'auth.passwordTooShort');
   assert.equal(result.fieldErrors.confirmPassword, 'auth.passwordMismatch');
+  assert.equal(result.fieldErrors.verificationCode, 'auth.verificationCodeInvalid');
+});
+
+test('validatePasswordResetForm requires matching password and verification code', async () => {
+  const { validatePasswordResetForm } = await loadAuthForm();
+
+  const result = validatePasswordResetForm({
+    email: 'reset@example.com',
+    password: 'secret123',
+    confirmPassword: 'secret123',
+    verificationCode: '654321',
+  });
+
+  assert.equal(result.isValid, true);
+  assert.deepEqual(result.fieldErrors, {});
 });
 
 test('mapAuthErrorToForm turns known backend auth errors into form feedback', async () => {
@@ -85,5 +103,9 @@ test('mapAuthErrorToForm turns known backend auth errors into form feedback', as
   assert.deepEqual(mapAuthErrorToForm('Email already exists', 'register'), {
     target: 'email',
     messageKey: 'auth.emailAlreadyExists',
+  });
+  assert.deepEqual(mapAuthErrorToForm('Invalid verification code', 'register'), {
+    target: 'verificationCode',
+    messageKey: 'auth.verificationCodeInvalid',
   });
 });

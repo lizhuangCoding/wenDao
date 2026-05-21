@@ -30,8 +30,8 @@ type StatHandler = stathandler.StatHandler
 type ChatHandler = chathandler.ChatHandler
 type KnowledgeDocumentHandler = knowledgehandler.KnowledgeDocumentHandler
 
-func NewUserHandler(userSvc service.UserService, uploadSvc service.UploadService, oauthSvc service.OAuthService, cfg *config.Config) *UserHandler {
-	return userhandler.NewUserHandler(userSvc, uploadSvc, oauthSvc, cfg)
+func NewUserHandler(userSvc service.UserService, uploadSvc service.UploadService, oauthSvc service.OAuthService, verificationSvc service.VerificationService, cfg *config.Config) *UserHandler {
+	return userhandler.NewUserHandler(userSvc, uploadSvc, oauthSvc, verificationSvc, cfg)
 }
 func NewAuthHandler(userSvc service.UserService, cfg *config.Config, rdb *redis.Client) *AuthHandler {
 	return authhandler.NewAuthHandler(userSvc, cfg, rdb)
@@ -49,8 +49,10 @@ func NewUploadHandler(uploadSvc service.UploadService) *UploadHandler {
 	return uploadhandler.NewUploadHandler(uploadSvc)
 }
 func NewAIHandler(aiSvc service.AIService) *AIHandler { return chathandler.NewAIHandler(aiSvc) }
-func NewSiteHandler(cfg *config.Config) *SiteHandler { return sitehandler.NewSiteHandler(cfg) }
-func NewStatHandler(statSvc *service.StatService) *StatHandler { return stathandler.NewStatHandler(statSvc) }
+func NewSiteHandler(cfg *config.Config) *SiteHandler  { return sitehandler.NewSiteHandler(cfg) }
+func NewStatHandler(statSvc *service.StatService) *StatHandler {
+	return stathandler.NewStatHandler(statSvc)
+}
 func NewChatHandler(
 	convRepo repository.ConversationRepository,
 	msgRepo repository.ChatMessageRepository,
