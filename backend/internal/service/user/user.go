@@ -184,29 +184,36 @@ func (s *userService) GitHubOAuthLogin(code string) (string, *model.User, error)
 			return "", nil, fmt.Errorf("failed to check github email: %w", err)
 		}
 		if existingByEmail != nil {
-			return "", nil, errors.New("email already exists")
-		}
+			user = existingByEmail
+			if hasOAuthIdentity(user) {
+				return "", nil, errors.New("email already linked to another oauth account")
+			}
+			linkGitHubAccount(user, oauthID, githubUser.AvatarURL)
+			if err := s.userRepo.Update(user); err != nil {
+				return "", nil, fmt.Errorf("failed to link github account: %w", err)
+			}
+		} else {
+			username, err := s.resolveGitHubUsername(githubUser.Login, githubUser.ID)
+			if err != nil {
+				return "", nil, err
+			}
 
-		username, err := s.resolveGitHubUsername(githubUser.Login, githubUser.ID)
-		if err != nil {
-			return "", nil, err
-		}
+			provider := "github"
+			user = &model.User{
+				Username:      username,
+				Email:         githubEmail,
+				Role:          "user",
+				Status:        "active",
+				OAuthProvider: &provider,
+				OAuthID:       &oauthID,
+				AvatarURL:     &githubUser.AvatarURL,
+				AvatarSource:  model.AvatarSourceGitHub,
+				EmailVerified: true,
+			}
 
-		provider := "github"
-		user = &model.User{
-			Username:      username,
-			Email:         githubEmail,
-			Role:          "user",
-			Status:        "active",
-			OAuthProvider: &provider,
-			OAuthID:       &oauthID,
-			AvatarURL:     &githubUser.AvatarURL,
-			AvatarSource:  model.AvatarSourceGitHub,
-			EmailVerified: true,
-		}
-
-		if err := s.userRepo.Create(user); err != nil {
-			return "", nil, fmt.Errorf("failed to create user: %w", err)
+			if err := s.userRepo.Create(user); err != nil {
+				return "", nil, fmt.Errorf("failed to create user: %w", err)
+			}
 		}
 	} else if shouldSyncGitHubAvatar(user.AvatarSource) {
 		user.AvatarURL = &githubUser.AvatarURL
@@ -228,6 +235,21 @@ func (s *userService) GitHubOAuthLogin(code string) (string, *model.User, error)
 	}
 
 	return token, user, nil
+}
+
+func hasOAuthIdentity(user *model.User) bool {
+	return user != nil && (user.OAuthProvider != nil || user.OAuthID != nil)
+}
+
+func linkGitHubAccount(user *model.User, oauthID string, avatarURL string) {
+	provider := "github"
+	user.OAuthProvider = &provider
+	user.OAuthID = &oauthID
+	user.EmailVerified = true
+	if shouldSyncGitHubAvatar(user.AvatarSource) {
+		user.AvatarURL = &avatarURL
+		user.AvatarSource = model.AvatarSourceGitHub
+	}
 }
 
 func (s *userService) resolveGitHubUsername(login string, githubID int64) (string, error) {

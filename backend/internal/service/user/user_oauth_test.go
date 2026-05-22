@@ -182,13 +182,64 @@ func TestUserServiceGitHubOAuthLogin_ReturnsErrorWhenEmailMissing(t *testing.T) 
 	}
 }
 
-func TestUserServiceGitHubOAuthLogin_ReturnsErrorWhenEmailBelongsToAnotherUser(t *testing.T) {
+func TestUserServiceGitHubOAuthLogin_LinksExistingAccountWithSameEmail(t *testing.T) {
 	existingUser := &model.User{
-		ID:       20,
-		Username: "manual-user",
-		Email:    "octocat@example.com",
-		Role:     "user",
-		Status:   "active",
+		ID:           20,
+		Username:     "manual-user",
+		Email:        "octocat@example.com",
+		Role:         "admin",
+		Status:       "active",
+		AvatarSource: model.AvatarSourceDefault,
+	}
+	repo := newStubUserRepository(existingUser)
+	svc := newTestUserService(repo, &stubGitHubOAuthService{githubUser: &GitHubUserInfo{
+		ID:        1003,
+		Login:     "octocat",
+		Email:     "octocat@example.com",
+		AvatarURL: "https://avatars.githubusercontent.com/u/1003?v=4",
+	}})
+
+	_, user, err := svc.GitHubOAuthLogin("oauth-code")
+	if err != nil {
+		t.Fatalf("expected github oauth login to link existing account, got %v", err)
+	}
+	if user.ID != existingUser.ID || user.Role != "admin" {
+		t.Fatalf("expected existing admin account to be used, got id=%d role=%q", user.ID, user.Role)
+	}
+	if user.OAuthProvider == nil || *user.OAuthProvider != "github" {
+		t.Fatalf("expected github provider to be linked, got %#v", user.OAuthProvider)
+	}
+	if user.OAuthID == nil || *user.OAuthID != "1003" {
+		t.Fatalf("expected github oauth id to be linked, got %#v", user.OAuthID)
+	}
+	if !user.EmailVerified {
+		t.Fatalf("expected email to be marked verified after github link")
+	}
+	if user.AvatarURL == nil || *user.AvatarURL != "https://avatars.githubusercontent.com/u/1003?v=4" {
+		t.Fatalf("expected default avatar to be refreshed from github, got %#v", user.AvatarURL)
+	}
+	if user.AvatarSource != model.AvatarSourceGitHub {
+		t.Fatalf("expected avatar source %q, got %q", model.AvatarSourceGitHub, user.AvatarSource)
+	}
+	if len(repo.updatedUsers) != 1 {
+		t.Fatalf("expected existing user to be updated once, got %d updates", len(repo.updatedUsers))
+	}
+	if repo.usersByOAuth["github:1003"] != user {
+		t.Fatalf("expected repository oauth index to point to linked user")
+	}
+}
+
+func TestUserServiceGitHubOAuthLogin_RejectsEmailAlreadyLinkedToAnotherOAuth(t *testing.T) {
+	provider := "google"
+	oauthID := "google-123"
+	existingUser := &model.User{
+		ID:            20,
+		Username:      "manual-user",
+		Email:         "octocat@example.com",
+		Role:          "user",
+		Status:        "active",
+		OAuthProvider: &provider,
+		OAuthID:       &oauthID,
 	}
 	repo := newStubUserRepository(existingUser)
 	svc := newTestUserService(repo, &stubGitHubOAuthService{githubUser: &GitHubUserInfo{
@@ -200,10 +251,10 @@ func TestUserServiceGitHubOAuthLogin_ReturnsErrorWhenEmailBelongsToAnotherUser(t
 
 	_, _, err := svc.GitHubOAuthLogin("oauth-code")
 	if err == nil {
-		t.Fatalf("expected email collision error")
+		t.Fatalf("expected linked email error")
 	}
-	if !strings.Contains(strings.ToLower(err.Error()), "email") {
-		t.Fatalf("expected clear email collision error, got %v", err)
+	if !strings.Contains(strings.ToLower(err.Error()), "linked") {
+		t.Fatalf("expected clear linked email error, got %v", err)
 	}
 }
 
