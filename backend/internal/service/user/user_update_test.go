@@ -60,3 +60,25 @@ func TestUserServiceUpdateUsername_NotFound(t *testing.T) {
 		t.Fatal("expected error for non-existent user, got nil")
 	}
 }
+
+func TestUserServiceUpdateCommentReplyEmailEnabled(t *testing.T) {
+	user := &model.User{
+		ID:                       1,
+		Username:                 "reader",
+		Email:                    "reader@example.com",
+		Role:                     "user",
+		Status:                   "active",
+		CommentReplyEmailEnabled: true,
+	}
+	repo := newStubUserRepository(user)
+	svc := newTestUserService(repo, &stubGitHubOAuthService{})
+
+	if err := svc.UpdateCommentReplyEmailEnabled(1, false); err != nil {
+		t.Fatalf("expected preference update to succeed, got %v", err)
+	}
+
+	updatedUser, _ := repo.GetByID(1)
+	if updatedUser.CommentReplyEmailEnabled {
+		t.Fatalf("expected comment reply email preference to be disabled")
+	}
+}

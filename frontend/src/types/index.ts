@@ -6,6 +6,7 @@ export interface User {
   avatar_url?: string;
   bio?: string;
   role: 'user' | 'admin';
+  comment_reply_email_enabled?: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -30,6 +31,10 @@ export interface PasswordResetConfirmRequest {
   email: string;
   password: string;
   verification_code: string;
+}
+
+export interface UpdatePreferencesRequest {
+  comment_reply_email_enabled: boolean;
 }
 
 export interface AuthResponse {

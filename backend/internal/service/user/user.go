@@ -29,6 +29,7 @@ type UserService interface {
 	GenerateRefreshToken(userID int64, role string) (string, error)
 	UpdateAvatar(userID int64, avatarURL string) error
 	UpdateUsername(userID int64, username string) error
+	UpdateCommentReplyEmailEnabled(userID int64, enabled bool) error
 }
 
 // userService 用户服务实现
@@ -79,13 +80,14 @@ func (s *userService) Register(email, password, username string) (*model.User, e
 
 	// 创建用户
 	user := &model.User{
-		Email:         email,
-		Username:      username,
-		PasswordHash:  &passwordHash,
-		AvatarURL:     &defaultAvatar,
-		AvatarSource:  model.AvatarSourceDefault,
-		EmailVerified: true,
-		Status:        "active",
+		Email:                    email,
+		Username:                 username,
+		PasswordHash:             &passwordHash,
+		AvatarURL:                &defaultAvatar,
+		AvatarSource:             model.AvatarSourceDefault,
+		EmailVerified:            true,
+		CommentReplyEmailEnabled: true,
+		Status:                   "active",
 	}
 
 	if err := s.userRepo.Create(user); err != nil {
@@ -200,15 +202,16 @@ func (s *userService) GitHubOAuthLogin(code string) (string, *model.User, error)
 
 			provider := "github"
 			user = &model.User{
-				Username:      username,
-				Email:         githubEmail,
-				Role:          "user",
-				Status:        "active",
-				OAuthProvider: &provider,
-				OAuthID:       &oauthID,
-				AvatarURL:     &githubUser.AvatarURL,
-				AvatarSource:  model.AvatarSourceGitHub,
-				EmailVerified: true,
+				Username:                 username,
+				Email:                    githubEmail,
+				Role:                     "user",
+				Status:                   "active",
+				OAuthProvider:            &provider,
+				OAuthID:                  &oauthID,
+				AvatarURL:                &githubUser.AvatarURL,
+				AvatarSource:             model.AvatarSourceGitHub,
+				EmailVerified:            true,
+				CommentReplyEmailEnabled: true,
 			}
 
 			if err := s.userRepo.Create(user); err != nil {
@@ -370,5 +373,18 @@ func (s *userService) UpdateUsername(userID int64, username string) error {
 	}
 
 	user.Username = username
+	return s.userRepo.Update(user)
+}
+
+func (s *userService) UpdateCommentReplyEmailEnabled(userID int64, enabled bool) error {
+	user, err := s.userRepo.GetByID(userID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return errors.New("user not found")
+		}
+		return err
+	}
+
+	user.CommentReplyEmailEnabled = enabled
 	return s.userRepo.Update(user)
 }

@@ -28,8 +28,9 @@ type User struct {
 	AvatarSource  string  `gorm:"size:20;not null;default:'default'" json:"avatar_source"`
 
 	// 扩展字段
-	EmailVerified bool   `gorm:"default:false" json:"email_verified"`
-	Status        string `gorm:"size:10;not null;default:'active'" json:"status"`
+	EmailVerified            bool   `gorm:"default:false" json:"email_verified"`
+	CommentReplyEmailEnabled bool   `gorm:"not null;default:true" json:"comment_reply_email_enabled"`
+	Status                   string `gorm:"size:10;not null;default:'active'" json:"status"`
 
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`

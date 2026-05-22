@@ -199,6 +199,10 @@ const resources = {
         usernameSuccess: 'Username updated successfully',
         usernameError: 'Failed to update username, please try again',
         usernameTooShort: 'Username must be at least 2 characters',
+        commentReplyEmail: 'Comment reply emails',
+        commentReplyEmailHint: 'Receive an email when someone replies to your comment.',
+        preferencesSuccess: 'Preferences updated successfully',
+        preferencesError: 'Failed to update preferences, please try again',
       }
     }
   },
@@ -398,6 +402,10 @@ const resources = {
         usernameSuccess: '用户名修改成功',
         usernameError: '用户名修改失败，请重试',
         usernameTooShort: '用户名长度不能少于 2 个字符',
+        commentReplyEmail: '评论回复邮件提醒',
+        commentReplyEmailHint: '有人回复你的评论时，通过邮件提醒你。',
+        preferencesSuccess: '设置已更新',
+        preferencesError: '设置更新失败，请重试',
       }
     }
   }

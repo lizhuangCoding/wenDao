@@ -61,6 +61,10 @@ type UpdateUsernameRequest struct {
 	Username string `json:"username" binding:"required,min=2,max=50"`
 }
 
+type UpdatePreferencesRequest struct {
+	CommentReplyEmailEnabled *bool `json:"comment_reply_email_enabled" binding:"required"`
+}
+
 // Register 用户注册
 func (h *UserHandler) Register(c *gin.Context) {
 	var req RegisterRequest
@@ -225,9 +229,10 @@ func (h *UserHandler) Logout(c *gin.Context) {
 		_ = h.userService.Logout(refreshToken)
 	}
 
+	secureCookie := httpcookie.ShouldUseSecureCookies(h.cfg)
 	c.SetSameSite(http.SameSiteLaxMode)
-	c.SetCookie("token", "", -1, "/", "", false, true)
-	c.SetCookie("refresh_token", "", -1, "/", "", false, true)
+	c.SetCookie("token", "", -1, "/", "", secureCookie, true)
+	c.SetCookie("refresh_token", "", -1, "/", "", secureCookie, true)
 
 	response.Success(c, gin.H{
 		"message": "Logged out successfully",
@@ -280,6 +285,37 @@ func (h *UserHandler) UpdateUsername(c *gin.Context) {
 	}
 
 	response.Success(c, nil)
+}
+
+func (h *UserHandler) UpdatePreferences(c *gin.Context) {
+	var req UpdatePreferencesRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.InvalidParams(c, err.Error())
+		return
+	}
+
+	userID, exists := c.Get("user_id")
+	if !exists {
+		response.Unauthorized(c, "Missing user ID")
+		return
+	}
+
+	if err := h.userService.UpdateCommentReplyEmailEnabled(userID.(int64), *req.CommentReplyEmailEnabled); err != nil {
+		if err.Error() == "user not found" {
+			response.NotFound(c, "User not found")
+			return
+		}
+		response.InternalError(c, "Failed to update preferences")
+		return
+	}
+
+	user, err := h.userService.GetCurrentUser(userID.(int64))
+	if err != nil {
+		response.InternalError(c, "Failed to get user")
+		return
+	}
+	user.PasswordHash = nil
+	response.Success(c, user)
 }
 
 // UploadAvatar 上传当前用户头像

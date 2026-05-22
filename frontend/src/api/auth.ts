@@ -4,8 +4,10 @@ import type {
   RegisterRequest,
   VerificationCodeRequest,
   PasswordResetConfirmRequest,
+  UpdatePreferencesRequest,
   AuthResponse,
   CurrentUserResponse,
+  User,
 } from '@/types';
 
 // 用户认证 API
@@ -57,5 +59,9 @@ export const authApi = {
   // 修改用户名
   updateUsername: (username: string) => {
     return request.put('/users/me/username', { username });
+  },
+
+  updatePreferences: (data: UpdatePreferencesRequest) => {
+    return request.put<User>('/users/me/preferences', data);
   },
 };

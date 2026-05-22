@@ -11,6 +11,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"wenDao/config"
+	"wenDao/internal/model"
 )
 
 func TestUserHandlerUpdateUsername_Success(t *testing.T) {
@@ -101,5 +102,35 @@ func TestUserHandlerUpdateUsername_Duplicate(t *testing.T) {
 
 	if w.Code != http.StatusBadRequest {
 		t.Fatalf("expected status %d, got %d", http.StatusBadRequest, w.Code)
+	}
+}
+
+func TestUserHandlerUpdatePreferences_UpdatesCommentReplyEmailSetting(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	userService := &stubUserService{currentUser: &model.User{
+		ID:                       42,
+		Username:                 "reader",
+		Email:                    "reader@example.com",
+		CommentReplyEmailEnabled: false,
+	}}
+	h := NewUserHandler(userService, &stubUploadService{}, &stubOAuthService{}, nil, &config.Config{})
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest(http.MethodPut, "/api/users/me/preferences", bytes.NewBufferString(`{"comment_reply_email_enabled":false}`))
+	c.Request.Header.Set("Content-Type", "application/json")
+	c.Set("user_id", int64(42))
+
+	h.UpdatePreferences(c)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d with body %s", http.StatusOK, w.Code, w.Body.String())
+	}
+	if userService.updatePreferenceID != 42 {
+		t.Fatalf("expected preference update user id 42, got %d", userService.updatePreferenceID)
+	}
+	if userService.updatePreference {
+		t.Fatalf("expected comment reply email preference to be disabled")
 	}
 }

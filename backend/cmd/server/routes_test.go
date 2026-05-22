@@ -58,6 +58,7 @@ func TestBuildRouter_RegistersRequiredRoutes(t *testing.T) {
 		"POST /api/auth/refresh",
 		"GET /api/auth/me",
 		"POST /api/users/me/avatar",
+		"PUT /api/users/me/preferences",
 		"POST /api/ai/chat",
 		"POST /api/ai/chat/stream/resume",
 		"GET /api/admin/articles/:id",

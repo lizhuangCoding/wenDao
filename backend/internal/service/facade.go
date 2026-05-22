@@ -48,6 +48,8 @@ type CreateKnowledgeDocumentInput = knowledgesvc.CreateKnowledgeDocumentInput
 type AIService = aisvc.AIService
 type ArticleService = articlesvc.ArticleService
 type CommentService = commentsvc.CommentService
+type CommentServiceOption = commentsvc.CommentServiceOption
+type CommentReplyNotificationSender = commentsvc.CommentReplyNotificationSender
 type UploadService = uploadsvc.UploadService
 type StatService = statsvc.StatService
 type DashboardStats = statsvc.DashboardStats
@@ -102,8 +104,14 @@ func NewAIService(llm eino.LLMClient, thinkTank ThinkTankService, logger *zap.Lo
 func NewArticleService(articleRepo articlerepo.ArticleRepository, categoryRepo categoryrepo.CategoryRepository, rdb *redis.Client, vector VectorService, logger *zap.Logger) ArticleService {
 	return articlesvc.NewArticleService(articleRepo, categoryRepo, rdb, vector, logger)
 }
-func NewCommentService(commentRepo commentrepo.CommentRepository, articleRepo articlerepo.ArticleRepository) CommentService {
-	return commentsvc.NewCommentService(commentRepo, articleRepo)
+func NewCommentService(commentRepo commentrepo.CommentRepository, articleRepo articlerepo.ArticleRepository, options ...CommentServiceOption) CommentService {
+	return commentsvc.NewCommentService(commentRepo, articleRepo, options...)
+}
+func NewSMTPCommentReplyEmailSender(cfg config.EmailConfig, siteURL string) CommentReplyNotificationSender {
+	return commentsvc.NewSMTPCommentReplyEmailSender(cfg, siteURL)
+}
+func WithReplyNotificationSender(sender CommentReplyNotificationSender) CommentServiceOption {
+	return commentsvc.WithReplyNotificationSender(sender)
 }
 func NewUploadService(repo uploadrepo.UploadRepository, cfg *config.Config) UploadService {
 	return uploadsvc.NewUploadService(repo, cfg)

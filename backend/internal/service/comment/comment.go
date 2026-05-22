@@ -1,8 +1,10 @@
 package comment
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"gorm.io/gorm"
 
@@ -22,19 +24,35 @@ type CommentService interface {
 
 // commentService 评论服务实现
 type commentService struct {
-	commentRepo repository.CommentRepository
-	articleRepo repository.ArticleRepository
+	commentRepo             repository.CommentRepository
+	articleRepo             repository.ArticleRepository
+	replyNotificationSender CommentReplyNotificationSender
+}
+
+type CommentServiceOption func(*commentService)
+
+func WithReplyNotificationSender(sender CommentReplyNotificationSender) CommentServiceOption {
+	return func(s *commentService) {
+		s.replyNotificationSender = sender
+	}
 }
 
 // NewCommentService 创建评论服务实例
 func NewCommentService(
 	commentRepo repository.CommentRepository,
 	articleRepo repository.ArticleRepository,
+	options ...CommentServiceOption,
 ) CommentService {
-	return &commentService{
+	svc := &commentService{
 		commentRepo: commentRepo,
 		articleRepo: articleRepo,
 	}
+	for _, option := range options {
+		if option != nil {
+			option(svc)
+		}
+	}
+	return svc
 }
 
 // Create 创建评论
@@ -55,10 +73,11 @@ func (s *commentService) Create(articleID, userID int64, content string, parentI
 
 	var rootID *int64
 	var effectiveParentID *int64 = parentID
+	var parentComment *model.Comment
 
 	// 如果是回复评论，处理层级和回复目标
 	if parentID != nil && *parentID > 0 {
-		parentComment, err := s.commentRepo.GetByID(*parentID)
+		parentComment, err = s.commentRepo.GetByID(*parentID)
 		if err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				return nil, errors.New("parent comment not found")
@@ -120,7 +139,37 @@ func (s *commentService) Create(articleID, userID int64, content string, parentI
 		return comment, nil
 	}
 
+	s.notifyReplyRecipient(context.Background(), article, comment, parentComment)
+
 	return comment, nil
+}
+
+func (s *commentService) notifyReplyRecipient(ctx context.Context, article *model.Article, comment *model.Comment, parentComment *model.Comment) {
+	if s == nil || s.replyNotificationSender == nil || article == nil || comment == nil || comment.ReplyToUserID == nil {
+		return
+	}
+
+	recipient := comment.ReplyToUser
+	if recipient == nil && parentComment != nil && parentComment.UserID == *comment.ReplyToUserID {
+		recipient = parentComment.User
+	}
+	if recipient == nil || recipient.ID == comment.UserID || !recipient.CommentReplyEmailEnabled || strings.TrimSpace(recipient.Email) == "" {
+		return
+	}
+
+	replyAuthor := "读者"
+	if comment.User != nil && strings.TrimSpace(comment.User.Username) != "" {
+		replyAuthor = comment.User.Username
+	}
+
+	_ = s.replyNotificationSender.SendCommentReplyNotification(ctx, CommentReplyNotification{
+		RecipientEmail:      recipient.Email,
+		RecipientUsername:   recipient.Username,
+		ReplyAuthorUsername: replyAuthor,
+		ArticleTitle:        article.Title,
+		ArticleSlug:         article.Slug,
+		CommentPreview:      commentPreview(comment.Content),
+	})
 }
 
 // GetByArticleID 获取文章的评论列表

@@ -14,6 +14,7 @@ export const Profile = () => {
   const [isEditingUsername, setIsEditingUsername] = useState(false);
   const [newUsername, setNewUsername] = useState(user?.username || '');
   const [isSaving, setIsSaving] = useState(false);
+  const [isSavingPreferences, setIsSavingPreferences] = useState(false);
 
   if (!user) {
     return (
@@ -79,6 +80,21 @@ export const Profile = () => {
       showToast(error.message || t('profile.usernameError'), 'error');
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleCommentReplyEmailChange = async (enabled: boolean) => {
+    setIsSavingPreferences(true);
+    try {
+      const updatedUser = await authApi.updatePreferences({
+        comment_reply_email_enabled: enabled,
+      });
+      setUser(updatedUser);
+      showToast(t('profile.preferencesSuccess'), 'success');
+    } catch (error: any) {
+      showToast(error.message || t('profile.preferencesError'), 'error');
+    } finally {
+      setIsSavingPreferences(false);
     }
   };
 
@@ -191,6 +207,43 @@ export const Profile = () => {
                 readOnly
                 className="input w-full bg-neutral-50 dark:bg-neutral-800/80 dark:border-neutral-700 dark:text-neutral-100 cursor-not-allowed"
               />
+            </div>
+
+            <div className="border-t border-neutral-100 pt-6 dark:border-neutral-800">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <label
+                    htmlFor="comment-reply-email"
+                    className="block text-sm font-bold text-neutral-800 dark:text-neutral-100"
+                  >
+                    {t('profile.commentReplyEmail')}
+                  </label>
+                  <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
+                    {t('profile.commentReplyEmailHint')}
+                  </p>
+                </div>
+                <button
+                  id="comment-reply-email"
+                  type="button"
+                  role="switch"
+                  aria-checked={user.comment_reply_email_enabled ?? true}
+                  disabled={isSavingPreferences}
+                  onClick={() =>
+                    handleCommentReplyEmailChange(!(user.comment_reply_email_enabled ?? true))
+                  }
+                  className={`relative inline-flex h-7 w-12 flex-shrink-0 rounded-full border-2 border-transparent transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
+                    user.comment_reply_email_enabled ?? true
+                      ? 'bg-primary-500'
+                      : 'bg-neutral-300 dark:bg-neutral-700'
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-6 w-6 transform rounded-full bg-white shadow transition-transform ${
+                      user.comment_reply_email_enabled ?? true ? 'translate-x-5' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
+              </div>
             </div>
           </div>
         </div>

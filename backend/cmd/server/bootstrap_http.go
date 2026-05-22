@@ -167,6 +167,7 @@ func registerRoutes(
 			authRequired.GET("/auth/me", authHandler.GetUserInfo)
 			authRequired.POST("/users/me/avatar", userHandler.UploadAvatar)
 			authRequired.PUT("/users/me/username", userHandler.UpdateUsername)
+			authRequired.PUT("/users/me/preferences", userHandler.UpdatePreferences)
 			authRequired.POST("/comments", commentHandler.Create)
 			authRequired.DELETE("/comments/:id", commentHandler.Delete)
 		}

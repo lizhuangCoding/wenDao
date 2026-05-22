@@ -23,37 +23,40 @@ import (
 )
 
 type stubUserService struct {
-	currentUser        *model.User
-	getCurrentUserErr  error
-	registerEmail      string
-	registerPassword   string
-	registerUsername   string
-	registerUser       *model.User
-	registerErr        error
-	loginEmail         string
-	loginPassword      string
-	loginToken         string
-	loginUser          *model.User
-	loginErr           error
-	updateAvatarUserID int64
-	updateAvatarURL    string
-	updateAvatarErr    error
-	updateUsernameID   int64
-	updateUsername     string
-	updateUsernameErr  error
-	refreshToken       string
-	refreshTokenErr    error
-	refreshTokenUserID int64
-	refreshTokenRole   string
-	githubLoginCode    string
-	githubLoginToken   string
-	githubLoginUser    *model.User
-	githubLoginErr     error
-	emailExists        bool
-	emailExistsErr     error
-	resetPasswordEmail string
-	resetPasswordValue string
-	resetPasswordErr   error
+	currentUser         *model.User
+	getCurrentUserErr   error
+	registerEmail       string
+	registerPassword    string
+	registerUsername    string
+	registerUser        *model.User
+	registerErr         error
+	loginEmail          string
+	loginPassword       string
+	loginToken          string
+	loginUser           *model.User
+	loginErr            error
+	updateAvatarUserID  int64
+	updateAvatarURL     string
+	updateAvatarErr     error
+	updateUsernameID    int64
+	updateUsername      string
+	updateUsernameErr   error
+	updatePreferenceID  int64
+	updatePreference    bool
+	updatePreferenceErr error
+	refreshToken        string
+	refreshTokenErr     error
+	refreshTokenUserID  int64
+	refreshTokenRole    string
+	githubLoginCode     string
+	githubLoginToken    string
+	githubLoginUser     *model.User
+	githubLoginErr      error
+	emailExists         bool
+	emailExistsErr      error
+	resetPasswordEmail  string
+	resetPasswordValue  string
+	resetPasswordErr    error
 }
 
 func (s *stubUserService) Register(email, password, username string) (*model.User, error) {
@@ -126,6 +129,12 @@ func (s *stubUserService) UpdateUsername(userID int64, username string) error {
 	s.updateUsernameID = userID
 	s.updateUsername = username
 	return s.updateUsernameErr
+}
+
+func (s *stubUserService) UpdateCommentReplyEmailEnabled(userID int64, enabled bool) error {
+	s.updatePreferenceID = userID
+	s.updatePreference = enabled
+	return s.updatePreferenceErr
 }
 
 type stubUploadService struct {

@@ -105,6 +105,20 @@ func (h *AuthHandler) Refresh(c *gin.Context) {
 
 // Logout 登出
 func (h *AuthHandler) Logout(c *gin.Context) {
+	// 获取 Access Token（AuthRequired 已注入）
+	accessTokenValue, exists := c.Get("token")
+	if exists {
+		if accessToken, ok := accessTokenValue.(string); ok && accessToken != "" {
+			claims, err := jwt.ParseToken(accessToken, h.cfg.JWT.Secret)
+			if err == nil && claims != nil {
+				remainingTime := time.Until(claims.ExpiresAt.Time)
+				if h.rdb != nil && remainingTime > 0 {
+					_ = jwt.AddToBlacklist(h.rdb, accessToken, remainingTime)
+				}
+			}
+		}
+	}
+
 	// 获取 Refresh Token（从 Cookie 或 Header）
 	refreshToken := c.GetHeader("X-Refresh-Token")
 	if refreshToken == "" {
@@ -121,15 +135,17 @@ func (h *AuthHandler) Logout(c *gin.Context) {
 		claims, err := jwt.ParseToken(refreshToken, h.cfg.JWT.Secret)
 		if err == nil && claims != nil {
 			remainingTime := time.Until(claims.ExpiresAt.Time)
-			if remainingTime > 0 {
+			if h.rdb != nil && remainingTime > 0 {
 				_ = jwt.AddToBlacklist(h.rdb, refreshToken, remainingTime)
 			}
 		}
 	}
 
-	// 清除 Refresh Token Cookie
+	// 清除浏览器里的 Access Token 和 Refresh Token Cookie
+	secureCookie := httpcookie.ShouldUseSecureCookies(h.cfg)
 	c.SetSameSite(http.SameSiteLaxMode)
-	c.SetCookie("refresh_token", "", -1, "/", "", false, true)
+	c.SetCookie("token", "", -1, "/", "", secureCookie, true)
+	c.SetCookie("refresh_token", "", -1, "/", "", secureCookie, true)
 
 	response.Success(c, gin.H{"message": "Logged out successfully"})
 }
