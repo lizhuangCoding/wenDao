@@ -98,7 +98,7 @@ email:
   username: ""           # SMTP 用户名
   password: ""           # SMTP 密码或授权码
   from_address: ""       # 发件人邮箱
-  from_name: "wenDao"    # 发件人名称
+  from_name: "wenDao-Local"    # 发件人名称
 
 # 邮箱验证码配置
 verification:
