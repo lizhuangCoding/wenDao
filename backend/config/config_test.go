@@ -390,6 +390,71 @@ upload:
 	}
 }
 
+func TestLoadConfig_BindsUploadCleanupSettingsFromEnvAndDefaults(t *testing.T) {
+	viper.Reset()
+	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+	defer viper.Reset()
+
+	tempDir := t.TempDir()
+	configDir := filepath.Join(tempDir, "config")
+	if err := os.MkdirAll(configDir, 0o755); err != nil {
+		t.Fatalf("failed to create config dir: %v", err)
+	}
+
+	configContent := `server:
+  port: "8089"
+  mode: "debug"
+site:
+  slogan: "test"
+  url: "http://localhost:3000"
+jwt:
+  secret: "real-test-secret"
+  access_expire_hours: 1
+  refresh_expire_days: 7
+upload:
+  max_size: 10485760
+  allowed_types:
+    - "image/jpeg"
+  storage_path: "./uploads"
+`
+	if err := os.WriteFile(filepath.Join(configDir, "config.yaml"), []byte(configContent), 0o644); err != nil {
+		t.Fatalf("failed to write config file: %v", err)
+	}
+
+	oldWD, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("failed to get working directory: %v", err)
+	}
+	defer func() {
+		_ = os.Chdir(oldWD)
+	}()
+
+	t.Setenv("UPLOAD_CLEANUP_ENABLED", "false")
+	t.Setenv("UPLOAD_CLEANUP_INTERVAL_HOURS", "6")
+	t.Setenv("UPLOAD_CLEANUP_BATCH_SIZE", "50")
+
+	if err := os.Chdir(tempDir); err != nil {
+		t.Fatalf("failed to change working directory: %v", err)
+	}
+
+	cfg, err := LoadConfig()
+	if err != nil {
+		t.Fatalf("expected config to load, got %v", err)
+	}
+	if cfg.Upload.CleanupEnabled {
+		t.Fatalf("expected upload cleanup enabled to bind from env as false")
+	}
+	if cfg.Upload.CleanupRetentionDays != 2 {
+		t.Fatalf("expected default cleanup retention 2 days, got %d", cfg.Upload.CleanupRetentionDays)
+	}
+	if cfg.Upload.CleanupIntervalHours != 6 {
+		t.Fatalf("expected cleanup interval from env, got %d", cfg.Upload.CleanupIntervalHours)
+	}
+	if cfg.Upload.CleanupBatchSize != 50 {
+		t.Fatalf("expected cleanup batch size from env, got %d", cfg.Upload.CleanupBatchSize)
+	}
+}
+
 func TestLoadConfig_BindsAIAndOAuthEndpointsFromEnv(t *testing.T) {
 	viper.Reset()
 	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))

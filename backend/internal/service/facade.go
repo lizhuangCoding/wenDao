@@ -51,6 +51,7 @@ type CommentService = commentsvc.CommentService
 type CommentServiceOption = commentsvc.CommentServiceOption
 type CommentReplyNotificationSender = commentsvc.CommentReplyNotificationSender
 type UploadService = uploadsvc.UploadService
+type UploadCleanupResult = uploadsvc.UploadCleanupResult
 type StatService = statsvc.StatService
 type DashboardStats = statsvc.DashboardStats
 type AILogger = aisvc.AILogger

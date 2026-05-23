@@ -13,6 +13,12 @@ interface CommentItemProps {
 export const CommentItem = ({ comment, articleId, isReply = false }: CommentItemProps) => {
   const { t } = useTranslation();
   const [showReplyForm, setShowReplyForm] = useState(false);
+  const commentUser = {
+    username: comment.user?.username || '已注销用户',
+    avatarUrl:
+      comment.user?.avatar_url ||
+      `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(comment.user?.username || `deleted-user-${comment.user_id}`)}`,
+  };
 
   return (
     <div className={`${isReply ? 'py-2' : 'py-4'}`}>
@@ -23,14 +29,14 @@ export const CommentItem = ({ comment, articleId, isReply = false }: CommentItem
           {/* 用户头像 */}
           <div className="w-8 h-8 rounded-full overflow-hidden bg-neutral-200 dark:bg-neutral-700 flex-shrink-0 border border-neutral-100 dark:border-neutral-600">
             <img
-              src={comment.user.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${comment.user.username}`}
-              alt={comment.user.username}
+              src={commentUser.avatarUrl}
+              alt={commentUser.username}
               className="w-full h-full object-cover"
             />
           </div>
           <div className="flex flex-col">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="font-medium text-neutral-700 dark:text-neutral-200">{comment.user.username}</span>
+              <span className="font-medium text-neutral-700 dark:text-neutral-200">{commentUser.username}</span>
               {comment.reply_to_user && (
                 <div className="flex items-center gap-1">
                   <span className="text-xs text-neutral-400 dark:text-neutral-500">{t('article.reply')}</span>
@@ -61,7 +67,7 @@ export const CommentItem = ({ comment, articleId, isReply = false }: CommentItem
             articleId={articleId}
             parentId={comment.parent_id || comment.id} // 如果是回复，使用相同的 parent_id；如果是直评，使用当前 ID 作为 parent
             replyToUserId={comment.user_id} // 被回复人的 ID
-            replyToUsername={comment.user.username} // 被回复人的用户名
+            replyToUsername={commentUser.username} // 被回复人的用户名
             onSuccess={() => setShowReplyForm(false)}
           />
         </div>

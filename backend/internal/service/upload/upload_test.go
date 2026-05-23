@@ -9,15 +9,21 @@ import (
 	"net/textproto"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"wenDao/config"
 	"wenDao/internal/model"
 )
 
 type stubUploadRepository struct {
-	created []*model.Upload
+	created       []*model.Upload
+	unreferenced  []*model.Upload
+	deletedIDs    []int64
+	listCutoff    time.Time
+	listBatchSize int
 }
 
 func (r *stubUploadRepository) Create(upload *model.Upload) error {
@@ -30,6 +36,17 @@ func (r *stubUploadRepository) GetByID(id int64) (*model.Upload, error) {
 }
 
 func (r *stubUploadRepository) DeleteByFilePath(filePath string) error {
+	return nil
+}
+
+func (r *stubUploadRepository) ListUnreferencedBefore(cutoff time.Time, limit int) ([]*model.Upload, error) {
+	r.listCutoff = cutoff
+	r.listBatchSize = limit
+	return r.unreferenced, nil
+}
+
+func (r *stubUploadRepository) DeleteByID(id int64) error {
+	r.deletedIDs = append(r.deletedIDs, id)
 	return nil
 }
 
@@ -166,6 +183,78 @@ func TestUploadServiceUploadImage_DoesNotWatermarkAvatarUploads(t *testing.T) {
 	stored := readStoredImage(t, storageDir, upload.FilePath)
 	if unchangedPixelCount(stored, bg) != stored.Bounds().Dx()*stored.Bounds().Dy() {
 		t.Fatal("expected regular image upload to preserve pixels without watermark")
+	}
+}
+
+func TestUploadServiceCleanupUnreferenced_DeletesOnlySafeUnreferencedUploads(t *testing.T) {
+	tempDir := t.TempDir()
+	storageDir := filepath.Join(tempDir, "uploads")
+	if err := os.MkdirAll(filepath.Join(storageDir, "2026", "05"), 0o755); err != nil {
+		t.Fatalf("failed to create storage dir: %v", err)
+	}
+
+	managedPath := filepath.Join(storageDir, "2026", "05", "unused.png")
+	if err := os.WriteFile(managedPath, []byte("unused"), 0o644); err != nil {
+		t.Fatalf("failed to write managed upload: %v", err)
+	}
+	outsidePath := filepath.Join(tempDir, "outside.png")
+	if err := os.WriteFile(outsidePath, []byte("outside"), 0o644); err != nil {
+		t.Fatalf("failed to write outside file: %v", err)
+	}
+
+	repo := &stubUploadRepository{
+		unreferenced: []*model.Upload{
+			{ID: 11, FilePath: "/uploads/2026/05/unused.png"},
+			{ID: 12, FilePath: "/uploads/../outside.png"},
+		},
+	}
+	svc := NewUploadService(repo, &config.Config{
+		Upload: config.UploadConfig{
+			StoragePath:          storageDir,
+			CleanupRetentionDays: 2,
+			CleanupBatchSize:     100,
+		},
+	})
+
+	result, err := svc.CleanupUnreferenced(time.Date(2026, 5, 23, 12, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatalf("expected cleanup to succeed, got %v", err)
+	}
+
+	if _, err := os.Stat(managedPath); !os.IsNotExist(err) {
+		t.Fatalf("expected safe unreferenced upload to be removed, stat error: %v", err)
+	}
+	if _, err := os.Stat(outsidePath); err != nil {
+		t.Fatalf("expected unsafe path outside storage to be left untouched, got %v", err)
+	}
+	if !reflect.DeepEqual(repo.deletedIDs, []int64{11}) {
+		t.Fatalf("expected only safe upload record to be deleted, got IDs %#v", repo.deletedIDs)
+	}
+	if result.Candidates != 2 || result.Deleted != 1 || result.Skipped != 1 {
+		t.Fatalf("unexpected cleanup result: %+v", result)
+	}
+}
+
+func TestUploadServiceCleanupUnreferenced_UsesTwoDayDefaultRetention(t *testing.T) {
+	repo := &stubUploadRepository{}
+	svc := NewUploadService(repo, &config.Config{
+		Upload: config.UploadConfig{
+			StoragePath: t.TempDir(),
+		},
+	})
+	now := time.Date(2026, 5, 23, 12, 0, 0, 0, time.UTC)
+
+	_, err := svc.CleanupUnreferenced(now)
+	if err != nil {
+		t.Fatalf("expected cleanup to succeed, got %v", err)
+	}
+
+	expectedCutoff := now.Add(-48 * time.Hour)
+	if !repo.listCutoff.Equal(expectedCutoff) {
+		t.Fatalf("expected cutoff %s, got %s", expectedCutoff, repo.listCutoff)
+	}
+	if repo.listBatchSize != 200 {
+		t.Fatalf("expected default batch size 200, got %d", repo.listBatchSize)
 	}
 }
 

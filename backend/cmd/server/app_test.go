@@ -46,6 +46,9 @@ func stubRunDependencies(t *testing.T, overrides runDependencies) func() {
 	if overrides.buildRouter != nil {
 		stubbed.buildRouter = overrides.buildRouter
 	}
+	if overrides.startBackgroundTasks != nil {
+		stubbed.startBackgroundTasks = overrides.startBackgroundTasks
+	}
 	if overrides.listenAndServe != nil {
 		stubbed.listenAndServe = overrides.listenAndServe
 	}
@@ -125,5 +128,60 @@ func TestRun_WrapsListenAndServeError(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "listen and serve") {
 		t.Fatalf("expected listen context in error, got %v", err)
+	}
+}
+
+func TestRun_StartsAndStopsBackgroundTasks(t *testing.T) {
+	started := false
+	stopped := false
+
+	restore := stubRunDependencies(t, runDependencies{
+		loadServerEnv: func() error { return nil },
+		loadConfig: func() (*config.Config, error) {
+			cfg := &config.Config{}
+			cfg.Server.Port = "8089"
+			return cfg, nil
+		},
+		initLogger: func(config.LogConfig) *zap.Logger {
+			return zap.NewNop()
+		},
+		initInfrastructure: func(*config.Config, *zap.Logger) (*infrastructure, error) {
+			return &infrastructure{}, nil
+		},
+		initRepositories: func(*gorm.DB) *repositories {
+			return &repositories{}
+		},
+		initAIComponents: func(*config.Config, *zap.Logger, *redis.Client) (*aiComponents, error) {
+			return nil, nil
+		},
+		initServices: func(*config.Config, *zap.Logger, *repositories, *infrastructure, *aiComponents) (*appServices, func(), error) {
+			return &appServices{}, func() {}, nil
+		},
+		initHandlers: func(*config.Config, *repositories, *appServices, *redis.Client) *appHandlers {
+			return &appHandlers{}
+		},
+		buildRouter: func(*config.Config, *zap.Logger, *redis.Client, *appHandlers) http.Handler {
+			return http.NewServeMux()
+		},
+		startBackgroundTasks: func(*config.Config, *zap.Logger, *appServices) func() {
+			started = true
+			return func() {
+				stopped = true
+			}
+		},
+		listenAndServe: func(*http.Server) error {
+			return http.ErrServerClosed
+		},
+	})
+	defer restore()
+
+	if err := Run(); err != nil {
+		t.Fatalf("expected graceful server close to return nil, got %v", err)
+	}
+	if !started {
+		t.Fatal("expected background tasks to start")
+	}
+	if !stopped {
+		t.Fatal("expected background tasks to stop")
 	}
 }

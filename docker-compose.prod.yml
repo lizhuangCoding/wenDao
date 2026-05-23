@@ -72,6 +72,11 @@ services:
 
       # 上传文件写入容器内 /app/uploads，并由下面的 uploads_data volume 持久化。
       UPLOAD_PATH: /app/uploads
+      # 定时清理数据库已确认未引用的上传图片；默认只清理 2 天以前的数据。
+      UPLOAD_CLEANUP_ENABLED: ${UPLOAD_CLEANUP_ENABLED:-true}
+      UPLOAD_CLEANUP_RETENTION_DAYS: ${UPLOAD_CLEANUP_RETENTION_DAYS:-2}
+      UPLOAD_CLEANUP_INTERVAL_HOURS: ${UPLOAD_CLEANUP_INTERVAL_HOURS:-24}
+      UPLOAD_CLEANUP_BATCH_SIZE: ${UPLOAD_CLEANUP_BATCH_SIZE:-200}
 
       # 生产环境日志输出到 stdout，方便 docker logs 查看。
       LOG_FORMAT: json

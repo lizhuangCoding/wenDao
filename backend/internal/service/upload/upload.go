@@ -30,12 +30,20 @@ type UploadService interface {
 	UploadArticleImage(file multipart.File, header *multipart.FileHeader, userID int64) (*model.Upload, error)
 	UploadCoverImage(file multipart.File, header *multipart.FileHeader, userID int64) (*model.Upload, error)
 	CleanupByFilePath(filePath string) error
+	CleanupUnreferenced(now time.Time) (UploadCleanupResult, error)
 }
 
 // uploadService 上传服务实现
 type uploadService struct {
 	uploadRepo repository.UploadRepository
 	cfg        *config.Config
+}
+
+// UploadCleanupResult 上传清理结果
+type UploadCleanupResult struct {
+	Candidates int
+	Deleted    int
+	Skipped    int
 }
 
 // NewUploadService 创建上传服务实例
@@ -414,24 +422,108 @@ var watermarkGlyphs = map[rune][]string{
 
 // CleanupByFilePath 删除上传记录和本地文件
 func (s *uploadService) CleanupByFilePath(filePath string) error {
-	if err := s.uploadRepo.DeleteByFilePath(filePath); err != nil {
-		return err
+	fullPath, ok := managedUploadDiskPath(s.cfg.Upload.StoragePath, filePath)
+	if !ok {
+		return fmt.Errorf("unsafe upload file path: %s", filePath)
 	}
 
-	trimmedPath := strings.TrimPrefix(filePath, "/uploads/")
-	if trimmedPath == filePath {
-		trimmedPath = strings.TrimPrefix(filePath, "uploads/")
-	}
-	if trimmedPath == "" {
-		return nil
-	}
-
-	fullPath := filepath.Join(s.cfg.Upload.StoragePath, filepath.FromSlash(trimmedPath))
 	if err := os.Remove(fullPath); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err
 	}
 
+	if err := s.uploadRepo.DeleteByFilePath(filePath); err != nil {
+		return err
+	}
+
 	return nil
+}
+
+// CleanupUnreferenced 删除数据库已确认未引用、且超过保留期的上传文件。
+func (s *uploadService) CleanupUnreferenced(now time.Time) (UploadCleanupResult, error) {
+	var result UploadCleanupResult
+	if s == nil || s.uploadRepo == nil || s.cfg == nil {
+		return result, nil
+	}
+
+	retentionDays := s.cfg.Upload.CleanupRetentionDays
+	if retentionDays <= 0 {
+		retentionDays = 2
+	}
+	batchSize := s.cfg.Upload.CleanupBatchSize
+	if batchSize <= 0 {
+		batchSize = 200
+	}
+
+	cutoff := now.Add(-time.Duration(retentionDays) * 24 * time.Hour)
+	candidates, err := s.uploadRepo.ListUnreferencedBefore(cutoff, batchSize)
+	if err != nil {
+		return result, err
+	}
+
+	for _, upload := range candidates {
+		result.Candidates++
+		if upload == nil || upload.ID <= 0 {
+			result.Skipped++
+			continue
+		}
+		fullPath, ok := managedUploadDiskPath(s.cfg.Upload.StoragePath, upload.FilePath)
+		if !ok {
+			result.Skipped++
+			continue
+		}
+		if err := os.Remove(fullPath); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return result, fmt.Errorf("failed to remove upload file %q: %w", upload.FilePath, err)
+		}
+		if err := s.uploadRepo.DeleteByID(upload.ID); err != nil {
+			return result, fmt.Errorf("failed to delete upload record %d: %w", upload.ID, err)
+		}
+		result.Deleted++
+	}
+
+	return result, nil
+}
+
+func managedUploadDiskPath(storagePath string, filePath string) (string, bool) {
+	storagePath = strings.TrimSpace(storagePath)
+	if storagePath == "" {
+		return "", false
+	}
+
+	uploadPath := strings.TrimSpace(filePath)
+	relativePath := strings.TrimPrefix(uploadPath, "/uploads/")
+	if relativePath == uploadPath {
+		relativePath = strings.TrimPrefix(uploadPath, "uploads/")
+	}
+	if relativePath == "" || relativePath == uploadPath || strings.Contains(relativePath, "\\") {
+		return "", false
+	}
+
+	segments := strings.Split(relativePath, "/")
+	for _, segment := range segments {
+		if segment == "" || segment == "." || segment == ".." {
+			return "", false
+		}
+	}
+
+	cleanRelativePath := filepath.Clean(filepath.FromSlash(relativePath))
+	if cleanRelativePath == "." || filepath.IsAbs(cleanRelativePath) {
+		return "", false
+	}
+
+	storageAbs, err := filepath.Abs(storagePath)
+	if err != nil {
+		return "", false
+	}
+	fullPath, err := filepath.Abs(filepath.Join(storageAbs, cleanRelativePath))
+	if err != nil {
+		return "", false
+	}
+	rel, err := filepath.Rel(storageAbs, fullPath)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) || filepath.IsAbs(rel) {
+		return "", false
+	}
+
+	return fullPath, true
 }
 
 func safeExtensionForContentType(contentType string) (string, bool) {

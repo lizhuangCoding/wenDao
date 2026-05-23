@@ -86,6 +86,10 @@ type UploadConfig struct {
 	ImageQuality           int      `mapstructure:"image_quality"`
 	MaxImageWidth          int      `mapstructure:"max_image_width"`
 	MaxImageHeight         int      `mapstructure:"max_image_height"`
+	CleanupEnabled         bool     `mapstructure:"cleanup_enabled"`
+	CleanupRetentionDays   int      `mapstructure:"cleanup_retention_days"`
+	CleanupIntervalHours   int      `mapstructure:"cleanup_interval_hours"`
+	CleanupBatchSize       int      `mapstructure:"cleanup_batch_size"`
 }
 
 // LogConfig 日志配置
@@ -164,6 +168,10 @@ func LoadConfig() (*Config, error) {
 	viper.SetDefault("ratelimit.verification_code", 3)
 	viper.SetDefault("ratelimit.password_reset", 5)
 	viper.SetDefault("ratelimit.refresh", 30)
+	viper.SetDefault("upload.cleanup_enabled", true)
+	viper.SetDefault("upload.cleanup_retention_days", 2)
+	viper.SetDefault("upload.cleanup_interval_hours", 24)
+	viper.SetDefault("upload.cleanup_batch_size", 200)
 
 	_ = viper.BindEnv("database.host", "DB_HOST")
 	_ = viper.BindEnv("database.port", "DB_PORT")
@@ -187,6 +195,10 @@ func LoadConfig() (*Config, error) {
 	_ = viper.BindEnv("ai.research_endpoint", "RESEARCH_ENDPOINT")
 	_ = viper.BindEnv("ai.research_api_key", "RESEARCH_API_KEY")
 	_ = viper.BindEnv("upload.storage_path", "UPLOAD_PATH")
+	_ = viper.BindEnv("upload.cleanup_enabled", "UPLOAD_CLEANUP_ENABLED")
+	_ = viper.BindEnv("upload.cleanup_retention_days", "UPLOAD_CLEANUP_RETENTION_DAYS")
+	_ = viper.BindEnv("upload.cleanup_interval_hours", "UPLOAD_CLEANUP_INTERVAL_HOURS")
+	_ = viper.BindEnv("upload.cleanup_batch_size", "UPLOAD_CLEANUP_BATCH_SIZE")
 	_ = viper.BindEnv("site.url", "SITE_URL")
 	_ = viper.BindEnv("log.level", "LOG_LEVEL")
 	_ = viper.BindEnv("log.format", "LOG_FORMAT")
@@ -235,6 +247,15 @@ func LoadConfig() (*Config, error) {
 	}
 	if cfg.Upload.MaxImageHeight <= 0 {
 		cfg.Upload.MaxImageHeight = 2560
+	}
+	if cfg.Upload.CleanupRetentionDays <= 0 {
+		cfg.Upload.CleanupRetentionDays = 2
+	}
+	if cfg.Upload.CleanupIntervalHours <= 0 {
+		cfg.Upload.CleanupIntervalHours = 24
+	}
+	if cfg.Upload.CleanupBatchSize <= 0 {
+		cfg.Upload.CleanupBatchSize = 200
 	}
 	if cfg.Log.MaxSizeMB <= 0 {
 		cfg.Log.MaxSizeMB = 100

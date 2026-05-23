@@ -120,7 +120,7 @@ export interface Comment {
   content: string;
   article_id: number;
   user_id: number;
-  user: User;
+  user?: User;
   parent_id?: number;
   reply_to_user_id?: number;
   reply_to_user?: User;

@@ -174,6 +174,10 @@ func (s *stubUploadService) CleanupByFilePath(filePath string) error {
 	return s.cleanupErr
 }
 
+func (s *stubUploadService) CleanupUnreferenced(now time.Time) (service.UploadCleanupResult, error) {
+	return service.UploadCleanupResult{}, nil
+}
+
 type stubOAuthService struct{}
 
 func (s *stubOAuthService) GetGitHubAuthURL(state string) string {

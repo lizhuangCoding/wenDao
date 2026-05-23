@@ -80,6 +80,10 @@ upload:
   image_quality: 80      # 压缩后的图片质量 (1-100)，仅针对 JPEG
   max_image_width: 2560  # 允许的最大图片宽度，超过则等比例缩放
   max_image_height: 2560 # 允许的最大图片高度，超过则等比例缩放
+  cleanup_enabled: true  # 是否启用未引用图片定时清理
+  cleanup_retention_days: 2   # 只清理创建时间早于该天数的未引用上传
+  cleanup_interval_hours: 24  # 清理任务执行间隔
+  cleanup_batch_size: 200     # 单次最多清理的上传记录数
 
 # 访问限流配置 (单位时间内允许的最大请求次数)
 ratelimit:

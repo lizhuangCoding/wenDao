@@ -13,16 +13,17 @@ import (
 )
 
 type runDependencies struct {
-	loadServerEnv      func() error
-	loadConfig         func() (*config.Config, error)
-	initLogger         func(config.LogConfig) *zap.Logger
-	initInfrastructure func(*config.Config, *zap.Logger) (*infrastructure, error)
-	initRepositories   func(*gorm.DB) *repositories
-	initAIComponents   func(*config.Config, *zap.Logger, *redis.Client) (*aiComponents, error)
-	initServices       func(*config.Config, *zap.Logger, *repositories, *infrastructure, *aiComponents) (*appServices, func(), error)
-	initHandlers       func(*config.Config, *repositories, *appServices, *redis.Client) *appHandlers
-	buildRouter        func(*config.Config, *zap.Logger, *redis.Client, *appHandlers) http.Handler
-	listenAndServe     func(*http.Server) error
+	loadServerEnv        func() error
+	loadConfig           func() (*config.Config, error)
+	initLogger           func(config.LogConfig) *zap.Logger
+	initInfrastructure   func(*config.Config, *zap.Logger) (*infrastructure, error)
+	initRepositories     func(*gorm.DB) *repositories
+	initAIComponents     func(*config.Config, *zap.Logger, *redis.Client) (*aiComponents, error)
+	initServices         func(*config.Config, *zap.Logger, *repositories, *infrastructure, *aiComponents) (*appServices, func(), error)
+	initHandlers         func(*config.Config, *repositories, *appServices, *redis.Client) *appHandlers
+	buildRouter          func(*config.Config, *zap.Logger, *redis.Client, *appHandlers) http.Handler
+	startBackgroundTasks func(*config.Config, *zap.Logger, *appServices) func()
+	listenAndServe       func(*http.Server) error
 }
 
 var appRunDependencies = runDependencies{
@@ -37,6 +38,7 @@ var appRunDependencies = runDependencies{
 	buildRouter: func(cfg *config.Config, logger *zap.Logger, rdb *redis.Client, handlers *appHandlers) http.Handler {
 		return buildRouter(cfg, logger, rdb, handlers)
 	},
+	startBackgroundTasks: startBackgroundTasks,
 	listenAndServe: func(srv *http.Server) error {
 		return srv.ListenAndServe()
 	},
@@ -85,6 +87,8 @@ func Run() error {
 
 	handlers := deps.initHandlers(cfg, repos, services, infra.rdb)
 	router := deps.buildRouter(cfg, logger, infra.rdb, handlers)
+	stopBackgroundTasks := deps.startBackgroundTasks(cfg, logger, services)
+	defer stopBackgroundTasks()
 
 	srv := &http.Server{
 		Addr:    ":" + cfg.Server.Port,
