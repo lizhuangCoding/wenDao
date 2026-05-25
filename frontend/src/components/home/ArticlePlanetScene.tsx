@@ -74,6 +74,7 @@ export const ArticlePlanetScene = ({
         autoRotateSpeed={0.42}
         enableDamping
         enablePan={false}
+        enableZoom={false}
         maxDistance={7.2}
         minDistance={4.25}
         rotateSpeed={0.52}

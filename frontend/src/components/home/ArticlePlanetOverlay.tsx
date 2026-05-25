@@ -83,6 +83,20 @@ export const ArticlePlanetOverlay = ({
               </button>
             ))}
           </div>
+          {activeArticle && (
+            <Link
+              to={`/article/${activeArticle.slug}`}
+              className="mt-4 flex items-center justify-between gap-4 border border-white/15 bg-neutral-950/65 px-4 py-3 text-left shadow-2xl backdrop-blur-xl transition-colors hover:border-primary-300/70 sm:hidden"
+            >
+              <span className="min-w-0">
+                <span className="block text-[10px] font-black uppercase tracking-[0.22em] text-primary-300">
+                  {activeArticle.category?.name || 'Article'}
+                </span>
+                <span className="mt-1 block truncate text-sm font-black text-white">{activeArticle.title}</span>
+              </span>
+              <ArrowRight className="h-4 w-4 shrink-0 text-white/70" />
+            </Link>
+          )}
         </div>
 
         {activeArticle && (
