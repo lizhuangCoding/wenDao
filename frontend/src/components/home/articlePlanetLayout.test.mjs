@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { rm } from 'node:fs/promises';
+import { mkdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -9,6 +9,8 @@ const tempDir = path.join(tmpdir(), 'wendao-article-planet-layout-tests');
 const bundlePath = path.join(tempDir, 'articlePlanetLayout.test-bundle.mjs');
 
 const loadLayout = async () => {
+  await mkdir(tempDir, { recursive: true });
+
   await build({
     entryPoints: [new URL('./articlePlanetLayout.ts', import.meta.url).pathname],
     bundle: true,
