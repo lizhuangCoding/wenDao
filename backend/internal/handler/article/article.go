@@ -2,9 +2,11 @@ package article
 
 import (
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
+	"wenDao/internal/model"
 	"wenDao/internal/pkg/pagination"
 	"wenDao/internal/pkg/response"
 	"wenDao/internal/service"
@@ -76,6 +78,49 @@ type UpdateArticleRequest struct {
 
 type BatchDeleteArticleRequest struct {
 	IDs []int64 `json:"ids" binding:"required,min=1"`
+}
+
+type ArticleOrbitCategory struct {
+	ID   int64  `json:"id"`
+	Name string `json:"name"`
+	Slug string `json:"slug"`
+}
+
+type ArticleOrbitItem struct {
+	ID           int64                 `json:"id"`
+	Title        string                `json:"title"`
+	Slug         string                `json:"slug"`
+	Summary      string                `json:"summary"`
+	CoverImage   *string               `json:"cover_image,omitempty"`
+	ViewCount    int                   `json:"view_count"`
+	CommentCount int                   `json:"comment_count"`
+	IsTop        bool                  `json:"is_top"`
+	SourceType   string                `json:"source_type"`
+	Category     *ArticleOrbitCategory `json:"category,omitempty"`
+	CreatedAt    string                `json:"created_at"`
+}
+
+func toArticleOrbitItem(article *model.Article) ArticleOrbitItem {
+	item := ArticleOrbitItem{
+		ID:           article.ID,
+		Title:        article.Title,
+		Slug:         article.Slug,
+		Summary:      article.Summary,
+		CoverImage:   article.CoverImage,
+		ViewCount:    article.ViewCount,
+		CommentCount: article.CommentCount,
+		IsTop:        article.IsTop,
+		SourceType:   article.SourceType,
+		CreatedAt:    article.CreatedAt.Format(time.RFC3339),
+	}
+	if article.Category != nil {
+		item.Category = &ArticleOrbitCategory{
+			ID:   article.Category.ID,
+			Name: article.Category.Name,
+			Slug: article.Category.Slug,
+		}
+	}
+	return item
 }
 
 // AutoSaveRequest 自动保存请求
@@ -210,6 +255,28 @@ func (h *ArticleHandler) List(c *gin.Context) {
 		"page":       p.Page,
 		"pageSize":   p.PageSize,
 		"totalPages": pagination.TotalPages(total, p.PageSize),
+	})
+}
+
+// ListOrbitArticles 获取首页 3D 文章星球所需的轻量文章列表。
+func (h *ArticleHandler) ListOrbitArticles(c *gin.Context) {
+	articles, err := h.articleService.ListOrbitArticles()
+	if err != nil {
+		response.InternalErrorWithErr(c, "Failed to list orbit articles", err)
+		return
+	}
+
+	items := make([]ArticleOrbitItem, 0, len(articles))
+	for _, article := range articles {
+		if article == nil {
+			continue
+		}
+		items = append(items, toArticleOrbitItem(article))
+	}
+
+	response.Success(c, gin.H{
+		"data":  items,
+		"total": len(items),
 	})
 }
 

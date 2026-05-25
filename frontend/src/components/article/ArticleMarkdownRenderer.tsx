@@ -25,7 +25,7 @@ const createHeadingComponent = (level: number) => {
     const text = getTextContent(children);
     const id = slugify(text);
 
-    const Tag = `h${level}` as keyof JSX.IntrinsicElements;
+    const Tag = `h${level}` as React.ElementType;
     const className = 'scroll-mt-24';
 
     return <Tag id={id} className={className}>{children}</Tag>;

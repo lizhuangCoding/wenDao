@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -19,6 +20,7 @@ type stubArticleService struct {
 	listPage         int
 	listPageSize     int
 	batchIDs         []int64
+	orbitArticles    []*model.Article
 }
 
 func (s *stubArticleService) Create(title, content, summary string, categoryID, authorID int64, coverImage *string, status string) (*model.Article, error) {
@@ -32,6 +34,9 @@ func (s *stubArticleService) List(status string, categoryID int64, keyword strin
 	s.listPage = page
 	s.listPageSize = pageSize
 	return nil, 0, nil
+}
+func (s *stubArticleService) ListOrbitArticles() ([]*model.Article, error) {
+	return s.orbitArticles, nil
 }
 func (s *stubArticleService) Update(id int64, title, content, summary string, categoryID int64, coverImage *string) (*model.Article, error) {
 	return nil, nil
@@ -165,5 +170,66 @@ func TestArticleHandlerBatchDelete_DeletesSelectedArticles(t *testing.T) {
 	}
 	if payload.Data.DeletedCount != 3 {
 		t.Fatalf("expected deleted_count 3, got %d", payload.Data.DeletedCount)
+	}
+}
+
+func TestArticleHandlerListOrbitArticles_ReturnsLightweightArticleNodes(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	createdAt := time.Date(2026, 5, 24, 12, 0, 0, 0, time.UTC)
+	coverImage := "/uploads/cover.png"
+	articleSvc := &stubArticleService{
+		orbitArticles: []*model.Article{
+			{
+				ID:           7,
+				Title:        "3D 星球",
+				Slug:         "planet",
+				Summary:      "首屏文章星球",
+				Content:      "正文不应该出现在 orbit 响应中",
+				CoverImage:   &coverImage,
+				Status:       "published",
+				SourceType:   model.ArticleSourceTypeKnowledgeDocument,
+				ViewCount:    120,
+				CommentCount: 5,
+				IsTop:        true,
+				CreatedAt:    createdAt,
+				Category: &model.Category{
+					ID:   3,
+					Name: "AI",
+					Slug: "ai",
+				},
+			},
+		},
+	}
+	h := NewArticleHandler(articleSvc, nil, &stubSettingService{})
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest(http.MethodGet, "/api/articles/orbit", nil)
+
+	h.ListOrbitArticles(c)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d and body %s", w.Code, w.Body.String())
+	}
+
+	var body map[string]any
+	if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
+		t.Fatalf("failed to decode response body: %v", err)
+	}
+	data := body["data"].(map[string]any)
+	items := data["data"].([]any)
+	if data["total"].(float64) != 1 {
+		t.Fatalf("expected total 1, got %#v", data["total"])
+	}
+	item := items[0].(map[string]any)
+	if item["title"] != "3D 星球" || item["slug"] != "planet" {
+		t.Fatalf("expected article identity fields, got %#v", item)
+	}
+	if _, ok := item["content"]; ok {
+		t.Fatalf("expected orbit response to omit content, got %#v", item)
+	}
+	category := item["category"].(map[string]any)
+	if category["name"] != "AI" || category["slug"] != "ai" {
+		t.Fatalf("expected category summary, got %#v", category)
 	}
 }

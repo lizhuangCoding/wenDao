@@ -72,6 +72,15 @@ func (s *articleService) List(status string, categoryID int64, keyword string, s
 	return articles, total, nil
 }
 
+// ListOrbitArticles 获取首页文章星球需要的轻量文章数据。
+func (s *articleService) ListOrbitArticles() ([]*model.Article, error) {
+	articles, err := s.articleRepo.ListOrbitArticles()
+	if err != nil {
+		return nil, fmt.Errorf("failed to list orbit articles: %w", err)
+	}
+	return articles, nil
+}
+
 // IncrViewCount 增加文章浏览次数
 func (s *articleService) IncrViewCount(id int64) error {
 	return s.articleRepo.IncrementViewCount(id)

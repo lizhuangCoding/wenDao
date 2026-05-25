@@ -48,6 +48,7 @@ func TestBuildRouter_RegistersRequiredRoutes(t *testing.T) {
 
 	required := []string{
 		"GET /api/articles",
+		"GET /api/articles/orbit",
 		"GET /api/articles/:id",
 		"GET /api/articles/slug/:slug",
 		"GET /api/categories/:id/articles",

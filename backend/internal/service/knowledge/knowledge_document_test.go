@@ -99,6 +99,10 @@ func (r *stubKnowledgeArticleRepository) List(filter repository.ArticleFilter) (
 	return nil, 0, nil
 }
 
+func (r *stubKnowledgeArticleRepository) ListOrbitArticles() ([]*model.Article, error) {
+	return nil, nil
+}
+
 func (r *stubKnowledgeArticleRepository) Update(article *model.Article) error {
 	r.updated = append(r.updated, article)
 	return nil

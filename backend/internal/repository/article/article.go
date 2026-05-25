@@ -23,6 +23,7 @@ type ArticleRepository interface {
 	GetBySlug(slug string) (*model.Article, error)
 	GetBySource(sourceType string, sourceID int64) (*model.Article, error)
 	List(filter ArticleFilter) ([]*model.Article, int64, error)
+	ListOrbitArticles() ([]*model.Article, error)
 	Update(article *model.Article) error
 	Delete(id int64) error
 	UpdateSlug(id int64, slug string) error
@@ -125,6 +126,20 @@ func (r *articleRepository) List(filter ArticleFilter) ([]*model.Article, int64,
 		Find(&articles).Error
 
 	return articles, total, err
+}
+
+// ListOrbitArticles 获取首页文章星球需要的轻量文章数据。
+func (r *articleRepository) ListOrbitArticles() ([]*model.Article, error) {
+	var articles []*model.Article
+	err := r.db.Model(&model.Article{}).
+		Select("id", "title", "slug", "summary", "cover_image", "status", "source_type", "view_count", "comment_count", "is_top", "category_id", "published_at", "created_at").
+		Where("status = ?", "published").
+		Preload("Category", func(db *gorm.DB) *gorm.DB {
+			return db.Select("id", "name", "slug")
+		}).
+		Order("is_top DESC, published_at DESC, created_at DESC").
+		Find(&articles).Error
+	return articles, err
 }
 
 // Update 更新文章

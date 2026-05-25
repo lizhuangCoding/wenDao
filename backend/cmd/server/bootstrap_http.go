@@ -152,6 +152,7 @@ func registerRoutes(
 		}
 
 		api.GET("/articles", articleHandler.List)
+		api.GET("/articles/orbit", articleHandler.ListOrbitArticles)
 		api.GET("/articles/:id", articleHandler.GetByID)
 		api.GET("/articles/slug/:slug", articleHandler.GetBySlug)
 		api.GET("/categories", categoryHandler.List)
