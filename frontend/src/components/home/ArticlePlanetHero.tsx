@@ -1,6 +1,6 @@
-import { lazy, Suspense, useMemo, useState } from 'react';
+import { Component, lazy, Suspense, useMemo, useState } from 'react';
+import type { FormEvent, ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
-import type { FormEvent } from 'react';
 import { ErrorState, Loading } from '@/components/common';
 import type { ArticleOrbitItem, Category } from '@/types';
 import { ArticlePlanetOverlay } from './ArticlePlanetOverlay';
@@ -8,6 +8,43 @@ import { ArticlePlanetOverlay } from './ArticlePlanetOverlay';
 const ArticlePlanetScene = lazy(() =>
   import('./ArticlePlanetScene').then((module) => ({ default: module.ArticlePlanetScene }))
 );
+
+interface SceneErrorBoundaryProps {
+  children: ReactNode;
+  resetKey: string;
+}
+
+interface SceneErrorBoundaryState {
+  hasError: boolean;
+}
+
+class SceneErrorBoundary extends Component<SceneErrorBoundaryProps, SceneErrorBoundaryState> {
+  state: SceneErrorBoundaryState = { hasError: false };
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidUpdate(previousProps: SceneErrorBoundaryProps) {
+    if (previousProps.resetKey !== this.props.resetKey && this.state.hasError) {
+      this.setState({ hasError: false });
+    }
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="absolute inset-0 flex items-center justify-center px-6">
+          <div className="w-full max-w-md">
+            <ErrorState message="文章星球渲染失败" />
+          </div>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
 
 interface ArticlePlanetHeroProps {
   articles: ArticleOrbitItem[];
@@ -61,22 +98,24 @@ export const ArticlePlanetHero = ({
           </div>
         </div>
       ) : (
-        <Suspense
-          fallback={
-            <div className="absolute inset-0 flex items-center justify-center">
-              <Loading />
+        <SceneErrorBoundary resetKey={`${articles.length}-${selectedCategory ?? 'all'}`}>
+          <Suspense
+            fallback={
+              <div className="absolute inset-0 flex items-center justify-center">
+                <Loading />
+              </div>
+            }
+          >
+            <div className="absolute inset-0 lg:left-[24%]">
+              <ArticlePlanetScene
+                activeArticleId={activeArticle?.id}
+                articles={articles}
+                onArticleFocus={(article) => setActiveArticleId(article.id)}
+                onArticleOpen={openArticle}
+              />
             </div>
-          }
-        >
-          <div className="absolute inset-0 lg:left-[24%]">
-            <ArticlePlanetScene
-              activeArticleId={activeArticle?.id}
-              articles={articles}
-              onArticleFocus={(article) => setActiveArticleId(article.id)}
-              onArticleOpen={openArticle}
-            />
-          </div>
-        </Suspense>
+          </Suspense>
+        </SceneErrorBoundary>
       )}
       <ArticlePlanetOverlay
         activeArticle={activeArticle}
@@ -85,7 +124,6 @@ export const ArticlePlanetHero = ({
         selectedCategory={selectedCategory}
         slogan={slogan}
         onCategoryChange={onCategoryChange}
-        onOpenArticle={openArticle}
         onSearch={onSearch}
         onSearchInputChange={onSearchInputChange}
       />
