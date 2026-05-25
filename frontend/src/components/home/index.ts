@@ -1,0 +1,1 @@
+export { ArticlePlanetHero } from './ArticlePlanetHero';
