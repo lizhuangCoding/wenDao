@@ -18,6 +18,7 @@ type ArticleService interface {
 	GetByID(id int64) (*model.Article, error)
 	GetBySlug(slug string) (*model.Article, error)
 	List(status string, categoryID int64, keyword string, sortByPopularity bool, page, pageSize int) ([]*model.Article, int64, error)
+	ListOrbitArticles() ([]*model.Article, error)
 	Update(id int64, title, content, summary string, categoryID int64, coverImage *string) (*model.Article, error)
 	Delete(id int64) error
 	DeleteBatch(ids []int64) error

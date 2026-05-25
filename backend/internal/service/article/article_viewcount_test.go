@@ -29,6 +29,7 @@ func (r *viewCountArticleRepoStub) GetBySource(sourceType string, sourceID int64
 func (r *viewCountArticleRepoStub) List(filter repository.ArticleFilter) ([]*model.Article, int64, error) {
 	return nil, 0, nil
 }
+func (r *viewCountArticleRepoStub) ListOrbitArticles() ([]*model.Article, error)        { return nil, nil }
 func (r *viewCountArticleRepoStub) Update(article *model.Article) error                 { return nil }
 func (r *viewCountArticleRepoStub) Delete(id int64) error                               { return nil }
 func (r *viewCountArticleRepoStub) UpdateSlug(id int64, slug string) error              { return nil }

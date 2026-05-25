@@ -67,6 +67,9 @@ func (r *replyNotificationArticleRepo) GetBySource(sourceType string, sourceID i
 func (r *replyNotificationArticleRepo) List(filter repository.ArticleFilter) ([]*model.Article, int64, error) {
 	return nil, 0, nil
 }
+func (r *replyNotificationArticleRepo) ListOrbitArticles() ([]*model.Article, error) {
+	return nil, nil
+}
 func (r *replyNotificationArticleRepo) Update(article *model.Article) error { return nil }
 func (r *replyNotificationArticleRepo) Delete(id int64) error               { return nil }
 func (r *replyNotificationArticleRepo) UpdateSlug(id int64, slug string) error {
