@@ -93,6 +93,31 @@ export interface ArticleListItem {
   created_at: string;
 }
 
+export interface ArticleOrbitCategory {
+  id: number;
+  name: string;
+  slug: string;
+}
+
+export interface ArticleOrbitItem {
+  id: number;
+  title: string;
+  slug: string;
+  summary: string;
+  cover_image?: string;
+  view_count: number;
+  comment_count: number;
+  is_top: boolean;
+  source_type: 'manual' | 'knowledge_document';
+  category?: ArticleOrbitCategory;
+  created_at: string;
+}
+
+export interface ArticleOrbitResponse {
+  data: ArticleOrbitItem[];
+  total: number;
+}
+
 export interface CreateArticleRequest {
   title: string;
   summary: string;

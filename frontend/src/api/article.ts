@@ -2,6 +2,7 @@ import { request } from './client';
 import type {
   Article,
   ArticleListItem,
+  ArticleOrbitResponse,
   CreateArticleRequest,
   PaginatedResponse,
   PaginationParams,
@@ -13,6 +14,10 @@ export const articleApi = {
   // 获取文章列表（公开）
   getArticles: (params: PaginationParams & { category_id?: number; keyword?: string }) => {
     return request.get<PaginatedResponse<ArticleListItem>>('/articles', { params: toPaginationQuery(params) });
+  },
+
+  getArticleOrbit: () => {
+    return request.get<ArticleOrbitResponse>('/articles/orbit');
   },
 
   // 获取文章详情（通过 slug）
