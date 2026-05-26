@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
-    "test:layout": "node --test src/components/home/articlePlanetLayout.test.mjs src/components/home/articlePlanetDependency.test.mjs",
+    "test:layout": "node --test src/components/home/articlePlanetLayout.test.mjs src/components/home/articlePlanetDependency.test.mjs src/components/home/articlePlanetOverlayEvents.test.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

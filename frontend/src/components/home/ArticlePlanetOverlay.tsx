@@ -30,7 +30,7 @@ export const ArticlePlanetOverlay = ({
   return (
     <div className="pointer-events-none absolute inset-0 z-10 flex flex-col justify-end overflow-y-auto px-5 pb-6 pt-24 sm:px-10 sm:pb-8 lg:px-12 lg:pb-14">
       <div className="max-w-display mx-auto flex w-full flex-col gap-5 sm:gap-7 lg:flex-row lg:items-end lg:justify-between lg:gap-8">
-        <div className="pointer-events-auto max-w-3xl">
+        <div className="pointer-events-none max-w-3xl">
           <div className="mb-3 inline-flex items-center gap-3 text-primary-300 sm:mb-5">
             <Sparkles className="h-4 w-4" />
             <span className="text-xs font-black uppercase tracking-[0.28em]">{t('home.heroSub')}</span>
@@ -38,7 +38,7 @@ export const ArticlePlanetOverlay = ({
           <h1 className="max-w-4xl text-4xl font-black leading-[1.05] text-white drop-shadow-2xl sm:text-5xl lg:text-7xl">
             {slogan || '我不在执着于得到，而是享受走到'}
           </h1>
-          <form onSubmit={onSearch} className="relative mt-5 max-w-xl sm:mt-8">
+          <form onSubmit={onSearch} className="pointer-events-auto relative mt-5 max-w-xl sm:mt-8">
             <input
               type="text"
               placeholder={t('home.searchPlaceholder')}
@@ -54,12 +54,15 @@ export const ArticlePlanetOverlay = ({
               <Search className="h-5 w-5" />
             </button>
           </form>
-          <div className="mt-5 flex gap-3 overflow-x-auto pb-1 scrollbar-hide sm:mt-7">
+          <div
+            data-testid="article-planet-category-filter"
+            className="pointer-events-none mt-5 flex gap-3 overflow-x-auto pb-1 scrollbar-hide sm:mt-7"
+          >
             <button
               type="button"
               onClick={() => onCategoryChange(undefined)}
               aria-pressed={selectedCategory === undefined}
-              className={`shrink-0 border px-4 py-2 text-[10px] font-black uppercase tracking-[0.22em] transition-colors ${
+              className={`pointer-events-auto shrink-0 border px-4 py-2 text-[10px] font-black uppercase tracking-[0.22em] transition-colors ${
                 selectedCategory === undefined
                   ? 'border-primary-300 bg-primary-300 text-neutral-950'
                   : 'border-white/20 bg-white/5 text-white/70 hover:border-white/40 hover:text-white'
@@ -73,7 +76,7 @@ export const ArticlePlanetOverlay = ({
                 type="button"
                 onClick={() => onCategoryChange(category.id)}
                 aria-pressed={selectedCategory === category.id}
-                className={`shrink-0 border px-4 py-2 text-[10px] font-black uppercase tracking-[0.22em] transition-colors ${
+                className={`pointer-events-auto shrink-0 border px-4 py-2 text-[10px] font-black uppercase tracking-[0.22em] transition-colors ${
                   selectedCategory === category.id
                     ? 'border-primary-300 bg-primary-300 text-neutral-950'
                     : 'border-white/20 bg-white/5 text-white/70 hover:border-white/40 hover:text-white'
@@ -86,7 +89,7 @@ export const ArticlePlanetOverlay = ({
           {activeArticle && (
             <Link
               to={`/article/${activeArticle.slug}`}
-              className="mt-4 flex items-center justify-between gap-4 border border-white/15 bg-neutral-950/65 px-4 py-3 text-left shadow-2xl backdrop-blur-xl transition-colors hover:border-primary-300/70 sm:hidden"
+              className="pointer-events-auto mt-4 flex items-center justify-between gap-4 border border-white/15 bg-neutral-950/65 px-4 py-3 text-left shadow-2xl backdrop-blur-xl transition-colors hover:border-primary-300/70 sm:hidden"
             >
               <span className="min-w-0">
                 <span className="block text-[10px] font-black uppercase tracking-[0.22em] text-primary-300">
