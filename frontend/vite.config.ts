@@ -38,11 +38,7 @@ export default defineConfig({
           if (id.includes('node_modules')) {
             if (
               id.includes('/three/') ||
-              id.includes('/@react-three/fiber/') ||
-              id.includes('/@react-three/drei/') ||
-              id.includes('/maath/') ||
-              id.includes('/troika-') ||
-              id.includes('/zustand/traditional')
+              id.includes('/@react-three/fiber/')
             ) {
               return 'three-vendor'
             }

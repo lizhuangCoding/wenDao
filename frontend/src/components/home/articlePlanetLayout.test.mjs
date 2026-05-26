@@ -81,3 +81,20 @@ test('buildArticlePlanetLayout handles empty article lists', async () => {
 
   assert.deepEqual(buildArticlePlanetLayout([]), []);
 });
+
+test('buildArticlePlanetLayout assigns layered gem visual profile to every node', async () => {
+  const { buildArticlePlanetLayout } = await loadLayout();
+
+  const [baseNode, activeNode] = buildArticlePlanetLayout([
+    makeArticle({ id: 1, slug: 'base' }),
+    makeArticle({ id: 2, slug: 'active', is_top: true, view_count: 3000, comment_count: 42 }),
+  ]);
+
+  assert.ok(baseNode.visual.coreRadius > 0);
+  assert.ok(baseNode.visual.shellRadius > baseNode.visual.coreRadius);
+  assert.ok(baseNode.visual.haloRadius > baseNode.visual.shellRadius);
+  assert.ok(baseNode.visual.ringRadius > baseNode.visual.shellRadius);
+  assert.ok(baseNode.visual.glintRadius > 0);
+  assert.ok(activeNode.visual.activeScale > baseNode.visual.activeScale);
+  assert.ok(activeNode.visual.haloOpacity > baseNode.visual.haloOpacity);
+});

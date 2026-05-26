@@ -7,11 +7,10 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
-    "test:layout": "node --test src/components/home/articlePlanetLayout.test.mjs",
+    "test:layout": "node --test src/components/home/articlePlanetLayout.test.mjs src/components/home/articlePlanetDependency.test.mjs",
     "preview": "vite preview"
   },
   "dependencies": {
-    "@react-three/drei": "^9.122.0",
     "@react-three/fiber": "^8.17.10",
     "@tanstack/react-query": "^5.22.0",
     "axios": "^1.6.7",
@@ -37,6 +36,7 @@
   "devDependencies": {
     "@types/react": "^18.2.56",
     "@types/react-dom": "^18.2.19",
+    "@types/three": "^0.184.1",
     "@typescript-eslint/eslint-plugin": "^7.0.2",
     "@typescript-eslint/parser": "^7.0.2",
     "@vitejs/plugin-react": "^4.2.1",

@@ -86,7 +86,7 @@ export const ArticlePlanetHero = ({
 
   return (
     <section className="relative -mt-20 min-h-[calc(100vh-1rem)] overflow-hidden bg-neutral-950">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_68%_45%,rgba(16,185,129,0.28),transparent_30%),radial-gradient(circle_at_30%_85%,rgba(56,189,248,0.18),transparent_28%),linear-gradient(135deg,#020617_0%,#07111f_46%,#030712_100%)]" />
+      <div className="absolute inset-0 z-0 bg-[radial-gradient(circle_at_68%_45%,rgba(16,185,129,0.28),transparent_30%),radial-gradient(circle_at_30%_85%,rgba(56,189,248,0.18),transparent_28%),linear-gradient(135deg,#020617_0%,#07111f_46%,#030712_100%)]" />
       {isLoading ? (
         <div className="absolute inset-0 flex items-center justify-center">
           <Loading />
@@ -106,7 +106,7 @@ export const ArticlePlanetHero = ({
               </div>
             }
           >
-            <div className="absolute inset-0 lg:left-[24%]">
+            <div className="absolute inset-0 z-[1]">
               <ArticlePlanetScene
                 activeArticleId={activeArticle?.id}
                 articles={articles}
@@ -127,7 +127,7 @@ export const ArticlePlanetHero = ({
         onSearch={onSearch}
         onSearchInputChange={onSearchInputChange}
       />
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-white to-transparent dark:from-neutral-900" />
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 h-24 bg-gradient-to-t from-white to-transparent dark:from-neutral-900" />
     </section>
   );
 };

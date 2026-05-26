@@ -18,7 +18,20 @@ export interface ArticlePlanetNodeLayout {
   key: string;
   position: [number, number, number];
   radius: number;
+  visual: ArticlePlanetNodeVisual;
   weight: number;
+}
+
+export interface ArticlePlanetNodeVisual {
+  activeScale: number;
+  coreRadius: number;
+  glintRadius: number;
+  haloOpacity: number;
+  haloRadius: number;
+  ringOpacity: number;
+  ringRadius: number;
+  shellOpacity: number;
+  shellRadius: number;
 }
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
@@ -35,6 +48,23 @@ export const calculateArticlePlanetWeight = (article: ArticleOrbitItem) => {
   const viewBonus = clamp(Math.log10(article.view_count + 1) * 0.25, 0, 0.8);
   const commentBonus = clamp(Math.log10(article.comment_count + 1) * 0.2, 0, 0.5);
   return clamp(1 + topBonus + viewBonus + commentBonus, 1, 3);
+};
+
+export const buildArticlePlanetVisual = (weight: number): ArticlePlanetNodeVisual => {
+  const influence = clamp((weight - 1) / 2, 0, 1);
+  const coreRadius = 0.072 + influence * 0.04;
+
+  return {
+    activeScale: 1.42 + influence * 0.28,
+    coreRadius,
+    glintRadius: coreRadius * 0.34,
+    haloOpacity: 0.26 + influence * 0.16,
+    haloRadius: coreRadius * (4.2 + influence * 0.95),
+    ringOpacity: 0.44 + influence * 0.26,
+    ringRadius: coreRadius * (2.8 + influence * 0.68),
+    shellOpacity: 0.42 + influence * 0.12,
+    shellRadius: coreRadius * (2.05 + influence * 0.22),
+  };
 };
 
 export const buildArticlePlanetLayout = (
@@ -55,6 +85,7 @@ export const buildArticlePlanetLayout = (
     const categoryOffset = ((article.category?.id ?? 0) % 7) * 0.018;
     const radius = sphereRadius + categoryOffset;
     const weight = calculateArticlePlanetWeight(article);
+    const visual = buildArticlePlanetVisual(weight);
 
     return {
       article,
@@ -66,7 +97,8 @@ export const buildArticlePlanetLayout = (
         y * radius,
         Math.sin(theta) * radial * radius,
       ],
-      radius: 0.035 + weight * 0.018,
+      radius: visual.coreRadius,
+      visual,
       weight,
     };
   });
