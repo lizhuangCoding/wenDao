@@ -17,3 +17,11 @@ test('article planet overlay only captures pointer events on real controls', asy
   assert.match(source, /<button[\s\S]*?className=\{`[^`]*pointer-events-auto/);
   assert.match(source, /className="[^"]*pointer-events-auto[^"]*sm:hidden/);
 });
+
+test('desktop article summary card exposes a close button', async () => {
+  const source = await readOverlaySource();
+
+  assert.match(source, /isActiveArticleCardVisible/);
+  assert.match(source, /onActiveArticleClose/);
+  assert.match(source, /aria-label="关闭文章卡片"/);
+});

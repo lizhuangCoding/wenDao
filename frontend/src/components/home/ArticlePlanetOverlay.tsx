@@ -1,5 +1,5 @@
 import type { FormEvent } from 'react';
-import { ArrowRight, Search, Sparkles } from 'lucide-react';
+import { ArrowRight, Search, Sparkles, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import type { ArticleOrbitItem, Category } from '@/types';
@@ -8,8 +8,10 @@ interface ArticlePlanetOverlayProps {
   activeArticle?: ArticleOrbitItem;
   categories?: Category[];
   inputValue: string;
+  isActiveArticleCardVisible: boolean;
   selectedCategory?: number;
   slogan?: string;
+  onActiveArticleClose: () => void;
   onCategoryChange: (categoryId?: number) => void;
   onSearch: (event: FormEvent) => void;
   onSearchInputChange: (value: string) => void;
@@ -19,8 +21,10 @@ export const ArticlePlanetOverlay = ({
   activeArticle,
   categories,
   inputValue,
+  isActiveArticleCardVisible,
   selectedCategory,
   slogan,
+  onActiveArticleClose,
   onCategoryChange,
   onSearch,
   onSearchInputChange,
@@ -102,28 +106,45 @@ export const ArticlePlanetOverlay = ({
           )}
         </div>
 
-        {activeArticle && (
-          <Link
-            to={`/article/${activeArticle.slug}`}
+        {activeArticle && isActiveArticleCardVisible && (
+          <div
             className="pointer-events-auto hidden w-full max-w-md border border-white/15 bg-neutral-950/60 p-4 text-left shadow-2xl backdrop-blur-xl transition-colors hover:border-primary-300/70 sm:block sm:p-5 lg:mb-2"
           >
             <div className="mb-3 flex items-center justify-between gap-4">
               <span className="text-[10px] font-black uppercase tracking-[0.24em] text-primary-300">
                 {activeArticle.category?.name || 'Article'}
               </span>
-              <ArrowRight className="h-4 w-4 text-white/70" />
+              <div className="flex items-center gap-2">
+                <Link
+                  to={`/article/${activeArticle.slug}`}
+                  className="inline-flex h-8 w-8 items-center justify-center border border-white/10 text-white/70 transition-colors hover:border-primary-300/60 hover:text-primary-200"
+                  aria-label={`打开文章 ${activeArticle.title}`}
+                >
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+                <button
+                  type="button"
+                  className="inline-flex h-8 w-8 items-center justify-center border border-white/10 text-white/55 transition-colors hover:border-white/35 hover:text-white"
+                  aria-label="关闭文章卡片"
+                  onClick={onActiveArticleClose}
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
             </div>
-            <h2 className="line-clamp-2 text-xl font-black leading-tight text-white sm:text-2xl">
-              {activeArticle.title}
-            </h2>
-            <p className="mt-3 line-clamp-3 text-sm font-medium leading-relaxed text-white/70">
-              {activeArticle.summary || '暂无摘要'}
-            </p>
-            <div className="mt-4 flex gap-5 text-[10px] font-bold uppercase tracking-widest text-white/50 sm:mt-5">
-              <span>{activeArticle.view_count} views</span>
-              <span>{activeArticle.comment_count} comments</span>
-            </div>
-          </Link>
+            <Link to={`/article/${activeArticle.slug}`} className="block">
+              <h2 className="line-clamp-2 text-xl font-black leading-tight text-white sm:text-2xl">
+                {activeArticle.title}
+              </h2>
+              <p className="mt-3 line-clamp-3 text-sm font-medium leading-relaxed text-white/70">
+                {activeArticle.summary || '暂无摘要'}
+              </p>
+              <div className="mt-4 flex gap-5 text-[10px] font-bold uppercase tracking-widest text-white/50 sm:mt-5">
+                <span>{activeArticle.view_count} views</span>
+                <span>{activeArticle.comment_count} comments</span>
+              </div>
+            </Link>
+          </div>
         )}
       </div>
     </div>

@@ -73,10 +73,16 @@ export const ArticlePlanetHero = ({
 }: ArticlePlanetHeroProps) => {
   const navigate = useNavigate();
   const [activeArticleId, setActiveArticleId] = useState<number>();
+  const [isActiveArticleCardVisible, setIsActiveArticleCardVisible] = useState(true);
   const activeArticle = useMemo(
     () => articles.find((article) => article.id === activeArticleId) ?? articles[0],
     [activeArticleId, articles]
   );
+
+  const focusArticle = (article: ArticleOrbitItem) => {
+    setActiveArticleId(article.id);
+    setIsActiveArticleCardVisible(true);
+  };
 
   const openArticle = (article: ArticleOrbitItem) => {
     if (article.slug) {
@@ -110,7 +116,7 @@ export const ArticlePlanetHero = ({
               <ArticlePlanetScene
                 activeArticleId={activeArticle?.id}
                 articles={articles}
-                onArticleFocus={(article) => setActiveArticleId(article.id)}
+                onArticleFocus={focusArticle}
                 onArticleOpen={openArticle}
               />
             </div>
@@ -121,8 +127,10 @@ export const ArticlePlanetHero = ({
         activeArticle={activeArticle}
         categories={categories}
         inputValue={inputValue}
+        isActiveArticleCardVisible={isActiveArticleCardVisible}
         selectedCategory={selectedCategory}
         slogan={slogan}
+        onActiveArticleClose={() => setIsActiveArticleCardVisible(false)}
         onCategoryChange={onCategoryChange}
         onSearch={onSearch}
         onSearchInputChange={onSearchInputChange}

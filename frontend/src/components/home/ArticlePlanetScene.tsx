@@ -24,7 +24,10 @@ const LATITUDE_RINGS = [-0.72, -0.48, -0.24, 0, 0.24, 0.48, 0.72].map((ratio) =>
 
 const CLUSTER_BASE_ROTATION: [number, number, number] = [0.08, -0.24, 0];
 const MERIDIAN_RINGS = Array.from({ length: 8 }, (_, index) => (index * Math.PI) / 8);
-const PLANET_SELF_ROTATION_SPEED = 0.08;
+const PLANET_DESKTOP_DRIFT_AMPLITUDE = 0.18;
+const PLANET_MOBILE_DRIFT_AMPLITUDE = 0.07;
+const PLANET_DRIFT_SPEED = 0.18;
+const PLANET_SELF_ROTATION_SPEED = 0.045;
 
 const randomUnit = (seed: number) => {
   const value = Math.sin(seed * 12.9898) * 43758.5453;
@@ -168,19 +171,25 @@ const ArticlePlanetCluster = ({
   onArticleOpen,
 }: ArticlePlanetClusterProps) => {
   const { size } = useThree();
+  const clusterRef = useRef<Group>(null);
   const spinRef = useRef<Group>(null);
   const isCompact = size.width < 768;
-  const position: [number, number, number] = isCompact ? [0.16, 1.1, 0] : [1.52, -0.02, 0];
+  const basePosition: [number, number, number] = isCompact ? [0.16, 1.1, 0] : [1.52, -0.02, 0];
+  const driftAmplitude = isCompact ? PLANET_MOBILE_DRIFT_AMPLITUDE : PLANET_DESKTOP_DRIFT_AMPLITUDE;
   const scale = isCompact ? 0.58 : 0.76;
 
-  useFrame((_, delta) => {
+  useFrame(({ clock }, delta) => {
+    if (clusterRef.current) {
+      clusterRef.current.position.x =
+        basePosition[0] + Math.sin(clock.elapsedTime * PLANET_DRIFT_SPEED) * driftAmplitude;
+    }
     if (spinRef.current) {
       spinRef.current.rotation.y += delta * PLANET_SELF_ROTATION_SPEED;
     }
   });
 
   return (
-    <group position={position} rotation={CLUSTER_BASE_ROTATION} scale={scale}>
+    <group ref={clusterRef} position={basePosition} rotation={CLUSTER_BASE_ROTATION} scale={scale}>
       <group ref={spinRef}>
         <PlanetBody />
         {nodes.map((node) => (
