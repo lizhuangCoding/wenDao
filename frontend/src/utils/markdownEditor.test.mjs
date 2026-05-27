@@ -99,3 +99,63 @@ test('applyMarkdownAction creates a link skeleton when no text is selected', asy
   assert.equal(result.text, '[链接文本](https://example.com)');
   assert.deepEqual(result.selection, { start: 1, end: 5 });
 });
+
+test('applyMarkdownColor wraps selected text in a safe color span', async () => {
+  const { applyMarkdownColor } = await loadMarkdownEditor();
+
+  const result = applyMarkdownColor(
+    {
+      text: 'hello world',
+      selectionStart: 6,
+      selectionEnd: 11,
+    },
+    '#0EA5E9'
+  );
+
+  assert.equal(result.text, 'hello <span style="color: #0ea5e9">world</span>');
+  assert.deepEqual(result.selection, { start: 36, end: 41 });
+  assert.deepEqual(result.edit, {
+    start: 6,
+    end: 11,
+    replacement: '<span style="color: #0ea5e9">world</span>',
+    selection: { start: 36, end: 41 },
+  });
+});
+
+test('applyMarkdownColor inserts selected fallback text when selection is empty', async () => {
+  const { applyMarkdownColor } = await loadMarkdownEditor();
+
+  const result = applyMarkdownColor(
+    {
+      text: 'before ',
+      selectionStart: 7,
+      selectionEnd: 7,
+    },
+    '#ef4444'
+  );
+
+  assert.equal(result.text, 'before <span style="color: #ef4444">彩色文字</span>');
+  assert.deepEqual(result.selection, { start: 37, end: 41 });
+});
+
+test('applyMarkdownColor falls back when color value is unsafe', async () => {
+  const { applyMarkdownColor, DEFAULT_TEXT_COLOR } = await loadMarkdownEditor();
+
+  const result = applyMarkdownColor(
+    {
+      text: 'danger',
+      selectionStart: 0,
+      selectionEnd: 6,
+    },
+    '#ef4444";background-image:url(https://example.com/x)'
+  );
+
+  assert.equal(result.text, `<span style="color: ${DEFAULT_TEXT_COLOR}">danger</span>`);
+  assert.deepEqual(result.selection, { start: 30, end: 36 });
+});
+
+test('normalizeMarkdownColor expands short hex colors', async () => {
+  const { normalizeMarkdownColor } = await loadMarkdownEditor();
+
+  assert.equal(normalizeMarkdownColor('#0af'), '#00aaff');
+});

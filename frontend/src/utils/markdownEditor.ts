@@ -9,7 +9,7 @@ export type MarkdownAction =
   | 'link'
   | 'divider';
 
-interface ApplyMarkdownActionInput {
+export interface ApplyMarkdownActionInput {
   text: string;
   selectionStart: number;
   selectionEnd: number;
@@ -33,6 +33,12 @@ export interface ApplyMarkdownActionResult {
   selection: TextSelection;
   edit: MarkdownTextEdit;
 }
+
+export type ApplyMarkdownTextInput = Omit<ApplyMarkdownActionInput, 'action'>;
+
+export const DEFAULT_TEXT_COLOR = '#ef4444';
+
+const HEX_COLOR_PATTERN = /^#(?:[0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i;
 
 const replaceRange = (
   text: string,
@@ -86,6 +92,41 @@ const wrapSelection = (
   const selectedText = getSelectedText(input) || fallback;
   const replacement = `${before}${selectedText}${after}`;
   const start = input.selectionStart + before.length;
+
+  return replaceRange(input.text, input.selectionStart, input.selectionEnd, replacement, {
+    start,
+    end: start + selectedText.length,
+  });
+};
+
+export const normalizeMarkdownColor = (
+  color: string | undefined,
+  fallback = DEFAULT_TEXT_COLOR
+): string => {
+  const trimmed = (color || '').trim();
+
+  if (!HEX_COLOR_PATTERN.test(trimmed)) {
+    return fallback;
+  }
+
+  const lower = trimmed.toLowerCase();
+  if (lower.length === 4) {
+    return `#${lower[1]}${lower[1]}${lower[2]}${lower[2]}${lower[3]}${lower[3]}`;
+  }
+
+  return lower;
+};
+
+export const applyMarkdownColor = (
+  input: ApplyMarkdownTextInput,
+  color: string
+): ApplyMarkdownActionResult => {
+  const safeColor = normalizeMarkdownColor(color);
+  const selectedText = input.text.slice(input.selectionStart, input.selectionEnd) || '彩色文字';
+  const before = `<span style="color: ${safeColor}">`;
+  const after = '</span>';
+  const replacement = `${before}${selectedText}${after}`;
+  const start = input.selectionStart + before.length + 1;
 
   return replaceRange(input.text, input.selectionStart, input.selectionEnd, replacement, {
     start,
