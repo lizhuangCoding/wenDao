@@ -15,3 +15,11 @@ test('article planet scene avoids the heavy drei dependency surface', async () =
   assert.equal(sceneSource.includes('@react-three/drei'), false);
   assert.equal(viteConfig.includes('@react-three/drei'), false);
 });
+
+test('article planet self-rotates without camera auto orbit drift', async () => {
+  const sceneSource = await readProjectFile('src/components/home/ArticlePlanetScene.tsx');
+
+  assert.match(sceneSource, /PLANET_SELF_ROTATION_SPEED/);
+  assert.match(sceneSource, /spinRef\.current\.rotation\.y \+= delta \* PLANET_SELF_ROTATION_SPEED/);
+  assert.match(sceneSource, /controls\.autoRotate = false/);
+});

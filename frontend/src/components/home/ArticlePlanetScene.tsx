@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { AdditiveBlending, BackSide } from 'three';
+import { AdditiveBlending, BackSide, type Group } from 'three';
 import { OrbitControls as ThreeOrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import type { ArticleOrbitItem } from '@/types';
 import { ArticlePlanetNode } from './ArticlePlanetNode';
@@ -22,7 +22,9 @@ const LATITUDE_RINGS = [-0.72, -0.48, -0.24, 0, 0.24, 0.48, 0.72].map((ratio) =>
   y: 2.16 * ratio,
 }));
 
+const CLUSTER_BASE_ROTATION: [number, number, number] = [0.08, -0.24, 0];
 const MERIDIAN_RINGS = Array.from({ length: 8 }, (_, index) => (index * Math.PI) / 8);
+const PLANET_SELF_ROTATION_SPEED = 0.08;
 
 const randomUnit = (seed: number) => {
   const value = Math.sin(seed * 12.9898) * 43758.5453;
@@ -166,22 +168,31 @@ const ArticlePlanetCluster = ({
   onArticleOpen,
 }: ArticlePlanetClusterProps) => {
   const { size } = useThree();
+  const spinRef = useRef<Group>(null);
   const isCompact = size.width < 768;
   const position: [number, number, number] = isCompact ? [0.16, 1.1, 0] : [1.52, -0.02, 0];
   const scale = isCompact ? 0.58 : 0.76;
 
+  useFrame((_, delta) => {
+    if (spinRef.current) {
+      spinRef.current.rotation.y += delta * PLANET_SELF_ROTATION_SPEED;
+    }
+  });
+
   return (
-    <group position={position} rotation={[0.08, -0.24, 0]} scale={scale}>
-      <PlanetBody />
-      {nodes.map((node) => (
-        <ArticlePlanetNode
-          key={node.key}
-          isActive={node.article.id === activeArticleId}
-          node={node}
-          onFocus={onArticleFocus}
-          onOpen={onArticleOpen}
-        />
-      ))}
+    <group position={position} rotation={CLUSTER_BASE_ROTATION} scale={scale}>
+      <group ref={spinRef}>
+        <PlanetBody />
+        {nodes.map((node) => (
+          <ArticlePlanetNode
+            key={node.key}
+            isActive={node.article.id === activeArticleId}
+            node={node}
+            onFocus={onArticleFocus}
+            onOpen={onArticleOpen}
+          />
+        ))}
+      </group>
     </group>
   );
 };
