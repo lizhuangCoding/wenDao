@@ -21,11 +21,12 @@ ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
 
 # Vite production build can exceed Node's default old-space limit on small
 # deployment servers. This only affects the temporary builder image.
-ARG FRONTEND_NODE_OPTIONS=--max-old-space-size=2048
+ARG FRONTEND_NODE_OPTIONS=--max-old-space-size=1536
 ENV NODE_OPTIONS=${FRONTEND_NODE_OPTIONS}
 
 COPY . .
-RUN npm run build
+RUN node -e "const v8=require('v8'); console.log('Node heap limit MB:', Math.round(v8.getHeapStatistics().heap_size_limit / 1024 / 1024))" \
+    && npm run build
 
 # 运行阶段：用 Nginx 提供静态文件和 API 反向代理。
 FROM nginx:1.27-alpine

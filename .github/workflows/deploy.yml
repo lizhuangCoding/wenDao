@@ -54,7 +54,10 @@ jobs:
           deploy_path_q="$(printf '%q' "$DEPLOY_PATH")"
           compose_files_q="$(printf '%q' "$DEPLOY_COMPOSE_FILES")"
 
-          ssh -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" \
+          ssh -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" \
+            -o ServerAliveInterval=30 \
+            -o ServerAliveCountMax=20 \
+            "$DEPLOY_USER@$DEPLOY_HOST" \
             "DEPLOY_PATH=${deploy_path_q} DEPLOY_COMPOSE_FILES=${compose_files_q} bash -s" <<'REMOTE'
           set -euo pipefail
 
@@ -63,6 +66,13 @@ jobs:
           git checkout -B main origin/main
           git reset --hard origin/main
 
+          echo "=== deployment host memory ==="
+          free -h || true
+          echo "=== docker disk usage ==="
+          docker system df || true
+
+          export BUILDKIT_PROGRESS=plain
+          export COMPOSE_PROGRESS=plain
           docker compose --env-file .env.production ${DEPLOY_COMPOSE_FILES} up -d --build
           docker compose --env-file .env.production ${DEPLOY_COMPOSE_FILES} ps
           docker image prune -f
