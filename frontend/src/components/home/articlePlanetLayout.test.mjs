@@ -98,3 +98,25 @@ test('buildArticlePlanetLayout assigns layered gem visual profile to every node'
   assert.ok(activeNode.visual.activeScale > baseNode.visual.activeScale);
   assert.ok(activeNode.visual.haloOpacity > baseNode.visual.haloOpacity);
 });
+
+test('buildArticlePlanetLayout keeps premium article planets compact and material-rich', async () => {
+  const { buildArticlePlanetLayout } = await loadLayout();
+
+  const nodes = buildArticlePlanetLayout([
+    makeArticle({ id: 1, slug: 'cyan', category: { id: 1, name: 'AI', slug: 'ai' } }),
+    makeArticle({ id: 2, slug: 'violet', category: { id: 4, name: 'Design', slug: 'design' }, is_top: true }),
+  ]);
+
+  for (const node of nodes) {
+    assert.match(node.visual.surfaceColor, /^#[0-9a-f]{6}$/i);
+    assert.match(node.visual.atmosphereColor, /^#[0-9a-f]{6}$/i);
+    assert.match(node.visual.rimColor, /^#[0-9a-f]{6}$/i);
+    assert.match(node.visual.accentColor, /^#[0-9a-f]{6}$/i);
+    assert.match(node.visual.shadowColor, /^#[0-9a-f]{6}$/i);
+    assert.ok(node.visual.haloRadius <= node.visual.coreRadius * 2.35);
+    assert.ok(node.visual.shellRadius <= node.visual.coreRadius * 1.55);
+    assert.ok(node.visual.ringRadius <= node.visual.coreRadius * 2.45);
+    assert.ok(node.visual.haloOpacity <= 0.18);
+    assert.ok(node.visual.shellOpacity <= 0.28);
+  }
+});

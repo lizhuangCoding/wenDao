@@ -1,14 +1,62 @@
 import type { ArticleOrbitItem } from '@/types';
 
-const CATEGORY_COLORS = [
-  '#10b981',
-  '#38bdf8',
-  '#f59e0b',
-  '#ec4899',
-  '#a78bfa',
-  '#f43f5e',
-  '#22c55e',
-  '#06b6d4',
+const PREMIUM_PLANET_PALETTES = [
+  {
+    accentColor: '#8ee7ff',
+    atmosphereColor: '#38bdf8',
+    rimColor: '#bae6fd',
+    shadowColor: '#0b2d4d',
+    surfaceColor: '#1d9ed0',
+  },
+  {
+    accentColor: '#c4b5fd',
+    atmosphereColor: '#8b5cf6',
+    rimColor: '#ddd6fe',
+    shadowColor: '#211447',
+    surfaceColor: '#7c3aed',
+  },
+  {
+    accentColor: '#ffd6a5',
+    atmosphereColor: '#fb923c',
+    rimColor: '#ffedd5',
+    shadowColor: '#48200c',
+    surfaceColor: '#d97706',
+  },
+  {
+    accentColor: '#f9a8d4',
+    atmosphereColor: '#ec4899',
+    rimColor: '#fbcfe8',
+    shadowColor: '#4a102f',
+    surfaceColor: '#be185d',
+  },
+  {
+    accentColor: '#99f6e4',
+    atmosphereColor: '#14b8a6',
+    rimColor: '#ccfbf1',
+    shadowColor: '#063f3a',
+    surfaceColor: '#0f766e',
+  },
+  {
+    accentColor: '#f0abfc',
+    atmosphereColor: '#c084fc',
+    rimColor: '#f5d0fe',
+    shadowColor: '#3b0f4a',
+    surfaceColor: '#9333ea',
+  },
+  {
+    accentColor: '#86efac',
+    atmosphereColor: '#22c55e',
+    rimColor: '#dcfce7',
+    shadowColor: '#0b3d1c',
+    surfaceColor: '#16a34a',
+  },
+  {
+    accentColor: '#a5f3fc',
+    atmosphereColor: '#06b6d4',
+    rimColor: '#cffafe',
+    shadowColor: '#083344',
+    surfaceColor: '#0891b2',
+  },
 ];
 
 export interface ArticlePlanetNodeLayout {
@@ -24,23 +72,32 @@ export interface ArticlePlanetNodeLayout {
 
 export interface ArticlePlanetNodeVisual {
   activeScale: number;
+  accentColor: string;
+  atmosphereColor: string;
   coreRadius: number;
   glintRadius: number;
   haloOpacity: number;
   haloRadius: number;
+  rimColor: string;
   ringOpacity: number;
   ringRadius: number;
+  shadowColor: string;
   shellOpacity: number;
   shellRadius: number;
+  surfaceColor: string;
 }
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
 export const getArticlePlanetColor = (categoryId?: number) => {
+  return getArticlePlanetPalette(categoryId).accentColor;
+};
+
+export const getArticlePlanetPalette = (categoryId?: number) => {
   if (!categoryId || Number.isNaN(categoryId)) {
-    return CATEGORY_COLORS[0];
+    return PREMIUM_PLANET_PALETTES[0];
   }
-  return CATEGORY_COLORS[Math.abs(categoryId) % CATEGORY_COLORS.length];
+  return PREMIUM_PLANET_PALETTES[Math.abs(categoryId) % PREMIUM_PLANET_PALETTES.length];
 };
 
 export const calculateArticlePlanetWeight = (article: ArticleOrbitItem) => {
@@ -50,20 +107,26 @@ export const calculateArticlePlanetWeight = (article: ArticleOrbitItem) => {
   return clamp(1 + topBonus + viewBonus + commentBonus, 1, 3);
 };
 
-export const buildArticlePlanetVisual = (weight: number): ArticlePlanetNodeVisual => {
+export const buildArticlePlanetVisual = (weight: number, categoryId?: number): ArticlePlanetNodeVisual => {
   const influence = clamp((weight - 1) / 2, 0, 1);
-  const coreRadius = 0.072 + influence * 0.04;
+  const palette = getArticlePlanetPalette(categoryId);
+  const coreRadius = 0.115 + influence * 0.035;
 
   return {
     activeScale: 1.42 + influence * 0.28,
+    accentColor: palette.accentColor,
+    atmosphereColor: palette.atmosphereColor,
     coreRadius,
-    glintRadius: coreRadius * 0.34,
-    haloOpacity: 0.26 + influence * 0.16,
-    haloRadius: coreRadius * (4.2 + influence * 0.95),
-    ringOpacity: 0.44 + influence * 0.26,
-    ringRadius: coreRadius * (2.8 + influence * 0.68),
-    shellOpacity: 0.42 + influence * 0.12,
-    shellRadius: coreRadius * (2.05 + influence * 0.22),
+    glintRadius: coreRadius * 0.22,
+    haloOpacity: 0.14 + influence * 0.04,
+    haloRadius: coreRadius * (1.92 + influence * 0.24),
+    rimColor: palette.rimColor,
+    ringOpacity: 0.34 + influence * 0.18,
+    ringRadius: coreRadius * (1.72 + influence * 0.26),
+    shadowColor: palette.shadowColor,
+    shellOpacity: 0.2 + influence * 0.06,
+    shellRadius: coreRadius * (1.26 + influence * 0.12),
+    surfaceColor: palette.surfaceColor,
   };
 };
 
@@ -85,7 +148,7 @@ export const buildArticlePlanetLayout = (
     const categoryOffset = ((article.category?.id ?? 0) % 7) * 0.018;
     const radius = sphereRadius + categoryOffset;
     const weight = calculateArticlePlanetWeight(article);
-    const visual = buildArticlePlanetVisual(weight);
+    const visual = buildArticlePlanetVisual(weight, article.category?.id);
 
     return {
       article,

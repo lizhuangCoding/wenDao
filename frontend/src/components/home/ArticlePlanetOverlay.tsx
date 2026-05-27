@@ -42,7 +42,7 @@ export const ArticlePlanetOverlay = ({
             <input
               type="text"
               placeholder={t('home.searchPlaceholder')}
-              className="w-full border-b-2 border-white/25 bg-transparent py-3 pl-0 pr-12 text-sm font-bold tracking-widest text-white outline-none transition-colors placeholder:text-white/45 focus:border-primary-300"
+              className="w-full border-b-2 border-white/25 bg-transparent py-3 pl-0 pr-12 text-sm font-bold tracking-widest text-white outline-none transition-colors placeholder:text-white/50 focus:border-primary-300"
               value={inputValue}
               onChange={(event) => onSearchInputChange(event.target.value)}
             />
@@ -116,10 +116,10 @@ export const ArticlePlanetOverlay = ({
             <h2 className="line-clamp-2 text-xl font-black leading-tight text-white sm:text-2xl">
               {activeArticle.title}
             </h2>
-            <p className="mt-3 line-clamp-3 text-sm font-medium leading-relaxed text-white/62">
+            <p className="mt-3 line-clamp-3 text-sm font-medium leading-relaxed text-white/70">
               {activeArticle.summary || '暂无摘要'}
             </p>
-            <div className="mt-4 flex gap-5 text-[10px] font-bold uppercase tracking-widest text-white/45 sm:mt-5">
+            <div className="mt-4 flex gap-5 text-[10px] font-bold uppercase tracking-widest text-white/50 sm:mt-5">
               <span>{activeArticle.view_count} views</span>
               <span>{activeArticle.comment_count} comments</span>
             </div>
