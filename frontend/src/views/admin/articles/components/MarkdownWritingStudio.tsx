@@ -182,8 +182,12 @@ export const MarkdownWritingStudio = ({
     );
   };
 
-  const panelMinHeightClass = isImmersive ? 'min-h-[calc(100vh-220px)]' : 'min-h-[640px]';
-  const textareaMinHeightClass = isImmersive ? 'min-h-[calc(100vh-292px)]' : 'min-h-[580px]';
+  const panelMinHeightClass = isImmersive
+    ? 'min-h-[max(640px,calc(100vh-220px))]'
+    : 'min-h-[640px]';
+  const textareaMinHeightClass = isImmersive
+    ? 'min-h-[max(580px,calc(100vh-292px))]'
+    : 'min-h-[580px]';
 
   return (
     <div className="space-y-3">
@@ -262,7 +266,7 @@ export const MarkdownWritingStudio = ({
             <span className={tooltipClassName}>字体颜色</span>
           </button>
 
-          <div className="flex h-9 items-center gap-1 rounded-xl bg-white px-2 shadow-sm dark:bg-neutral-900">
+          <div className="flex min-h-9 max-w-full min-w-0 flex-wrap items-center gap-1 rounded-xl bg-white px-2 py-2 shadow-sm dark:bg-neutral-900">
             {TEXT_COLOR_PRESETS.map((color) => (
               <button
                 key={color.value}
@@ -277,7 +281,7 @@ export const MarkdownWritingStudio = ({
                 style={{ backgroundColor: color.value }}
               />
             ))}
-            <div className="ml-1 w-[112px]">
+            <div className="ml-1 w-full max-w-[112px] min-w-[96px] flex-1 sm:w-[112px] sm:flex-none">
               <ColorPicker
                 value={selectedTextColor}
                 format="HEX"
