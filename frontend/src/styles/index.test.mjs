@@ -31,7 +31,9 @@ test('public article blockquotes keep body-sized text', async () => {
 test('front detail and admin preview share article reading styles', async () => {
   const css = `${await loadIndexCss()}\n${await loadMarkdownCss()}`;
   const articleDetail = await loadSourceFile('pages/ArticleDetail.tsx');
-  const articleEditor = await loadSourceFile('views/admin/articles/ArticleEditor.tsx');
+  const markdownStudio = await loadSourceFile(
+    'views/admin/articles/components/MarkdownWritingStudio.tsx'
+  );
   const renderer = await loadSourceFile('components/article/ArticleMarkdownRenderer.tsx');
 
   assert.match(css, /\.article-reading-body\s*\{/);
@@ -39,7 +41,7 @@ test('front detail and admin preview share article reading styles', async () => 
   assert.match(css, /\.article-reading-body ul\s*\{/);
   assert.match(css, /\.article-reading-body strong\s*\{/);
   assert.match(articleDetail, /className="article-reading-body"/);
-  assert.match(articleEditor, /className="article-reading-body admin-markdown-preview/);
+  assert.match(markdownStudio, /article-reading-body admin-markdown-preview/);
   assert.doesNotMatch(articleDetail, /prose-refined/);
   assert.match(renderer, /const className = 'scroll-mt-24'/);
   assert.doesNotMatch(renderer, /text-3xl|text-2xl|mt-8 mb-4/);
