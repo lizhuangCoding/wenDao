@@ -113,12 +113,12 @@ test('applyMarkdownColor wraps selected text in a safe color span', async () => 
   );
 
   assert.equal(result.text, 'hello <span style="color: #0ea5e9">world</span>');
-  assert.deepEqual(result.selection, { start: 36, end: 41 });
+  assert.deepEqual(result.selection, { start: 35, end: 40 });
   assert.deepEqual(result.edit, {
     start: 6,
     end: 11,
     replacement: '<span style="color: #0ea5e9">world</span>',
-    selection: { start: 36, end: 41 },
+    selection: { start: 35, end: 40 },
   });
 });
 
@@ -135,7 +135,7 @@ test('applyMarkdownColor inserts selected fallback text when selection is empty'
   );
 
   assert.equal(result.text, 'before <span style="color: #ef4444">彩色文字</span>');
-  assert.deepEqual(result.selection, { start: 37, end: 41 });
+  assert.deepEqual(result.selection, { start: 36, end: 40 });
 });
 
 test('applyMarkdownColor falls back when color value is unsafe', async () => {
@@ -151,7 +151,7 @@ test('applyMarkdownColor falls back when color value is unsafe', async () => {
   );
 
   assert.equal(result.text, `<span style="color: ${DEFAULT_TEXT_COLOR}">danger</span>`);
-  assert.deepEqual(result.selection, { start: 30, end: 36 });
+  assert.deepEqual(result.selection, { start: 29, end: 35 });
 });
 
 test('normalizeMarkdownColor expands short hex colors', async () => {

@@ -126,7 +126,7 @@ export const applyMarkdownColor = (
   const before = `<span style="color: ${safeColor}">`;
   const after = '</span>';
   const replacement = `${before}${selectedText}${after}`;
-  const start = input.selectionStart + before.length + 1;
+  const start = input.selectionStart + before.length;
 
   return replaceRange(input.text, input.selectionStart, input.selectionEnd, replacement, {
     start,
