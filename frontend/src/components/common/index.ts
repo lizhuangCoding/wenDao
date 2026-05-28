@@ -1,6 +1,7 @@
 export * from './Layout';
 export * from './Header';
 export * from './Footer';
+export * from './ContactLinks';
 export * from './Loading';
 export * from './Pagination';
 export * from './EmptyState';
