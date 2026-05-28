@@ -182,16 +182,32 @@ export const MarkdownWritingStudio = ({
     );
   };
 
-  const panelMinHeightClass = isImmersive
-    ? 'min-h-[max(640px,calc(100vh-220px))]'
-    : 'min-h-[640px]';
-  const textareaMinHeightClass = isImmersive
-    ? 'min-h-[max(580px,calc(100vh-292px))]'
-    : 'min-h-[580px]';
+  const rootClassName = isImmersive
+    ? 'fixed inset-0 z-50 flex flex-col overflow-hidden bg-neutral-50 p-3 dark:bg-neutral-950 sm:p-4'
+    : 'space-y-3';
+  const headerClassName = isImmersive
+    ? 'mb-3 flex shrink-0 flex-col gap-3 rounded-2xl border border-neutral-200 bg-white px-4 py-3 shadow-sm dark:border-neutral-800 dark:bg-neutral-900 lg:flex-row lg:items-center lg:justify-between'
+    : 'flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between';
+  const studioShellClassName = isImmersive
+    ? 'flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-neutral-200 bg-neutral-50/90 p-3 dark:border-neutral-800 dark:bg-neutral-950/90'
+    : 'rounded-2xl border border-neutral-200 bg-neutral-50/70 p-3 dark:border-neutral-800 dark:bg-neutral-950/40';
+  const toolbarClassName = isImmersive
+    ? 'mb-3 flex shrink-0 flex-wrap items-center gap-2'
+    : 'mb-3 flex flex-wrap items-center gap-2';
+  const panelGridClassName = isImmersive
+    ? `grid min-h-0 flex-1 gap-4 overflow-y-auto lg:overflow-hidden ${
+        editorMode === 'split' ? 'lg:grid-cols-2' : 'grid-cols-1'
+      }`
+    : `grid gap-4 ${editorMode === 'split' ? 'lg:grid-cols-2' : 'grid-cols-1'}`;
+  const panelSizeClass = isImmersive ? 'h-full min-h-0' : 'min-h-[640px]';
+  const textareaSizeClass = isImmersive ? 'min-h-0' : 'min-h-[580px]';
+  const previewBodyClassName = isImmersive
+    ? 'article-reading-body admin-markdown-preview min-h-0 flex-1 overflow-y-auto px-6 py-5'
+    : 'article-reading-body admin-markdown-preview flex-1 overflow-y-auto px-6 py-5';
 
   return (
-    <div className="space-y-3">
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+    <div className={rootClassName}>
+      <div className={headerClassName}>
         <div>
           <label className="block text-sm font-semibold text-neutral-700 dark:text-neutral-200">
             内容 (Markdown)
@@ -235,8 +251,8 @@ export const MarkdownWritingStudio = ({
         </div>
       </div>
 
-      <div className="rounded-2xl border border-neutral-200 bg-neutral-50/70 p-3 dark:border-neutral-800 dark:bg-neutral-950/40">
-        <div className="mb-3 flex flex-wrap items-center gap-2">
+      <div className={studioShellClassName}>
+        <div className={toolbarClassName}>
           {markdownToolbarActions.map((item) => (
             <button
               key={item.action}
@@ -316,10 +332,10 @@ export const MarkdownWritingStudio = ({
           </div>
         </div>
 
-        <div className={`grid gap-4 ${editorMode === 'split' ? 'lg:grid-cols-2' : 'grid-cols-1'}`}>
+        <div className={panelGridClassName}>
           {editorMode !== 'preview' && (
             <section
-              className={`flex ${panelMinHeightClass} flex-col overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm dark:border-neutral-800 dark:bg-neutral-900`}
+              className={`flex ${panelSizeClass} flex-col overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm dark:border-neutral-800 dark:bg-neutral-900`}
             >
               <div className="flex items-center justify-between border-b border-neutral-100 px-4 py-3 dark:border-neutral-800">
                 <div>
@@ -343,7 +359,7 @@ export const MarkdownWritingStudio = ({
               </div>
               <textarea
                 ref={textareaRef}
-                className={`admin-markdown-editor ${textareaMinHeightClass} flex-1 resize-none border-0 bg-transparent px-5 py-4 text-sm leading-7 text-neutral-800 outline-none dark:text-neutral-100`}
+                className={`admin-markdown-editor ${textareaSizeClass} flex-1 resize-none border-0 bg-transparent px-5 py-4 text-sm leading-7 text-neutral-800 outline-none dark:text-neutral-100`}
                 value={content}
                 onChange={(event) => onContentChange(event.target.value)}
                 onPaste={onPaste}
@@ -354,7 +370,7 @@ export const MarkdownWritingStudio = ({
 
           {editorMode !== 'edit' && (
             <section
-              className={`flex ${panelMinHeightClass} flex-col overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm dark:border-neutral-800 dark:bg-neutral-900`}
+              className={`flex ${panelSizeClass} flex-col overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm dark:border-neutral-800 dark:bg-neutral-900`}
             >
               <div className="flex items-center justify-between border-b border-neutral-100 px-4 py-3 dark:border-neutral-800">
                 <div>
@@ -366,7 +382,7 @@ export const MarkdownWritingStudio = ({
                   </div>
                 </div>
               </div>
-              <div className="article-reading-body admin-markdown-preview flex-1 overflow-y-auto px-6 py-5">
+              <div className={previewBodyClassName}>
                 {content.trim() ? (
                   <Suspense
                     fallback={

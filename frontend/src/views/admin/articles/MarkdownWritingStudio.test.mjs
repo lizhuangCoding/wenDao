@@ -30,11 +30,18 @@ test('MarkdownWritingStudio owns toolbar color controls and immersive toggle', a
   assert.match(source, /onImmersiveChange/);
 });
 
-test('MarkdownWritingStudio keeps immersive and color controls responsive', async () => {
+test('MarkdownWritingStudio renders immersive mode as a fullscreen writing surface', async () => {
   const source = await loadWritingStudio();
 
-  assert.match(source, /max\(640px,calc\(100vh-220px\)\)/);
-  assert.match(source, /max\(580px,calc\(100vh-292px\)\)/);
+  assert.match(source, /fixed inset-0 z-50/);
+  assert.match(source, /overflow-hidden bg-neutral-50/);
+  assert.match(source, /min-h-0 flex-1/);
+  assert.match(source, /h-full/);
+});
+
+test('MarkdownWritingStudio keeps color controls responsive', async () => {
+  const source = await loadWritingStudio();
+
   assert.match(source, /flex-wrap/);
   assert.match(source, /max-w-full/);
   assert.match(source, /max-w-\[112px\]/);
