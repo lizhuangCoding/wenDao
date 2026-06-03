@@ -1,6 +1,12 @@
 import { Suspense, lazy } from 'react';
 import { createBrowserRouter, Navigate } from 'react-router-dom';
-import { AdminRoute, Loading, ProtectedRoute } from './components/common';
+import {
+  AdminRoute,
+  Loading,
+  ProtectedRoute,
+  RouteErrorFallback,
+  RouteLoadSuccessMarker,
+} from './components/common';
 
 const Home = lazy(() => import('./pages/Home').then((module) => ({ default: module.Home })));
 const ArticleDetail = lazy(() =>
@@ -40,17 +46,21 @@ const KnowledgeDocumentDetail = lazy(() =>
 );
 
 const withSuspense = (element: React.ReactNode) => (
-  <Suspense fallback={<Loading />}>{element}</Suspense>
+  <Suspense fallback={<Loading />}>
+    <RouteLoadSuccessMarker>{element}</RouteLoadSuccessMarker>
+  </Suspense>
 );
 
 export const router = createBrowserRouter([
   {
     path: '/',
     element: withSuspense(<Home />),
+    errorElement: <RouteErrorFallback />,
   },
   {
     path: '/article/:slug',
     element: withSuspense(<ArticleDetail />),
+    errorElement: <RouteErrorFallback />,
   },
   {
     path: '/ai-chat',
@@ -59,6 +69,7 @@ export const router = createBrowserRouter([
         <AIChat />
       </ProtectedRoute>
     ),
+    errorElement: <RouteErrorFallback />,
   },
   {
     path: '/profile',
@@ -67,14 +78,17 @@ export const router = createBrowserRouter([
         <Profile />
       </ProtectedRoute>
     ),
+    errorElement: <RouteErrorFallback />,
   },
   {
     path: '/login',
     element: withSuspense(<Login />),
+    errorElement: <RouteErrorFallback />,
   },
   {
     path: '/register',
     element: withSuspense(<Register />),
+    errorElement: <RouteErrorFallback />,
   },
   {
     path: '/admin',
@@ -83,6 +97,7 @@ export const router = createBrowserRouter([
         <AdminLayout />
       </AdminRoute>
     ),
+    errorElement: <RouteErrorFallback />,
     children: [
       { index: true, element: <Navigate to="/admin/stats" replace /> },
       { path: 'stats', element: <Dashboard /> },

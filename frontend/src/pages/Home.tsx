@@ -5,7 +5,6 @@ import { articleApi, categoryApi, siteApi } from '@/api';
 import { Layout, Loading, Pagination, EmptyState, ErrorState } from '@/components/common';
 import { ArticleCard } from '@/components/article';
 import { ArticlePlanetHero } from '@/components/home';
-import { HomeContactSection } from '@/components/home/HomeContactSection';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export const Home = () => {
@@ -118,7 +117,6 @@ export const Home = () => {
               />
             )}
 
-            <HomeContactSection />
           </>
         )}
       </div>

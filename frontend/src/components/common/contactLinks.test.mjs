@@ -24,9 +24,9 @@ test('footer composes the shared contact links component', async () => {
   assert.match(source, /联系我/);
 });
 
-test('home places the about-contact section after article pagination', async () => {
+test('home does not render a separate about-contact section below articles', async () => {
   const source = await loadSourceFile('../pages/Home.tsx');
 
-  assert.match(source, /HomeContactSection/);
-  assert.match(source, /Pagination[\s\S]*HomeContactSection/);
+  assert.doesNotMatch(source, /HomeContactSection/);
+  assert.doesNotMatch(source, /关于我/);
 });
