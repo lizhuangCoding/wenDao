@@ -34,6 +34,10 @@ Required values:
 
 Optional values:
 
+- `AI_PROVIDER`
+- `AI_API_KEY`
+- `AI_ENDPOINT`
+- `AI_CHAT_MODEL`
 - `GITHUB_CLIENT_ID`
 - `GITHUB_CLIENT_SECRET`
 - `GITHUB_CALLBACK_URL`
@@ -43,6 +47,8 @@ Optional values:
 - `DOUBAO_EMBEDDING_MODEL`
 - `RESEARCH_ENDPOINT`
 - `RESEARCH_API_KEY`
+
+`AI_PROVIDER` 控制聊天模型提供商，可选 `doubao`、`deepseek`、`openai-compatible`。向量模型仍然固定使用豆包，现有的 `DOUBAO_EMBEDDING_MODEL` 配置不需要改。
 
 ## 3. Build and start
 

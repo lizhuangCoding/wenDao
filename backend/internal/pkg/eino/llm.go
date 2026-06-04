@@ -9,6 +9,8 @@ import (
 	"sync"
 
 	"github.com/cloudwego/eino-ext/components/model/ark"
+	deepseek "github.com/cloudwego/eino-ext/components/model/deepseek"
+	openai "github.com/cloudwego/eino-ext/components/model/openai"
 	"github.com/cloudwego/eino/components/model"
 	"github.com/cloudwego/eino/schema"
 
@@ -33,38 +35,116 @@ type ChatMessage struct {
 	Content string
 }
 
-// arkLLMClient Ark LLM 实现（使用 eino 框架）
-type arkLLMClient struct {
+// chatModelClient LLM 实现（使用 eino 框架）
+type chatModelClient struct {
 	client      model.ChatModel
 	temperature float32
 	maxTokens   int
 }
 
-// NewDoubaoLLMClient 创建 Doubao LLM 客户端（使用 Ark）
+// NewLLMClient 创建可切换 provider 的 LLM 客户端
+func NewLLMClient(cfg *config.AIConfig) (LLMClient, error) {
+	return newLLMClient(cfg)
+}
+
+// NewDoubaoLLMClient 创建 Doubao LLM 客户端（兼容旧调用方）
 func NewDoubaoLLMClient(cfg *config.AIConfig) (LLMClient, error) {
+	return newLLMClient(cfg)
+}
+
+func newLLMClient(cfg *config.AIConfig) (LLMClient, error) {
+	if cfg == nil {
+		return nil, fmt.Errorf("ai config is required")
+	}
+
 	if cfg.APIKey == "" {
 		return nil, fmt.Errorf("API key is required")
 	}
 
-	chatConfig := &ark.ChatModelConfig{
-		APIKey: cfg.APIKey,
-		Model:  cfg.LLMModel,
-	}
+	provider := normalizeAIProvider(cfg.Provider)
 
-	client, err := ark.NewChatModel(context.Background(), chatConfig)
+	client, err := buildChatModel(provider, cfg)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create Ark chat model: %w", err)
+		return nil, err
 	}
 
-	return &arkLLMClient{
+	return &chatModelClient{
 		client:      client,
 		temperature: cfg.Temperature,
 		maxTokens:   cfg.MaxTokens,
 	}, nil
 }
 
+func normalizeAIProvider(provider string) string {
+	return strings.ToLower(strings.TrimSpace(provider))
+}
+
+func buildChatModel(provider string, cfg *config.AIConfig) (model.ChatModel, error) {
+	switch provider {
+	case "", "doubao", "ark":
+		chatConfig := &ark.ChatModelConfig{
+			APIKey: cfg.APIKey,
+			Model:  cfg.LLMModel,
+		}
+		if endpoint := strings.TrimSpace(cfg.Endpoint); endpoint != "" {
+			chatConfig.BaseURL = endpoint
+		}
+
+		client, err := ark.NewChatModel(context.Background(), chatConfig)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create doubao chat model: %w", err)
+		}
+		return client, nil
+	case "deepseek":
+		chatConfig := &deepseek.ChatModelConfig{
+			APIKey:      cfg.APIKey,
+			Model:       cfg.LLMModel,
+			Temperature: cfg.Temperature,
+			MaxTokens:   cfg.MaxTokens,
+		}
+		if endpoint := strings.TrimSpace(cfg.Endpoint); endpoint != "" {
+			chatConfig.BaseURL = endpoint
+		}
+
+		client, err := deepseek.NewChatModel(context.Background(), chatConfig)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create deepseek chat model: %w", err)
+		}
+		return client, nil
+	case "openai", "openai-compatible":
+		chatConfig := &openai.ChatModelConfig{
+			APIKey:      cfg.APIKey,
+			Model:       cfg.LLMModel,
+			Temperature: float32Ptr(cfg.Temperature),
+		}
+		if cfg.MaxTokens > 0 {
+			maxTokens := cfg.MaxTokens
+			chatConfig.MaxTokens = &maxTokens
+			chatConfig.MaxCompletionTokens = &maxTokens
+		}
+		if endpoint := strings.TrimSpace(cfg.Endpoint); endpoint != "" {
+			chatConfig.BaseURL = endpoint
+		}
+
+		client, err := openai.NewChatModel(context.Background(), chatConfig)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create openai-compatible chat model: %w", err)
+		}
+		return client, nil
+	default:
+		return nil, fmt.Errorf("unsupported ai provider %q", provider)
+	}
+}
+
+func float32Ptr(v float32) *float32 {
+	if v == 0 {
+		return nil
+	}
+	return &v
+}
+
 // Chat 对话生成
-func (c *arkLLMClient) Chat(messages []ChatMessage) (string, error) {
+func (c *chatModelClient) Chat(messages []ChatMessage) (string, error) {
 	ctx := context.Background()
 
 	schemaMessages := make([]*schema.Message, 0, len(messages))
@@ -88,7 +168,7 @@ func (c *arkLLMClient) Chat(messages []ChatMessage) (string, error) {
 }
 
 // ChatStream 流式对话生成（返回累计文本快照）
-func (c *arkLLMClient) ChatStream(ctx context.Context, messages []ChatMessage) (<-chan string, <-chan error) {
+func (c *chatModelClient) ChatStream(ctx context.Context, messages []ChatMessage) (<-chan string, <-chan error) {
 	textCh := make(chan string, chatStreamBufferSize)
 	errCh := make(chan error, 1)
 	if ctx == nil {
@@ -191,6 +271,6 @@ func (c *arkLLMClient) ChatStream(ctx context.Context, messages []ChatMessage) (
 }
 
 // GetModel 获取原始 Eino 模型
-func (c *arkLLMClient) GetModel() model.ChatModel {
+func (c *chatModelClient) GetModel() model.ChatModel {
 	return c.client
 }

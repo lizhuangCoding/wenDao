@@ -105,6 +105,7 @@ type LogConfig struct {
 
 // AIConfig AI 配置
 type AIConfig struct {
+	Provider               string  `mapstructure:"provider"`
 	APIKey                 string  `mapstructure:"api_key"`
 	Endpoint               string  `mapstructure:"endpoint"`
 	EmbeddingModel         string  `mapstructure:"embedding_model"`
@@ -172,6 +173,7 @@ func LoadConfig() (*Config, error) {
 	viper.SetDefault("upload.cleanup_retention_days", 2)
 	viper.SetDefault("upload.cleanup_interval_hours", 24)
 	viper.SetDefault("upload.cleanup_batch_size", 200)
+	viper.SetDefault("ai.provider", "doubao")
 
 	_ = viper.BindEnv("database.host", "DB_HOST")
 	_ = viper.BindEnv("database.port", "DB_PORT")
@@ -188,10 +190,11 @@ func LoadConfig() (*Config, error) {
 	_ = viper.BindEnv("redis_vector.password", "REDIS_VECTOR_PASSWORD")
 
 	_ = viper.BindEnv("jwt.secret", "JWT_SECRET")
-	_ = viper.BindEnv("ai.api_key", "DOUBAO_API_KEY")
-	_ = viper.BindEnv("ai.endpoint", "DOUBAO_ENDPOINT")
-	_ = viper.BindEnv("ai.llm_model", "DOUBAO_CHAT_MODEL")
-	_ = viper.BindEnv("ai.embedding_model", "DOUBAO_EMBEDDING_MODEL")
+	_ = viper.BindEnv("ai.provider", "AI_PROVIDER", "LLM_PROVIDER")
+	_ = viper.BindEnv("ai.api_key", "AI_API_KEY", "DOUBAO_API_KEY")
+	_ = viper.BindEnv("ai.endpoint", "AI_ENDPOINT", "DOUBAO_ENDPOINT")
+	_ = viper.BindEnv("ai.llm_model", "AI_CHAT_MODEL", "DOUBAO_CHAT_MODEL")
+	_ = viper.BindEnv("ai.embedding_model", "AI_EMBEDDING_MODEL", "DOUBAO_EMBEDDING_MODEL")
 	_ = viper.BindEnv("ai.research_endpoint", "RESEARCH_ENDPOINT")
 	_ = viper.BindEnv("ai.research_api_key", "RESEARCH_API_KEY")
 	_ = viper.BindEnv("upload.storage_path", "UPLOAD_PATH")
@@ -232,6 +235,9 @@ func LoadConfig() (*Config, error) {
 
 	if cfg.AI.RAGMinScore <= 0 {
 		cfg.AI.RAGMinScore = 0.30
+	}
+	if strings.TrimSpace(cfg.AI.Provider) == "" {
+		cfg.AI.Provider = "doubao"
 	}
 	if cfg.AI.ResearchMaxResults <= 0 {
 		cfg.AI.ResearchMaxResults = 5

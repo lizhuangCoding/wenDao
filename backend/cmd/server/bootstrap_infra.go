@@ -107,11 +107,13 @@ func initAIComponents(cfg *config.Config, logger *zap.Logger, rdbVector *redis.C
 	}
 	logger.Info("Doubao Embedder initialized successfully")
 
-	llmClient, err := eino.NewDoubaoLLMClient(&cfg.AI)
+	llmClient, err := eino.NewLLMClient(&cfg.AI)
 	if err != nil {
-		return nil, fmt.Errorf("create doubao llm client: %w", err)
+		return nil, fmt.Errorf("create ai llm client: %w", err)
 	}
-	logger.Info("Doubao LLM Client initialized successfully")
+	logger.Info("AI LLM Client initialized successfully",
+		zap.String("provider", cfg.AI.Provider),
+		zap.String("model", cfg.AI.LLMModel))
 
 	const currentIndexName = "idx_wendao_v4"
 	vectorStore := eino.NewRedisVectorStore(rdbVector, currentIndexName, logger)
