@@ -16,7 +16,7 @@ export const DataTable = ({ children, className, emptyState, tableClassName }: D
     )}
   >
     <div className="overflow-x-auto">
-      <table className={cn('w-full border-collapse text-left', tableClassName)}>{children}</table>
+      <table className={cn('w-full min-w-[720px] border-collapse text-left', tableClassName)}>{children}</table>
     </div>
     {emptyState}
   </div>
@@ -43,7 +43,7 @@ export const DataTableHeaderCell = ({
 }: DataTableHeaderCellProps) => (
   <th
     className={cn(
-      'px-6 py-4 text-sm font-semibold text-neutral-600 dark:text-neutral-400',
+      'px-4 py-3 sm:px-6 sm:py-4 text-sm font-semibold text-neutral-600 dark:text-neutral-400',
       align === 'right' ? 'text-right' : '',
       align === 'center' ? 'text-center' : '',
       className
@@ -70,7 +70,7 @@ interface DataTableCellProps extends ComponentProps<'td'> {
 export const DataTableCell = ({ align = 'left', className, ...props }: DataTableCellProps) => (
   <td
     className={cn(
-      'px-6 py-4 text-sm text-neutral-500 dark:text-neutral-400',
+      'px-4 py-3 sm:px-6 sm:py-4 text-sm text-neutral-500 dark:text-neutral-400',
       align === 'right' ? 'text-right' : '',
       align === 'center' ? 'text-center' : '',
       className

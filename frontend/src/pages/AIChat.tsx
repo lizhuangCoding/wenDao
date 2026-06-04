@@ -154,11 +154,12 @@ export const AIChat = () => {
   }, [activeChatTitle, isRenaming]);
 
   useEffect(() => {
+    if (messages.length === 0) return;
     const container = scrollContainerRef.current;
     if (!container || !isNearBottom) return;
     const frame = window.requestAnimationFrame(() => scrollToBottom('smooth'));
     return () => window.cancelAnimationFrame(frame);
-  }, [activeChatMessages, isTyping, isStreaming, isNearBottom, scrollToBottom]);
+  }, [activeChatMessages, isTyping, isStreaming, isNearBottom, messages.length, scrollToBottom]);
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(updateActiveQuestionFromScroll);
@@ -257,9 +258,9 @@ export const AIChat = () => {
     <Layout hideHeader={isImmersive} hideFooter={isImmersive}>
       <div className={`${
         isImmersive
-          ? 'w-full h-screen px-0 py-0'
-          : `${isSidebarCollapsed ? 'max-w-[1680px]' : 'max-w-display'} mx-auto px-4 sm:px-8 lg:px-10 py-6 lg:py-10 h-[calc(100vh-80px)]`
-      } flex gap-4 lg:gap-6`}>
+          ? 'w-full h-dvh px-0 py-0'
+          : `${isSidebarCollapsed ? 'max-w-[1680px]' : 'max-w-display'} mx-auto px-3 py-3 sm:px-8 sm:py-6 lg:px-10 lg:py-10 h-[calc(100dvh-80px)]`
+      } flex min-h-0 gap-3 lg:gap-6`}>
         <ChatHistorySidebar
           activeId={activeId}
           activeMenuId={activeMenuId}
@@ -289,16 +290,16 @@ export const AIChat = () => {
         <main className={`min-w-0 flex-1 flex flex-col h-full bg-white dark:bg-neutral-800 overflow-hidden relative ${
           isImmersive
             ? 'rounded-none border-0 shadow-none'
-            : 'rounded-[32px] border border-neutral-100 dark:border-neutral-700 shadow-soft'
+            : 'rounded-2xl sm:rounded-[32px] border border-neutral-100 dark:border-neutral-700 shadow-soft'
         }`}>
-          <header className={`px-5 sm:px-8 lg:px-10 py-5 lg:py-6 border-b border-neutral-100 dark:border-neutral-700 flex items-center justify-between bg-white dark:bg-neutral-800 z-10 ${
-            isImmersive ? 'rounded-none' : 'rounded-[32px]'
+          <header className={`px-4 sm:px-8 lg:px-10 py-4 lg:py-6 border-b border-neutral-100 dark:border-neutral-700 flex items-center justify-between gap-3 bg-white dark:bg-neutral-800 z-10 ${
+            isImmersive ? 'rounded-none' : 'rounded-t-2xl sm:rounded-[32px]'
           }`}>
             <div className="flex items-center gap-3 min-w-0">
               <button
                 type="button"
                 onClick={() => setIsHistoryDrawerOpen(true)}
-                className="lg:hidden w-10 h-10 flex items-center justify-center rounded-xl border border-neutral-100 dark:border-neutral-700 text-neutral-500 dark:text-neutral-300 hover:text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors"
+                className="lg:hidden h-9 w-9 sm:w-10 sm:h-10 flex shrink-0 items-center justify-center rounded-xl border border-neutral-100 dark:border-neutral-700 text-neutral-500 dark:text-neutral-300 hover:text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors"
                 aria-label="打开会话历史"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -312,7 +313,7 @@ export const AIChat = () => {
                     value={draftTitle}
                     onChange={(e) => setDraftTitle(e.target.value)}
                     placeholder={t('chat.renamePlaceholder')}
-                    className="bg-transparent border border-neutral-200 dark:border-neutral-600 rounded-lg px-3 py-2 text-lg font-serif font-black text-neutral-900 dark:text-neutral-100"
+                    className="min-w-0 bg-transparent border border-neutral-200 dark:border-neutral-600 rounded-lg px-3 py-2 text-base sm:text-lg font-serif font-black text-neutral-900 dark:text-neutral-100"
                     onKeyDown={async (e) => {
                       if (e.key === 'Enter' && draftTitle.trim()) {
                         await handleRenameSave();
@@ -368,7 +369,7 @@ export const AIChat = () => {
               <button
                 type="button"
                 onClick={() => setIsImmersive((value) => !value)}
-                className="inline-flex items-center gap-2 rounded-xl border border-neutral-100 dark:border-neutral-700 px-3 py-2 text-xs font-bold text-neutral-500 dark:text-neutral-300 hover:text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors"
+                className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-neutral-100 dark:border-neutral-700 px-2.5 py-2 sm:px-3 text-xs font-bold text-neutral-500 dark:text-neutral-300 hover:text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors"
                 title={isImmersive ? '退出沉浸模式' : '开启沉浸模式'}
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -378,7 +379,7 @@ export const AIChat = () => {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V5a1 1 0 011-1h3m8 0h3a1 1 0 011 1v3m0 8v3a1 1 0 01-1 1h-3M8 20H5a1 1 0 01-1-1v-3" />
                   )}
                 </svg>
-                <span>{isImmersive ? '退出全屏' : '沉浸模式'}</span>
+                <span className="hidden sm:inline">{isImmersive ? '退出全屏' : '沉浸模式'}</span>
               </button>
             </div>
           </header>
@@ -392,7 +393,7 @@ export const AIChat = () => {
           <div
             ref={scrollContainerRef}
             onScroll={handleScroll}
-            className="flex-1 overflow-y-auto px-4 sm:px-8 lg:px-10 py-6 lg:py-10 space-y-8 scrollbar-hide relative bg-neutral-50/30 dark:bg-neutral-800/50"
+            className="flex-1 min-h-0 overflow-y-auto px-3 sm:px-8 lg:px-10 py-5 lg:py-10 space-y-6 sm:space-y-8 scrollbar-hide relative bg-neutral-50/30 dark:bg-neutral-800/50"
           >
             <ChatStageBanner
               currentStage={currentStage}
@@ -446,7 +447,7 @@ export const AIChat = () => {
             )}
           </AnimatePresence>
 
-          <div className="px-4 sm:px-8 lg:px-10 py-5 lg:py-8 bg-white dark:bg-neutral-800 border-t border-neutral-100 dark:border-neutral-700 rounded-b-[32px]">
+          <div className="px-3 sm:px-8 lg:px-10 py-4 lg:py-8 bg-white dark:bg-neutral-800 border-t border-neutral-100 dark:border-neutral-700 rounded-b-2xl sm:rounded-b-[32px]">
             <AnimatePresence>
               {isAssistantProcessing && (
                 <AIProcessingHalo

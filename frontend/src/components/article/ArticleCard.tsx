@@ -10,7 +10,7 @@ export const ArticleCard = ({ article }: ArticleCardProps) => {
   return (
     <Link to={`/article/${article.slug}`} className="group block">
       <article className="flex flex-col h-full">
-        <div className="relative aspect-[16/10] mb-8 overflow-hidden rounded-2xl bg-neutral-100 shadow-soft transition-all duration-500 group-hover:shadow-elevated group-hover:-translate-y-1 dark:bg-neutral-800">
+        <div className="relative aspect-[16/10] mb-6 overflow-hidden rounded-2xl bg-neutral-100 shadow-soft transition-all duration-500 group-hover:shadow-elevated group-hover:-translate-y-1 dark:bg-neutral-800 sm:mb-8">
           {article.cover_image ? (
             <img
               src={article.cover_image}
@@ -58,7 +58,7 @@ export const ArticleCard = ({ article }: ArticleCardProps) => {
 
         <div className="flex flex-col flex-1">
           <header className="mb-4">
-            <h2 className="text-2xl font-serif font-black text-neutral-900 dark:text-neutral-100 leading-tight group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors duration-300">
+            <h2 className="text-xl sm:text-2xl font-serif font-black text-neutral-900 dark:text-neutral-100 leading-tight group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors duration-300">
               {article.title}
             </h2>
           </header>
@@ -69,18 +69,18 @@ export const ArticleCard = ({ article }: ArticleCardProps) => {
             </p>
           </div>
 
-          <footer className="flex items-center justify-between pt-6 border-t border-neutral-100 dark:border-neutral-800">
-            <div className="flex items-center gap-3">
+          <footer className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between pt-6 border-t border-neutral-100 dark:border-neutral-800">
+            <div className="flex min-w-0 items-center gap-3">
               <div className="w-6 h-6 rounded-full overflow-hidden border border-neutral-200 bg-neutral-100 dark:border-neutral-700 dark:bg-neutral-700">
                 <img
                   src={article.author.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${article.author.username}`}
                   alt={article.author.username}
                 />
               </div>
-              <span className="text-[10px] font-bold tracking-widest text-neutral-400 uppercase dark:text-neutral-500">{article.author.username}</span>
+              <span className="min-w-0 truncate text-[10px] font-bold tracking-widest text-neutral-400 uppercase dark:text-neutral-500">{article.author.username}</span>
             </div>
 
-            <div className="flex items-center gap-4 text-neutral-300 dark:text-neutral-500">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-neutral-300 dark:text-neutral-500">
               <div className="flex items-center gap-1.5">
                 <span className="text-[10px] font-bold tabular-nums">{article.view_count}</span>
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">

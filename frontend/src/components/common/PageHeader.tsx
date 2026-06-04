@@ -25,7 +25,10 @@ export const PageHeader = ({ title, description, actions, className }: PageHeade
         </p>
       ) : null}
     </div>
-    {actions ? <div className="flex flex-wrap items-center gap-3">{actions}</div> : null}
+    {actions ? (
+      <div className="flex w-full flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center lg:w-auto lg:justify-end">
+        {actions}
+      </div>
+    ) : null}
   </motion.div>
 );
-

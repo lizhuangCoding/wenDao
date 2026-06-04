@@ -10,7 +10,7 @@ interface LayoutProps {
 
 export const Layout = ({ children, hideHeader = false, hideFooter = false }: LayoutProps) => {
   return (
-    <div className="min-h-screen flex flex-col bg-white dark:bg-[#050a10]">
+    <div className="min-h-screen overflow-x-hidden flex flex-col bg-white dark:bg-[#050a10]">
       {!hideHeader && <Header />}
       <main className={`flex-1 ${hideHeader ? 'pt-0' : 'pt-20'}`}>{children}</main>
       {!hideFooter && <Footer />}

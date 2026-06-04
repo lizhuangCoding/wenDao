@@ -16,16 +16,16 @@ export const AdminLayout = () => {
 
   return (
     <Layout>
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 flex flex-col md:flex-row gap-8 min-h-[calc(100vh-4rem)]">
-        <aside className="w-full md:w-64 shrink-0">
-          <nav className="bg-white dark:bg-neutral-800 rounded-2xl shadow-sm border border-neutral-100 dark:border-neutral-700 p-2 space-y-1">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10 lg:py-12 flex flex-col md:flex-row gap-5 sm:gap-8 min-h-[calc(100dvh-4rem)]">
+        <aside className="w-full shrink-0 md:w-64">
+          <nav className="flex gap-2 overflow-x-auto md:overflow-visible md:block md:space-y-1 scrollbar-hide bg-white dark:bg-neutral-800 rounded-2xl shadow-sm border border-neutral-100 dark:border-neutral-700 p-2">
             {menuItems.map((item) => {
               const isActive = location.pathname.startsWith(item.path);
               return (
                 <Link
                   key={item.path}
                   to={item.path}
-                  className={`flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all ${
+                  className={`flex shrink-0 whitespace-nowrap items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all md:w-full ${
                     isActive
                       ? 'bg-primary-50 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400'
                       : 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-50 dark:hover:bg-neutral-800 hover:text-neutral-900 dark:hover:text-neutral-200'

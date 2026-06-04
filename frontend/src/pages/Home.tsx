@@ -77,7 +77,7 @@ export const Home = () => {
         onSearchInputChange={setInputValue}
       />
 
-      <div className="max-w-display mx-auto px-6 sm:px-10 lg:px-12 py-24">
+      <div className="max-w-display mx-auto px-5 sm:px-10 lg:px-12 py-16 sm:py-24">
 
         {/* Article Grid */}
         {isLoading ? (
@@ -86,7 +86,7 @@ export const Home = () => {
           <ErrorState message={(error as any)?.message || '文章列表加载失败'} onRetry={() => refetch()} />
         ) : (
           <>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-12 gap-y-24">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-12 gap-y-16 sm:gap-y-24">
               <AnimatePresence mode="popLayout">
                 {articlesData?.data?.map((article, index) => (
                   <motion.div
