@@ -20,8 +20,9 @@ ARG VITE_API_BASE_URL=/api
 ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
 
 # Vite production build can exceed Node's default old-space limit on small
-# deployment servers. This only affects the temporary builder image.
-ARG FRONTEND_NODE_OPTIONS=--max-old-space-size=1536
+# deployment servers. Keep this modest so the builder stays under the
+# roughly 1 GiB memory available on the deployment host.
+ARG FRONTEND_NODE_OPTIONS=--max-old-space-size=1024
 ENV NODE_OPTIONS=${FRONTEND_NODE_OPTIONS}
 
 COPY . .

@@ -35,7 +35,8 @@ services:
         # 默认 /api，浏览器会请求同源的 /api，再由 Nginx/Caddy 转发到后端。
         VITE_API_BASE_URL: ${VITE_API_BASE_URL:-/api}
         # 避免 Vite 生产构建在服务器 Docker builder 内触发 Node 默认 heap 上限。
-        FRONTEND_NODE_OPTIONS: ${FRONTEND_NODE_OPTIONS:---max-old-space-size=1536}
+        # 默认值控制在 1 GiB 左右，兼顾构建稳定性和小内存服务器可用性。
+        FRONTEND_NODE_OPTIONS: ${FRONTEND_NODE_OPTIONS:---max-old-space-size=1024}
     restart: unless-stopped
     depends_on:
       - backend

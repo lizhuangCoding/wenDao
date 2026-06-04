@@ -112,7 +112,7 @@ For domain deployment with Caddy enabled, set repository variable `DEPLOY_COMPOS
 
 If the frontend needs a custom build-time API base URL, set `VITE_API_BASE_URL` in the server-side `.env.production`. The Compose build arg defaults to `/api`.
 
-The frontend Docker build defaults `FRONTEND_NODE_OPTIONS` to `--max-old-space-size=1536` so Vite has enough Node heap during `npm run build` without pushing small servers as hard as a 2G heap. If your server has very little memory, keep the swap setup below; if the build still hits a V8 heap limit, raise `FRONTEND_NODE_OPTIONS` in `.env.production`.
+The frontend Docker build defaults `FRONTEND_NODE_OPTIONS` to `--max-old-space-size=1024` so Vite has enough Node heap during `npm run build` while staying within the roughly 1 GiB memory envelope available on small deployment hosts. If your server has very little memory, keep the swap setup below; if the build still hits a V8 heap limit, raise `FRONTEND_NODE_OPTIONS` in `.env.production`.
 
 Because this deployment builds frontend and backend images on the server, make sure the server has enough memory or swap. On small servers, a 4G swap file is usually enough to avoid `npm run build` being killed:
 
