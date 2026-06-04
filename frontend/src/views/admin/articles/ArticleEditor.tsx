@@ -258,12 +258,14 @@ export const ArticleEditor = () => {
         </h1>
         <div className="space-x-4">
           <button
+            type="button"
             onClick={() => navigate('/admin/articles')}
             className="btn btn-secondary"
           >
             取消
           </button>
           <button
+            type="button"
             onClick={() => {
               if (!formData.title.trim()) {
                 showToast('请输入标题', 'error');
@@ -394,6 +396,7 @@ export const ArticleEditor = () => {
                   />
                   <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                     <button
+                      type="button"
                       onClick={(e) => {
                         e.stopPropagation();
                         setFormData({ ...formData, cover_image: '' });

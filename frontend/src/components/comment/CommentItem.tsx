@@ -53,6 +53,7 @@ export const CommentItem = ({ comment, articleId, isReply = false }: CommentItem
 
         {/* 回复按钮 - 始终显示回复按钮，支持二级评论继续回复 */}
         <button
+          type="button"
           onClick={() => setShowReplyForm(!showReplyForm)}
           className="text-xs font-bold text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 uppercase tracking-wider"
         >

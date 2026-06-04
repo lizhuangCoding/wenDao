@@ -61,6 +61,7 @@ export const ConfirmModal = ({
 
                 <div className="flex gap-3">
                   <button
+                    type="button"
                     onClick={onCancel}
                     disabled={isConfirming}
                     className="flex-1 px-6 py-3 rounded-2xl text-[10px] font-black tracking-widest uppercase transition-all border border-neutral-100 dark:border-neutral-700 text-neutral-400 hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-60 dark:hover:bg-neutral-700"
@@ -68,6 +69,7 @@ export const ConfirmModal = ({
                     {cancelText || t('common.cancel')}
                   </button>
                   <button
+                    type="button"
                     onClick={onConfirm}
                     disabled={isConfirming}
                     className={`flex-1 px-6 py-3 rounded-2xl text-[10px] font-black tracking-widest uppercase transition-all shadow-soft active:scale-95 text-white disabled:cursor-not-allowed disabled:opacity-60 ${

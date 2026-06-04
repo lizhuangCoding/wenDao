@@ -1,0 +1,60 @@
+import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+import test from 'node:test';
+
+const loadAdminSource = async (relativePath) => {
+  return readFile(new URL(`./${relativePath}`, import.meta.url), 'utf8');
+};
+
+const countMatches = (source, pattern) => source.match(pattern)?.length || 0;
+
+test('admin list pages reuse shared layout, form, table, and status primitives', async () => {
+  const sources = await Promise.all([
+    loadAdminSource('articles/ArticleList.tsx'),
+    loadAdminSource('categories/CategoryList.tsx'),
+    loadAdminSource('comments/CommentList.tsx'),
+    loadAdminSource('knowledge-documents/KnowledgeDocumentList.tsx'),
+  ]);
+
+  for (const source of sources) {
+    assert.match(source, /PageHeader/);
+    assert.match(source, /Panel/);
+    assert.match(source, /DataTable/);
+    assert.match(source, /DataTableHeaderCell/);
+    assert.match(source, /DataTableCell/);
+  }
+
+  const searchableSources = [sources[0], sources[2], sources[3]];
+  for (const source of searchableSources) {
+    assert.match(source, /TextInput/);
+    assert.match(source, /SelectInput/);
+    assert.match(source, /Button/);
+  }
+
+  assert.match(sources[0], /StatusBadge/);
+  assert.match(sources[0], /ToggleSwitch/);
+  assert.match(sources[2], /StatusBadge/);
+  assert.match(sources[3], /StatusBadge/);
+
+  const combined = sources.join('\n');
+  assert.equal(countMatches(combined, /rounded-2xl border border-neutral-100 bg-white/g), 0);
+  assert.ok(countMatches(combined, /px-6 py-4 text-sm font-semibold text-neutral-600/g) < 3);
+});
+
+test('admin dashboard and knowledge document detail avoid rough browser defaults', async () => {
+  const [dashboard, detail] = await Promise.all([
+    loadAdminSource('Dashboard.tsx'),
+    loadAdminSource('knowledge-documents/KnowledgeDocumentDetail.tsx'),
+  ]);
+
+  assert.match(dashboard, /PageHeader/);
+  assert.match(dashboard, /Panel/);
+  assert.match(dashboard, /SegmentedControl/);
+  assert.doesNotMatch(dashboard, /alert\(/);
+
+  assert.match(detail, /PageHeader/);
+  assert.match(detail, /Panel/);
+  assert.match(detail, /Button/);
+  assert.match(detail, /TextArea/);
+  assert.match(detail, /StatusBadge/);
+});

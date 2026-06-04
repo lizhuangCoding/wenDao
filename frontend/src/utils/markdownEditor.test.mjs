@@ -159,3 +159,43 @@ test('normalizeMarkdownColor expands short hex colors', async () => {
 
   assert.equal(normalizeMarkdownColor('#0af'), '#00aaff');
 });
+
+test('getSynchronizedScrollTop maps source scroll ratio to target panel', async () => {
+  const { getSynchronizedScrollTop } = await loadMarkdownEditor();
+
+  assert.equal(
+    getSynchronizedScrollTop({
+      sourceScrollTop: 250,
+      sourceScrollHeight: 1000,
+      sourceClientHeight: 500,
+      targetScrollHeight: 1600,
+      targetClientHeight: 400,
+    }),
+    600
+  );
+});
+
+test('getSynchronizedScrollTop clamps invalid or overflowing scroll values', async () => {
+  const { getSynchronizedScrollTop } = await loadMarkdownEditor();
+
+  assert.equal(
+    getSynchronizedScrollTop({
+      sourceScrollTop: 300,
+      sourceScrollHeight: 400,
+      sourceClientHeight: 400,
+      targetScrollHeight: 1200,
+      targetClientHeight: 400,
+    }),
+    0
+  );
+  assert.equal(
+    getSynchronizedScrollTop({
+      sourceScrollTop: 900,
+      sourceScrollHeight: 1000,
+      sourceClientHeight: 500,
+      targetScrollHeight: 1600,
+      targetClientHeight: 400,
+    }),
+    1200
+  );
+});

@@ -35,7 +35,7 @@ export const ArticleDetail = () => {
       <Layout>
         <div className="max-w-reading mx-auto px-6 py-32 text-center">
           <h1 className="text-4xl font-serif font-black text-neutral-900 dark:text-neutral-100 mb-4">{t('article.pieceNotFound')}</h1>
-          <button onClick={() => navigate('/')} className="text-primary-600 dark:text-primary-400 font-bold tracking-widest uppercase text-xs">{t('article.returnGallery')}</button>
+          <button type="button" onClick={() => navigate('/')} className="text-primary-600 dark:text-primary-400 font-bold tracking-widest uppercase text-xs">{t('article.returnGallery')}</button>
         </div>
       </Layout>
     );

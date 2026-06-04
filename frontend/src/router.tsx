@@ -1,11 +1,11 @@
-import { Suspense, lazy } from 'react';
+import { lazy } from 'react';
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import {
   AdminRoute,
-  Loading,
+  NotFoundPage,
   ProtectedRoute,
   RouteErrorFallback,
-  RouteLoadSuccessMarker,
+  RouteSuspenseBoundary,
 } from './components/common';
 
 const Home = lazy(() => import('./pages/Home').then((module) => ({ default: module.Home })));
@@ -46,9 +46,7 @@ const KnowledgeDocumentDetail = lazy(() =>
 );
 
 const withSuspense = (element: React.ReactNode) => (
-  <Suspense fallback={<Loading />}>
-    <RouteLoadSuccessMarker>{element}</RouteLoadSuccessMarker>
-  </Suspense>
+  <RouteSuspenseBoundary>{element}</RouteSuspenseBoundary>
 );
 
 export const router = createBrowserRouter([
@@ -100,28 +98,18 @@ export const router = createBrowserRouter([
     errorElement: <RouteErrorFallback />,
     children: [
       { index: true, element: <Navigate to="/admin/stats" replace /> },
-      { path: 'stats', element: <Dashboard /> },
-      { path: 'articles', element: <ArticleList /> },
-      { path: 'articles/new', element: <ArticleEditor /> },
-      { path: 'articles/edit/:id', element: <ArticleEditor /> },
-      { path: 'categories', element: <CategoryList /> },
-      { path: 'comments', element: <CommentList /> },
-      { path: 'knowledge-documents', element: <KnowledgeDocumentList /> },
-      { path: 'knowledge-documents/:id', element: <KnowledgeDocumentDetail /> },
+      { path: 'stats', element: withSuspense(<Dashboard />) },
+      { path: 'articles', element: withSuspense(<ArticleList />) },
+      { path: 'articles/new', element: withSuspense(<ArticleEditor />) },
+      { path: 'articles/edit/:id', element: withSuspense(<ArticleEditor />) },
+      { path: 'categories', element: withSuspense(<CategoryList />) },
+      { path: 'comments', element: withSuspense(<CommentList />) },
+      { path: 'knowledge-documents', element: withSuspense(<KnowledgeDocumentList />) },
+      { path: 'knowledge-documents/:id', element: withSuspense(<KnowledgeDocumentDetail />) },
     ],
   },
   {
     path: '*',
-    element: withSuspense(
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-4xl font-bold text-neutral-700 mb-4">404</h1>
-          <p className="text-neutral-600 mb-6">页面不存在</p>
-          <a href="/" className="btn btn-primary">
-            返回首页
-          </a>
-        </div>
-      </div>
-    ),
+    element: withSuspense(<NotFoundPage />),
   },
 ]);

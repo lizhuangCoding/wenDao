@@ -296,6 +296,7 @@ export const AIChat = () => {
           }`}>
             <div className="flex items-center gap-3 min-w-0">
               <button
+                type="button"
                 onClick={() => setIsHistoryDrawerOpen(true)}
                 className="lg:hidden w-10 h-10 flex items-center justify-center rounded-xl border border-neutral-100 dark:border-neutral-700 text-neutral-500 dark:text-neutral-300 hover:text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors"
                 aria-label="打开会话历史"
@@ -331,10 +332,11 @@ export const AIChat = () => {
                     }}
                     autoFocus
                   />
-                  <button onClick={() => void handleRenameSave()} className="text-xs text-primary-600 dark:text-primary-400">
+                  <button type="button" onClick={() => void handleRenameSave()} className="text-xs text-primary-600 dark:text-primary-400">
                     {t('chat.saveName')}
                   </button>
                   <button
+                    type="button"
                     onClick={() => {
                       if (activeChat) setDraftTitle(activeChat.title);
                       setIsRenaming(false);
@@ -351,6 +353,7 @@ export const AIChat = () => {
                   </h2>
                   {activeChat && (
                     <button
+                      type="button"
                       onClick={() => setIsRenaming(true)}
                       className="text-xs text-neutral-400 hover:text-primary-600 dark:hover:text-primary-400"
                     >
@@ -363,6 +366,7 @@ export const AIChat = () => {
             </div>
             <div className="flex items-center gap-2">
               <button
+                type="button"
                 onClick={() => setIsImmersive((value) => !value)}
                 className="inline-flex items-center gap-2 rounded-xl border border-neutral-100 dark:border-neutral-700 px-3 py-2 text-xs font-bold text-neutral-500 dark:text-neutral-300 hover:text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors"
                 title={isImmersive ? '退出沉浸模式' : '开启沉浸模式'}

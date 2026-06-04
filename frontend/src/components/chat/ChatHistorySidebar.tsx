@@ -79,6 +79,7 @@ export const ChatHistorySidebar = ({
 
   const renderNewChatButton = (compact = false) => (
     <button
+      type="button"
       onClick={handleCreateNewChat}
       disabled={hasEmptyChat}
       className={`flex items-center justify-center gap-2 text-xs font-black tracking-widest rounded-2xl transition-all shadow-soft active:scale-95 ${
@@ -132,6 +133,7 @@ export const ChatHistorySidebar = ({
               </div>
               <div className="relative">
                 <button
+                  type="button"
                   onClick={(event) => {
                     event.stopPropagation();
                     setActiveMenuId(activeMenuId === chat.id ? null : chat.id);
@@ -157,6 +159,7 @@ export const ChatHistorySidebar = ({
                       className="absolute right-0 top-full mt-2 w-36 bg-white dark:bg-neutral-800 rounded-xl shadow-elevated border border-neutral-100 dark:border-neutral-700 py-1.5 z-[100] backdrop-blur-sm"
                     >
                       <button
+                        type="button"
                         onClick={(event) => {
                           event.stopPropagation();
                           onStartRename(chat);
@@ -172,6 +175,7 @@ export const ChatHistorySidebar = ({
                       </button>
                       <div className="h-px bg-neutral-100 dark:bg-neutral-700 mx-1.5 my-1" />
                       <button
+                        type="button"
                         onClick={(event) => {
                           event.stopPropagation();
                           onRequestDelete(chat.id);
@@ -218,6 +222,7 @@ export const ChatHistorySidebar = ({
               <div className="flex items-center justify-between">
                 <p className="text-sm font-black text-neutral-900 dark:text-neutral-100">会话历史</p>
                 <button
+                  type="button"
                   onClick={() => onDrawerOpenChange(false)}
                   className="w-10 h-10 flex items-center justify-center rounded-xl text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
                   aria-label="关闭会话历史"
@@ -238,6 +243,7 @@ export const ChatHistorySidebar = ({
 
       <aside className={`${isSidebarCollapsed ? 'w-16 pr-3' : 'w-80 pr-6'} hidden lg:flex flex-col gap-4 h-full border-r border-neutral-100 dark:border-neutral-800 transition-all duration-200 ${isImmersive ? 'pl-4 py-4 bg-white dark:bg-neutral-900' : ''}`}>
         <button
+          type="button"
           onClick={() => onSidebarCollapsedChange(!isSidebarCollapsed)}
           data-chat-history-toggle="sidebar"
           className="w-12 h-12 flex items-center justify-center rounded-2xl border border-neutral-100 dark:border-neutral-700 text-neutral-500 dark:text-neutral-300 hover:text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors"

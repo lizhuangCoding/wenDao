@@ -55,16 +55,39 @@ test('AIChat message flow uses layout animation and smooth bottom following', as
 
 test('AIChat uses expressive agent status indicators while processing', async () => {
   const source = await loadAIChatSource();
+  const moodSource = await loadChatComponentSource('AgentMoodIndicator');
   const stageSource = await loadChatComponentSource('ChatStageBanner');
   const messageSource = await loadChatComponentSource('ChatMessageList');
 
   assert.match(source, /AIProcessingHalo/);
   assert.match(stageSource, /AgentMoodIndicator/);
   assert.match(messageSource, /AgentMoodIndicator/);
+  assert.match(moodSource, /useReducedMotion/);
+  assert.match(moodSource, /scale:\s*prefersReducedMotion \? 1 : \[1, 1\.04, 1\]/);
   assert.match(source, /featuredAgentStep/);
   assert.match(source, /detail={featuredAgentStep\?\.detail}/);
   assert.match(source, /currentStage/);
   assert.doesNotMatch(source, /animate-pulse' : 'bg-neutral-400'/);
+});
+
+test('AIChat keeps assistant answer bubbles clean while user bubbles keep depth', async () => {
+  const messageSource = await loadChatComponentSource('ChatMessageList');
+
+  assert.match(messageSource, /bg-gradient-to-br/);
+  assert.match(messageSource, /from-neutral-950/);
+  assert.match(messageSource, /bg-white text-neutral-800 shadow-sm/);
+  assert.match(messageSource, /dark:bg-\[#07111a\]/);
+  assert.doesNotMatch(messageSource, /from-primary-50\/90/);
+  assert.doesNotMatch(messageSource, /dark:from-primary-950\/30/);
+});
+
+test('AIChat starter prompt cards use restrained magnetic CTA motion', async () => {
+  const starterSource = await loadChatComponentSource('StarterPrompts');
+
+  assert.match(starterSource, /motion/);
+  assert.match(starterSource, /useMotionValue/);
+  assert.match(starterSource, /handleMagneticPointerMove/);
+  assert.match(starterSource, /whileHover=\{\{ scale: 1\.01 \}\}/);
 });
 
 test('AIChat delegates complex chat sections to focused modules', async () => {

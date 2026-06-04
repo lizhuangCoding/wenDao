@@ -46,3 +46,22 @@ test('front detail and admin preview share article reading styles', async () => 
   assert.match(renderer, /const className = 'scroll-mt-24'/);
   assert.doesNotMatch(renderer, /text-3xl|text-2xl|mt-8 mb-4/);
 });
+
+test('dark mode uses a deeper cool background and readable secondary text', async () => {
+  const indexCss = await loadIndexCss();
+  const layout = await loadSourceFile('components/common/Layout.tsx');
+
+  assert.match(indexCss, /bg-\[#050a10\]/);
+  assert.match(indexCss, /text-neutral-200/);
+  assert.match(layout, /dark:bg-\[#050a10\]/);
+});
+
+test('global button utilities include dark mode variants', async () => {
+  const indexCss = await loadIndexCss();
+
+  assert.match(indexCss, /btn-primary[\s\S]*dark:bg-neutral-100/);
+  assert.match(indexCss, /btn-primary[\s\S]*dark:text-neutral-900/);
+  assert.match(indexCss, /btn-secondary[\s\S]*dark:bg-neutral-900/);
+  assert.match(indexCss, /btn-secondary[\s\S]*dark:text-neutral-100/);
+  assert.match(indexCss, /btn-secondary[\s\S]*dark:border-neutral-700/);
+});

@@ -1,4 +1,13 @@
-import { type ClipboardEvent, type RefObject, Suspense, lazy, useState } from 'react';
+import {
+  type ClipboardEvent,
+  type RefObject,
+  Suspense,
+  lazy,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 import { ColorPicker } from 'tdesign-react';
 import {
   Bold,
@@ -23,6 +32,7 @@ import {
   DEFAULT_TEXT_COLOR,
   applyMarkdownAction,
   applyMarkdownColor,
+  getSynchronizedScrollTop,
   normalizeMarkdownColor,
   type ApplyMarkdownActionResult,
   type MarkdownAction,
@@ -139,6 +149,55 @@ export const MarkdownWritingStudio = ({
 }: MarkdownWritingStudioProps) => {
   const [editorMode, setEditorMode] = useState<EditorMode>('split');
   const [selectedTextColor, setSelectedTextColor] = useState(DEFAULT_TEXT_COLOR);
+  const previewScrollRef = useRef<HTMLDivElement>(null);
+  const scrollSyncFrameRef = useRef<number>();
+  const isSyncingScrollRef = useRef(false);
+
+  useEffect(() => {
+    return () => {
+      if (scrollSyncFrameRef.current) {
+        cancelAnimationFrame(scrollSyncFrameRef.current);
+      }
+    };
+  }, []);
+
+  const syncMarkdownScroll = useCallback(
+    (source: HTMLElement | null, target: HTMLElement | null) => {
+      if (editorMode !== 'split' || !source || !target || isSyncingScrollRef.current) return;
+
+      if (scrollSyncFrameRef.current) {
+        cancelAnimationFrame(scrollSyncFrameRef.current);
+      }
+
+      scrollSyncFrameRef.current = requestAnimationFrame(() => {
+        const nextScrollTop = getSynchronizedScrollTop({
+          sourceScrollTop: source.scrollTop,
+          sourceScrollHeight: source.scrollHeight,
+          sourceClientHeight: source.clientHeight,
+          targetScrollHeight: target.scrollHeight,
+          targetClientHeight: target.clientHeight,
+        });
+
+        if (Math.abs(target.scrollTop - nextScrollTop) < 1) return;
+
+        isSyncingScrollRef.current = true;
+        target.scrollTop = nextScrollTop;
+
+        requestAnimationFrame(() => {
+          isSyncingScrollRef.current = false;
+        });
+      });
+    },
+    [editorMode]
+  );
+
+  const handleEditorScroll = () => {
+    syncMarkdownScroll(textareaRef.current, previewScrollRef.current);
+  };
+
+  const handlePreviewScroll = () => {
+    syncMarkdownScroll(previewScrollRef.current, textareaRef.current);
+  };
 
   const applyEdit = (result: ApplyMarkdownActionResult) => {
     const textarea = textareaRef.current;
@@ -359,9 +418,10 @@ export const MarkdownWritingStudio = ({
               </div>
               <textarea
                 ref={textareaRef}
-                className={`admin-markdown-editor ${textareaSizeClass} flex-1 resize-none border-0 bg-transparent px-5 py-4 text-sm leading-7 text-neutral-800 outline-none dark:text-neutral-100`}
+                className={`admin-markdown-editor ${textareaSizeClass} flex-1 resize-none overflow-y-auto border-0 bg-transparent px-5 py-4 text-sm leading-7 text-neutral-800 outline-none dark:text-neutral-100`}
                 value={content}
                 onChange={(event) => onContentChange(event.target.value)}
+                onScroll={handleEditorScroll}
                 onPaste={onPaste}
                 placeholder="使用 Markdown 编写内容..."
               />
@@ -382,7 +442,11 @@ export const MarkdownWritingStudio = ({
                   </div>
                 </div>
               </div>
-              <div className={previewBodyClassName}>
+              <div
+                ref={previewScrollRef}
+                className={previewBodyClassName}
+                onScroll={handlePreviewScroll}
+              >
                 {content.trim() ? (
                   <Suspense
                     fallback={

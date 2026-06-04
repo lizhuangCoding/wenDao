@@ -3,8 +3,8 @@ import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { DateRangePicker } from 'tdesign-react';
 import { statApi } from '@/api';
-import { ErrorState, Loading } from '@/components/common';
-import { motion } from 'framer-motion';
+import { Button, ErrorState, Loading, PageHeader, Panel, SegmentedControl } from '@/components/common';
+import { useUIStore } from '@/store';
 import dayjs from 'dayjs';
 import 'tdesign-react/es/style/index.css';
 
@@ -24,6 +24,7 @@ type ChartDataPoint = {
 
 export const Dashboard = () => {
   const { t } = useTranslation();
+  const { showToast } = useUIStore();
   const [queryType, setQueryType] = useState<QueryType>('7days');
   const [dateRange, setDateRange] = useState<[string, string]>(['', '']);
   const [startDateInput, setStartDateInput] = useState('');
@@ -88,7 +89,7 @@ export const Dashboard = () => {
       const start = dayjs(startDateInput).format('YYYY-MM-DD');
       const end = dayjs(endDateInput).format('YYYY-MM-DD');
       if (dayjs(start).isAfter(dayjs(end))) {
-        alert('开始日期不能晚于结束日期');
+        showToast('开始日期不能晚于结束日期', 'error');
         return;
       }
       setDateRange([start, end]);
@@ -117,57 +118,25 @@ export const Dashboard = () => {
 
   return (
     <div className="space-y-8">
-      {/* 标题和筛选 */}
-      <motion.div
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4"
-      >
-        <h1 className="text-3xl font-serif font-bold text-neutral-800 dark:text-neutral-100">
-          {t('admin.dashboard')}
-        </h1>
-        <div className="w-full sm:w-auto rounded-2xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 p-3 shadow-sm">
+      <PageHeader
+        title={t('admin.dashboard')}
+        actions={
+          <Panel padding="sm" className="w-full border-neutral-200 dark:border-neutral-700 sm:w-auto">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
             <div className="min-w-0 lg:pr-2">
               <div className="text-xs font-semibold text-neutral-700 dark:text-neutral-200">时间范围</div>
               <div className="text-[11px] text-neutral-400 dark:text-neutral-500">当前查看：{activeRangeLabel}</div>
             </div>
 
-            <div className="grid grid-cols-3 gap-1 rounded-xl bg-neutral-100 dark:bg-neutral-800 p-1">
-              <button
-                type="button"
-                onClick={() => handleQuickSelect('7days')}
-                className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
-                  queryType === '7days'
-                    ? 'bg-white dark:bg-neutral-700 text-primary-600 dark:text-primary-300 shadow-sm'
-                    : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-100'
-                }`}
-              >
-                {t('admin.recent7Days')}
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQuickSelect('30days')}
-                className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
-                  queryType === '30days'
-                    ? 'bg-white dark:bg-neutral-700 text-primary-600 dark:text-primary-300 shadow-sm'
-                    : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-100'
-                }`}
-              >
-                {t('admin.recent30Days')}
-              </button>
-              <button
-                type="button"
-                onClick={handleCustomSelect}
-                className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
-                  queryType === 'custom'
-                    ? 'bg-white dark:bg-neutral-700 text-primary-600 dark:text-primary-300 shadow-sm'
-                    : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-100'
-                }`}
-              >
-                自定义
-              </button>
-            </div>
+            <SegmentedControl<QueryType>
+              value={queryType}
+              items={[
+                { label: t('admin.recent7Days'), value: '7days' },
+                { label: t('admin.recent30Days'), value: '30days' },
+                { label: '自定义', value: 'custom' },
+              ]}
+              onChange={(value) => (value === 'custom' ? handleCustomSelect() : handleQuickSelect(value))}
+            />
 
             {queryType === 'custom' && (
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
@@ -200,64 +169,40 @@ export const Dashboard = () => {
                     style={{ width: '100%' }}
                   />
                 </div>
-                <button
-                  type="button"
-                  onClick={handleSearch}
-                  disabled={!startDateInput || !endDateInput}
-                  className="rounded-xl bg-primary-500 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:bg-neutral-300 dark:disabled:bg-neutral-700"
-                >
+                <Button onClick={handleSearch} disabled={!startDateInput || !endDateInput}>
                   {t('admin.query')}
-                </button>
+                </Button>
               </div>
             )}
           </div>
-        </div>
-      </motion.div>
+          </Panel>
+        }
+      />
 
       {/* 统计卡片 */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="bg-white dark:bg-neutral-900 rounded-2xl shadow-sm border border-neutral-100 dark:border-neutral-800 p-8"
-        >
+        <Panel padding="lg">
           <div className="text-center">
             <div className="text-4xl font-bold text-primary-500 mb-2">{stats?.total_pv || 0}</div>
             <div className="text-neutral-500 dark:text-neutral-400 text-sm font-medium">{t('admin.totalPv')}</div>
           </div>
-        </motion.div>
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-          className="bg-white dark:bg-neutral-900 rounded-2xl shadow-sm border border-neutral-100 dark:border-neutral-800 p-8"
-        >
+        </Panel>
+        <Panel padding="lg">
           <div className="text-center">
             <div className="text-4xl font-bold text-green-500 mb-2">{stats?.total_uv || 0}</div>
             <div className="text-neutral-500 dark:text-neutral-400 text-sm font-medium">{t('admin.totalUv')}</div>
           </div>
-        </motion.div>
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-          className="bg-white dark:bg-neutral-900 rounded-2xl shadow-sm border border-neutral-100 dark:border-neutral-800 p-8"
-        >
+        </Panel>
+        <Panel padding="lg">
           <div className="text-center">
             <div className="text-4xl font-bold text-blue-500 mb-2">{stats?.total_comments || 0}</div>
             <div className="text-neutral-500 dark:text-neutral-400 text-sm font-medium">{t('admin.totalComments')}</div>
           </div>
-        </motion.div>
+        </Panel>
       </div>
 
       {/* 流量趋势图 */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.4 }}
-        className="bg-white dark:bg-neutral-900 rounded-2xl shadow-sm border border-neutral-100 dark:border-neutral-800 p-8"
-      >
+      <Panel padding="lg">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between mb-6">
           <div>
             <div className="text-xl font-semibold text-neutral-700 dark:text-neutral-200">{t('admin.trafficTrend')}</div>
@@ -277,7 +222,7 @@ export const Dashboard = () => {
         <Suspense fallback={<div className="h-[400px] animate-pulse rounded-2xl bg-neutral-100 dark:bg-neutral-800" />}>
           <DashboardChart chartData={chartData} t={t} />
         </Suspense>
-      </motion.div>
+      </Panel>
     </div>
   );
 };

@@ -61,11 +61,11 @@ export const TableOfContents: React.FC<Props> = ({ headings }) => {
   if (headings.length === 0) return null;
 
   return (
-    <div className="sticky top-24 max-h-[calc(100vh-140px)] overflow-y-auto scrollbar-hide py-2">
-      <h4 className="text-xs font-bold text-neutral-400 mb-4 uppercase tracking-widest pl-4">
+    <div className="sticky top-24 max-h-[calc(100vh-140px)] overflow-y-auto scrollbar-hide rounded-2xl border border-neutral-200/70 bg-white/70 px-4 py-4 shadow-soft backdrop-blur-xl dark:border-primary-900/20 dark:bg-[#07111a]/80">
+      <h4 className="mb-4 pl-1 text-xs font-bold uppercase tracking-widest text-neutral-400 dark:text-neutral-300">
         目录导航
       </h4>
-      <div className="relative border-l border-neutral-200 ml-4">
+      <div className="relative ml-1 border-l border-neutral-200 dark:border-neutral-700/80">
         <div
           className="absolute left-[-1px] w-[2px] bg-primary-500 transition-all duration-300 ease-in-out"
           style={{
@@ -79,6 +79,7 @@ export const TableOfContents: React.FC<Props> = ({ headings }) => {
           {headings.map((heading) => (
             <li key={heading.id} className="h-8 flex items-center">
               <button
+                type="button"
                 onClick={() => handleClick(heading.id)}
                 className={`w-full text-left text-sm py-1 pl-4 transition-all duration-200 truncate ${
                   activeId === heading.id

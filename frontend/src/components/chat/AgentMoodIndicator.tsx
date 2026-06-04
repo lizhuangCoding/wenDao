@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import { Sparkles } from 'lucide-react';
 import { AgentCharacter } from './AgentCharacter';
 import { failedTone, toneClasses } from './agentPersonaConfig';
@@ -30,10 +30,16 @@ export const AgentMoodIndicator = ({
   const mood = resolveAgentMood({ agentName, detail, stage, status, summary });
   const isFailed = status === 'failed';
   const tone = getTone(status, mood.tone);
+  const prefersReducedMotion = useReducedMotion();
 
   return (
     <div className="inline-flex min-w-0 items-center gap-3" data-agent-mood={mood.key}>
-      <AgentCharacter isFailed={isFailed} moodKey={mood.key} size={size} tone={tone} />
+      <motion.div
+        animate={{ scale: prefersReducedMotion ? 1 : [1, 1.04, 1] }}
+        transition={{ duration: 2.4, repeat: Infinity, ease: 'easeInOut' }}
+      >
+        <AgentCharacter isFailed={isFailed} moodKey={mood.key} size={size} tone={tone} />
+      </motion.div>
 
       {showText && (
         <span className="min-w-0">
@@ -66,7 +72,7 @@ export const AIProcessingHalo = ({
       initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: 6 }}
-      className={`relative mb-4 overflow-hidden rounded-2xl border ${tone.ring} bg-white/85 p-3 shadow-soft backdrop-blur dark:bg-neutral-900/85`}
+      className={`relative mb-4 overflow-hidden rounded-2xl border ${tone.ring} bg-white/85 p-3 shadow-soft backdrop-blur dark:bg-[#07111a]/85`}
     >
       <motion.div
         className={`absolute left-0 top-0 h-px w-1/2 bg-gradient-to-r from-transparent via-current to-transparent ${tone.accent}`}

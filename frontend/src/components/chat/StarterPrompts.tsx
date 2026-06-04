@@ -1,4 +1,5 @@
 import { BookOpen, Boxes, Network, Search, Sparkles, type LucideIcon } from 'lucide-react';
+import { motion, useMotionValue, useReducedMotion } from 'framer-motion';
 
 interface StarterPrompt {
   title: string;
@@ -41,6 +42,59 @@ const STARTER_PROMPTS: StarterPrompt[] = [
   },
 ];
 
+interface StarterPromptButtonProps {
+  disabled: boolean;
+  starterPrompt: StarterPrompt;
+  onSelect: (prompt: string) => void;
+}
+
+const StarterPromptButton = ({ disabled, onSelect, starterPrompt }: StarterPromptButtonProps) => {
+  const Icon = starterPrompt.icon;
+  const x = useMotionValue(0);
+  const y = useMotionValue(0);
+  const prefersReducedMotion = useReducedMotion();
+
+  const handleMagneticPointerMove = (event: React.MouseEvent<HTMLButtonElement>) => {
+    if (disabled || prefersReducedMotion) return;
+
+    const rect = event.currentTarget.getBoundingClientRect();
+    x.set((event.clientX - rect.left - rect.width / 2) * 0.08);
+    y.set((event.clientY - rect.top - rect.height / 2) * 0.08);
+  };
+
+  const handleMagneticPointerLeave = () => {
+    x.set(0);
+    y.set(0);
+  };
+
+  return (
+    <motion.button
+      key={starterPrompt.title}
+      type="button"
+      disabled={disabled}
+      onClick={() => onSelect(starterPrompt.prompt)}
+      onMouseMove={handleMagneticPointerMove}
+      onMouseLeave={handleMagneticPointerLeave}
+      style={{ x, y }}
+      whileHover={{ scale: 1.01 }}
+      whileTap={{ scale: 0.99 }}
+      className="group flex min-h-28 items-start gap-4 rounded-2xl border border-neutral-100 bg-white p-4 text-left shadow-sm transition-colors hover:border-primary-200 hover:shadow-soft disabled:cursor-not-allowed disabled:opacity-60 dark:border-neutral-700 dark:bg-neutral-800 dark:hover:border-primary-800"
+    >
+      <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-neutral-100 text-neutral-500 transition-colors group-hover:bg-primary-50 group-hover:text-primary-600 dark:bg-neutral-700 dark:text-neutral-300 dark:group-hover:bg-primary-900/30 dark:group-hover:text-primary-300">
+        <Icon className="h-5 w-5" aria-hidden="true" />
+      </span>
+      <span className="min-w-0">
+        <span className="block text-sm font-black text-neutral-800 dark:text-neutral-100">
+          {starterPrompt.title}
+        </span>
+        <span className="mt-1 block text-xs font-medium leading-5 text-neutral-500 dark:text-neutral-400">
+          {starterPrompt.description}
+        </span>
+      </span>
+    </motion.button>
+  );
+};
+
 export const StarterPrompts = ({ disabled = false, heading, onSelect, subheading }: StarterPromptsProps) => (
   <div className="flex min-h-full flex-col items-center justify-center text-center">
     <div className="mx-auto max-w-3xl">
@@ -55,31 +109,14 @@ export const StarterPrompts = ({ disabled = false, heading, onSelect, subheading
       </p>
 
       <div className="mt-8 grid gap-3 sm:grid-cols-2">
-        {STARTER_PROMPTS.map((starterPrompt) => {
-          const Icon = starterPrompt.icon;
-
-          return (
-            <button
-              key={starterPrompt.title}
-              type="button"
-              disabled={disabled}
-              onClick={() => onSelect(starterPrompt.prompt)}
-              className="group flex min-h-28 items-start gap-4 rounded-2xl border border-neutral-100 bg-white p-4 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary-200 hover:shadow-soft disabled:cursor-not-allowed disabled:opacity-60 dark:border-neutral-700 dark:bg-neutral-800 dark:hover:border-primary-800"
-            >
-              <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-neutral-100 text-neutral-500 transition-colors group-hover:bg-primary-50 group-hover:text-primary-600 dark:bg-neutral-700 dark:text-neutral-300 dark:group-hover:bg-primary-900/30 dark:group-hover:text-primary-300">
-                <Icon className="h-5 w-5" aria-hidden="true" />
-              </span>
-              <span className="min-w-0">
-                <span className="block text-sm font-black text-neutral-800 dark:text-neutral-100">
-                  {starterPrompt.title}
-                </span>
-                <span className="mt-1 block text-xs font-medium leading-5 text-neutral-500 dark:text-neutral-400">
-                  {starterPrompt.description}
-                </span>
-              </span>
-            </button>
-          );
-        })}
+        {STARTER_PROMPTS.map((starterPrompt) => (
+          <StarterPromptButton
+            key={starterPrompt.title}
+            disabled={disabled}
+            starterPrompt={starterPrompt}
+            onSelect={onSelect}
+          />
+        ))}
       </div>
     </div>
   </div>

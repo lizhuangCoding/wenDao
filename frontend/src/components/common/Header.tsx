@@ -49,7 +49,7 @@ export const Header = () => {
       <header
         className={cn(
           'fixed top-0 left-0 right-0 z-50 transition-all duration-500 ease-in-out',
-          'bg-white/70 dark:bg-neutral-900/70 backdrop-blur-xl border-b border-neutral-200/50 dark:border-neutral-800/50 shadow-sm',
+          'bg-white/70 dark:bg-[#07111a]/80 backdrop-blur-xl border-b border-neutral-200/50 dark:border-primary-900/20 shadow-sm',
           scrollDirection === 'down' && !isMobileMenuOpen ? '-translate-y-full' : 'translate-y-0'
         )}
       >
@@ -85,6 +85,7 @@ export const Header = () => {
               <div className="flex items-center gap-2 pl-4 border-l border-neutral-200/60 dark:border-neutral-700/60">
                 {/* Language Switch */}
                 <button
+                  type="button"
                   onClick={() => setLanguage(language === 'zh' ? 'en' : 'zh')}
                   className="flex items-center gap-1 px-2 py-1.5 text-sm font-medium text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100 transition-colors"
                   title={t('common.language')}
@@ -97,6 +98,7 @@ export const Header = () => {
 
                 {/* Theme Switch */}
                 <button
+                  type="button"
                   onClick={toggleTheme}
                   className="p-2 text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100 transition-colors"
                   title={t('common.theme')}
@@ -136,6 +138,7 @@ export const Header = () => {
                   )}
 
                   <button
+                    type="button"
                     onClick={handleLogout}
                     className="text-xs font-bold text-neutral-400 dark:text-neutral-500 hover:text-red-500 dark:hover:text-red-400 transition-colors border border-neutral-200 dark:border-neutral-700 px-3 py-1.5 rounded-full"
                   >
@@ -170,7 +173,7 @@ export const Header = () => {
       {isMobileMenuOpen && (
         <div className="fixed inset-0 z-40 bg-neutral-950/30 backdrop-blur-sm md:hidden" onClick={closeMobileMenu}>
           <div
-            className="absolute left-4 right-4 top-24 rounded-3xl border border-neutral-100 bg-white p-5 shadow-elevated dark:border-neutral-800 dark:bg-neutral-900"
+            className="absolute left-4 right-4 top-24 rounded-3xl border border-neutral-100 bg-white p-5 shadow-elevated dark:border-primary-900/20 dark:bg-[#07111a]"
             onClick={(event) => event.stopPropagation()}
           >
             <nav className="space-y-2">

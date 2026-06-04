@@ -22,9 +22,9 @@
   }
 
   .dark body {
-    @apply bg-neutral-900 text-neutral-300;
-    --tooltip-bg: #171717;
-    --tooltip-border: #262626;
+    @apply bg-[#050a10] text-neutral-200;
+    --tooltip-bg: #07111a;
+    --tooltip-border: #1f2937;
     --tooltip-text: #d4d4d4;
   }
 
@@ -47,11 +47,13 @@
   .btn-primary {
     @apply bg-neutral-900 text-white shadow-soft;
     @apply hover:bg-primary-600 hover:shadow-elevated;
+    @apply dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-primary-500 dark:hover:text-white;
   }
 
   .btn-secondary {
     @apply bg-white text-neutral-900 border border-neutral-200;
     @apply hover:bg-neutral-50;
+    @apply dark:bg-neutral-900 dark:text-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-800;
   }
 
   /* Input Styles */

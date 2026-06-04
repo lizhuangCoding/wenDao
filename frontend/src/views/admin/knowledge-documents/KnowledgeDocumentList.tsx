@@ -3,10 +3,45 @@ import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Search } from 'lucide-react';
 import { knowledgeDocumentApi } from '@/api/knowledgeDocument';
-import { ConfirmModal, Loading, Pagination, EmptyState, ErrorState, BulkActionBar } from '@/components/common';
+import {
+  Button,
+  BulkActionBar,
+  ConfirmModal,
+  DataTable,
+  DataTableBody,
+  DataTableCell,
+  DataTableHeaderCell,
+  DataTableHeadRow,
+  DataTableRow,
+  EmptyState,
+  ErrorState,
+  Loading,
+  PageHeader,
+  Pagination,
+  Panel,
+  SelectInput,
+  StatusBadge,
+  TextInput,
+  getButtonClassName,
+} from '@/components/common';
 import { useUIStore } from '@/store';
 
 type KnowledgeDocumentStatusFilter = 'pending_review' | 'approved' | 'rejected' | '';
+
+const getKnowledgeDocumentStatusMeta = (
+  status: string
+): { label: string; variant: 'success' | 'warning' | 'danger' | 'neutral' } => {
+  if (status === 'approved') {
+    return { label: '已通过', variant: 'success' };
+  }
+  if (status === 'rejected') {
+    return { label: '已拒绝', variant: 'danger' };
+  }
+  if (status === 'pending_review') {
+    return { label: '待审核', variant: 'warning' };
+  }
+  return { label: status, variant: 'neutral' };
+};
 
 export const KnowledgeDocumentList = () => {
   const pageSize = 10;
@@ -100,45 +135,32 @@ export const KnowledgeDocumentList = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <h1 className="text-3xl font-serif font-bold text-neutral-800 dark:text-neutral-100">知识文档审核</h1>
-      </div>
+      <PageHeader title="知识文档审核" description="审核 AI 生成的知识文档，并管理它们生成的文章。" />
 
-      <div className="space-y-3 rounded-2xl border border-neutral-100 bg-white p-4 shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
+      <Panel className="space-y-3">
         <form onSubmit={applySearch} className="grid gap-3 md:grid-cols-[1fr_auto_auto]">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
-            <input
-              value={keywordInput}
-              onChange={(event) => setKeywordInput(event.target.value)}
-              placeholder="搜索标题、摘要或正文"
-              className="w-full rounded-xl border border-neutral-200 bg-white py-2.5 pl-9 pr-3 text-sm text-neutral-800 outline-none transition-colors focus:border-primary-400 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
-            />
-          </div>
-          <select
+          <TextInput
+            value={keywordInput}
+            onChange={(event) => setKeywordInput(event.target.value)}
+            placeholder="搜索标题、摘要或正文"
+            leading={<Search className="h-4 w-4" />}
+          />
+          <SelectInput
             value={status}
             onChange={(event) => changeStatus(event.target.value as KnowledgeDocumentStatusFilter)}
-            className="rounded-xl border border-neutral-200 bg-white px-3 py-2.5 text-sm text-neutral-700 outline-none focus:border-primary-400 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
           >
             <option value="">全部状态</option>
             <option value="pending_review">待审核</option>
             <option value="approved">已通过</option>
             <option value="rejected">已拒绝</option>
-          </select>
+          </SelectInput>
           <div className="flex gap-2">
-            <button
-              type="submit"
-              className="rounded-xl bg-primary-600 px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-primary-700"
-            >
+            <Button type="submit">
               搜索
-            </button>
-            <button
-              type="button"
-              onClick={resetFilters}
-              className="rounded-xl bg-neutral-100 px-4 py-2.5 text-sm font-bold text-neutral-600 transition-colors hover:bg-neutral-200 dark:bg-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-700"
-            >
+            </Button>
+            <Button variant="secondary" onClick={resetFilters}>
               重置
-            </button>
+            </Button>
           </div>
         </form>
         <BulkActionBar
@@ -148,17 +170,21 @@ export const KnowledgeDocumentList = () => {
           isDeleting={batchDeleteMutation.isPending}
           deleteLabel="删除知识文档"
         />
-      </div>
+      </Panel>
 
       {isError ? (
         <ErrorState message={(error as any)?.message || '知识文档列表加载失败'} onRetry={() => refetch()} />
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-neutral-100 bg-white shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-left">
+        <DataTable
+          emptyState={
+            documents.length === 0 ? (
+              <EmptyState title="暂无知识文档" description="当前筛选条件下没有知识文档。" className="m-6" />
+            ) : null
+          }
+        >
               <thead>
-                <tr className="border-b border-neutral-100 bg-neutral-50 dark:border-neutral-800 dark:bg-neutral-800/50">
-                  <th className="px-6 py-4">
+            <DataTableHeadRow>
+              <DataTableHeaderCell>
                     <input
                       type="checkbox"
                       checked={allCurrentPageSelected}
@@ -166,17 +192,19 @@ export const KnowledgeDocumentList = () => {
                       className="h-4 w-4 rounded border-neutral-300 text-primary-600 focus:ring-primary-500"
                       aria-label="选择当前页知识文档"
                     />
-                  </th>
-                  <th className="px-6 py-4 text-sm font-semibold text-neutral-600 dark:text-neutral-400">标题</th>
-                  <th className="px-6 py-4 text-sm font-semibold text-neutral-600 dark:text-neutral-400">状态</th>
-                  <th className="px-6 py-4 text-sm font-semibold text-neutral-600 dark:text-neutral-400">创建时间</th>
-                  <th className="px-6 py-4 text-right text-sm font-semibold text-neutral-600 dark:text-neutral-400">操作</th>
-                </tr>
+              </DataTableHeaderCell>
+              <DataTableHeaderCell>标题</DataTableHeaderCell>
+              <DataTableHeaderCell>状态</DataTableHeaderCell>
+              <DataTableHeaderCell>创建时间</DataTableHeaderCell>
+              <DataTableHeaderCell align="right">操作</DataTableHeaderCell>
+            </DataTableHeadRow>
               </thead>
-              <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800">
-                {documents.map((doc) => (
-                  <tr key={doc.id} className="transition-colors hover:bg-neutral-50 dark:hover:bg-neutral-800/50">
-                    <td className="px-6 py-4">
+          <DataTableBody>
+            {documents.map((doc) => {
+              const statusMeta = getKnowledgeDocumentStatusMeta(doc.status);
+              return (
+                <DataTableRow key={doc.id}>
+                  <DataTableCell>
                       <input
                         type="checkbox"
                         checked={selectedIds.includes(doc.id)}
@@ -184,31 +212,38 @@ export const KnowledgeDocumentList = () => {
                         className="h-4 w-4 rounded border-neutral-300 text-primary-600 focus:ring-primary-500"
                         aria-label={`选择知识文档 ${doc.title}`}
                       />
-                    </td>
-                    <td className="px-6 py-4 font-medium text-neutral-800 dark:text-neutral-200">{doc.title}</td>
-                    <td className="px-6 py-4">
+                  </DataTableCell>
+                  <DataTableCell className="font-medium text-neutral-800 dark:text-neutral-200">{doc.title}</DataTableCell>
+                  <DataTableCell>
                       <div className="flex flex-col gap-1">
-                        <span className="text-sm text-neutral-600 dark:text-neutral-300">{doc.status}</span>
-                        {doc.article_id && <span className="text-xs text-primary-600">已生成文章 #{doc.article_id}</span>}
+                      <StatusBadge variant={statusMeta.variant}>{statusMeta.label}</StatusBadge>
+                      {doc.article_id && (
+                        <span className="text-xs text-primary-600 dark:text-primary-400">
+                          已生成文章 #{doc.article_id}
+                        </span>
+                      )}
                       </div>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-neutral-500 dark:text-neutral-400">
+                  </DataTableCell>
+                  <DataTableCell>
                       {new Date(doc.created_at).toLocaleString()}
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <Link to={`/admin/knowledge-documents/${doc.id}`} className="text-primary-600 hover:underline">
+                  </DataTableCell>
+                  <DataTableCell align="right">
+                    <Link
+                      to={`/admin/knowledge-documents/${doc.id}`}
+                      className={getButtonClassName({
+                        variant: 'ghost',
+                        size: 'sm',
+                        className: 'text-primary-600 hover:bg-primary-50 dark:text-primary-400 dark:hover:bg-primary-900/30',
+                      })}
+                    >
                         查看
                       </Link>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          {documents.length === 0 && (
-            <EmptyState title="暂无知识文档" description="当前筛选条件下没有知识文档。" className="m-6" />
-          )}
-        </div>
+                  </DataTableCell>
+                </DataTableRow>
+              );
+            })}
+          </DataTableBody>
+        </DataTable>
       )}
 
       {documentsData && (

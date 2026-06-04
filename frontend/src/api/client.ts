@@ -1,5 +1,6 @@
 import axios, { AxiosError, AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
 import type { ApiResponse, ApiError } from '@/types';
+import { createAuthRefreshQueue } from '@/api/authRefreshQueue';
 import { shouldAttemptTokenRefresh } from '@/utils/pageBehavior';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
@@ -46,7 +47,7 @@ apiClient.interceptors.request.use(
 // 标记是否正在刷新 token
 let isRefreshing = false;
 // 存储等待刷新 token 的请求
-let requests: (() => void)[] = [];
+const refreshQueue = createAuthRefreshQueue();
 
 // 响应拦截器
 apiClient.interceptors.response.use(
@@ -79,10 +80,10 @@ apiClient.interceptors.response.use(
     ) {
       if (isRefreshing) {
         // 正在刷新 token，等待并重试
-        return new Promise((resolve) => {
-          requests.push(() => {
+        return new Promise((resolve, reject) => {
+          refreshQueue.add(() => {
             resolve(apiClient(originalRequest));
-          });
+          }, reject);
         });
       }
 
@@ -106,13 +107,13 @@ apiClient.interceptors.response.use(
         if (originalRequest.headers) {
           originalRequest.headers.Authorization = `Bearer ${access_token}`;
         }
-        requests.forEach((cb) => cb());
-        requests = [];
+        refreshQueue.resolveAll();
 
         return apiClient(originalRequest);
       } catch (refreshError) {
         // 刷新失败，清除 token 并跳转登录
         localStorage.removeItem('access_token');
+        refreshQueue.rejectAll(refreshError);
         if (!originalRequest.skipAuthRedirect) {
           window.location.href = '/login';
         }

@@ -36,6 +36,14 @@ export interface ApplyMarkdownActionResult {
 
 export type ApplyMarkdownTextInput = Omit<ApplyMarkdownActionInput, 'action'>;
 
+export interface ScrollSyncInput {
+  sourceScrollTop: number;
+  sourceScrollHeight: number;
+  sourceClientHeight: number;
+  targetScrollHeight: number;
+  targetClientHeight: number;
+}
+
 export const DEFAULT_TEXT_COLOR = '#ef4444';
 
 const HEX_COLOR_PATTERN = /^#(?:[0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i;
@@ -115,6 +123,26 @@ export const normalizeMarkdownColor = (
   }
 
   return lower;
+};
+
+const clamp = (value: number, min: number, max: number) => {
+  return Math.min(max, Math.max(min, value));
+};
+
+export const getSynchronizedScrollTop = ({
+  sourceScrollTop,
+  sourceScrollHeight,
+  sourceClientHeight,
+  targetScrollHeight,
+  targetClientHeight,
+}: ScrollSyncInput) => {
+  const sourceMaxScrollTop = Math.max(0, sourceScrollHeight - sourceClientHeight);
+  const targetMaxScrollTop = Math.max(0, targetScrollHeight - targetClientHeight);
+
+  if (sourceMaxScrollTop === 0 || targetMaxScrollTop === 0) return 0;
+
+  const sourceRatio = clamp(sourceScrollTop, 0, sourceMaxScrollTop) / sourceMaxScrollTop;
+  return clamp(sourceRatio * targetMaxScrollTop, 0, targetMaxScrollTop);
 };
 
 export const applyMarkdownColor = (

@@ -3,10 +3,28 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { Search } from 'lucide-react';
 import { commentApi } from '@/api';
-import { Loading, ConfirmModal, Pagination, EmptyState, ErrorState, BulkActionBar } from '@/components/common';
+import {
+  Button,
+  BulkActionBar,
+  ConfirmModal,
+  DataTable,
+  DataTableBody,
+  DataTableCell,
+  DataTableHeaderCell,
+  DataTableHeadRow,
+  DataTableRow,
+  EmptyState,
+  ErrorState,
+  Loading,
+  PageHeader,
+  Pagination,
+  Panel,
+  SelectInput,
+  StatusBadge,
+  TextInput,
+} from '@/components/common';
 import { formatDate } from '@/utils';
 import { useUIStore } from '@/store';
-import { motion } from 'framer-motion';
 
 type CommentStatusFilter = '' | 'normal' | 'deleted';
 
@@ -129,54 +147,35 @@ export const CommentList = () => {
 
   return (
     <div className="space-y-6">
-      <motion.div
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="flex items-center justify-between"
-      >
-        <h1 className="text-3xl font-serif font-bold text-neutral-800 dark:text-neutral-100">
-          {t('admin.commentManagement')}
-        </h1>
-      </motion.div>
+      <PageHeader title={t('admin.commentManagement')} />
 
-      <div className="space-y-3 rounded-2xl border border-neutral-100 bg-white p-4 shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
+      <Panel className="space-y-3">
         <form onSubmit={applySearch} className="grid gap-3 md:grid-cols-[1fr_auto_auto]">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
-            <input
-              value={keywordInput}
-              onChange={(event) => setKeywordInput(event.target.value)}
-              placeholder="搜索评论内容、作者或文章标题"
-              className="w-full rounded-xl border border-neutral-200 bg-white py-2.5 pl-9 pr-3 text-sm text-neutral-800 outline-none transition-colors focus:border-primary-400 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
-            />
-          </div>
-          <select
+          <TextInput
+            value={keywordInput}
+            onChange={(event) => setKeywordInput(event.target.value)}
+            placeholder="搜索评论内容、作者或文章标题"
+            leading={<Search className="h-4 w-4" />}
+          />
+          <SelectInput
             value={status}
             onChange={(event) => {
               setStatus(event.target.value as CommentStatusFilter);
               setPage(1);
               setSelectedIds([]);
             }}
-            className="rounded-xl border border-neutral-200 bg-white px-3 py-2.5 text-sm text-neutral-700 outline-none focus:border-primary-400 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
           >
             <option value="">全部状态</option>
             <option value="normal">正常</option>
             <option value="deleted">已删除</option>
-          </select>
+          </SelectInput>
           <div className="flex gap-2">
-            <button
-              type="submit"
-              className="rounded-xl bg-primary-600 px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-primary-700"
-            >
+            <Button type="submit">
               搜索
-            </button>
-            <button
-              type="button"
-              onClick={resetFilters}
-              className="rounded-xl bg-neutral-100 px-4 py-2.5 text-sm font-bold text-neutral-600 transition-colors hover:bg-neutral-200 dark:bg-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-700"
-            >
+            </Button>
+            <Button variant="secondary" onClick={resetFilters}>
               重置
-            </button>
+            </Button>
           </div>
         </form>
         <BulkActionBar
@@ -186,22 +185,21 @@ export const CommentList = () => {
           isDeleting={batchDeleteMutation.isPending}
           deleteLabel="删除评论"
         />
-      </div>
+      </Panel>
 
       {isError ? (
         <ErrorState message={(error as any)?.message || '评论列表加载失败'} onRetry={() => refetch()} />
       ) : (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="overflow-hidden rounded-2xl border border-neutral-100 bg-white shadow-sm dark:border-neutral-800 dark:bg-neutral-900"
+        <DataTable
+          emptyState={
+            comments.length === 0 ? (
+              <EmptyState title="暂无评论" description="当前筛选条件下没有评论。" className="m-6" />
+            ) : null
+          }
         >
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-left">
               <thead>
-                <tr className="border-b border-neutral-100 bg-neutral-50 dark:border-neutral-800 dark:bg-neutral-800/50">
-                  <th className="px-6 py-4">
+            <DataTableHeadRow>
+              <DataTableHeaderCell>
                     <input
                       type="checkbox"
                       checked={allCurrentPageSelected}
@@ -209,25 +207,21 @@ export const CommentList = () => {
                       className="h-4 w-4 rounded border-neutral-300 text-primary-600 focus:ring-primary-500"
                       aria-label="选择当前页评论"
                     />
-                  </th>
-                  <th className="px-6 py-4 text-sm font-semibold text-neutral-600 dark:text-neutral-400">{t('admin.commentContent')}</th>
-                  <th className="px-6 py-4 text-sm font-semibold text-neutral-600 dark:text-neutral-400">{t('admin.author')}</th>
-                  <th className="px-6 py-4 text-sm font-semibold text-neutral-600 dark:text-neutral-400">{t('admin.article')}</th>
-                  <th className="px-6 py-4 text-sm font-semibold text-neutral-600 dark:text-neutral-400">{t('admin.status')}</th>
-                  <th className="px-6 py-4 text-sm font-semibold text-neutral-600 dark:text-neutral-400">{t('admin.createdAt')}</th>
-                  <th className="px-6 py-4 text-right text-sm font-semibold text-neutral-600 dark:text-neutral-400">{t('admin.actions')}</th>
-                </tr>
+              </DataTableHeaderCell>
+              <DataTableHeaderCell>{t('admin.commentContent')}</DataTableHeaderCell>
+              <DataTableHeaderCell>{t('admin.author')}</DataTableHeaderCell>
+              <DataTableHeaderCell>{t('admin.article')}</DataTableHeaderCell>
+              <DataTableHeaderCell>{t('admin.status')}</DataTableHeaderCell>
+              <DataTableHeaderCell>{t('admin.createdAt')}</DataTableHeaderCell>
+              <DataTableHeaderCell align="right">{t('admin.actions')}</DataTableHeaderCell>
+            </DataTableHeadRow>
               </thead>
-              <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800">
-                {comments.map((comment, index) => (
-                  <motion.tr
+          <DataTableBody>
+            {comments.map((comment) => (
+              <DataTableRow
                     key={comment.id}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: index * 0.03 }}
-                    className="transition-colors hover:bg-neutral-50 dark:hover:bg-neutral-800/50"
                   >
-                    <td className="px-6 py-4">
+                <DataTableCell>
                       <input
                         type="checkbox"
                         checked={selectedIds.includes(comment.id)}
@@ -235,60 +229,51 @@ export const CommentList = () => {
                         className="h-4 w-4 rounded border-neutral-300 text-primary-600 focus:ring-primary-500"
                         aria-label={`选择评论 ${comment.id}`}
                       />
-                    </td>
-                    <td className="px-6 py-4">
+                </DataTableCell>
+                <DataTableCell>
                       <div className="max-w-md line-clamp-2 text-sm text-neutral-700 dark:text-neutral-300">
                         {comment.content}
                       </div>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-neutral-500 dark:text-neutral-400">
+                </DataTableCell>
+                <DataTableCell>
                       {comment.user?.username || '-'}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-neutral-500 dark:text-neutral-400">
+                </DataTableCell>
+                <DataTableCell>
                       <div className="max-w-xs truncate">{comment.article?.title || '-'}</div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span
-                        className={`rounded-full px-3 py-1.5 text-xs font-medium ${
-                          comment.status === 'normal'
-                            ? 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400'
-                            : 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
-                        }`}
-                      >
+                </DataTableCell>
+                <DataTableCell>
+                  <StatusBadge variant={comment.status === 'normal' ? 'success' : 'danger'}>
                         {comment.status === 'normal' ? t('admin.normal') : t('admin.deleted')}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-neutral-500 dark:text-neutral-400">
+                  </StatusBadge>
+                </DataTableCell>
+                <DataTableCell>
                       {formatDate(comment.created_at)}
-                    </td>
-                    <td className="px-6 py-4 text-right">
+                </DataTableCell>
+                <DataTableCell align="right">
                       {comment.status === 'normal' ? (
-                        <button
-                          type="button"
+                    <Button
+                      variant="ghost"
+                      size="sm"
                           onClick={() => setConfirmConfig({ isOpen: true, id: comment.id, type: 'delete' })}
-                          className="rounded-lg px-3 py-1.5 text-sm text-red-600 transition-colors hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/30"
+                      className="text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/30"
                         >
                           {t('admin.delete')}
-                        </button>
+                    </Button>
                       ) : (
-                        <button
-                          type="button"
+                    <Button
+                      variant="ghost"
+                      size="sm"
                           onClick={() => setConfirmConfig({ isOpen: true, id: comment.id, type: 'restore' })}
-                          className="rounded-lg px-3 py-1.5 text-sm text-green-600 transition-colors hover:bg-green-50 dark:text-green-400 dark:hover:bg-green-900/30"
+                      className="text-green-600 hover:bg-green-50 dark:text-green-400 dark:hover:bg-green-900/30"
                         >
                           {t('admin.restore')}
-                        </button>
+                    </Button>
                       )}
-                    </td>
-                  </motion.tr>
+                </DataTableCell>
+              </DataTableRow>
                 ))}
-              </tbody>
-            </table>
-          </div>
-          {comments.length === 0 && (
-            <EmptyState title="暂无评论" description="当前筛选条件下没有评论。" className="m-6" />
-          )}
-        </motion.div>
+          </DataTableBody>
+        </DataTable>
       )}
 
       {commentsData && (

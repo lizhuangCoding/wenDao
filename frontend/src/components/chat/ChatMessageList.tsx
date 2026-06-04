@@ -43,6 +43,9 @@ export const ChatMessageList = ({
       const questionAnchorId = message.role === 'user'
         ? questionAnchorByMessageId.get(message.id)
         : undefined;
+      const bubbleClassName = message.role === 'user'
+        ? 'bg-gradient-to-br from-neutral-950 via-neutral-900 to-neutral-800 text-white shadow-elevated dark:from-neutral-800 dark:via-neutral-700 dark:to-neutral-800 dark:text-neutral-100 rounded-tr-none'
+        : 'border border-neutral-100 bg-white text-neutral-800 shadow-sm dark:border-neutral-700 dark:bg-[#07111a] dark:text-neutral-100 rounded-tl-none';
 
       return (
         <motion.div
@@ -71,11 +74,7 @@ export const ChatMessageList = ({
               </div>
             )}
 
-            <div className={`relative group/msg px-6 py-4 rounded-[24px] ${
-              message.role === 'user'
-                ? 'bg-neutral-900 dark:bg-neutral-700 text-white dark:text-neutral-100 rounded-tr-none shadow-elevated'
-                : 'bg-white dark:bg-neutral-700 text-neutral-800 dark:text-neutral-100 border border-neutral-100 dark:border-neutral-600 rounded-tl-none shadow-sm'
-            }`}>
+            <div className={`relative group/msg rounded-[24px] px-6 py-4 ${bubbleClassName}`}>
               {message.role === 'assistant' ? (
                 <div className="prose prose-sm max-w-none dark:prose-invert">
                   <AgentProcessPanel
@@ -103,6 +102,7 @@ export const ChatMessageList = ({
                   {new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </span>
                 <button
+                  type="button"
                   onClick={() => onCopy(message.content)}
                   className="opacity-0 group-hover/msg:opacity-100 p-1 text-neutral-400 hover:text-primary-500 transition-all ml-4"
                   title="复制内容"
@@ -136,7 +136,7 @@ export const ChatMessageList = ({
             status={featuredAgentStep?.status || 'running'}
             summary={featuredAgentStep?.summary}
           />
-          <div className="bg-white dark:bg-neutral-700 border border-neutral-100 dark:border-neutral-600 px-6 py-4 rounded-[24px] rounded-tl-none shadow-sm">
+          <div className="rounded-[24px] rounded-tl-none border border-neutral-100 bg-white px-6 py-4 shadow-sm dark:border-neutral-700 dark:bg-[#07111a]">
             <AgentMoodIndicator
               agentName={featuredAgentStep?.agent_name}
               detail={featuredAgentStep?.detail}

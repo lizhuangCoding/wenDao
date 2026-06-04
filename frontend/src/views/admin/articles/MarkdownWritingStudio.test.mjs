@@ -46,3 +46,13 @@ test('MarkdownWritingStudio keeps color controls responsive', async () => {
   assert.match(source, /max-w-full/);
   assert.match(source, /max-w-\[112px\]/);
 });
+
+test('MarkdownWritingStudio synchronizes editor and preview scrolling', async () => {
+  const source = await loadWritingStudio();
+
+  assert.match(source, /previewScrollRef/);
+  assert.match(source, /syncMarkdownScroll/);
+  assert.match(source, /onScroll=\{handleEditorScroll\}/);
+  assert.match(source, /onScroll=\{handlePreviewScroll\}/);
+  assert.match(source, /getSynchronizedScrollTop/);
+});
