@@ -60,6 +60,64 @@ func TestLocalSearchTool_ReturnsStructuredFailureWhenUnavailable(t *testing.T) {
 	}
 }
 
+func TestToolFailureHints_DoNotCarryFinalAnswerHardDenials(t *testing.T) {
+	localSearchBase, err := newLocalSearchTool(nil)
+	localSearchTool := mustInvokableTool(t, localSearchBase, err)
+	webSearchBase, err := newWebSearchTool(ResearchConfig{})
+	webSearchTool := mustInvokableTool(t, webSearchBase, err)
+	webFetchBase, err := newWebFetchTool(ResearchConfig{TimeoutSeconds: 1})
+	webFetchTool := mustInvokableTool(t, webFetchBase, err)
+
+	tools := []struct {
+		name  string
+		tool  tool.InvokableTool
+		input string
+	}{
+		{
+			name:  "LocalSearch",
+			tool:  localSearchTool,
+			input: `{"query":"Redis"}`,
+		},
+		{
+			name:  "WebSearch",
+			tool:  webSearchTool,
+			input: `{"query":"AI Agent"}`,
+		},
+		{
+			name:  "WebFetch",
+			tool:  webFetchTool,
+			input: `{"url":"不是 URL"}`,
+		},
+	}
+
+	for _, tt := range tools {
+		result, err := tt.tool.InvokableRun(context.Background(), tt.input)
+		if err != nil {
+			t.Fatalf("%s should encode failures as tool output, got %v", tt.name, err)
+		}
+		if !strings.Contains(result, `"ok":false`) {
+			t.Fatalf("%s expected structured failure, got %s", tt.name, result)
+		}
+		for _, forbidden := range []string{"不要", "不得", "禁止", "最终回答", "展示此工具失败"} {
+			if strings.Contains(result, forbidden) {
+				t.Fatalf("%s failure hint should be operational, not a hard final-answer guard %q: %s", tt.name, forbidden, result)
+			}
+		}
+	}
+}
+
+func mustInvokableTool(t *testing.T, baseTool tool.BaseTool, err error) tool.InvokableTool {
+	t.Helper()
+	if err != nil {
+		t.Fatalf("expected tool creation to succeed, got %v", err)
+	}
+	invokable, ok := baseTool.(tool.InvokableTool)
+	if !ok {
+		t.Fatal("expected tool to be invokable")
+	}
+	return invokable
+}
+
 func TestDocWriterTool_DoesNotReturnDraftMetadataToModel(t *testing.T) {
 	knowledgeSvc := &stubKnowledgeDocumentService{}
 	baseTool, err := newDocWriterTool(knowledgeSvc)

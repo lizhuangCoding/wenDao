@@ -32,38 +32,42 @@ func (o *thinkTankOrchestrator) streamManualFlow(
 	o.emitStage(eventCh, conv, runID, "local_search", "正在检索站内知识")
 	libStep := s.runs.newStepTracker(conversationID, runID, "Librarian", "正在检索站内知识")
 	o.emitStep(eventCh, conv, runID, libStep.snapshot())
-	localResult, err := s.librarian.Search(ctx, queryForAgents)
-	if err != nil {
-		libStep.fail(err.Error())
+	localResult, localErr := o.searchLocal(ctx, queryForAgents)
+	if localErr != nil {
+		libStep.fail(localErr.Error())
 		o.emitStep(eventCh, conv, runID, libStep.snapshot())
-		s.runs.logStage(conv, userID, "failed", "本地检索失败", err.Error())
-		errCh <- err
-		return
+		s.runs.logStage(conv, userID, "local_search_warning", "本地检索失败，尝试使用外部调研继续", localErr.Error())
+	} else {
+		libStep.appendDetail(formatLibrarianStepDetail(localResult))
+		libStep.complete()
+		o.emitStep(eventCh, conv, runID, libStep.snapshot())
+		s.runs.logStage(conv, userID, "local_search_done", "本地检索完成", fmt.Sprintf("状态: %s", localResult.CoverageStatus))
 	}
-	libStep.appendDetail(formatLibrarianStepDetail(localResult))
-	libStep.complete()
-	o.emitStep(eventCh, conv, runID, libStep.snapshot())
-	s.runs.logStage(conv, userID, "local_search_done", "本地检索完成", fmt.Sprintf("状态: %s", localResult.CoverageStatus))
 
 	var webResult *JournalistResult
-	if localResult.CoverageStatus != "sufficient" && s.journalist != nil {
+	var webErr error
+	if shouldRunJournalist(localResult, localErr) && s.journalist != nil {
 		o.emitStage(eventCh, conv, runID, "web_research", "正在进行外部调研")
 		s.runs.logStage(conv, userID, "web_research_start", "开始外部调研", "")
 		jouStep := s.runs.newStepTracker(conversationID, runID, "Journalist", "正在进行外部调研")
 		o.emitStep(eventCh, conv, runID, jouStep.snapshot())
-		webResult, err = s.journalist.Research(ctx, queryForAgents, localResult)
-		if err != nil {
-			jouStep.fail(err.Error())
+		webResult, webErr = s.journalist.Research(ctx, queryForAgents, localResult)
+		if webErr != nil {
+			jouStep.fail(webErr.Error())
 			o.emitStep(eventCh, conv, runID, jouStep.snapshot())
-			s.runs.logStage(conv, userID, "failed", "外部调研失败", err.Error())
-			errCh <- err
-			return
+			s.runs.logStage(conv, userID, "web_research_warning", "外部调研失败，尝试使用已有结果继续", webErr.Error())
+		} else {
+			jouStep.appendDetail(formatJournalistStepDetail(webResult))
+			jouStep.complete()
+			o.emitStep(eventCh, conv, runID, jouStep.snapshot())
+			s.researchDraft.saveFromJournalist(derefUserID(userID), webResult)
+			s.runs.logStage(conv, userID, "web_research_done", "外部调研完成", fmt.Sprintf("来源数: %d", len(webResult.Sources)))
 		}
-		jouStep.appendDetail(formatJournalistStepDetail(webResult))
-		jouStep.complete()
-		o.emitStep(eventCh, conv, runID, jouStep.snapshot())
-		s.researchDraft.saveFromJournalist(derefUserID(userID), webResult)
-		s.runs.logStage(conv, userID, "web_research_done", "外部调研完成", fmt.Sprintf("来源数: %d", len(webResult.Sources)))
+	}
+	if err := ensureManualEvidence(localResult, webResult, localErr, webErr); err != nil {
+		s.runs.logStage(conv, userID, "failed", "检索与调研均不可用", err.Error())
+		errCh <- err
+		return
 	}
 
 	o.emitStage(eventCh, conv, runID, "integration", "正在整合专家结果")

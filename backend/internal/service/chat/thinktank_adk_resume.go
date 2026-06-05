@@ -167,6 +167,10 @@ func extractPlanExecuteFinalResponse(content string) (string, bool) {
 	if response == "" {
 		return "", false
 	}
+	response = sanitizeFinalAnswerForUser(response)
+	if response == "" || containsRuntimeFailureDetail(response) || containsDocWriterMetadata(response) {
+		return "", false
+	}
 	return response, true
 }
 

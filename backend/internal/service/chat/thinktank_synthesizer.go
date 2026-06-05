@@ -17,6 +17,8 @@ type thinkTankSynthesizer struct {
 	llm eino.LLMClient
 }
 
+const thinkTankSynthesizerInstruction = "你是问道博客的最终答复撰写助手。请输出给用户看的答案正文，用中文直接回答问题，聚焦结论、依据和建议。参考链接会由系统追加到末尾。"
+
 // NewThinkTankSynthesizer 创建汇总代理
 func NewThinkTankSynthesizer(llm eino.LLMClient) ThinkTankSynthesizer {
 	return &thinkTankSynthesizer{llm: llm}
@@ -42,8 +44,8 @@ func (s *thinkTankSynthesizer) Compose(ctx context.Context, question string, loc
 			builder.WriteString(web.Summary)
 		}
 		messages := []eino.ChatMessage{
-			{Role: "system", Content: "你是问道博客的最终答复撰写助手。请只输出给用户看的答案正文，用中文直接回答问题。不要描述你使用了站内知识、外部调研、网络搜索、网页抓取、工具、流程或验收；不要写“通过对资料整合完成了任务”这类过程总结。参考链接会由系统追加到末尾。"},
-			{Role: "user", Content: fmt.Sprintf("问题：%s\n\n以下材料只用于回答，不要把材料获取方式或整合过程写进最终答案：\n%s", question, builder.String())},
+			{Role: "system", Content: thinkTankSynthesizerInstruction},
+			{Role: "user", Content: fmt.Sprintf("问题：%s\n\n以下材料用于组织答案，最终答案应聚焦用户问题本身：\n%s", question, builder.String())},
 		}
 		var err error
 		answer, err = s.llm.Chat(ctx, messages)

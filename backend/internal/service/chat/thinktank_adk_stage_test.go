@@ -48,6 +48,62 @@ func TestThinkTankService_ChatStream_EmitsFullStageLifecycle(t *testing.T) {
 	}
 }
 
+func TestThinkTankService_ChatStream_ContinuesWhenLibrarianFailsAndJournalistSucceeds(t *testing.T) {
+	librarian := &stubLibrarian{err: errors.New("local index unavailable")}
+	journalist := &stubJournalist{result: &JournalistResult{Summary: "外部调研结果", Sources: []SourceRef{{Kind: "web", Title: "Wikipedia: Bruce Lee", URL: "https://en.wikipedia.org/wiki/Bruce_Lee"}}}}
+	synthesizer := &stubSynthesizer{answer: "外部兜底答案", sources: []string{"Wikipedia: Bruce Lee"}}
+	clarifier := &stubClarifier{decision: defaultClarifierDecision("调研一下李小龙")}
+	reviewer := &stubAcceptanceReviewer{reviews: []AcceptanceReview{defaultAcceptanceReview()}}
+	svc := NewThinkTankService(librarian, journalist, synthesizer, &stubConversationRunRepository{}, &stubConversationRunStepRepository{}, &stubConversationMemoryRepository{}, &stubConversationRepository{}, &stubChatMessageRepository{}, nil, &stubAILogger{}, clarifier, reviewer)
+
+	eventCh, errCh := svc.ChatStream(context.Background(), "调研一下李小龙", nil, nil)
+	var finalChunk string
+	for event := range eventCh {
+		if event.Type == StreamEventChunk {
+			finalChunk += event.Message
+		}
+	}
+	for err := range errCh {
+		if err != nil {
+			t.Fatalf("expected stream to degrade to journalist result, got %v", err)
+		}
+	}
+	if !strings.Contains(finalChunk, "外部兜底答案") {
+		t.Fatalf("expected journalist fallback answer, got %q", finalChunk)
+	}
+	if journalist.called != 1 {
+		t.Fatalf("expected journalist to be called after librarian failure, got %d", journalist.called)
+	}
+}
+
+func TestThinkTankService_ChatStream_ContinuesWhenJournalistFailsAndLocalEvidenceExists(t *testing.T) {
+	librarian := &stubLibrarian{result: LibrarianResult{CoverageStatus: "partial", Summary: "站内已有可用资料", Sources: []SourceRef{{Kind: "article", Title: "李小龙的功夫哲学", URL: "/article/lee-philosophy"}}}}
+	journalist := &stubJournalist{err: errors.New("research endpoint unavailable")}
+	synthesizer := &stubSynthesizer{answer: "站内资料兜底答案", sources: []string{"李小龙的功夫哲学"}}
+	clarifier := &stubClarifier{decision: defaultClarifierDecision("调研一下李小龙")}
+	reviewer := &stubAcceptanceReviewer{reviews: []AcceptanceReview{defaultAcceptanceReview()}}
+	svc := NewThinkTankService(librarian, journalist, synthesizer, &stubConversationRunRepository{}, &stubConversationRunStepRepository{}, &stubConversationMemoryRepository{}, &stubConversationRepository{}, &stubChatMessageRepository{}, nil, &stubAILogger{}, clarifier, reviewer)
+
+	eventCh, errCh := svc.ChatStream(context.Background(), "调研一下李小龙", nil, nil)
+	var finalChunk string
+	for event := range eventCh {
+		if event.Type == StreamEventChunk {
+			finalChunk += event.Message
+		}
+	}
+	for err := range errCh {
+		if err != nil {
+			t.Fatalf("expected stream to degrade to local evidence, got %v", err)
+		}
+	}
+	if !strings.Contains(finalChunk, "站内资料兜底答案") {
+		t.Fatalf("expected local fallback answer, got %q", finalChunk)
+	}
+	if journalist.called != 1 {
+		t.Fatalf("expected journalist to be attempted once, got %d", journalist.called)
+	}
+}
+
 func containsStage(stages []string, target string) bool {
 	for _, stage := range stages {
 		if stage == target {

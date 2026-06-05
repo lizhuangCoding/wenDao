@@ -43,25 +43,27 @@ func TestThinkTankExecutorInstruction_UsesDirectToolsWithoutSupervisorTransfer(t
 	if !strings.Contains(thinkTankExecutorInstruction, "检索 Redis 知识库") || !strings.Contains(thinkTankExecutorInstruction, "LocalSearch") {
 		t.Fatalf("executor instruction must map Redis knowledge-base retrieval to LocalSearch")
 	}
-	if !strings.Contains(thinkTankExecutorInstruction, "Do not call transfer_to_agent") {
-		t.Fatalf("executor instruction must forbid supervisor transfer calls")
-	}
 	if !strings.Contains(thinkTankExecutorInstruction, "Plan-Execute-Replan") {
 		t.Fatalf("executor instruction must describe the plan-execute-replan loop")
 	}
 }
 
-func TestThinkTankExecutorInstruction_ForbidsDocParserAndInvalidWebFetchURL(t *testing.T) {
+func TestThinkTankExecutorInstruction_DescribesAvailableToolsWithoutHardDenials(t *testing.T) {
 	required := []string{
 		"LocalSearch, WebSearch, WebFetch, DocWriter, ask_for_clarification",
-		"Do not request or mention unavailable tools such as DocParser",
 		"valid absolute http:// or https:// URL",
-		"do not call WebFetch",
-		"raw HTML",
+		"Use LocalSearch",
+		"Use WebSearch",
+		"Use WebFetch",
 	}
 	for _, text := range required {
 		if !strings.Contains(thinkTankExecutorInstruction, text) {
 			t.Fatalf("executor instruction must contain %q", text)
+		}
+	}
+	for _, forbidden := range []string{"DocParser", "transfer_to_agent", "Do not", "Never"} {
+		if strings.Contains(thinkTankExecutorInstruction, forbidden) {
+			t.Fatalf("executor instruction should not carry hard business guard %q; enforce it in code, got %q", forbidden, thinkTankExecutorInstruction)
 		}
 	}
 }
@@ -87,10 +89,8 @@ func TestThinkTankReplannerInstruction_RequiresRedisBeforeWebResearch(t *testing
 func TestThinkTankReplannerInstruction_DeliversFinalArtifactInsteadOfProcessSummary(t *testing.T) {
 	required := []string{
 		"deliver the requested artifact directly",
-		"Do not make the final response a process summary",
 		"ClarifierAgent need profile",
-		"已完成",
-		"DocWriter",
+		"RespondTool",
 	}
 	for _, text := range required {
 		if !strings.Contains(thinkTankReplannerInstruction, text) {
@@ -106,7 +106,6 @@ func TestThinkTankReplannerInstruction_UsesGenericReportQuality(t *testing.T) {
 		"key facts",
 		"analysis",
 		"reference links at the end",
-		"never include internal tool failures",
 	}
 	for _, text := range required {
 		if !strings.Contains(thinkTankReplannerInstruction, text) {
@@ -132,15 +131,9 @@ func TestThinkTankReplannerInstruction_UsesGenericPlanningQuality(t *testing.T) 
 }
 
 func TestThinkTankReplannerInstruction_UsesEvidenceInsteadOfMissingToolComplaint(t *testing.T) {
-	required := []string{
-		"Do not answer by saying a tool is missing",
-		"DocParser",
-		"RespondTool",
-		"available evidence",
-	}
-	for _, text := range required {
-		if !strings.Contains(thinkTankReplannerInstruction, text) {
-			t.Fatalf("replanner instruction must contain %q", text)
+	for _, forbidden := range []string{"DocParser", "Do not answer", "Never describe", "failed fetches", "404", "tool errors"} {
+		if strings.Contains(thinkTankReplannerInstruction, forbidden) {
+			t.Fatalf("replanner instruction should not carry hard business guard %q; enforce it in code, got %q", forbidden, thinkTankReplannerInstruction)
 		}
 	}
 }
@@ -237,6 +230,26 @@ func TestExtractPlanExecuteFinalResponse_ReturnsRespondContent(t *testing.T) {
 	}
 	if got != "这是最终学习计划" {
 		t.Fatalf("expected response text, got %q", got)
+	}
+}
+
+func TestExtractPlanExecuteFinalResponse_SanitizesProcessSummary(t *testing.T) {
+	got, ok := extractPlanExecuteFinalResponse(`{"response":"李小龙是截拳道创始人。\n\n综上所述，通过对站内知识库和网络搜索信息的整合，完成了对李小龙的调研，满足了对李小龙进行调研的目标。"}`)
+	if !ok {
+		t.Fatalf("expected usable factual content to remain final")
+	}
+	if strings.Contains(got, "站内知识库") || strings.Contains(got, "完成了对李小龙的调研") {
+		t.Fatalf("expected process summary to be removed by business sanitizer, got %q", got)
+	}
+	if !strings.Contains(got, "李小龙是截拳道创始人") {
+		t.Fatalf("expected factual answer to remain, got %q", got)
+	}
+}
+
+func TestExtractPlanExecuteFinalResponse_RejectsRuntimeFailureOnlyResponse(t *testing.T) {
+	_, ok := extractPlanExecuteFinalResponse(`{"response":"证据局限性：WebFetch 网页抓取失败，百度百科页面返回状态码 404，当前无法访问候选页面。"}`)
+	if ok {
+		t.Fatalf("expected runtime failure-only response to be rejected as non-final")
 	}
 }
 

@@ -172,18 +172,20 @@ func (o *thinkTankOrchestrator) chat(ctx context.Context, question string, conve
 		}
 	}
 
-	localResult, err := s.librarian.Search(ctx, queryForAgents)
-	if err != nil {
-		return nil, err
-	}
+	localResult, localErr := o.searchLocal(ctx, queryForAgents)
 
 	var webResult *JournalistResult
-	if localResult.CoverageStatus != "sufficient" && s.journalist != nil {
-		webResult, err = s.journalist.Research(ctx, queryForAgents, localResult)
-		if err != nil {
-			return nil, err
+	var webErr error
+	if shouldRunJournalist(localResult, localErr) && s.journalist != nil {
+		webResult, webErr = s.journalist.Research(ctx, queryForAgents, localResult)
+		if webErr == nil {
+			s.researchDraft.saveFromJournalist(derefUserID(userID), webResult)
+		} else {
+			s.runs.logStage(conv, userID, "web_research_warning", "外部调研失败，尝试使用已有结果继续", webErr.Error())
 		}
-		s.researchDraft.saveFromJournalist(derefUserID(userID), webResult)
+	}
+	if err := ensureManualEvidence(localResult, webResult, localErr, webErr); err != nil {
+		return nil, err
 	}
 
 	answer, sources, err := s.synthesizer.Compose(ctx, queryForAgents, localResult, webResult)

@@ -485,8 +485,11 @@ func TestPlanExecuteInstructions_ExposeClarificationAndAvoidSupervisorTransfer(t
 	if !strings.Contains(thinkTankExecutorInstruction, "LocalSearch") || !strings.Contains(thinkTankExecutorInstruction, "WebSearch") {
 		t.Fatalf("executor instruction must list direct tools")
 	}
-	if !strings.Contains(thinkTankExecutorInstruction, "Do not call transfer_to_agent") {
-		t.Fatalf("executor instruction must forbid supervisor transfer calls")
+	if !strings.Contains(thinkTankExecutorInstruction, "direct tool execution") {
+		t.Fatalf("executor instruction must describe direct tool execution")
+	}
+	if strings.Contains(thinkTankExecutorInstruction, "transfer_to_agent") {
+		t.Fatalf("executor instruction should not rely on transfer_to_agent hard-denial prompt")
 	}
 	if !strings.Contains(thinkTankReplannerInstruction, "RespondTool") || !strings.Contains(thinkTankReplannerInstruction, "PlanTool") {
 		t.Fatalf("replanner instruction must choose between respond and replan")

@@ -23,8 +23,7 @@ Create a complete plan for the user's research or writing objective before execu
 The executor has these tools: LocalSearch, WebSearch, WebFetch, DocWriter, ask_for_clarification.
 Always include a Redis knowledge-base retrieval step using LocalSearch before any WebSearch/WebFetch step. In the generated plan, describe this step as "检索 Redis 知识库（LocalSearch）".
 If the objective is ambiguous, include a first step that asks the user for the missing information through ask_for_clarification, then include the Redis knowledge-base retrieval step immediately after the clarification step.
-Do not plan steps that require unavailable tools such as DocParser or generic HTML parsers.
-Only plan WebFetch for a valid absolute http:// or https:// URL supplied by the user or returned by WebSearch.`
+Plan with the available tools and prefer WebFetch for absolute http:// or https:// URLs supplied by the user or returned by WebSearch.`
 
 const thinkTankExecutorInstruction = `You are the executor in a Plan-Execute-Replan loop.
 Execute only the first remaining plan step, then return a concise structured summary of what you did and what you learned.
@@ -38,27 +37,23 @@ Tool policy:
 - Use ask_for_clarification when required information is missing or the step cannot proceed without user input.
 
 When a plan step says "检索 Redis 知识库" or mentions Redis knowledge-base retrieval, execute it with the LocalSearch tool.
-Do not request or mention unavailable tools such as DocParser. If fetched content is raw HTML or mostly page chrome, extract any useful visible metadata or continue with LocalSearch/WebSearch summaries; do not say a parser tool is required.
-Before calling WebFetch, verify that the target is a valid absolute http:// or https:// URL copied from the user input or a WebSearch result. If no valid URL is available, do not call WebFetch; use WebSearch/LocalSearch evidence instead.
-Do not call transfer_to_agent. This workflow does not use supervisor handoff tools.
-If WebFetch reports that one URL failed and another candidate succeeded, use the successful candidate. Do not repeatedly fetch the same blocked URL. Do not search for proxies, bypass tools, or circumvention methods.`
+For WebFetch, use valid absolute http:// or https:// URLs copied from user input or WebSearch results. When no valid URL is available, continue with WebSearch or LocalSearch evidence.
+If fetched content is raw HTML or mostly page chrome, summarize useful visible metadata or continue with available search and local summaries.
+This workflow uses direct tool execution rather than supervisor handoff.`
 
 const thinkTankReplannerInstruction = `You are the Replanner/Auditor for ThinkTank Matrix.
 Evaluate the latest execution result against the original objective.
 - If the goal is complete, call RespondTool with the final answer.
 - If more work is needed, call PlanTool with only the remaining steps.
 - If progress is blocked by missing user information, keep the next plan step focused on ask_for_clarification.
-Treat search results, local search summaries, and successful fetch summaries as sufficient evidence when they can answer the user's question. Do not require exhaustive fetching.
+Treat search results, local search summaries, and successful fetch summaries as sufficient evidence when they can answer the user's question.
 If LocalSearch has not been executed yet, call PlanTool with a next step to "检索 Redis 知识库（LocalSearch）" before external web research.
-If WebFetch reports failed candidate pages, do not retry those URLs. Keep failed fetches, 404s, empty searches, invalid URLs, and unavailable-tool details in process logs only. Do not expose those internal tool failures in the final answer when other evidence is available.
-Do not answer by saying a tool is missing, including DocParser. If the executor complains about invalid URLs, raw HTML, missing parser tools, or other tool limitations, use available evidence from LocalSearch/WebSearch/WebFetch and call RespondTool with the best user-facing answer.
 Before the loop ends, prefer RespondTool over another PlanTool when the remaining work would only make the answer marginally more complete.
-When calling RespondTool, deliver the requested artifact directly as the response. Do not make the final response a process summary.
+When calling RespondTool, deliver the requested artifact directly as the response.
 Use the ClarifierAgent need profile in the query to decide the artifact type, dimensions, constraints, and acceptance criteria.
-For any report-style request, deliver the report itself with a title, concise overview, structured sections, key facts, analysis, and references when available. Put reference links at the end. Only mention user-facing source caveats when they materially affect confidence; never include internal tool failures such as "not found", "no search results", "404", failed fetches, or tool errors in the final answer.
+For any report-style request, deliver the report itself with a title, concise overview, structured sections, key facts, analysis, and references when available. Put reference links at the end. Mention source caveats only when they materially affect confidence.
 For any planning or learning request, deliver the plan itself with concrete stages, resources, practice tasks, timing, checkpoints, and next actions matched to the user's goal.
-Use explicit causal links and evidence from available sources; avoid one-sentence sections that only mention major facts in passing.
-Never describe the acquisition or execution process in the final answer. Do not write conclusions like "通过对站内知识库和网络搜索信息的整合，完成了调研", "满足了调研目标", "本次调研全面涵盖...", "已完成...", "我已经...", "执行过程中...", "已使用 DocWriter...", or any DocWriter save status.`
+Use explicit causal links and evidence from available sources; avoid one-sentence sections that only mention major facts in passing.`
 
 // --- Runner Structure ---
 

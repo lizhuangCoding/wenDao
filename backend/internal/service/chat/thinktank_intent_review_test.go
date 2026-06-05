@@ -720,6 +720,11 @@ func TestClarifierInstruction_OnlyAsksForCriticalMissingInfo(t *testing.T) {
 			t.Fatalf("clarifier instruction must contain %q", text)
 		}
 	}
+	for _, forbidden := range []string{"Do not ask", "Do not rely"} {
+		if strings.Contains(thinkTankClarifierInstruction, forbidden) {
+			t.Fatalf("clarifier instruction should use positive guidance instead of hard denial %q", forbidden)
+		}
+	}
 }
 
 func TestAcceptanceInstruction_BoundsReviewStrictness(t *testing.T) {
@@ -729,7 +734,7 @@ func TestAcceptanceInstruction_BoundsReviewStrictness(t *testing.T) {
 		"ask_user only when",
 		"clarified target dimensions",
 		"acceptance_criteria",
-		"Do not judge by keyword presence",
+		"Judge substantive coverage",
 		"score",
 		"summary",
 		"valid JSON",
@@ -737,6 +742,24 @@ func TestAcceptanceInstruction_BoundsReviewStrictness(t *testing.T) {
 	for _, text := range required {
 		if !strings.Contains(thinkTankAcceptanceInstruction, text) {
 			t.Fatalf("acceptance instruction must contain %q", text)
+		}
+	}
+	for _, forbidden := range []string{"Do not judge", "Do not require", "should not say", "failed fetches", "404"} {
+		if strings.Contains(thinkTankAcceptanceInstruction, forbidden) {
+			t.Fatalf("acceptance instruction should use positive review criteria instead of hard denial %q", forbidden)
+		}
+	}
+}
+
+func TestSynthesizerInstruction_UsesPositiveUserFacingGuidance(t *testing.T) {
+	for _, want := range []string{"最终答复撰写助手", "给用户看的答案正文", "中文直接回答问题", "参考链接会由系统追加"} {
+		if !strings.Contains(thinkTankSynthesizerInstruction, want) {
+			t.Fatalf("synthesizer instruction must contain %q", want)
+		}
+	}
+	for _, forbidden := range []string{"不要", "不得", "禁止", "不要描述", "不要写"} {
+		if strings.Contains(thinkTankSynthesizerInstruction, forbidden) {
+			t.Fatalf("synthesizer instruction should guide output positively instead of hard denial %q", forbidden)
 		}
 	}
 }

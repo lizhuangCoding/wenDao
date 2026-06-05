@@ -13,9 +13,9 @@ import (
 
 const thinkTankClarifierInstruction = `You are the ThinkTank Clarifier.
 Only ask the user when missing information would change what should be answered.
-Do not ask follow-up questions for broad but clear research, explanation, comparison, or writing requests.
+For broad but clear research, explanation, comparison, or writing requests, infer reasonable defaults and continue.
 Infer reasonable target_dimensions, answer_goal, constraints, and acceptance_criteria from the original question and context.
-Use the user's wording, context, and goals to build a query-specific need profile. Do not rely on fixed keyword categories.
+Use the user's wording, context, and goals to build a query-specific need profile with query-specific criteria.
 When asking the user, include a visible need profile: what need you understood, which dimensions are missing, why they matter, and an example reply.
 Return valid JSON only with keys: normalized_question, intent, answer_goal, target_dimensions, acceptance_criteria, constraints, ambiguity_level, should_ask_user, clarification_question, reason, need_summary, missing_dimensions, why_needed, suggested_reply.`
 
@@ -24,8 +24,8 @@ Return pass when the answer substantially satisfies the user's original question
 Return revise only when important requested dimensions, evidence, or answer structure are missing and can be fixed without asking the user.
 Return ask_user only when the answer cannot proceed because critical user intent or constraints are still unknown.
 Evaluate against the clarified target dimensions, acceptance_criteria, constraints, and the user's original wording.
-Do not judge by keyword presence. Judge whether each required dimension is substantively answered with enough specificity, structure, evidence, and actionability for the user's goal.
-Penalize answers that describe the answering process, promise future work, list sources without using them, or omit important reasoning. The final answer should not say it used a knowledge base, web search, scraping, tools, or review workflow; those details belong in process logs. Do not require final answers to expose internal tool failures such as failed fetches, 404s, empty searches, invalid URLs, unavailable tools, or API errors.
+Judge substantive coverage rather than keyword presence: each required dimension should be answered with enough specificity, structure, evidence, and actionability for the user's goal.
+Penalize answers that describe the answering process, promise future work, list sources without using them, or omit important reasoning. Treat concise user-facing answers as acceptable when they hide internal runtime details.
 Always include a numeric score from 0 to 100 and a concise summary of the acceptance result.
 Return valid JSON only with keys: verdict, score, matched_dimensions, missing_dimensions, unsupported_claims, format_issues, revision_instruction, user_question, reason, summary.`
 
@@ -158,7 +158,7 @@ func buildAcceptancePrompt(input AcceptanceReviewInput) string {
 		"clarifier_decision": input.Decision,
 		"answer":             strings.TrimSpace(input.Answer),
 		"revision_count":     input.RevisionCount,
-		"instruction":        fmt.Sprintf("Revision count: %d. Return a valid JSON object with verdict, score, and summary. Evaluate the answer against the original question, clarifier_decision.target_dimensions, clarifier_decision.acceptance_criteria, and constraints. Do not judge by keyword presence; judge substantive coverage, specificity, evidence, reasoning, and whether the requested artifact is directly delivered. Mark down answers that describe the answering process, knowledge-base lookup, web search, scraping, tools, or review workflow in the final answer. Do not mark down an answer merely because it hides internal tool failures such as failed fetches, 404s, empty searches, invalid URLs, unavailable tools, or API errors.", input.RevisionCount),
+		"instruction":        fmt.Sprintf("Revision count: %d. Return a valid JSON object with verdict, score, and summary. Evaluate the answer against the original question, clarifier_decision.target_dimensions, clarifier_decision.acceptance_criteria, and constraints. Judge substantive coverage, specificity, evidence, reasoning, and whether the requested artifact is directly delivered. Mark down answers that describe the answering process, knowledge-base lookup, web search, scraping, tools, or review workflow in the final answer. Treat concise user-facing answers as acceptable when they hide internal runtime details.", input.RevisionCount),
 	}
 	return marshalReviewPrompt(payload)
 }
