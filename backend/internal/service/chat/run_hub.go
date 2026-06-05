@@ -151,13 +151,15 @@ func (h *chatRunHub) subscribe(runID int64) (<-chan StreamEvent, func(), bool) {
 	}
 	ch := make(chan StreamEvent, 32)
 	entry.subscribers[ch] = struct{}{}
+	var cancelOnce sync.Once
 	cancel := func() {
-		h.mu.Lock()
-		defer h.mu.Unlock()
-		if current := h.runs[runID]; current != nil {
-			delete(current.subscribers, ch)
-		}
-		close(ch)
+		cancelOnce.Do(func() {
+			h.mu.Lock()
+			defer h.mu.Unlock()
+			if current := h.runs[runID]; current != nil {
+				delete(current.subscribers, ch)
+			}
+		})
 	}
 	return ch, cancel, true
 }

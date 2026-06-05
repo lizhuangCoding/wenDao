@@ -27,8 +27,11 @@ export const AgentProcessPanel = ({ messageId, steps, expandedIds, onToggle }: A
       </div>
 
       <div className="divide-y divide-neutral-200 dark:divide-neutral-700">
-        {steps.map((step, index) => {
-          const key = step.id > 0 ? `${messageId}-${step.id}` : `${messageId}-${step.agent_name}-${index}`;
+        {steps.map((step) => {
+          const key =
+            step.id > 0
+              ? `${messageId}-${step.id}`
+              : `${messageId}-${step.run_id ?? 'runless'}-${step.agent_name}-${step.summary || step.type || 'step'}`;
           const isExpanded = expandedIds.has(key);
           const isRunning = step.status === 'running';
           const isFailed = step.status === 'failed';

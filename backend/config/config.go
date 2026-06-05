@@ -161,8 +161,26 @@ func LoadConfig() (*Config, error) {
 	viper.SetDefault("log.max_backups", 7)
 	viper.SetDefault("log.max_age_days", 28)
 	viper.SetDefault("log.compress", true)
+	viper.SetDefault("database.host", "localhost")
+	viper.SetDefault("database.port", "3306")
+	viper.SetDefault("database.dbname", "wendao")
+	viper.SetDefault("redis.host", "localhost")
+	viper.SetDefault("redis.port", "6379")
+	viper.SetDefault("redis.pool_size", 10)
+	viper.SetDefault("redis_vector.host", "localhost")
+	viper.SetDefault("redis_vector.port", "6379")
+	viper.SetDefault("redis_vector.pool_size", 5)
+	viper.SetDefault("jwt.access_expire_hours", 1)
+	viper.SetDefault("jwt.refresh_expire_days", 2)
+	viper.SetDefault("upload.max_size", 10485760)
+	viper.SetDefault("upload.allowed_types", []string{"image/jpeg", "image/png", "image/gif", "image/webp"})
+	viper.SetDefault("upload.storage_path", "./uploads")
+	viper.SetDefault("ratelimit.global", 100)
+	viper.SetDefault("ratelimit.register", 5)
+	viper.SetDefault("ratelimit.login", 10)
+	viper.SetDefault("ratelimit.ai_chat", 10)
 	viper.SetDefault("email.smtp_port", 587)
-	viper.SetDefault("email.from_name", "wenDao")
+	viper.SetDefault("email.from_name", "WenDao Blog")
 	viper.SetDefault("verification.code_ttl_minutes", 10)
 	viper.SetDefault("verification.resend_cooldown_seconds", 60)
 	viper.SetDefault("verification.max_verification_attempts", 5)
@@ -190,6 +208,8 @@ func LoadConfig() (*Config, error) {
 	_ = viper.BindEnv("redis_vector.password", "REDIS_VECTOR_PASSWORD")
 
 	_ = viper.BindEnv("jwt.secret", "JWT_SECRET")
+	_ = viper.BindEnv("jwt.access_expire_hours", "JWT_ACCESS_EXPIRE_HOURS")
+	_ = viper.BindEnv("jwt.refresh_expire_days", "JWT_REFRESH_EXPIRE_DAYS")
 	_ = viper.BindEnv("ai.provider", "AI_PROVIDER", "LLM_PROVIDER")
 	_ = viper.BindEnv("ai.api_key", "AI_API_KEY", "DOUBAO_API_KEY")
 	_ = viper.BindEnv("ai.endpoint", "AI_ENDPOINT", "DOUBAO_ENDPOINT")
@@ -197,11 +217,16 @@ func LoadConfig() (*Config, error) {
 	_ = viper.BindEnv("ai.embedding_model", "AI_EMBEDDING_MODEL", "DOUBAO_EMBEDDING_MODEL")
 	_ = viper.BindEnv("ai.research_endpoint", "RESEARCH_ENDPOINT")
 	_ = viper.BindEnv("ai.research_api_key", "RESEARCH_API_KEY")
+	_ = viper.BindEnv("upload.max_size", "UPLOAD_MAX_SIZE")
 	_ = viper.BindEnv("upload.storage_path", "UPLOAD_PATH")
 	_ = viper.BindEnv("upload.cleanup_enabled", "UPLOAD_CLEANUP_ENABLED")
 	_ = viper.BindEnv("upload.cleanup_retention_days", "UPLOAD_CLEANUP_RETENTION_DAYS")
 	_ = viper.BindEnv("upload.cleanup_interval_hours", "UPLOAD_CLEANUP_INTERVAL_HOURS")
 	_ = viper.BindEnv("upload.cleanup_batch_size", "UPLOAD_CLEANUP_BATCH_SIZE")
+	_ = viper.BindEnv("ratelimit.global", "RATELIMIT_GLOBAL")
+	_ = viper.BindEnv("ratelimit.register", "RATELIMIT_REGISTER")
+	_ = viper.BindEnv("ratelimit.login", "RATELIMIT_LOGIN")
+	_ = viper.BindEnv("ratelimit.ai_chat", "RATELIMIT_AI_CHAT")
 	_ = viper.BindEnv("site.url", "SITE_URL")
 	_ = viper.BindEnv("log.level", "LOG_LEVEL")
 	_ = viper.BindEnv("log.format", "LOG_FORMAT")
@@ -276,7 +301,7 @@ func LoadConfig() (*Config, error) {
 		cfg.Email.SMTPPort = 587
 	}
 	if cfg.Email.FromName == "" {
-		cfg.Email.FromName = "wenDao"
+		cfg.Email.FromName = "WenDao Blog"
 	}
 	if cfg.Verification.CodeTTLMinutes <= 0 {
 		cfg.Verification.CodeTTLMinutes = 10
@@ -299,6 +324,49 @@ func LoadConfig() (*Config, error) {
 	if cfg.JWT.Secret == placeholderJWTSecret {
 		return nil, fmt.Errorf("invalid placeholder JWT secret: configure a non-placeholder JWT secret before startup")
 	}
+	if err := validateConfig(&cfg); err != nil {
+		return nil, err
+	}
 
 	return &cfg, nil
+}
+
+func validateConfig(cfg *Config) error {
+	if cfg == nil {
+		return fmt.Errorf("config is required")
+	}
+	if strings.TrimSpace(cfg.Database.Host) == "" {
+		return fmt.Errorf("invalid database.host: must not be empty")
+	}
+	if strings.TrimSpace(cfg.Database.Port) == "" {
+		return fmt.Errorf("invalid database.port: must not be empty")
+	}
+	if strings.TrimSpace(cfg.Redis.Host) == "" {
+		return fmt.Errorf("invalid redis.host: must not be empty")
+	}
+	if strings.TrimSpace(cfg.Redis.Port) == "" {
+		return fmt.Errorf("invalid redis.port: must not be empty")
+	}
+	if cfg.JWT.AccessExpireHours <= 0 {
+		return fmt.Errorf("invalid jwt.access_expire_hours: must be greater than 0")
+	}
+	if cfg.Upload.MaxSize <= 0 {
+		return fmt.Errorf("invalid upload.max_size: must be greater than 0")
+	}
+	if strings.TrimSpace(cfg.Upload.StoragePath) == "" {
+		return fmt.Errorf("invalid upload.storage_path: must not be empty")
+	}
+	if cfg.RateLimit.Global <= 0 {
+		return fmt.Errorf("invalid ratelimit.global: must be greater than 0")
+	}
+	if cfg.RateLimit.Register <= 0 {
+		return fmt.Errorf("invalid ratelimit.register: must be greater than 0")
+	}
+	if cfg.RateLimit.Login <= 0 {
+		return fmt.Errorf("invalid ratelimit.login: must be greater than 0")
+	}
+	if cfg.RateLimit.AIChat <= 0 {
+		return fmt.Errorf("invalid ratelimit.ai_chat: must be greater than 0")
+	}
+	return nil
 }

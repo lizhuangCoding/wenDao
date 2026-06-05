@@ -22,7 +22,7 @@ const chatStreamBufferSize = 1
 // LLMClient LLM 客户端接口
 type LLMClient interface {
 	// Chat 对话生成
-	Chat(messages []ChatMessage) (string, error)
+	Chat(ctx context.Context, messages []ChatMessage) (string, error)
 	// ChatStream 流式对话生成（返回累计文本快照）
 	ChatStream(ctx context.Context, messages []ChatMessage) (<-chan string, <-chan error)
 	// GetModel 获取原始 Eino 模型
@@ -144,9 +144,10 @@ func float32Ptr(v float32) *float32 {
 }
 
 // Chat 对话生成
-func (c *chatModelClient) Chat(messages []ChatMessage) (string, error) {
-	ctx := context.Background()
-
+func (c *chatModelClient) Chat(ctx context.Context, messages []ChatMessage) (string, error) {
+	if ctx == nil {
+		return "", fmt.Errorf("context is required")
+	}
 	schemaMessages := make([]*schema.Message, 0, len(messages))
 	for _, msg := range messages {
 		schemaMessages = append(schemaMessages, &schema.Message{

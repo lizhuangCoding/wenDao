@@ -32,6 +32,14 @@ type oauthService struct {
 	cfg *config.Config
 }
 
+func drainAndCloseResponseBody(body io.ReadCloser) {
+	if body == nil {
+		return
+	}
+	_, _ = io.Copy(io.Discard, body)
+	_ = body.Close()
+}
+
 // NewOAuthService 创建 OAuth 服务实例
 func NewOAuthService(cfg *config.Config) OAuthService {
 	return &oauthService{cfg: cfg}
@@ -69,7 +77,7 @@ func (s *oauthService) ExchangeGitHubCode(code string) (*GitHubUserInfo, error) 
 	if err != nil {
 		return nil, fmt.Errorf("failed to exchange code: %w", err)
 	}
-	defer resp.Body.Close()
+	defer drainAndCloseResponseBody(resp.Body)
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -117,7 +125,7 @@ func (s *oauthService) getGitHubUserInfo(accessToken string) (*GitHubUserInfo, e
 	if err != nil {
 		return nil, fmt.Errorf("failed to get user info: %w", err)
 	}
-	defer resp.Body.Close()
+	defer drainAndCloseResponseBody(resp.Body)
 
 	var userInfo GitHubUserInfo
 	if err := json.NewDecoder(resp.Body).Decode(&userInfo); err != nil {
@@ -140,7 +148,7 @@ func (s *oauthService) getGitHubPrimaryEmail(accessToken string) (string, error)
 	if err != nil {
 		return "", err
 	}
-	defer resp.Body.Close()
+	defer drainAndCloseResponseBody(resp.Body)
 
 	var emails []struct {
 		Email   string `json:"email"`

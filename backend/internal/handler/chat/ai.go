@@ -97,7 +97,7 @@ func (h *AIHandler) Chat(c *gin.Context) {
 		return
 	}
 
-	answer, err := h.aiService.Chat(req.Message, req.ConversationID, getCurrentUserID(c))
+	answer, err := h.aiService.Chat(c.Request.Context(), req.Message, req.ConversationID, getCurrentUserID(c))
 	if err != nil {
 		if errors.Is(err, service.ErrAIDisabled) {
 			response.ServiceUnavailable(c, "AI 服务暂时不可用，请稍后再试")
@@ -128,7 +128,7 @@ func (h *AIHandler) GenerateSummary(c *gin.Context) {
 		return
 	}
 
-	summary, err := h.aiService.GenerateSummary(req.Content)
+	summary, err := h.aiService.GenerateSummary(c.Request.Context(), req.Content)
 	if err != nil {
 		if errors.Is(err, service.ErrAIDisabled) {
 			response.ServiceUnavailable(c, "AI 服务暂时不可用，请稍后再试")
@@ -235,7 +235,7 @@ func (h *AIHandler) streamEvents(c *gin.Context, eventCh <-chan service.StreamEv
 			case service.StreamEventStep:
 				// step 是可展开的多 Agent 过程日志，通常对应一次 Agent 切换或工具调用结果。
 				if err := writeSSEvent(c, "step", chatStreamEvent{
-					RunID:      event.RunID,
+					RunID:     event.RunID,
 					StepID:    event.StepID,
 					AgentName: event.AgentName,
 					Status:    event.Status,

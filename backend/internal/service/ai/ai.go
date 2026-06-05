@@ -17,13 +17,13 @@ var ErrAIDisabled = errors.New("ai service is unavailable")
 // AIService AI 服务接口
 type AIService interface {
 	// Chat AI 对话
-	Chat(question string, conversationID *int64, userID *int64) (string, error)
+	Chat(ctx context.Context, question string, conversationID *int64, userID *int64) (string, error)
 	// ChatStream AI 流式对话
 	ChatStream(ctx context.Context, question string, conversationID *int64, userID *int64) (<-chan chatcore.StreamEvent, <-chan error)
 	// ResumeChatStream 恢复 AI 流式对话
 	ResumeChatStream(ctx context.Context, conversationID int64, runID int64, userID *int64) (<-chan chatcore.StreamEvent, <-chan error)
 	// GenerateSummary 生成文章摘要
-	GenerateSummary(content string) (string, error)
+	GenerateSummary(ctx context.Context, content string) (string, error)
 }
 
 // aiService AI 服务实现
@@ -60,8 +60,11 @@ func buildConversationTitle(question string) string {
 }
 
 // Chat AI 对话
-func (s *aiService) Chat(question string, conversationID *int64, userID *int64) (string, error) {
-	resp, err := s.thinkTank.Chat(context.Background(), question, conversationID, userID)
+func (s *aiService) Chat(ctx context.Context, question string, conversationID *int64, userID *int64) (string, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	resp, err := s.thinkTank.Chat(ctx, question, conversationID, userID)
 	if err != nil {
 		return "", err
 	}
@@ -78,9 +81,12 @@ func (s *aiService) ResumeChatStream(ctx context.Context, conversationID int64, 
 }
 
 // GenerateSummary 生成文章摘要
-func (s *aiService) GenerateSummary(content string) (string, error) {
+func (s *aiService) GenerateSummary(ctx context.Context, content string) (string, error) {
 	if content == "" {
 		return "", fmt.Errorf("article content is empty")
+	}
+	if ctx == nil {
+		ctx = context.Background()
 	}
 
 	runes := []rune(content)
@@ -103,7 +109,7 @@ func (s *aiService) GenerateSummary(content string) (string, error) {
 		{Role: "user", Content: prompt},
 	}
 
-	summary, err := s.llmClient.Chat(messages)
+	summary, err := s.llmClient.Chat(ctx, messages)
 	if err != nil {
 		s.logger.Error("Failed to generate summary", zap.Error(err))
 		return "", fmt.Errorf("failed to generate summary: %w", err)
@@ -112,7 +118,7 @@ func (s *aiService) GenerateSummary(content string) (string, error) {
 	return strings.TrimSpace(summary), nil
 }
 
-func (s *disabledAIService) Chat(question string, conversationID *int64, userID *int64) (string, error) {
+func (s *disabledAIService) Chat(ctx context.Context, question string, conversationID *int64, userID *int64) (string, error) {
 	return "", s.err()
 }
 
@@ -134,7 +140,7 @@ func (s *disabledAIService) ResumeChatStream(ctx context.Context, conversationID
 	return eventCh, errCh
 }
 
-func (s *disabledAIService) GenerateSummary(content string) (string, error) {
+func (s *disabledAIService) GenerateSummary(ctx context.Context, content string) (string, error) {
 	return "", s.err()
 }
 

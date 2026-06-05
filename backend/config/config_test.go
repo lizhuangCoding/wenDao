@@ -650,3 +650,151 @@ upload:
 		t.Fatalf("expected ai embedding model from legacy env binding, got %q", cfg.AI.EmbeddingModel)
 	}
 }
+
+func TestLoadConfig_UsesCanonicalEmailFromNameDefault(t *testing.T) {
+	viper.Reset()
+	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+	defer viper.Reset()
+
+	tempDir := t.TempDir()
+	configDir := filepath.Join(tempDir, "config")
+	if err := os.MkdirAll(configDir, 0o755); err != nil {
+		t.Fatalf("failed to create config dir: %v", err)
+	}
+
+	configContent := `jwt:
+  secret: "real-test-secret"
+  access_expire_hours: 1
+  refresh_expire_days: 7
+email:
+  smtp_port: 587
+upload:
+  max_size: 10485760
+  allowed_types:
+    - "image/jpeg"
+  storage_path: "./uploads"
+`
+	if err := os.WriteFile(filepath.Join(configDir, "config.yaml"), []byte(configContent), 0o644); err != nil {
+		t.Fatalf("failed to write config file: %v", err)
+	}
+
+	oldWD, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("failed to get working directory: %v", err)
+	}
+	defer func() { _ = os.Chdir(oldWD) }()
+	if err := os.Chdir(tempDir); err != nil {
+		t.Fatalf("failed to change working directory: %v", err)
+	}
+
+	cfg, err := LoadConfig()
+	if err != nil {
+		t.Fatalf("expected config to load, got %v", err)
+	}
+	if cfg.Email.FromName != "WenDao Blog" {
+		t.Fatalf("expected canonical email from_name default, got %q", cfg.Email.FromName)
+	}
+}
+
+func TestLoadConfig_RejectsInvalidCriticalRuntimeSettings(t *testing.T) {
+	tests := []struct {
+		name    string
+		config  string
+		wantErr string
+	}{
+		{
+			name: "empty database host",
+			config: `database:
+  host: ""
+jwt:
+  secret: "real-test-secret"
+  access_expire_hours: 1
+  refresh_expire_days: 7
+upload:
+  max_size: 10485760
+  allowed_types:
+    - "image/jpeg"
+  storage_path: "./uploads"
+`,
+			wantErr: "database.host",
+		},
+		{
+			name: "non-positive jwt access expiry",
+			config: `jwt:
+  secret: "real-test-secret"
+  access_expire_hours: 0
+  refresh_expire_days: 7
+upload:
+  max_size: 10485760
+  allowed_types:
+    - "image/jpeg"
+  storage_path: "./uploads"
+`,
+			wantErr: "jwt.access_expire_hours",
+		},
+		{
+			name: "non-positive upload max size",
+			config: `jwt:
+  secret: "real-test-secret"
+  access_expire_hours: 1
+  refresh_expire_days: 7
+upload:
+  max_size: 0
+  allowed_types:
+    - "image/jpeg"
+  storage_path: "./uploads"
+`,
+			wantErr: "upload.max_size",
+		},
+		{
+			name: "non-positive global rate limit",
+			config: `jwt:
+  secret: "real-test-secret"
+  access_expire_hours: 1
+  refresh_expire_days: 7
+upload:
+  max_size: 10485760
+  allowed_types:
+    - "image/jpeg"
+  storage_path: "./uploads"
+ratelimit:
+  global: 0
+`,
+			wantErr: "ratelimit.global",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			viper.Reset()
+			viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+			defer viper.Reset()
+
+			tempDir := t.TempDir()
+			configDir := filepath.Join(tempDir, "config")
+			if err := os.MkdirAll(configDir, 0o755); err != nil {
+				t.Fatalf("failed to create config dir: %v", err)
+			}
+			if err := os.WriteFile(filepath.Join(configDir, "config.yaml"), []byte(tt.config), 0o644); err != nil {
+				t.Fatalf("failed to write config file: %v", err)
+			}
+
+			oldWD, err := os.Getwd()
+			if err != nil {
+				t.Fatalf("failed to get working directory: %v", err)
+			}
+			defer func() { _ = os.Chdir(oldWD) }()
+			if err := os.Chdir(tempDir); err != nil {
+				t.Fatalf("failed to change working directory: %v", err)
+			}
+
+			cfg, err := LoadConfig()
+			if err == nil {
+				t.Fatalf("expected invalid config to fail, got %+v", cfg)
+			}
+			if !strings.Contains(err.Error(), tt.wantErr) {
+				t.Fatalf("expected error mentioning %q, got %v", tt.wantErr, err)
+			}
+		})
+	}
+}

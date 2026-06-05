@@ -80,7 +80,7 @@ func (j *httpJournalist) Research(ctx context.Context, question string, local Li
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer drainAndCloseResponseBody(resp.Body)
 	if resp.StatusCode >= http.StatusBadRequest {
 		return nil, fmt.Errorf("research service returned status %d", resp.StatusCode)
 	}

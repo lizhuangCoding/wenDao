@@ -40,10 +40,20 @@ func initServices(cfg *config.Config, logger *zap.Logger, repos *repositories, i
 	aiService := service.NewDisabledAIService("AI initialization failed")
 	cleanup := func() {}
 
-	if aiCore != nil {
-		vectorService := service.NewVectorService(aiCore.vectorStore, aiCore.embedder, logger)
-		if err := syncPublishedArticleVectors(repos.article, vectorService, logger); err != nil {
-			logger.Warn("Published article vector sync skipped, continuing in degraded mode", zap.Error(err))
+	if aiCore != nil && aiCore.llmClient != nil {
+		var vectorService service.VectorService
+		var librarian service.Librarian
+		if aiCore.vectorStore != nil && aiCore.embedder != nil {
+			vectorService = service.NewVectorService(aiCore.vectorStore, aiCore.embedder, logger)
+			if err := syncPublishedArticleVectors(repos.article, vectorService, logger); err != nil {
+				logger.Warn("Published article vector sync skipped, continuing in degraded mode", zap.Error(err))
+			}
+			retriever := eino.NewRedisRetriever(aiCore.vectorStore, aiCore.embedder, cfg.AI.TopK)
+			ragChain := eino.NewRAGChain(retriever, aiCore.llmClient.GetModel(), cfg.AI.RAGMinScore, logger)
+			librarian = service.NewLibrarianService(ragChain)
+		} else {
+			logger.Warn("Vector search unavailable, ThinkTank will continue without local RAG retrieval")
+			librarian = service.NewLibrarianService(nil)
 		}
 		knowledgeDocumentService = service.NewKnowledgeDocumentService(repos.knowledgeDocument, repos.knowledgeDocumentSource, vectorService, repos.article, repos.category, logger)
 
@@ -62,9 +72,6 @@ func initServices(cfg *config.Config, logger *zap.Logger, repos *repositories, i
 			}
 		}
 
-		retriever := eino.NewRedisRetriever(aiCore.vectorStore, aiCore.embedder, cfg.AI.TopK)
-		ragChain := eino.NewRAGChain(retriever, aiCore.llmClient.GetModel(), cfg.AI.RAGMinScore, logger)
-		librarian := service.NewLibrarianService(ragChain)
 		journalist := service.NewJournalist(&cfg.AI)
 		synthesizer := service.NewThinkTankSynthesizer(aiCore.llmClient)
 		memorySummarizer := service.NewConversationMemorySummarizer(aiCore.llmClient)

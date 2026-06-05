@@ -577,6 +577,28 @@ func TestThinkTankStreamEmitter_DoesNotDropCriticalDoneWhenBufferIsFull(t *testi
 	}
 }
 
+func TestChatRunHub_UnsubscribeDoesNotCloseSubscriberChannel(t *testing.T) {
+	hub := newChatRunHub()
+	hub.ensure(9, 41)
+
+	sub, cancel, ok := hub.subscribe(9)
+	if !ok {
+		t.Fatal("expected subscription to be created")
+	}
+	cancel()
+	cancel()
+
+	select {
+	case _, ok := <-sub:
+		if !ok {
+			t.Fatal("expected unsubscribe to detach without closing subscriber channel")
+		}
+	default:
+	}
+
+	hub.publish(9, 41, StreamEvent{Type: StreamEventDone, RunID: 9, Stage: "completed", Status: "completed"})
+}
+
 func TestThinkTankService_ChatStream_ContinuesAfterRequestContextIsCanceled(t *testing.T) {
 	librarian := &contextSensitiveLibrarian{
 		delay: 20 * time.Millisecond,

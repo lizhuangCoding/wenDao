@@ -101,12 +101,6 @@ func initRepositories(db *gorm.DB) *repositories {
 }
 
 func initAIComponents(cfg *config.Config, logger *zap.Logger, rdbVector *redis.Client) (*aiComponents, error) {
-	embedder, err := eino.NewDoubaoEmbedder(&cfg.AI)
-	if err != nil {
-		return nil, fmt.Errorf("create doubao embedder: %w", err)
-	}
-	logger.Info("Doubao Embedder initialized successfully")
-
 	llmClient, err := eino.NewLLMClient(&cfg.AI)
 	if err != nil {
 		return nil, fmt.Errorf("create ai llm client: %w", err)
@@ -115,27 +109,59 @@ func initAIComponents(cfg *config.Config, logger *zap.Logger, rdbVector *redis.C
 		zap.String("provider", cfg.AI.Provider),
 		zap.String("model", cfg.AI.LLMModel))
 
+	components := &aiComponents{llmClient: llmClient}
+	if !providerUsesArkEmbedding(cfg.AI.Provider) {
+		logger.Warn("Vector search disabled for non-Ark AI provider",
+			zap.String("provider", cfg.AI.Provider),
+			zap.String("reason", "no compatible embedding provider configured"))
+		return components, nil
+	}
+	if rdbVector == nil {
+		logger.Warn("Vector search disabled because Redis Vector client is unavailable")
+		return components, nil
+	}
+	if strings.TrimSpace(cfg.AI.EmbeddingModel) == "" {
+		logger.Warn("Vector search disabled because ai.embedding_model is empty")
+		return components, nil
+	}
+
+	embedder, err := eino.NewDoubaoEmbedder(&cfg.AI)
+	if err != nil {
+		logger.Warn("Doubao Embedder unavailable, continuing without vector search", zap.Error(err))
+		return components, nil
+	}
+	logger.Info("Doubao Embedder initialized successfully")
+
 	const currentIndexName = "idx_wendao_v4"
 	vectorStore := eino.NewRedisVectorStore(rdbVector, currentIndexName, logger)
 
 	logger.Info("Detecting embedding model dimension...")
 	testVec, err := embedder.Embed("dimension test")
 	if err != nil {
-		return nil, fmt.Errorf("detect embedding model dimension: %w", err)
+		logger.Warn("Embedding dimension detection failed, continuing without vector search", zap.Error(err))
+		return components, nil
 	}
 	actualDim := len(testVec)
 	logger.Info("Model dimension detected", zap.Int("dimension", actualDim), zap.String("using_index", currentIndexName))
 
 	if err := vectorStore.InitIndex(currentIndexName, actualDim); err != nil {
-		return nil, fmt.Errorf("initialize vector index: %w", err)
+		logger.Warn("Redis Vector index unavailable, continuing without vector search", zap.Error(err))
+		return components, nil
 	}
 	logger.Info("Redis Vector index initialized successfully")
 
-	return &aiComponents{
-		embedder:    embedder,
-		llmClient:   llmClient,
-		vectorStore: vectorStore,
-	}, nil
+	components.embedder = embedder
+	components.vectorStore = vectorStore
+	return components, nil
+}
+
+func providerUsesArkEmbedding(provider string) bool {
+	switch strings.ToLower(strings.TrimSpace(provider)) {
+	case "", "doubao", "ark":
+		return true
+	default:
+		return false
+	}
 }
 
 func loadServerEnv() error {

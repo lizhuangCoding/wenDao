@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"testing"
 
@@ -28,7 +29,7 @@ func TestInitServices_DisablesAIWhenComponentsUnavailable(t *testing.T) {
 		t.Fatal("expected AI service to be initialized in disabled mode")
 	}
 
-	if _, err := services.ai.Chat("你好", nil, nil); !errors.Is(err, service.ErrAIDisabled) {
+	if _, err := services.ai.Chat(context.Background(), "你好", nil, nil); !errors.Is(err, service.ErrAIDisabled) {
 		t.Fatalf("expected ErrAIDisabled from degraded AI service, got %v", err)
 	}
 }

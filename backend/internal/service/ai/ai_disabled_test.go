@@ -9,11 +9,11 @@ import (
 func TestDisabledAIService_ReturnsUnavailableError(t *testing.T) {
 	svc := NewDisabledAIService("vector backend offline")
 
-	if _, err := svc.Chat("你好", nil, nil); !errors.Is(err, ErrAIDisabled) {
+	if _, err := svc.Chat(context.Background(), "你好", nil, nil); !errors.Is(err, ErrAIDisabled) {
 		t.Fatalf("expected ErrAIDisabled from Chat, got %v", err)
 	}
 
-	if _, err := svc.GenerateSummary("正文"); !errors.Is(err, ErrAIDisabled) {
+	if _, err := svc.GenerateSummary(context.Background(), "正文"); !errors.Is(err, ErrAIDisabled) {
 		t.Fatalf("expected ErrAIDisabled from GenerateSummary, got %v", err)
 	}
 

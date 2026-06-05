@@ -64,7 +64,7 @@ func (s *llmConversationMemorySummarizer) Summarize(ctx context.Context, history
 新增较早对话：
 %s`, existingText, source)
 
-	output, err := s.llm.Chat([]eino.ChatMessage{
+	output, err := s.llm.Chat(ctx, []eino.ChatMessage{
 		{Role: "system", Content: "你是对话记忆压缩器，负责把多轮对话整理成结构化长期记忆。"},
 		{Role: "user", Content: prompt},
 	})

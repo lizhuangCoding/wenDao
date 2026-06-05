@@ -309,7 +309,7 @@ func (o *thinkTankOrchestrator) chatStream(ctx context.Context, question string,
 					answer = appendAcceptanceLimitations(answer, review)
 				} else if strings.TrimSpace(revisedAnswer) == "" {
 					answer = appendAcceptanceLimitations(answer, review)
-				} else if strings.TrimSpace(revisedAnswer) != "" {
+				} else {
 					answer = revisedAnswer
 					review, _ = o.reviewAnswer(runCtx, effectiveQuestion, queryForAgents, clarifierDecision, answer, 1)
 					revised = normalizeAcceptanceVerdict(review.Verdict) != acceptanceVerdictRevise && normalizeAcceptanceVerdict(review.Verdict) != acceptanceVerdictAskUser
@@ -750,7 +750,7 @@ func (o *thinkTankOrchestrator) streamADKFlow(
 			fullAnswer = appendAcceptanceLimitations(fullAnswer, review)
 		} else if strings.TrimSpace(revisedAnswer) == "" {
 			fullAnswer = appendAcceptanceLimitations(fullAnswer, review)
-		} else if strings.TrimSpace(revisedAnswer) != "" {
+		} else {
 			fullAnswer = revisedAnswer
 			review, _ = o.reviewAnswer(ctx, question, queryForAgents, clarifierDecision, fullAnswer, 1)
 			revised = normalizeAcceptanceVerdict(review.Verdict) != acceptanceVerdictRevise && normalizeAcceptanceVerdict(review.Verdict) != acceptanceVerdictAskUser

@@ -23,7 +23,7 @@ type stubAIService struct {
 	summaryErr   error
 }
 
-func (s *stubAIService) Chat(question string, conversationID *int64, userID *int64) (string, error) {
+func (s *stubAIService) Chat(ctx context.Context, question string, conversationID *int64, userID *int64) (string, error) {
 	return s.chatAnswer, s.chatErr
 }
 
@@ -55,7 +55,7 @@ func (s *stubAIService) ResumeChatStream(ctx context.Context, conversationID int
 	return eventCh, errCh
 }
 
-func (s *stubAIService) GenerateSummary(content string) (string, error) {
+func (s *stubAIService) GenerateSummary(ctx context.Context, content string) (string, error) {
 	return s.summary, s.summaryErr
 }
 

@@ -46,7 +46,7 @@ func (s *thinkTankSynthesizer) Compose(ctx context.Context, question string, loc
 			{Role: "user", Content: fmt.Sprintf("问题：%s\n\n材料：\n%s", question, builder.String())},
 		}
 		var err error
-		answer, err = s.llm.Chat(messages)
+		answer, err = s.llm.Chat(ctx, messages)
 		if err != nil {
 			return "", nil, err
 		}

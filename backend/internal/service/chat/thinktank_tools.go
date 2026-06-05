@@ -35,6 +35,14 @@ type toolResultEnvelope struct {
 	Data  any    `json:"data,omitempty"`
 }
 
+func drainAndCloseResponseBody(body io.ReadCloser) {
+	if body == nil {
+		return
+	}
+	_, _ = io.Copy(io.Discard, body)
+	_ = body.Close()
+}
+
 type userIDKey struct{}
 type aiLoggerKey struct{}
 type conversationIDKey struct{}
@@ -271,7 +279,7 @@ func fetchReadableWebPage(ctx context.Context, client *http.Client, url string) 
 	if err != nil {
 		return "", fmt.Sprintf("网络原因: %v", err)
 	}
-	defer resp.Body.Close()
+	defer drainAndCloseResponseBody(resp.Body)
 
 	if resp.StatusCode != http.StatusOK {
 		return "", fmt.Sprintf("网站返回状态码 %d", resp.StatusCode)
@@ -411,7 +419,7 @@ func callResearchService(ctx context.Context, cfg ResearchConfig, query string) 
 	if err != nil {
 		return "", err
 	}
-	defer resp.Body.Close()
+	defer drainAndCloseResponseBody(resp.Body)
 
 	body, err := io.ReadAll(io.LimitReader(resp.Body, 128*1024))
 	if err != nil {
