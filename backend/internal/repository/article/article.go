@@ -12,8 +12,10 @@ type ArticleFilter struct {
 	CategoryID       int64  // 分类 ID，0=全部
 	Keyword          string // 搜索关键字
 	SortByPopularity bool   // 是否按活跃度排序
-	Page             int    // 页码，从 1 开始
-	PageSize         int    // 每页数量
+	AIIndexStatuses  []string
+	IncludeContent   bool
+	Page             int // 页码，从 1 开始
+	PageSize         int // 每页数量
 }
 
 // ArticleRepository 文章数据访问接口
@@ -100,7 +102,10 @@ func (r *articleRepository) List(filter ArticleFilter) ([]*model.Article, int64,
 	}
 	if filter.Keyword != "" {
 		keyword := "%" + filter.Keyword + "%"
-		db = db.Where("title LIKE ? OR summary LIKE ? OR content LIKE ?", keyword, keyword, keyword)
+		db = db.Where("title LIKE ? OR summary LIKE ?", keyword, keyword)
+	}
+	if len(filter.AIIndexStatuses) > 0 {
+		db = db.Where("ai_index_status IN ?", filter.AIIndexStatuses)
 	}
 
 	if err := db.Count(&total).Error; err != nil {
@@ -121,7 +126,22 @@ func (r *articleRepository) List(filter ArticleFilter) ([]*model.Article, int64,
 		orderStr += ", published_at DESC, created_at DESC"
 	}
 
-	err := query.Preload("Category").Preload("Author").
+	if !filter.IncludeContent {
+		query = query.Select(
+			"id", "title", "slug", "summary", "category_id", "author_id", "cover_image",
+			"status", "ai_index_status", "source_type", "source_id", "view_count",
+			"comment_count", "like_count", "is_top", "popularity", "published_at",
+			"created_at", "updated_at",
+		)
+	}
+
+	err := query.
+		Preload("Category", func(db *gorm.DB) *gorm.DB {
+			return db.Select("id", "name", "slug")
+		}).
+		Preload("Author", func(db *gorm.DB) *gorm.DB {
+			return db.Select("id", "username", "avatar_url", "avatar_source")
+		}).
 		Order(orderStr).
 		Find(&articles).Error
 

@@ -12,12 +12,15 @@ import (
 
 func startBackgroundTasks(cfg *config.Config, logger *zap.Logger, services *appServices) func() {
 	stopUploadCleanup := func() {}
+	stopStatFlush := func() {}
 	if services != nil {
 		stopUploadCleanup = startUploadCleanupScheduler(cfg, logger, services.upload)
+		stopStatFlush = startStatFlushScheduler(logger, services.stat)
 	}
 
 	return func() {
 		stopUploadCleanup()
+		stopStatFlush()
 	}
 }
 
@@ -67,6 +70,40 @@ func runUploadCleanup(logger *zap.Logger, uploadService service.UploadService) {
 		zap.Int("candidates", result.Candidates),
 		zap.Int("deleted", result.Deleted),
 		zap.Int("skipped", result.Skipped))
+}
+
+func startStatFlushScheduler(logger *zap.Logger, statService *service.StatService) func() {
+	if logger == nil || statService == nil {
+		return func() {}
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		ticker := time.NewTicker(time.Minute)
+		defer ticker.Stop()
+
+		logger.Info("Stat flush scheduler started", zap.Duration("interval", time.Minute))
+		runStatFlush(logger, statService)
+
+		for {
+			select {
+			case <-ticker.C:
+				runStatFlush(logger, statService)
+			case <-ctx.Done():
+				runStatFlush(logger, statService)
+				logger.Info("Stat flush scheduler stopped")
+				return
+			}
+		}
+	}()
+
+	return cancel
+}
+
+func runStatFlush(logger *zap.Logger, statService *service.StatService) {
+	if err := statService.FlushRecentDailyStatCounters(); err != nil {
+		logger.Warn("Stat flush failed", zap.Error(err))
+	}
 }
 
 func cleanupRetentionDays(cfg config.UploadConfig) int {

@@ -77,6 +77,9 @@ func (s *articleService) Update(id int64, title, content, summary string, catego
 	article.Summary = summary
 	article.CategoryID = categoryID
 	article.CoverImage = coverImage
+	if article.Status == "published" {
+		article.AIIndexStatus = "pending"
+	}
 
 	if err := s.articleRepo.Update(article); err != nil {
 		return nil, fmt.Errorf("failed to update article: %w", err)
@@ -86,8 +89,6 @@ func (s *articleService) Update(id int64, title, content, summary string, catego
 
 	if article.Status == "published" {
 		s.vectorizeArticleAsync(article.ID, article.Title, article.Content, article.Slug)
-	} else {
-		s.updateAIIndexStatus(article.ID, "pending")
 	}
 
 	return article, nil
@@ -142,13 +143,13 @@ func (s *articleService) AutoSave(id int64, title, content, summary string) erro
 	article.Content = content
 	article.Summary = summary
 	article.Status = "draft"
+	article.AIIndexStatus = "pending"
 
 	if err := s.articleRepo.Update(article); err != nil {
 		return fmt.Errorf("failed to auto-save article: %w", err)
 	}
 
 	s.deleteArticleFromCache(id)
-	s.updateAIIndexStatus(id, "pending")
 	s.deleteArticleVectorAsync(id)
 	return nil
 }

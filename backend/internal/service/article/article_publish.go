@@ -18,6 +18,7 @@ func (s *articleService) Publish(id int64) error {
 	}
 
 	article.Status = "published"
+	article.AIIndexStatus = "pending"
 	now := time.Now()
 	article.PublishedAt = &now
 
@@ -43,6 +44,7 @@ func (s *articleService) Draft(id int64) error {
 	}
 
 	article.Status = "draft"
+	article.AIIndexStatus = "pending"
 
 	if err := s.articleRepo.Update(article); err != nil {
 		return fmt.Errorf("failed to draft article: %w", err)
@@ -50,7 +52,6 @@ func (s *articleService) Draft(id int64) error {
 
 	s.categoryRepo.DecrementArticleCount(article.CategoryID)
 	s.deleteArticleFromCache(id)
-	s.updateAIIndexStatus(id, "pending")
 	s.deleteArticleVectorAsync(id)
 	return nil
 }

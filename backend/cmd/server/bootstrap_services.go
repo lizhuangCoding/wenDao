@@ -153,14 +153,16 @@ func syncPublishedArticleVectors(articleRepo repository.ArticleRepository, vecto
 	}
 
 	const pageSize = 100
-	page := 1
+	batch := 1
 	totalSynced := 0
 
 	for {
 		articles, total, err := articleRepo.List(repository.ArticleFilter{
-			Status:   "published",
-			Page:     page,
-			PageSize: pageSize,
+			Status:          "published",
+			AIIndexStatuses: []string{"pending", "failed"},
+			IncludeContent:  true,
+			Page:            1,
+			PageSize:        pageSize,
 		})
 		if err != nil {
 			return fmt.Errorf("failed to list published articles for vector sync: %w", err)
@@ -170,7 +172,7 @@ func syncPublishedArticleVectors(articleRepo repository.ArticleRepository, vecto
 		}
 
 		logger.Info("Syncing published article vector batch",
-			zap.Int("page", page),
+			zap.Int("batch", batch),
 			zap.Int("batch_size", len(articles)),
 			zap.Int64("total", total))
 
@@ -179,15 +181,20 @@ func syncPublishedArticleVectors(articleRepo repository.ArticleRepository, vecto
 				continue
 			}
 			if err := vectorService.VectorizeArticle(article.ID, article.Title, article.Content, article.Slug); err != nil {
+				if statusErr := articleRepo.UpdateAIIndexStatus(article.ID, "failed"); statusErr != nil {
+					logger.Warn("Failed to mark article vector sync as failed",
+						zap.Int64("article_id", article.ID),
+						zap.Error(statusErr))
+				}
 				return fmt.Errorf("failed to sync article %d vectors: %w", article.ID, err)
+			}
+			if err := articleRepo.UpdateAIIndexStatus(article.ID, "success"); err != nil {
+				return fmt.Errorf("failed to mark article %d vector sync as success: %w", article.ID, err)
 			}
 			totalSynced++
 		}
 
-		if int64(page*pageSize) >= total {
-			break
-		}
-		page++
+		batch++
 	}
 
 	logger.Info("Published article vector sync completed", zap.Int("article_count", totalSynced))

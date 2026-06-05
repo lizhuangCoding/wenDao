@@ -1,6 +1,8 @@
 package stat
 
 import (
+	"time"
+
 	"wenDao/internal/model"
 
 	"gorm.io/gorm"
@@ -73,39 +75,31 @@ func (r *StatRepository) GetDailyStat(date string) (*model.DailyStat, error) {
 
 // CreateOrUpdateDailyStat 创建或更新每日统计
 func (r *StatRepository) CreateOrUpdateDailyStat(date string, isPV bool) error {
-	var stat model.DailyStat
-	result := r.db.Where("date = ?", date).First(&stat)
-
-	if result.Error == gorm.ErrRecordNotFound {
-		// 创建新记录
-		stat = model.DailyStat{Date: date}
-		if isPV {
-			stat.PV = 1
-		} else {
-			stat.UV = 1
-		}
-		return r.db.Create(&stat).Error
-	}
-
-	// 更新现有记录
-	updates := map[string]interface{}{}
 	if isPV {
-		updates["pv"] = gorm.Expr("pv + 1")
-	} else {
-		updates["uv"] = gorm.Expr("uv + 1")
+		return r.IncrementDailyStat(date, 1, 0, 0)
 	}
-	return r.db.Model(&stat).Updates(updates).Error
+	return r.IncrementDailyStat(date, 0, 1, 0)
+}
+
+// IncrementDailyStat 使用单条 upsert 原子累加统计值，避免先查再写。
+func (r *StatRepository) IncrementDailyStat(date string, pvDelta, uvDelta, commentDelta int64) error {
+	if pvDelta == 0 && uvDelta == 0 && commentDelta == 0 {
+		return nil
+	}
+	now := time.Now()
+	return r.db.Exec(
+		`INSERT INTO daily_stats (date, pv, uv, comment_count, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?)
+ON DUPLICATE KEY UPDATE
+pv = pv + VALUES(pv),
+uv = uv + VALUES(uv),
+comment_count = comment_count + VALUES(comment_count),
+updated_at = VALUES(updated_at)`,
+		date, pvDelta, uvDelta, commentDelta, now, now,
+	).Error
 }
 
 // IncrCommentCount 增加评论数
 func (r *StatRepository) IncrCommentCount(date string) error {
-	var stat model.DailyStat
-	result := r.db.Where("date = ?", date).First(&stat)
-
-	if result.Error == gorm.ErrRecordNotFound {
-		stat = model.DailyStat{Date: date, CommentCount: 1}
-		return r.db.Create(&stat).Error
-	}
-
-	return r.db.Model(&stat).Update("comment_count", gorm.Expr("comment_count + 1")).Error
+	return r.IncrementDailyStat(date, 0, 0, 1)
 }

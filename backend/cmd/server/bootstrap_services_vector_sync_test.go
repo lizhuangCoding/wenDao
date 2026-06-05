@@ -1,0 +1,168 @@
+package main
+
+import (
+	"reflect"
+	"testing"
+
+	"go.uber.org/zap"
+
+	"wenDao/internal/model"
+	"wenDao/internal/repository"
+	"wenDao/internal/service"
+)
+
+type vectorSyncArticleRepoStub struct {
+	articles      []*model.Article
+	seenFilters   []repository.ArticleFilter
+	updatedStatus map[int64]string
+}
+
+func (r *vectorSyncArticleRepoStub) Create(article *model.Article) error { return nil }
+func (r *vectorSyncArticleRepoStub) GetByID(id int64) (*model.Article, error) {
+	return nil, nil
+}
+func (r *vectorSyncArticleRepoStub) GetBySlug(slug string) (*model.Article, error) {
+	return nil, nil
+}
+func (r *vectorSyncArticleRepoStub) GetBySource(sourceType string, sourceID int64) (*model.Article, error) {
+	return nil, nil
+}
+func (r *vectorSyncArticleRepoStub) List(filter repository.ArticleFilter) ([]*model.Article, int64, error) {
+	r.seenFilters = append(r.seenFilters, filter)
+	result := make([]*model.Article, 0, len(r.articles))
+	for _, article := range r.articles {
+		if article == nil || article.Status != filter.Status {
+			continue
+		}
+		if len(filter.AIIndexStatuses) > 0 && !stringInSlice(article.AIIndexStatus, filter.AIIndexStatuses) {
+			continue
+		}
+		result = append(result, article)
+	}
+	total := int64(len(result))
+	page := filter.Page
+	if page <= 0 {
+		page = 1
+	}
+	pageSize := filter.PageSize
+	if pageSize <= 0 {
+		return result, total, nil
+	}
+	start := (page - 1) * pageSize
+	if start >= len(result) {
+		return nil, total, nil
+	}
+	end := start + pageSize
+	if end > len(result) {
+		end = len(result)
+	}
+	return result[start:end], total, nil
+}
+func (r *vectorSyncArticleRepoStub) ListOrbitArticles() ([]*model.Article, error) { return nil, nil }
+func (r *vectorSyncArticleRepoStub) Update(article *model.Article) error          { return nil }
+func (r *vectorSyncArticleRepoStub) Delete(id int64) error                        { return nil }
+func (r *vectorSyncArticleRepoStub) UpdateSlug(id int64, slug string) error       { return nil }
+func (r *vectorSyncArticleRepoStub) UpdateAIIndexStatus(id int64, status string) error {
+	if r.updatedStatus == nil {
+		r.updatedStatus = make(map[int64]string)
+	}
+	r.updatedStatus[id] = status
+	for _, article := range r.articles {
+		if article != nil && article.ID == id {
+			article.AIIndexStatus = status
+			break
+		}
+	}
+	return nil
+}
+func (r *vectorSyncArticleRepoStub) IncrementViewCount(id int64) error                   { return nil }
+func (r *vectorSyncArticleRepoStub) IncrementCommentCount(id int64) error                { return nil }
+func (r *vectorSyncArticleRepoStub) DecrementCommentCount(id int64) error                { return nil }
+func (r *vectorSyncArticleRepoStub) IncrementLikeCount(id int64) error                   { return nil }
+func (r *vectorSyncArticleRepoStub) DecrementLikeCount(id int64) error                   { return nil }
+func (r *vectorSyncArticleRepoStub) UpdateTop(id int64, isTop bool) error                { return nil }
+func (r *vectorSyncArticleRepoStub) UpdatePopularity(id int64, popularity float64) error { return nil }
+func (r *vectorSyncArticleRepoStub) GetAllPublished() ([]*model.Article, error)          { return nil, nil }
+
+type vectorSyncServiceStub struct {
+	vectorized []int64
+}
+
+func (s *vectorSyncServiceStub) VectorizeArticle(articleID int64, title, content, slug string) error {
+	s.vectorized = append(s.vectorized, articleID)
+	return nil
+}
+func (s *vectorSyncServiceStub) DeleteArticleVector(articleID int64) error { return nil }
+func (s *vectorSyncServiceStub) SearchArticles(query string, topK int) ([]service.ArticleChunk, error) {
+	return nil, nil
+}
+func (s *vectorSyncServiceStub) VectorizeKnowledgeDocument(documentID int64, title, content string) error {
+	return nil
+}
+func (s *vectorSyncServiceStub) DeleteKnowledgeDocumentVector(documentID int64) error { return nil }
+
+func TestSyncPublishedArticleVectors_OnlyProcessesPendingOrFailedPublishedArticles(t *testing.T) {
+	repo := &vectorSyncArticleRepoStub{articles: []*model.Article{
+		{ID: 1, Status: "published", AIIndexStatus: "pending", Title: "pending", Content: "content", Slug: "pending"},
+		{ID: 2, Status: "published", AIIndexStatus: "failed", Title: "failed", Content: "content", Slug: "failed"},
+		{ID: 3, Status: "published", AIIndexStatus: "success", Title: "success", Content: "content", Slug: "success"},
+		{ID: 4, Status: "draft", AIIndexStatus: "pending", Title: "draft", Content: "content", Slug: "draft"},
+	}}
+	vectorSvc := &vectorSyncServiceStub{}
+
+	if err := syncPublishedArticleVectors(repo, vectorSvc, zap.NewNop()); err != nil {
+		t.Fatalf("expected vector sync success, got %v", err)
+	}
+
+	if got, want := vectorSvc.vectorized, []int64{1, 2}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("expected only pending/failed published articles to be vectorized, got %#v want %#v", got, want)
+	}
+	if len(repo.seenFilters) == 0 {
+		t.Fatal("expected repository list filter to be used")
+	}
+	filter := repo.seenFilters[0]
+	if !filter.IncludeContent {
+		t.Fatalf("expected vector sync to request article content")
+	}
+	if got, want := filter.AIIndexStatuses, []string{"pending", "failed"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("expected vector sync filter statuses %#v, got %#v", want, got)
+	}
+}
+
+func TestSyncPublishedArticleVectors_DoesNotSkipCandidatesWhenStatusChanges(t *testing.T) {
+	articles := make([]*model.Article, 0, 250)
+	for i := 1; i <= 250; i++ {
+		articles = append(articles, &model.Article{
+			ID:            int64(i),
+			Status:        "published",
+			AIIndexStatus: "pending",
+			Title:         "title",
+			Content:       "content",
+			Slug:          "slug",
+		})
+	}
+	repo := &vectorSyncArticleRepoStub{articles: articles}
+	vectorSvc := &vectorSyncServiceStub{}
+
+	if err := syncPublishedArticleVectors(repo, vectorSvc, zap.NewNop()); err != nil {
+		t.Fatalf("expected vector sync success, got %v", err)
+	}
+
+	if got, want := len(vectorSvc.vectorized), len(articles); got != want {
+		t.Fatalf("expected all candidates to be vectorized without pagination skips, got %d want %d", got, want)
+	}
+	for _, article := range repo.articles {
+		if article.AIIndexStatus != "success" {
+			t.Fatalf("expected article %d status success after sync, got %q", article.ID, article.AIIndexStatus)
+		}
+	}
+}
+
+func stringInSlice(value string, items []string) bool {
+	for _, item := range items {
+		if value == item {
+			return true
+		}
+	}
+	return false
+}
