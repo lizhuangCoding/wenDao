@@ -116,7 +116,7 @@ func (o *thinkTankOrchestrator) streamManualFlow(
 		answer = appendAcceptanceLimitations(answer, review)
 	}
 
-	answer = appendAcceptanceSummary(answer, review, revised)
+	answer = sanitizeFinalAnswerForUser(answer)
 	o.persistFinalAnswer(conv, derefUserID(userID), question, answer, decision, history, runID)
 	for _, chunk := range splitStreamChunks(answer) {
 		o.emitChunk(eventCh, conv, runID, chunk, sources)

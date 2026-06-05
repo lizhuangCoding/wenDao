@@ -1040,7 +1040,7 @@ func TestThinkTankServiceChat_ClarifierReturnsStructuredQuestion(t *testing.T) {
 	}
 }
 
-func TestThinkTankServiceChat_AppendsAcceptanceSummary(t *testing.T) {
+func TestThinkTankServiceChat_DoesNotExposeAcceptanceSummary(t *testing.T) {
 	clarifier := &stubClarifier{decision: defaultClarifierDecision("帮我分析一下 AI Agent 的发展趋势")}
 	reviewer := &stubAcceptanceReviewer{reviews: []AcceptanceReview{{
 		Available:         true,
@@ -1059,16 +1059,14 @@ func TestThinkTankServiceChat_AppendsAcceptanceSummary(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected chat success, got %v", err)
 	}
-	for _, want := range []string{
-		"AI Agent 趋势答案",
-		"验收摘要",
-		"评分 92/100",
-		"已覆盖：技术演进、商业落地",
-		"覆盖了核心趋势和落地影响",
-	} {
+	if !strings.Contains(resp.Message, "AI Agent 趋势答案") {
+		t.Fatalf("expected final answer body, got %q", resp.Message)
+	}
+	for _, want := range []string{"验收摘要", "评分 92/100", "已覆盖：技术演进、商业落地", "覆盖了核心趋势和落地影响"} {
 		if !strings.Contains(resp.Message, want) {
-			t.Fatalf("expected acceptance summary to contain %q, got %q", want, resp.Message)
+			continue
 		}
+		t.Fatalf("did not expect final answer to expose acceptance summary %q, got %q", want, resp.Message)
 	}
 }
 
@@ -1148,13 +1146,15 @@ func TestThinkTankServiceChat_AcceptanceRevisionStillReviseDoesNotClaimSuccess(t
 		"修订版答案",
 		"回答限制",
 		"仍可能缺少：边界条件",
-		"验收摘要",
-		"需要修订",
-		"评分 65/100",
-		"修订版仍缺少边界条件",
+		"审核说明：还不能确认风险限制是否完整。",
 	} {
 		if !strings.Contains(resp.Message, want) {
 			t.Fatalf("expected response to contain %q, got %q", want, resp.Message)
+		}
+	}
+	for _, forbidden := range []string{"验收摘要", "需要修订", "评分 65/100"} {
+		if strings.Contains(resp.Message, forbidden) {
+			t.Fatalf("did not expect response to expose acceptance summary %q, got %q", forbidden, resp.Message)
 		}
 	}
 	if strings.Contains(resp.Message, "已自动补充关键缺失项") {
@@ -1222,13 +1222,15 @@ func TestThinkTankServiceChat_ManualAcceptanceRevisionStillReviseDoesNotClaimSuc
 		"手动修订答案",
 		"回答限制",
 		"仍可能缺少：验证步骤",
-		"验收摘要",
-		"需要修订",
-		"评分 70/100",
-		"修订版仍缺少验证步骤",
+		"审核说明：上线后验证路径还不完整。",
 	} {
 		if !strings.Contains(resp.Message, want) {
 			t.Fatalf("expected response to contain %q, got %q", want, resp.Message)
+		}
+	}
+	for _, forbidden := range []string{"验收摘要", "需要修订", "评分 70/100"} {
+		if strings.Contains(resp.Message, forbidden) {
+			t.Fatalf("did not expect response to expose acceptance summary %q, got %q", forbidden, resp.Message)
 		}
 	}
 	if strings.Contains(resp.Message, "已自动补充关键缺失项") {

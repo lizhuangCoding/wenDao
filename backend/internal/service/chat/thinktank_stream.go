@@ -226,6 +226,7 @@ func summarizeWebSearchResult(content string) string {
 }
 
 func appendNonEmptyNote(notes []string, note string) []string {
+	note = sanitizeFinalAnswerForUser(note)
 	note = strings.TrimSpace(note)
 	if note == "" || looksLikeRawHTML(note) {
 		return notes

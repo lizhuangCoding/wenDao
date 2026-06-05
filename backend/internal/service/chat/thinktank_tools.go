@@ -163,13 +163,13 @@ func newLocalSearchTool(librarian Librarian) (tool.BaseTool, error) {
 		},
 		func(ctx context.Context, input localSearchInput) (string, error) {
 			if librarian == nil {
-				return encodeToolFailure("本地知识库不可用", "继续使用其他已获取证据；不要把本地检索不可用描述成已完成检索。"), nil
+				return encodeToolFailure("本地知识库不可用", "继续使用其他已获取证据；不要把本地检索不可用描述成已完成检索，也不要在最终回答中展示此工具失败。"), nil
 			}
 			logToolStage(ctx, "tool_local_search_call", "执行 LocalSearch 工具", map[string]any{"input": input.Query})
 			result, err := librarian.Search(ctx, input.Query)
 			if err != nil {
 				logToolStage(ctx, "tool_local_search_error", "本地检索报错", map[string]any{"error": err.Error()})
-				return encodeToolFailure(fmt.Sprintf("本地检索发生错误: %v", err), "LocalSearch 失败；继续使用 WebSearch/WebFetch 或明确说明站内证据不可用。"), nil
+				return encodeToolFailure(fmt.Sprintf("本地检索发生错误: %v", err), "LocalSearch 失败；继续使用 WebSearch/WebFetch 或已有证据，不要在最终回答中展示此工具失败。"), nil
 			}
 			payload := map[string]any{
 				"coverage_status": result.CoverageStatus,
@@ -196,7 +196,7 @@ func newWebSearchTool(cfg ResearchConfig) (tool.BaseTool, error) {
 			res, err := callResearchService(ctx, cfg, input.Query)
 			if err != nil {
 				logToolStage(ctx, "tool_web_search_error", "联网搜索报错", map[string]any{"error": err.Error()})
-				return encodeToolFailure(fmt.Sprintf("联网搜索暂不可用: %v", err), "WebSearch 失败；使用已有站内证据或说明外部证据不可用，不要重复无效搜索。"), nil
+				return encodeToolFailure(fmt.Sprintf("联网搜索暂不可用: %v", err), "WebSearch 失败；使用已有站内证据，不要重复无效搜索，也不要在最终回答中展示此工具失败。"), nil
 			}
 			recordWebSearchCandidates(ctx, res)
 			logToolStage(ctx, "tool_web_search_result", "联网搜索结果详情", map[string]any{"output": res})
@@ -229,7 +229,7 @@ func newWebFetchTool(cfg ResearchConfig) (tool.BaseTool, error) {
 			if len(candidates) == 0 {
 				msg := "WebFetch 需要有效的 http(s) URL；当前输入不是 URL。请改用 WebSearch 或 LocalSearch 的结果摘要，或提供有效 URL。"
 				logToolStage(ctx, "tool_web_fetch_error", "网页抓取参数不是有效 URL", map[string]any{"url": input.URL, "urls": input.URLs})
-				return encodeToolFailure(msg, "不要重复抓取无效 URL；用搜索摘要或已有证据继续。"), nil
+				return encodeToolFailure(msg, "不要重复抓取无效 URL；用搜索摘要或已有证据继续，不要在最终回答中展示此工具失败。"), nil
 			}
 
 			client := &http.Client{
@@ -249,20 +249,12 @@ func newWebFetchTool(cfg ResearchConfig) (tool.BaseTool, error) {
 					"url":     candidate.URL,
 					"content": content,
 				})
-				if len(failures) == 0 {
-					return encodeToolSuccess(map[string]any{"url": candidate.URL, "content": content}), nil
-				}
-				return encodeToolSuccess(map[string]any{
-					"url":      candidate.URL,
-					"content":  content,
-					"failures": failures,
-					"summary":  fmt.Sprintf("已跳过 %d 个不可用页面，成功抓取候选页面 %s。", len(failures), candidate.URL),
-				}), nil
+				return encodeToolSuccess(map[string]any{"url": candidate.URL, "content": content}), nil
 			}
 
 			return encodeToolFailure(
 				fmt.Sprintf("网页抓取失败，已尝试 %d 个候选页面但都不可用：\n- %s", len(failures), strings.Join(failures, "\n- ")),
-				"请使用 WebSearch 摘要和其他已获取资料继续回答，不要重复抓取这些 URL。",
+				"请使用 WebSearch 摘要和其他已获取资料继续回答，不要重复抓取这些 URL；不要在最终回答中展示这些工具失败细节。",
 			), nil
 		},
 	), nil
@@ -321,7 +313,8 @@ func newDocWriterTool(svc KnowledgeDocumentService) (tool.BaseTool, error) {
 		},
 		func(ctx context.Context, input docWriterInput) (string, error) {
 			if svc == nil {
-				return "知识文档服务不可用", nil
+				logToolStage(ctx, "tool_doc_writer_unavailable", "DocWriter 服务不可用", nil)
+				return encodeToolFailure("internal document write unavailable", ""), nil
 			}
 			userID := getUserID(ctx)
 
@@ -365,11 +358,13 @@ func newDocWriterTool(svc KnowledgeDocumentService) (tool.BaseTool, error) {
 			})
 			if err != nil {
 				logToolStage(ctx, "tool_doc_writer_error", "调研文档存盘失败", map[string]any{"error": err.Error()})
-				return fmt.Sprintf("调研文档存盘失败: %v", err), nil
+				return encodeToolFailure("internal document write failed", ""), nil
 			}
-			res := fmt.Sprintf("成功创建知识文档草稿：ID=%d, Title=%s", doc.ID, doc.Title)
-			logToolStage(ctx, "tool_doc_writer_result", "调研文档存盘成功", map[string]any{"doc_id": doc.ID})
-			return res, nil
+			logToolStage(ctx, "tool_doc_writer_result", "调研文档存盘成功", map[string]any{
+				"doc_id": doc.ID,
+				"title":  doc.Title,
+			})
+			return encodeToolSuccess(map[string]any{"result": "ok"}), nil
 		},
 	), nil
 }

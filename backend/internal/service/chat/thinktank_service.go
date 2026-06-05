@@ -206,15 +206,12 @@ func (s *thinkTankService) composeADKFallbackAnswer(
 		}
 	}
 
-	var builder strings.Builder
-	builder.WriteString("基于当前已完成的检索结果，先给出可用回答：")
+	parts := make([]string, 0, 2)
 	if localSummary != "" {
-		builder.WriteString("\n\n站内知识：\n")
-		builder.WriteString(localSummary)
+		parts = append(parts, localSummary)
 	}
 	if webSummary != "" {
-		builder.WriteString("\n\n外部资料：\n")
-		builder.WriteString(webSummary)
+		parts = append(parts, webSummary)
 	}
-	return appendGroupedReferences(builder.String(), articleSources, webSources), nil
+	return appendGroupedReferences(sanitizeFinalAnswerForUser(strings.Join(parts, "\n\n")), articleSources, webSources), nil
 }

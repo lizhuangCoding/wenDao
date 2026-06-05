@@ -33,17 +33,17 @@ func (s *thinkTankSynthesizer) Compose(ctx context.Context, question string, loc
 	} else {
 		var builder strings.Builder
 		if local.Summary != "" {
-			builder.WriteString("站内知识：\n")
+			builder.WriteString("材料 A：\n")
 			builder.WriteString(local.Summary)
 			builder.WriteString("\n\n")
 		}
 		if web != nil && web.Summary != "" {
-			builder.WriteString("外部调研补充：\n")
+			builder.WriteString("材料 B：\n")
 			builder.WriteString(web.Summary)
 		}
 		messages := []eino.ChatMessage{
-			{Role: "system", Content: "你是问道博客的研究流程汇总助手，请整合站内知识与外部调研结果，用中文给出最终回答。"},
-			{Role: "user", Content: fmt.Sprintf("问题：%s\n\n材料：\n%s", question, builder.String())},
+			{Role: "system", Content: "你是问道博客的最终答复撰写助手。请只输出给用户看的答案正文，用中文直接回答问题。不要描述你使用了站内知识、外部调研、网络搜索、网页抓取、工具、流程或验收；不要写“通过对资料整合完成了任务”这类过程总结。参考链接会由系统追加到末尾。"},
+			{Role: "user", Content: fmt.Sprintf("问题：%s\n\n以下材料只用于回答，不要把材料获取方式或整合过程写进最终答案：\n%s", question, builder.String())},
 		}
 		var err error
 		answer, err = s.llm.Chat(ctx, messages)

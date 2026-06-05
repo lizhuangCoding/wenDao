@@ -59,3 +59,28 @@ func TestLocalSearchTool_ReturnsStructuredFailureWhenUnavailable(t *testing.T) {
 		t.Fatalf("expected structured failure envelope, got %s", result)
 	}
 }
+
+func TestDocWriterTool_DoesNotReturnDraftMetadataToModel(t *testing.T) {
+	knowledgeSvc := &stubKnowledgeDocumentService{}
+	baseTool, err := newDocWriterTool(knowledgeSvc)
+	if err != nil {
+		t.Fatalf("expected tool creation to succeed, got %v", err)
+	}
+	invokable, ok := baseTool.(tool.InvokableTool)
+	if !ok {
+		t.Fatal("expected DocWriter to be invokable")
+	}
+
+	result, err := invokable.InvokableRun(context.Background(), `{"title":"李小龙调研报告","summary":"李小龙简介","content":"正文内容正文内容正文内容"}`)
+	if err != nil {
+		t.Fatalf("expected DocWriter result, got error %v", err)
+	}
+	if knowledgeSvc.created == nil || knowledgeSvc.created.Title != "李小龙调研报告" {
+		t.Fatalf("expected draft to be persisted, got %#v", knowledgeSvc.created)
+	}
+	for _, forbidden := range []string{"ID=", "doc_id", "文档 ID", "文档ID", "李小龙调研报告", "知识文档草稿"} {
+		if strings.Contains(result, forbidden) {
+			t.Fatalf("DocWriter result must not expose internal metadata %q to model, got %q", forbidden, result)
+		}
+	}
+}

@@ -151,7 +151,6 @@ func (o *thinkTankOrchestrator) chat(ctx context.Context, question string, conve
 			if normalizeAcceptanceVerdict(review.Verdict) == acceptanceVerdictAskUser {
 				return o.acceptanceQuestionResponse(conv, derefUserID(userID), pendingRunID, effectiveQuestion, review, decision), nil
 			}
-			revised := false
 			if shouldRevise {
 				revisedAnswer, revisionErr := s.adkAnswerFetcher(adkCtx, buildRevisionAgentQuery(queryForAgents, finalAnswer, review))
 				if revisionErr != nil || strings.TrimSpace(revisedAnswer) == "" {
@@ -164,12 +163,10 @@ func (o *thinkTankOrchestrator) chat(ctx context.Context, question string, conve
 					}
 					if normalizeAcceptanceVerdict(review.Verdict) == acceptanceVerdictRevise {
 						finalAnswer = appendAcceptanceLimitations(finalAnswer, review)
-					} else {
-						revised = true
 					}
 				}
 			}
-			finalAnswer = appendAcceptanceSummary(finalAnswer, review, revised)
+			finalAnswer = sanitizeFinalAnswerForUser(finalAnswer)
 			o.persistFinalAnswer(conv, derefUserID(userID), effectiveQuestion, finalAnswer, decision, history, 0)
 			return &ThinkTankChatResponse{Message: finalAnswer, Stage: "completed"}, nil
 		}
@@ -198,7 +195,6 @@ func (o *thinkTankOrchestrator) chat(ctx context.Context, question string, conve
 	if normalizeAcceptanceVerdict(review.Verdict) == acceptanceVerdictAskUser {
 		return o.acceptanceQuestionResponse(conv, derefUserID(userID), pendingRunID, effectiveQuestion, review, decision), nil
 	}
-	revised := false
 	if shouldRevise && s.adkRunner != nil && s.adkAnswerFetcher != nil {
 		adkCtx := WithUserID(ctx, derefUserID(userID))
 		adkCtx = WithAILogger(adkCtx, s.logger)
@@ -217,13 +213,11 @@ func (o *thinkTankOrchestrator) chat(ctx context.Context, question string, conve
 			}
 			if normalizeAcceptanceVerdict(review.Verdict) == acceptanceVerdictRevise {
 				answer = appendAcceptanceLimitations(answer, review)
-			} else {
-				revised = true
 			}
 		}
 	}
 
-	answer = appendAcceptanceSummary(answer, review, revised)
+	answer = sanitizeFinalAnswerForUser(answer)
 	o.persistFinalAnswer(conv, derefUserID(userID), effectiveQuestion, answer, decision, history, 0)
 	return &ThinkTankChatResponse{Message: answer, Sources: sources, Stage: "completed"}, nil
 }
@@ -323,7 +317,7 @@ func (o *thinkTankOrchestrator) chatStream(ctx context.Context, question string,
 					}
 				}
 			}
-			answer = appendAcceptanceSummary(answer, review, revised)
+			answer = sanitizeFinalAnswerForUser(answer)
 			o.persistFinalAnswer(conv, derefUserID(userID), effectiveQuestion, answer, decision, history, runID)
 			o.emitChunk(eventCh, conv, runID, answer, nil)
 			o.emitDone(eventCh, conv, runID, "completed", "回答已生成")
@@ -766,7 +760,7 @@ func (o *thinkTankOrchestrator) streamADKFlow(
 	} else if shouldRevise {
 		fullAnswer = appendAcceptanceLimitations(fullAnswer, review)
 	}
-	fullAnswer = appendAcceptanceSummary(fullAnswer, review, revised)
+	fullAnswer = sanitizeFinalAnswerForUser(fullAnswer)
 	o.persistFinalAnswer(conv, derefUserID(userID), question, fullAnswer, decision, history, runID)
 	s.runs.logStage(conv, userID, "completed", "ThinkTank 计划执行流程完成", fmt.Sprintf("答案长度: %d，答案内容：%v", len(fullAnswer), fullAnswer))
 	o.emitChunk(eventCh, conv, runID, fullAnswer, collectSourceRefTitles(adkArticleSources, adkWebSources))

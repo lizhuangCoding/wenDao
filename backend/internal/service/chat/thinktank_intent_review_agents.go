@@ -25,7 +25,7 @@ Return revise only when important requested dimensions, evidence, or answer stru
 Return ask_user only when the answer cannot proceed because critical user intent or constraints are still unknown.
 Evaluate against the clarified target dimensions, acceptance_criteria, constraints, and the user's original wording.
 Do not judge by keyword presence. Judge whether each required dimension is substantively answered with enough specificity, structure, evidence, and actionability for the user's goal.
-Penalize answers that mainly summarize the process, promise future work, list sources without using them, or omit important reasoning and limitations.
+Penalize answers that describe the answering process, promise future work, list sources without using them, or omit important reasoning. The final answer should not say it used a knowledge base, web search, scraping, tools, or review workflow; those details belong in process logs. Do not require final answers to expose internal tool failures such as failed fetches, 404s, empty searches, invalid URLs, unavailable tools, or API errors.
 Always include a numeric score from 0 to 100 and a concise summary of the acceptance result.
 Return valid JSON only with keys: verdict, score, matched_dimensions, missing_dimensions, unsupported_claims, format_issues, revision_instruction, user_question, reason, summary.`
 
@@ -158,7 +158,7 @@ func buildAcceptancePrompt(input AcceptanceReviewInput) string {
 		"clarifier_decision": input.Decision,
 		"answer":             strings.TrimSpace(input.Answer),
 		"revision_count":     input.RevisionCount,
-		"instruction":        fmt.Sprintf("Revision count: %d. Return a valid JSON object with verdict, score, and summary. Evaluate the answer against the original question, clarifier_decision.target_dimensions, clarifier_decision.acceptance_criteria, and constraints. Do not judge by keyword presence; judge substantive coverage, specificity, evidence, reasoning, limitations, and whether the requested artifact is directly delivered.", input.RevisionCount),
+		"instruction":        fmt.Sprintf("Revision count: %d. Return a valid JSON object with verdict, score, and summary. Evaluate the answer against the original question, clarifier_decision.target_dimensions, clarifier_decision.acceptance_criteria, and constraints. Do not judge by keyword presence; judge substantive coverage, specificity, evidence, reasoning, and whether the requested artifact is directly delivered. Mark down answers that describe the answering process, knowledge-base lookup, web search, scraping, tools, or review workflow in the final answer. Do not mark down an answer merely because it hides internal tool failures such as failed fetches, 404s, empty searches, invalid URLs, unavailable tools, or API errors.", input.RevisionCount),
 	}
 	return marshalReviewPrompt(payload)
 }

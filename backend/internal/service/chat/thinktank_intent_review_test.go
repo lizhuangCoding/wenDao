@@ -456,6 +456,114 @@ func TestAppendAcceptanceSummary_SkipsUnavailableReview(t *testing.T) {
 	}
 }
 
+func TestSanitizeFinalAnswer_RemovesRuntimeFailureSectionsButKeepsReferences(t *testing.T) {
+	answer := strings.Join([]string{
+		"以下是关于李小龙的调研信息：",
+		"",
+		"基本信息",
+		"李小龙是武术家和演员。",
+		"",
+		"证据局限性",
+		"在网页内容抓取时，百度百科页面返回状态码 404 未能成功抓取，信息获取主要依赖维基百科页面。",
+		"",
+		"参考外部文章",
+		"- [Bruce Lee - Wikipedia](https://en.wikipedia.org/wiki/Bruce_Lee)",
+	}, "\n")
+
+	got := sanitizeFinalAnswerForUser(answer)
+	for _, forbidden := range []string{"证据局限性", "返回状态码 404", "未能成功抓取"} {
+		if strings.Contains(got, forbidden) {
+			t.Fatalf("expected runtime failure detail %q to be removed, got %q", forbidden, got)
+		}
+	}
+	for _, want := range []string{
+		"基本信息",
+		"李小龙是武术家和演员。",
+		"参考外部文章",
+		"[Bruce Lee - Wikipedia](https://en.wikipedia.org/wiki/Bruce_Lee)",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("expected sanitized answer to keep %q, got %q", want, got)
+		}
+	}
+}
+
+func TestSanitizeFinalAnswer_KeepsNonRuntimeLimitations(t *testing.T) {
+	answer := "分析结论\n\n目前没有找到唯一答案，但可以从训练方法和文化传播两个角度理解。"
+
+	got := sanitizeFinalAnswerForUser(answer)
+	if !strings.Contains(got, "没有找到唯一答案") {
+		t.Fatalf("expected non-runtime limitation to be preserved, got %q", got)
+	}
+}
+
+func TestSanitizeFinalAnswer_KeepsNormalToolAndScrapingContent(t *testing.T) {
+	answer := "AI 工具选型\n\n网页内容抓取工具适合公开网页信息整理，但需要遵守目标网站规则。"
+
+	got := sanitizeFinalAnswerForUser(answer)
+	for _, want := range []string{"AI 工具选型", "网页内容抓取工具适合公开网页信息整理"} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("expected normal content %q to be preserved, got %q", want, got)
+		}
+	}
+}
+
+func TestSanitizeFinalAnswer_RemovesProcessSummaryParagraphsButKeepsReferences(t *testing.T) {
+	answer := strings.Join([]string{
+		"李小龙调研报告",
+		"",
+		"一、概述",
+		"李小龙是截拳道创始人。",
+		"",
+		"综上所述，通过对站内知识库和网络搜索信息的整合，完成了对李小龙的调研，满足了对李小龙进行调研的目标。本次调研全面涵盖了李小龙的基本信息、家庭背景以及哲学思想等方面，为进一步了解李小龙提供了较为丰富的资料。",
+		"",
+		"参考外部文章",
+		"- [Bruce Lee - Wikipedia](https://en.wikipedia.org/wiki/Bruce_Lee)",
+	}, "\n")
+
+	got := sanitizeFinalAnswerForUser(answer)
+	for _, forbidden := range []string{"通过对站内知识库", "网络搜索信息的整合", "完成了对李小龙的调研", "满足了对李小龙进行调研的目标"} {
+		if strings.Contains(got, forbidden) {
+			t.Fatalf("expected process summary %q to be removed, got %q", forbidden, got)
+		}
+	}
+	for _, want := range []string{
+		"李小龙调研报告",
+		"李小龙是截拳道创始人。",
+		"参考外部文章",
+		"[Bruce Lee - Wikipedia](https://en.wikipedia.org/wiki/Bruce_Lee)",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("expected sanitized answer to keep %q, got %q", want, got)
+		}
+	}
+}
+
+func TestSanitizeFinalAnswer_RemovesDocWriterDraftNotesButKeepsReferences(t *testing.T) {
+	answer := strings.Join([]string{
+		"李小龙调研报告",
+		"",
+		"李小龙是截拳道创始人。",
+		"",
+		"注：此报告保存为知识文档草稿，文档 ID 为 49。",
+		"",
+		"参考外部文章",
+		"- [Bruce Lee - Wikipedia](https://en.wikipedia.org/wiki/Bruce_Lee)",
+	}, "\n")
+
+	got := sanitizeFinalAnswerForUser(answer)
+	for _, forbidden := range []string{"知识文档草稿", "文档 ID", "49", "保存为知识文档"} {
+		if strings.Contains(got, forbidden) {
+			t.Fatalf("expected draft metadata %q to be removed, got %q", forbidden, got)
+		}
+	}
+	for _, want := range []string{"李小龙是截拳道创始人。", "参考外部文章", "[Bruce Lee - Wikipedia](https://en.wikipedia.org/wiki/Bruce_Lee)"} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("expected sanitized answer to keep %q, got %q", want, got)
+		}
+	}
+}
+
 func TestEnforceAcceptanceQuality_DoesNotOverrideAgentReviewWithQuestionKeywords(t *testing.T) {
 	review := AcceptanceReview{
 		Verdict:           acceptanceVerdictPass,

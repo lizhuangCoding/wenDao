@@ -125,9 +125,12 @@ func TestThinkTankService_ChatStream_EmitsClarifierAndAcceptanceSteps(t *testing
 			t.Fatalf("expected stream step for %s, got %#v", want, seenSteps)
 		}
 	}
-	for _, want := range []string{"验收摘要", "评分 88/100"} {
-		if !strings.Contains(finalChunk, want) {
-			t.Fatalf("expected final chunk to contain %q, got %q", want, finalChunk)
+	if !strings.Contains(finalChunk, "趋势分析正文") {
+		t.Fatalf("expected final chunk to contain answer body, got %q", finalChunk)
+	}
+	for _, forbidden := range []string{"验收摘要", "评分 88/100"} {
+		if strings.Contains(finalChunk, forbidden) {
+			t.Fatalf("did not expect final chunk to expose acceptance summary %q, got %q", forbidden, finalChunk)
 		}
 	}
 }
@@ -260,9 +263,14 @@ func TestThinkTankService_ChatStream_RevisionStillReviseDoesNotClaimCompletedRev
 	if calls != 2 {
 		t.Fatalf("expected initial and revision fetches, got %d", calls)
 	}
-	for _, want := range []string{"修订后答案", "回答限制", "量化案例", "验收摘要", "评分 74/100"} {
+	for _, want := range []string{"修订后答案", "回答限制", "量化案例"} {
 		if !strings.Contains(finalChunk, want) {
 			t.Fatalf("expected final chunk to contain %q, got %q", want, finalChunk)
+		}
+	}
+	for _, forbidden := range []string{"验收摘要", "评分 74/100"} {
+		if strings.Contains(finalChunk, forbidden) {
+			t.Fatalf("did not expect final chunk to expose acceptance summary %q, got %q", forbidden, finalChunk)
 		}
 	}
 	if strings.Contains(finalChunk, "已自动补充关键缺失项") {

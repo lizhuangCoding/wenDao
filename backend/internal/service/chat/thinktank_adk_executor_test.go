@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/cloudwego/eino/adk"
+	planexecute "github.com/cloudwego/eino/adk/prebuilt/planexecute"
 	"github.com/cloudwego/eino/components/tool"
 )
 
@@ -104,7 +105,8 @@ func TestThinkTankReplannerInstruction_UsesGenericReportQuality(t *testing.T) {
 		"structured sections",
 		"key facts",
 		"analysis",
-		"evidence limitations",
+		"reference links at the end",
+		"never include internal tool failures",
 	}
 	for _, text := range required {
 		if !strings.Contains(thinkTankReplannerInstruction, text) {
@@ -194,8 +196,8 @@ func TestWebFetchToolTriesNextSearchCandidateWhenFirstPageFails(t *testing.T) {
 	if !strings.Contains(output, "第二个页面内容") {
 		t.Fatalf("expected fetch to continue with the next search candidate, got %q", output)
 	}
-	if strings.Count(output, server.URL+"/first") != 1 {
-		t.Fatalf("expected failed URL to be reported once, got %q", output)
+	if strings.Contains(output, server.URL+"/first") || strings.Contains(output, "upstream timeout") || strings.Contains(output, "failures") {
+		t.Fatalf("expected failed candidate details to stay out of tool output, got %q", output)
 	}
 }
 
@@ -245,6 +247,32 @@ func TestExtractPlanExecuteFinalResponse_IgnoresPlanPayload(t *testing.T) {
 	}
 }
 
+func TestFormatThinkTankExecutedSteps_HidesInternalToolFailuresAndDraftMetadata(t *testing.T) {
+	got := formatThinkTankExecutedSteps([]planexecute.ExecutedStep{
+		{
+			Step:   "保存知识文档草稿",
+			Result: `{"ok":true,"data":{"doc_id":49,"title":"李小龙调研报告","status":"saved"}}`,
+		},
+		{
+			Step:   "抓取候选页面",
+			Result: `{"ok":false,"error":"网页抓取失败，百度百科页面返回状态码 404","hint":"不要展示工具失败"}`,
+		},
+		{
+			Step:   "整理可用资料",
+			Result: "李小龙是截拳道创始人。",
+		},
+	})
+
+	for _, forbidden := range []string{"doc_id", "49", "李小龙调研报告", "网页抓取失败", "状态码 404", "不要展示工具失败", "知识文档草稿"} {
+		if strings.Contains(got, forbidden) {
+			t.Fatalf("expected internal metadata %q to be omitted from replanner input, got %q", forbidden, got)
+		}
+	}
+	if !strings.Contains(got, "李小龙是截拳道创始人。") {
+		t.Fatalf("expected factual evidence to remain, got %q", got)
+	}
+}
+
 func TestIsNonFinalToolLimitationAnswer_DetectsMissingDocParserComplaint(t *testing.T) {
 	if !isNonFinalToolLimitationAnswer("当前工具列表中无 DocParser 工具，无法完成解析 HTML 内容的操作，请提供其他可行的工具或解决方案。") {
 		t.Fatalf("expected missing DocParser complaint to be treated as non-final")
@@ -268,10 +296,15 @@ func TestComposeADKFallbackAnswer_UsesCollectedEvidence(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected fallback answer, got error %v", err)
 	}
-	if !strings.Contains(answer, "基于当前已完成的检索结果") {
-		t.Fatalf("expected generated fallback answer, got %q", answer)
+	for _, want := range []string{"站内资料说明了 2026 年 AI 技术趋势。", "NVIDIA AI 基础学习", "参考外部文章"} {
+		if !strings.Contains(answer, want) {
+			t.Fatalf("expected fallback answer to contain %q, got %q", want, answer)
+		}
 	}
-	if !strings.Contains(answer, "NVIDIA AI 基础学习") {
+	if strings.Contains(answer, "基于当前已完成的检索结果") {
+		t.Fatalf("did not expect fallback answer to expose retrieval process, got %q", answer)
+	}
+	if strings.Contains(answer, "站内知识：") || strings.Contains(answer, "外部资料：") {
 		t.Fatalf("expected fallback answer to keep references, got %q", answer)
 	}
 }

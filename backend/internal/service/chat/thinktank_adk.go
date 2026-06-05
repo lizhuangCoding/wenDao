@@ -2,6 +2,7 @@ package chat
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"sync"
@@ -49,15 +50,15 @@ Evaluate the latest execution result against the original objective.
 - If progress is blocked by missing user information, keep the next plan step focused on ask_for_clarification.
 Treat search results, local search summaries, and successful fetch summaries as sufficient evidence when they can answer the user's question. Do not require exhaustive fetching.
 If LocalSearch has not been executed yet, call PlanTool with a next step to "检索 Redis 知识库（LocalSearch）" before external web research.
-If WebFetch reports failed candidate pages, do not retry those URLs. If at least one candidate page or WebSearch summary is available, call RespondTool with the best answer and note the limitation instead of planning more fetch retries.
+If WebFetch reports failed candidate pages, do not retry those URLs. Keep failed fetches, 404s, empty searches, invalid URLs, and unavailable-tool details in process logs only. Do not expose those internal tool failures in the final answer when other evidence is available.
 Do not answer by saying a tool is missing, including DocParser. If the executor complains about invalid URLs, raw HTML, missing parser tools, or other tool limitations, use available evidence from LocalSearch/WebSearch/WebFetch and call RespondTool with the best user-facing answer.
 Before the loop ends, prefer RespondTool over another PlanTool when the remaining work would only make the answer marginally more complete.
 When calling RespondTool, deliver the requested artifact directly as the response. Do not make the final response a process summary.
 Use the ClarifierAgent need profile in the query to decide the artifact type, dimensions, constraints, and acceptance criteria.
-For any report-style request, deliver the report itself with a title, concise overview, structured sections, key facts, analysis, references when available, and evidence limitations where relevant.
+For any report-style request, deliver the report itself with a title, concise overview, structured sections, key facts, analysis, and references when available. Put reference links at the end. Only mention user-facing source caveats when they materially affect confidence; never include internal tool failures such as "not found", "no search results", "404", failed fetches, or tool errors in the final answer.
 For any planning or learning request, deliver the plan itself with concrete stages, resources, practice tasks, timing, checkpoints, and next actions matched to the user's goal.
 Use explicit causal links and evidence from available sources; avoid one-sentence sections that only mention major facts in passing.
-Avoid final answers whose main content is "已完成...", "我已经...", "执行过程中...", or "已使用 DocWriter...". If DocWriter was used, mention the saved draft ID only after the report body, as a short note.`
+Never describe the acquisition or execution process in the final answer. Do not write conclusions like "通过对站内知识库和网络搜索信息的整合，完成了调研", "满足了调研目标", "本次调研全面涵盖...", "已完成...", "我已经...", "执行过程中...", "已使用 DocWriter...", or any DocWriter save status.`
 
 // --- Runner Structure ---
 
@@ -298,13 +299,45 @@ func formatThinkTankExecutedSteps(in []planexecute.ExecutedStep) string {
 		return "无"
 	}
 	var sb strings.Builder
-	for idx, step := range in {
-		// 增强：如果 Result 为空，提供一个默认占位符，防止下游解析问题
-		res := step.Result
+	visible := 0
+	for _, step := range in {
+		res := sanitizeExecutedStepResultForReplanner(step.Step, step.Result)
 		if res == "" {
-			res = "[No result emitted by executor]"
+			continue
 		}
-		sb.WriteString(fmt.Sprintf("## %d. Step: %s\nResult: %s\n\n", idx+1, step.Step, res))
+		visible++
+		sb.WriteString(fmt.Sprintf("## %d. Step: %s\nResult: %s\n\n", visible, strings.TrimSpace(step.Step), res))
+	}
+	if visible == 0 {
+		return "无"
 	}
 	return strings.TrimSpace(sb.String())
+}
+
+func sanitizeExecutedStepResultForReplanner(step string, result string) string {
+	step = strings.TrimSpace(step)
+	result = strings.TrimSpace(result)
+	if result == "" {
+		return ""
+	}
+	if containsDocWriterMetadata(step) || containsDocWriterMetadata(result) || isToolFailureEnvelope(result) {
+		return ""
+	}
+	cleaned := sanitizeFinalAnswerForUser(result)
+	if containsRuntimeFailureDetail(cleaned) || containsDocWriterMetadata(cleaned) {
+		return ""
+	}
+	return strings.TrimSpace(cleaned)
+}
+
+func isToolFailureEnvelope(text string) bool {
+	text = strings.TrimSpace(text)
+	if text == "" {
+		return false
+	}
+	var envelope toolResultEnvelope
+	if err := json.Unmarshal([]byte(text), &envelope); err != nil {
+		return false
+	}
+	return !envelope.OK && (strings.TrimSpace(envelope.Error) != "" || strings.TrimSpace(envelope.Hint) != "")
 }
