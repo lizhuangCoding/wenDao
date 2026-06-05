@@ -10,14 +10,22 @@ interface CommentItemProps {
   isReply?: boolean;
 }
 
+const DefaultDeletedUserAvatar = () => (
+  <div aria-hidden="true" className="relative h-full w-full bg-neutral-300 dark:bg-neutral-600">
+    <div className="absolute left-1/2 top-[6px] h-[9px] w-[9px] -translate-x-1/2 rounded-full bg-neutral-50 dark:bg-neutral-300" />
+    <div className="absolute left-1/2 bottom-[3px] h-[14px] w-[20px] -translate-x-1/2 rounded-t-full bg-neutral-50 dark:bg-neutral-300" />
+  </div>
+);
+
 export const CommentItem = ({ comment, articleId, isReply = false }: CommentItemProps) => {
   const { t } = useTranslation();
   const [showReplyForm, setShowReplyForm] = useState(false);
+  const user = comment.user;
+  const isDeletedUser = !user;
+  const username = user?.username || '已注销用户';
   const commentUser = {
-    username: comment.user?.username || '已注销用户',
-    avatarUrl:
-      comment.user?.avatar_url ||
-      `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(comment.user?.username || `deleted-user-${comment.user_id}`)}`,
+    username,
+    avatarUrl: user?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(username)}`,
   };
 
   return (
@@ -27,12 +35,16 @@ export const CommentItem = ({ comment, articleId, isReply = false }: CommentItem
         {/* 评论头部 */}
         <div className="flex items-center gap-3 mb-2">
           {/* 用户头像 */}
-          <div className="w-8 h-8 rounded-full overflow-hidden bg-neutral-200 dark:bg-neutral-700 flex-shrink-0 border border-neutral-100 dark:border-neutral-600">
-            <img
-              src={commentUser.avatarUrl}
-              alt={commentUser.username}
-              className="w-full h-full object-cover"
-            />
+          <div className="w-8 h-8 rounded-full overflow-hidden bg-neutral-200 dark:bg-neutral-700 flex items-center justify-center flex-shrink-0 border border-neutral-100 dark:border-neutral-600">
+            {isDeletedUser ? (
+              <DefaultDeletedUserAvatar />
+            ) : (
+              <img
+                src={commentUser.avatarUrl}
+                alt={commentUser.username}
+                className="w-full h-full object-cover"
+              />
+            )}
           </div>
           <div className="flex flex-col">
             <div className="flex items-center gap-2 flex-wrap">

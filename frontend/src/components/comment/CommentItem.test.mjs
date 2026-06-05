@@ -9,3 +9,10 @@ test('CommentItem handles comments whose user relation is missing', () => {
   assert.match(source, /已注销用户/);
   assert.doesNotMatch(source, /comment\.user\.(avatar_url|username)/);
 });
+
+test('CommentItem renders a blank avatar placeholder for deleted users', () => {
+  assert.match(source, /DefaultDeletedUserAvatar/);
+  assert.match(source, /isDeletedUser/);
+  assert.doesNotMatch(source, /UserCircle/);
+  assert.doesNotMatch(source, /deleted-user/);
+});
