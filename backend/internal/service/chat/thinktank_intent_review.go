@@ -12,9 +12,10 @@ const (
 	thinkTankAcceptanceAgentName = "acceptance"
 	maxThinkTankReviewRevisions  = 1
 
-	acceptanceVerdictPass    = "pass"
-	acceptanceVerdictRevise  = "revise"
-	acceptanceVerdictAskUser = "ask_user"
+	acceptanceVerdictPass        = "pass"
+	acceptanceVerdictRevise      = "revise"
+	acceptanceVerdictAskUser     = "ask_user"
+	acceptanceVerdictUnavailable = "unavailable"
 )
 
 type ClarifierConstraints struct {
@@ -196,7 +197,7 @@ func clampAcceptanceScore(score int) int {
 
 func defaultAcceptanceReview() AcceptanceReview {
 	return AcceptanceReview{
-		Verdict:   acceptanceVerdictPass,
+		Verdict:   acceptanceVerdictUnavailable,
 		Score:     0,
 		Reason:    "acceptance output unavailable; returning generated answer",
 		Available: false,

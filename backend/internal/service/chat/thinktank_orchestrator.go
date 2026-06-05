@@ -15,6 +15,9 @@ import (
 )
 
 const thinkTankStreamRunTimeout = 15 * time.Minute
+const thinkTankRunStaleAfter = thinkTankStreamRunTimeout + time.Minute
+
+var errThinkTankRunAlreadyRunning = errors.New("another answer is still running for this conversation")
 
 type thinkTankOrchestrator struct {
 	service *thinkTankService
@@ -106,6 +109,10 @@ func (o *thinkTankOrchestrator) chat(ctx context.Context, question string, conve
 	if conv != nil {
 		history = s.conversations.loadHistory(conv.ID)
 		pending = s.runs.activeRun(conv.ID)
+		pending, err = o.pendingRunForNewInput(pending)
+		if err != nil {
+			return nil, err
+		}
 		s.conversations.saveMessageWithWarning(conv.ID, "user", question, "Failed to save user message")
 	}
 
@@ -243,13 +250,18 @@ func (o *thinkTankOrchestrator) chatStream(ctx context.Context, question string,
 		if conv != nil {
 			history = s.conversations.loadHistory(conv.ID)
 			pending = s.runs.activeRun(conv.ID)
+			pending, err = o.pendingRunForNewInput(pending)
+			if err != nil {
+				errCh <- err
+				return
+			}
 			s.conversations.saveMessageWithWarning(conv.ID, "user", question, "Failed to save user message")
 		}
 
 		o.emitStage(eventCh, conv, 0, "analyzing", "正在理解你的问题")
 		decision := PlannerDecision{ExecutionStrategy: "eino_plan_execute_replan", PlanSummary: "由 Eino PlanExecute planner 生成计划"}
-		o.emitStage(eventCh, conv, 0, "analyzing", "正在进行多 Agent 深度调研")
-		s.runs.logStage(conv, userID, "adk_start", "开始多 Agent 协作流", question)
+		o.emitStage(eventCh, conv, 0, "analyzing", "正在进行计划-执行-审查调研")
+		s.runs.logStage(conv, userID, "adk_start", "开始 ThinkTank 计划执行流程", question)
 
 		effectiveQuestion, skipClarifier := o.effectiveQuestionFromPending(question, pending)
 		queryForAgents := o.buildAgentQuery(effectiveQuestion, conv, history)
@@ -463,6 +475,31 @@ func (o *thinkTankOrchestrator) effectiveQuestionFromPending(question string, pe
 		return buildInterruptedFollowUpQuestion(pendingContext.OriginalQuestion, pendingContext.SystemQuestion, question), true
 	}
 	return question, false
+}
+
+func (o *thinkTankOrchestrator) pendingRunForNewInput(pending *model.ConversationRun) (*model.ConversationRun, error) {
+	if pending == nil || pending.Status != "running" {
+		return pending, nil
+	}
+	if isStaleThinkTankRun(pending, time.Now()) {
+		o.service.runs.persistFailure(pending.ID, errors.New("previous running answer became stale"))
+		return nil, nil
+	}
+	return nil, errThinkTankRunAlreadyRunning
+}
+
+func isStaleThinkTankRun(run *model.ConversationRun, now time.Time) bool {
+	if run == nil || run.Status != "running" {
+		return false
+	}
+	lastActivity := run.UpdatedAt
+	if run.HeartbeatAt != nil {
+		lastActivity = *run.HeartbeatAt
+	}
+	if lastActivity.IsZero() {
+		return false
+	}
+	return now.Sub(lastActivity) > thinkTankRunStaleAfter
 }
 
 func runIDFromPending(pending *model.ConversationRun) int64 {
@@ -731,8 +768,8 @@ func (o *thinkTankOrchestrator) streamADKFlow(
 	}
 	fullAnswer = appendAcceptanceSummary(fullAnswer, review, revised)
 	o.persistFinalAnswer(conv, derefUserID(userID), question, fullAnswer, decision, history, runID)
-	s.runs.logStage(conv, userID, "completed", "多 Agent 协作完成", fmt.Sprintf("答案长度: %d，答案内容：%v", len(fullAnswer), fullAnswer))
-	o.emitChunk(eventCh, conv, runID, fullAnswer, nil)
+	s.runs.logStage(conv, userID, "completed", "ThinkTank 计划执行流程完成", fmt.Sprintf("答案长度: %d，答案内容：%v", len(fullAnswer), fullAnswer))
+	o.emitChunk(eventCh, conv, runID, fullAnswer, collectSourceRefTitles(adkArticleSources, adkWebSources))
 	o.emitDone(eventCh, conv, runID, "completed", "调研已完成")
 	return nil
 }

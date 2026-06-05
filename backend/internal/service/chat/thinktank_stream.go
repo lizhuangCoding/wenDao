@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/cloudwego/eino/schema"
 
@@ -11,6 +12,8 @@ import (
 )
 
 type thinkTankStreamEmitter struct{}
+
+const criticalStreamSendTimeout = 2 * time.Second
 
 func newThinkTankStreamEmitter() *thinkTankStreamEmitter {
 	return &thinkTankStreamEmitter{}
@@ -23,6 +26,18 @@ func emitStreamEvent(eventCh chan<- StreamEvent, event StreamEvent) {
 	select {
 	case eventCh <- event:
 	default:
+	}
+}
+
+func emitCriticalStreamEvent(eventCh chan<- StreamEvent, event StreamEvent) {
+	if eventCh == nil {
+		return
+	}
+	timer := time.NewTimer(criticalStreamSendTimeout)
+	defer timer.Stop()
+	select {
+	case eventCh <- event:
+	case <-timer.C:
 	}
 }
 
@@ -43,11 +58,11 @@ func (e *thinkTankStreamEmitter) emitHeartbeat(eventCh chan<- StreamEvent, runID
 }
 
 func (e *thinkTankStreamEmitter) emitQuestion(eventCh chan<- StreamEvent, stage string, question string) {
-	emitStreamEvent(eventCh, StreamEvent{Type: StreamEventQuestion, Stage: stage, Message: question})
+	emitCriticalStreamEvent(eventCh, StreamEvent{Type: StreamEventQuestion, Stage: stage, Message: question})
 }
 
 func (e *thinkTankStreamEmitter) emitChunk(eventCh chan<- StreamEvent, message string, sources []string) {
-	emitStreamEvent(eventCh, StreamEvent{Type: StreamEventChunk, Message: message, Sources: sources})
+	emitCriticalStreamEvent(eventCh, StreamEvent{Type: StreamEventChunk, Message: message, Sources: sources})
 }
 
 func (e *thinkTankStreamEmitter) emitStep(eventCh chan<- StreamEvent, step *model.ConversationRunStep) {
@@ -68,7 +83,7 @@ func (e *thinkTankStreamEmitter) emitDone(eventCh chan<- StreamEvent, stage stri
 	if strings.TrimSpace(label) != "" {
 		e.emitStage(eventCh, stage, label)
 	}
-	emitStreamEvent(eventCh, StreamEvent{Type: StreamEventDone, Stage: stage})
+	emitCriticalStreamEvent(eventCh, StreamEvent{Type: StreamEventDone, Stage: stage})
 }
 
 func formatADKMessageDetail(msg *schema.Message) string {
@@ -103,7 +118,7 @@ func formatADKMessageDetail(msg *schema.Message) string {
 }
 
 func extractLocalSearchArticleSources(content string) []SourceRef {
-	content = strings.TrimSpace(content)
+	content = strings.TrimSpace(unwrapToolResultData(content))
 	if content == "" {
 		return nil
 	}
@@ -127,7 +142,7 @@ func extractLocalSearchArticleSources(content string) []SourceRef {
 }
 
 func extractLocalSearchSummary(content string) string {
-	content = strings.TrimSpace(content)
+	content = strings.TrimSpace(unwrapToolResultData(content))
 	if content == "" {
 		return ""
 	}
@@ -141,7 +156,7 @@ func extractLocalSearchSummary(content string) string {
 }
 
 func extractWebSearchSources(content string) []SourceRef {
-	content = strings.TrimSpace(content)
+	content = strings.TrimSpace(unwrapToolResultData(content))
 	if content == "" {
 		return nil
 	}
@@ -175,7 +190,7 @@ func extractWebSearchSources(content string) []SourceRef {
 }
 
 func summarizeWebSearchResult(content string) string {
-	content = strings.TrimSpace(content)
+	content = strings.TrimSpace(unwrapToolResultData(content))
 	if content == "" {
 		return ""
 	}

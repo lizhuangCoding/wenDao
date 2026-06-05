@@ -20,9 +20,9 @@ export const AgentProcessPanel = ({ messageId, steps, expandedIds, onToggle }: A
   return (
     <div className="mb-4 rounded-lg border border-neutral-200 dark:border-neutral-600 bg-neutral-50 dark:bg-neutral-800/70 overflow-hidden">
       <div className="px-4 py-3 border-b border-neutral-200 dark:border-neutral-600">
-        <p className="text-xs font-bold text-neutral-700 dark:text-neutral-200">多 Agent 协作过程</p>
+        <p className="text-xs font-bold text-neutral-700 dark:text-neutral-200">计划-执行-审查过程</p>
         <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-1">
-          默认展示摘要，展开可查看工具调用、返回结果和原始日志。
+          默认展示摘要，展开可查看计划节点、工具调用、返回结果和原始日志。
         </p>
       </div>
 

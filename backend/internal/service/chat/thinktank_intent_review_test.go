@@ -313,10 +313,10 @@ func TestNormalizeAcceptanceVerdict_AcceptsCaseAndHyphenVariants(t *testing.T) {
 	}
 }
 
-func TestParseAcceptanceReview_DefaultsToPassWhenInvalid(t *testing.T) {
+func TestParseAcceptanceReview_DefaultsToUnavailableWhenInvalid(t *testing.T) {
 	got := parseAcceptanceReview("not json")
-	if got.Verdict != acceptanceVerdictPass {
-		t.Fatalf("invalid acceptance output should not block answer, got %#v", got)
+	if got.Verdict == acceptanceVerdictPass {
+		t.Fatalf("invalid acceptance output should be unavailable rather than pass, got %#v", got)
 	}
 	if got.Score != 0 {
 		t.Fatalf("expected unavailable pass score, got %d", got.Score)
@@ -341,7 +341,7 @@ func TestParseAcceptanceReview_SummaryOnlyIsUnavailable(t *testing.T) {
 	if got.Available {
 		t.Fatalf("expected summary-only acceptance review to be unavailable, got %#v", got)
 	}
-	if got.Verdict != acceptanceVerdictPass || got.Score != 0 {
+	if got.Verdict == acceptanceVerdictPass || got.Score != 0 {
 		t.Fatalf("expected unavailable default review, got %#v", got)
 	}
 }
@@ -351,7 +351,7 @@ func TestParseAcceptanceReview_AskUserWithoutQuestionIsUnavailable(t *testing.T)
 	if got.Available {
 		t.Fatalf("expected ask_user without follow-up question to be unavailable, got %#v", got)
 	}
-	if got.Verdict != acceptanceVerdictPass || got.Score != 0 {
+	if got.Verdict == acceptanceVerdictPass || got.Score != 0 {
 		t.Fatalf("expected unavailable default review, got %#v", got)
 	}
 }

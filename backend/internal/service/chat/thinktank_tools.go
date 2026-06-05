@@ -28,10 +28,62 @@ type webFetchInput struct {
 	URLs []string `json:"urls"`
 }
 
+type toolResultEnvelope struct {
+	OK    bool   `json:"ok"`
+	Error string `json:"error,omitempty"`
+	Hint  string `json:"hint,omitempty"`
+	Data  any    `json:"data,omitempty"`
+}
+
 type userIDKey struct{}
 type aiLoggerKey struct{}
 type conversationIDKey struct{}
 type runIDKey struct{}
+
+func encodeToolSuccess(data any) string {
+	return encodeToolEnvelope(toolResultEnvelope{OK: true, Data: data})
+}
+
+func encodeToolSuccessRaw(raw string) string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return encodeToolSuccess(map[string]any{})
+	}
+	if json.Valid([]byte(raw)) {
+		return encodeToolEnvelope(toolResultEnvelope{OK: true, Data: json.RawMessage(raw)})
+	}
+	return encodeToolSuccess(map[string]any{"summary": raw})
+}
+
+func encodeToolFailure(message string, hint string) string {
+	return encodeToolEnvelope(toolResultEnvelope{
+		OK:    false,
+		Error: strings.TrimSpace(message),
+		Hint:  strings.TrimSpace(hint),
+	})
+}
+
+func encodeToolEnvelope(envelope toolResultEnvelope) string {
+	data, err := json.Marshal(envelope)
+	if err != nil {
+		return `{"ok":false,"error":"tool result serialization failed"}`
+	}
+	return string(data)
+}
+
+func unwrapToolResultData(content string) string {
+	content = strings.TrimSpace(content)
+	if content == "" {
+		return ""
+	}
+	var payload struct {
+		Data json.RawMessage `json:"data"`
+	}
+	if err := json.Unmarshal([]byte(content), &payload); err != nil || len(payload.Data) == 0 {
+		return content
+	}
+	return strings.TrimSpace(string(payload.Data))
+}
 
 func WithUserID(ctx context.Context, userID int64) context.Context {
 	return context.WithValue(ctx, userIDKey{}, userID)
@@ -103,13 +155,13 @@ func newLocalSearchTool(librarian Librarian) (tool.BaseTool, error) {
 		},
 		func(ctx context.Context, input localSearchInput) (string, error) {
 			if librarian == nil {
-				return "本地知识库不可用", nil
+				return encodeToolFailure("本地知识库不可用", "继续使用其他已获取证据；不要把本地检索不可用描述成已完成检索。"), nil
 			}
 			logToolStage(ctx, "tool_local_search_call", "执行 LocalSearch 工具", map[string]any{"input": input.Query})
 			result, err := librarian.Search(ctx, input.Query)
 			if err != nil {
 				logToolStage(ctx, "tool_local_search_error", "本地检索报错", map[string]any{"error": err.Error()})
-				return fmt.Sprintf("本地检索发生错误: %v", err), nil // 不返回 error，防止 adk 崩溃
+				return encodeToolFailure(fmt.Sprintf("本地检索发生错误: %v", err), "LocalSearch 失败；继续使用 WebSearch/WebFetch 或明确说明站内证据不可用。"), nil
 			}
 			payload := map[string]any{
 				"coverage_status": result.CoverageStatus,
@@ -117,11 +169,7 @@ func newLocalSearchTool(librarian Librarian) (tool.BaseTool, error) {
 				"sources":         result.Sources,
 			}
 			logToolStage(ctx, "tool_local_search_result", "本地检索结果详情", payload)
-			bytes, err := json.Marshal(payload)
-			if err != nil {
-				return "结果解析失败", nil
-			}
-			return string(bytes), nil
+			return encodeToolSuccess(payload), nil
 		},
 	), nil
 }
@@ -140,11 +188,11 @@ func newWebSearchTool(cfg ResearchConfig) (tool.BaseTool, error) {
 			res, err := callResearchService(ctx, cfg, input.Query)
 			if err != nil {
 				logToolStage(ctx, "tool_web_search_error", "联网搜索报错", map[string]any{"error": err.Error()})
-				return fmt.Sprintf("联网搜索暂不可用: %v", err), nil // 返回描述，不中断流程
+				return encodeToolFailure(fmt.Sprintf("联网搜索暂不可用: %v", err), "WebSearch 失败；使用已有站内证据或说明外部证据不可用，不要重复无效搜索。"), nil
 			}
 			recordWebSearchCandidates(ctx, res)
 			logToolStage(ctx, "tool_web_search_result", "联网搜索结果详情", map[string]any{"output": res})
-			return res, nil
+			return encodeToolSuccessRaw(res), nil
 		},
 	), nil
 }
@@ -173,7 +221,7 @@ func newWebFetchTool(cfg ResearchConfig) (tool.BaseTool, error) {
 			if len(candidates) == 0 {
 				msg := "WebFetch 需要有效的 http(s) URL；当前输入不是 URL。请改用 WebSearch 或 LocalSearch 的结果摘要，或提供有效 URL。"
 				logToolStage(ctx, "tool_web_fetch_error", "网页抓取参数不是有效 URL", map[string]any{"url": input.URL, "urls": input.URLs})
-				return msg, nil
+				return encodeToolFailure(msg, "不要重复抓取无效 URL；用搜索摘要或已有证据继续。"), nil
 			}
 
 			client := &http.Client{
@@ -194,12 +242,20 @@ func newWebFetchTool(cfg ResearchConfig) (tool.BaseTool, error) {
 					"content": content,
 				})
 				if len(failures) == 0 {
-					return content, nil
+					return encodeToolSuccess(map[string]any{"url": candidate.URL, "content": content}), nil
 				}
-				return fmt.Sprintf("已跳过 %d 个不可用页面：\n- %s\n\n成功抓取候选页面：%s\n\n%s", len(failures), strings.Join(failures, "\n- "), candidate.URL, content), nil
+				return encodeToolSuccess(map[string]any{
+					"url":      candidate.URL,
+					"content":  content,
+					"failures": failures,
+					"summary":  fmt.Sprintf("已跳过 %d 个不可用页面，成功抓取候选页面 %s。", len(failures), candidate.URL),
+				}), nil
 			}
 
-			return fmt.Sprintf("网页抓取失败，已尝试 %d 个候选页面但都不可用：\n- %s\n\n请使用 WebSearch 摘要和其他已获取资料继续回答，不要重复抓取这些 URL。", len(failures), strings.Join(failures, "\n- ")), nil
+			return encodeToolFailure(
+				fmt.Sprintf("网页抓取失败，已尝试 %d 个候选页面但都不可用：\n- %s", len(failures), strings.Join(failures, "\n- ")),
+				"请使用 WebSearch 摘要和其他已获取资料继续回答，不要重复抓取这些 URL。",
+			), nil
 		},
 	), nil
 }
@@ -319,7 +375,7 @@ type ResearchConfig struct {
 
 func callResearchService(ctx context.Context, cfg ResearchConfig, query string) (string, error) {
 	if strings.TrimSpace(cfg.Endpoint) == "" {
-		return "未配置 research_endpoint，无法执行联网搜索", nil
+		return "", fmt.Errorf("未配置 research_endpoint，无法执行联网搜索")
 	}
 
 	var payload []byte

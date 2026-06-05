@@ -44,70 +44,71 @@ func initServices(cfg *config.Config, logger *zap.Logger, repos *repositories, i
 		vectorService := service.NewVectorService(aiCore.vectorStore, aiCore.embedder, logger)
 		if err := syncPublishedArticleVectors(repos.article, vectorService, logger); err != nil {
 			logger.Warn("Published article vector sync skipped, continuing in degraded mode", zap.Error(err))
-		} else {
-			knowledgeDocumentService = service.NewKnowledgeDocumentService(repos.knowledgeDocument, repos.knowledgeDocumentSource, vectorService, repos.article, repos.category, logger)
-
-			aiEventLogger, err := service.NewAILoggerWithRotation(aiLogDir(cfg.Log.Output), service.LogRotationConfig{
-				MaxSizeMB:  cfg.Log.MaxSizeMB,
-				MaxBackups: cfg.Log.MaxBackups,
-				MaxAgeDays: cfg.Log.MaxAgeDays,
-				Compress:   cfg.Log.Compress,
-			})
-			if err != nil {
-				logger.Warn("AI event logger unavailable, continuing in degraded mode", zap.Error(err))
-			} else {
-				retriever := eino.NewRedisRetriever(aiCore.vectorStore, aiCore.embedder, cfg.AI.TopK)
-				ragChain := eino.NewRAGChain(retriever, aiCore.llmClient.GetModel(), cfg.AI.RAGMinScore, logger)
-				librarian := service.NewLibrarianService(ragChain)
-				journalist := service.NewJournalist(&cfg.AI)
-				synthesizer := service.NewThinkTankSynthesizer(aiCore.llmClient)
-				memorySummarizer := service.NewConversationMemorySummarizer(aiCore.llmClient)
-				adkRunner, err := service.NewThinkTankADKRunner(context.Background(), aiCore.llmClient, librarian, knowledgeDocumentService, service.ResearchConfig{
-					Endpoint:       cfg.AI.ResearchEndpoint,
-					APIKey:         cfg.AI.ResearchAPIKey,
-					MaxResults:     cfg.AI.ResearchMaxResults,
-					TimeoutSeconds: cfg.AI.ResearchTimeoutSeconds,
-				})
-				if err != nil {
-					logger.Warn("ThinkTank runner unavailable, continuing in degraded mode", zap.Error(err))
-					_ = aiEventLogger.Close()
-				} else {
-					thinkTankService := service.NewThinkTankService(
-						librarian,
-						journalist,
-						synthesizer,
-						repos.conversationRun,
-						repos.conversationRunStep,
-						repos.conversationMemory,
-						repos.conversation,
-						repos.chatMessage,
-						knowledgeDocumentService,
-						aiEventLogger,
-						adkRunner,
-						memorySummarizer,
-					)
-					aiService = service.NewAIService(aiCore.llmClient, thinkTankService, logger)
-					cleanup = func() {
-						_ = aiEventLogger.Close()
-					}
-				}
-			}
-
-			return &appServices{
-				oauth:             oauthService,
-				verification:      verificationService,
-				user:              userService,
-				category:          categoryService,
-				setting:           settingService,
-				vector:            vectorService,
-				knowledgeDocument: knowledgeDocumentService,
-				ai:                aiService,
-				article:           service.NewArticleService(repos.article, repos.category, infra.rdb, vectorService, logger),
-				comment:           service.NewCommentService(repos.comment, repos.article, service.WithReplyNotificationSender(commentReplyEmailSender)),
-				upload:            service.NewUploadService(repos.upload, cfg),
-				stat:              service.NewStatService(repos.stat, infra.rdb),
-			}, cleanup, nil
 		}
+		knowledgeDocumentService = service.NewKnowledgeDocumentService(repos.knowledgeDocument, repos.knowledgeDocumentSource, vectorService, repos.article, repos.category, logger)
+
+		aiEventLogger, err := service.NewAILoggerWithRotation(aiLogDir(cfg.Log.Output), service.LogRotationConfig{
+			MaxSizeMB:  cfg.Log.MaxSizeMB,
+			MaxBackups: cfg.Log.MaxBackups,
+			MaxAgeDays: cfg.Log.MaxAgeDays,
+			Compress:   cfg.Log.Compress,
+		})
+		if err != nil {
+			logger.Warn("AI event logger unavailable, continuing without AI event logs", zap.Error(err))
+			aiEventLogger = nil
+		} else {
+			cleanup = func() {
+				_ = aiEventLogger.Close()
+			}
+		}
+
+		retriever := eino.NewRedisRetriever(aiCore.vectorStore, aiCore.embedder, cfg.AI.TopK)
+		ragChain := eino.NewRAGChain(retriever, aiCore.llmClient.GetModel(), cfg.AI.RAGMinScore, logger)
+		librarian := service.NewLibrarianService(ragChain)
+		journalist := service.NewJournalist(&cfg.AI)
+		synthesizer := service.NewThinkTankSynthesizer(aiCore.llmClient)
+		memorySummarizer := service.NewConversationMemorySummarizer(aiCore.llmClient)
+		adkRunner, err := service.NewThinkTankADKRunner(context.Background(), aiCore.llmClient, librarian, knowledgeDocumentService, service.ResearchConfig{
+			Endpoint:       cfg.AI.ResearchEndpoint,
+			APIKey:         cfg.AI.ResearchAPIKey,
+			MaxResults:     cfg.AI.ResearchMaxResults,
+			TimeoutSeconds: cfg.AI.ResearchTimeoutSeconds,
+		})
+		options := []any{memorySummarizer}
+		if err != nil {
+			logger.Warn("ThinkTank runner unavailable, continuing with manual ThinkTank flow", zap.Error(err))
+		} else if adkRunner != nil {
+			options = append(options, adkRunner)
+		}
+		thinkTankService := service.NewThinkTankService(
+			librarian,
+			journalist,
+			synthesizer,
+			repos.conversationRun,
+			repos.conversationRunStep,
+			repos.conversationMemory,
+			repos.conversation,
+			repos.chatMessage,
+			knowledgeDocumentService,
+			aiEventLogger,
+			options...,
+		)
+		aiService = service.NewAIService(aiCore.llmClient, thinkTankService, logger)
+
+		return &appServices{
+			oauth:             oauthService,
+			verification:      verificationService,
+			user:              userService,
+			category:          categoryService,
+			setting:           settingService,
+			vector:            vectorService,
+			knowledgeDocument: knowledgeDocumentService,
+			ai:                aiService,
+			article:           service.NewArticleService(repos.article, repos.category, infra.rdb, vectorService, logger),
+			comment:           service.NewCommentService(repos.comment, repos.article, service.WithReplyNotificationSender(commentReplyEmailSender)),
+			upload:            service.NewUploadService(repos.upload, cfg),
+			stat:              service.NewStatService(repos.stat, infra.rdb),
+		}, cleanup, nil
 	}
 
 	return &appServices{

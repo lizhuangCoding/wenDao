@@ -97,10 +97,28 @@ func (h *chatRunHub) publish(runID int64, conversationID int64, event StreamEven
 	h.mu.Unlock()
 
 	for _, subscriber := range subscribers {
-		select {
-		case subscriber <- event:
-		default:
+		if isCriticalStreamEvent(event.Type) {
+			timer := time.NewTimer(criticalStreamSendTimeout)
+			select {
+			case subscriber <- event:
+			case <-timer.C:
+			}
+			timer.Stop()
+		} else {
+			select {
+			case subscriber <- event:
+			default:
+			}
 		}
+	}
+}
+
+func isCriticalStreamEvent(eventType StreamEventType) bool {
+	switch eventType {
+	case StreamEventQuestion, StreamEventChunk, StreamEventDone:
+		return true
+	default:
+		return false
 	}
 }
 

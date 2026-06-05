@@ -42,7 +42,7 @@ func (s *thinkTankSynthesizer) Compose(ctx context.Context, question string, loc
 			builder.WriteString(web.Summary)
 		}
 		messages := []eino.ChatMessage{
-			{Role: "system", Content: "你是问道博客的多 Agent 汇总助手，请整合站内知识与外部调研结果，用中文给出最终回答。"},
+			{Role: "system", Content: "你是问道博客的研究流程汇总助手，请整合站内知识与外部调研结果，用中文给出最终回答。"},
 			{Role: "user", Content: fmt.Sprintf("问题：%s\n\n材料：\n%s", question, builder.String())},
 		}
 		var err error
@@ -121,6 +121,25 @@ func collectSourceTitles(local LibrarianResult, web *JournalistResult) []string 
 			if source.Title != "" {
 				result = append(result, source.Title)
 			}
+		}
+	}
+	return result
+}
+
+func collectSourceRefTitles(groups ...[]SourceRef) []string {
+	seen := make(map[string]struct{})
+	result := make([]string, 0)
+	for _, sources := range groups {
+		for _, source := range sources {
+			title := strings.TrimSpace(source.Title)
+			if title == "" {
+				continue
+			}
+			if _, ok := seen[title]; ok {
+				continue
+			}
+			seen[title] = struct{}{}
+			result = append(result, title)
 		}
 	}
 	return result

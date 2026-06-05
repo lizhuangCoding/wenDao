@@ -53,6 +53,7 @@ func recordWebSearchCandidates(ctx context.Context, payload string) {
 }
 
 func extractWebFetchCandidates(payload string) []webFetchCandidate {
+	payload = unwrapToolResultData(payload)
 	var data struct {
 		Organic []struct {
 			Title   string `json:"title"`

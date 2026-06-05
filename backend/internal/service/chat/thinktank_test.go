@@ -543,6 +543,40 @@ func TestThinkTankStreamEmitter_DoesNotBlockWhenOriginalClientStopsReading(t *te
 	}
 }
 
+func TestThinkTankStreamEmitter_DoesNotDropCriticalDoneWhenBufferIsFull(t *testing.T) {
+	eventCh := make(chan StreamEvent, 1)
+	eventCh <- StreamEvent{Type: StreamEventStage, Stage: "busy"}
+	emitDone := make(chan struct{})
+
+	go func() {
+		newThinkTankStreamEmitter().emitDone(eventCh, "completed", "")
+		close(emitDone)
+	}()
+
+	select {
+	case <-emitDone:
+		t.Fatal("expected done emission to wait until the critical event can be delivered")
+	case <-time.After(20 * time.Millisecond):
+	}
+
+	<-eventCh
+
+	select {
+	case <-emitDone:
+	case <-time.After(100 * time.Millisecond):
+		t.Fatal("expected done emission to complete after buffer is drained")
+	}
+
+	select {
+	case event := <-eventCh:
+		if event.Type != StreamEventDone || event.Stage != "completed" {
+			t.Fatalf("expected completed done event, got %#v", event)
+		}
+	default:
+		t.Fatal("expected done event to be queued after buffer is drained")
+	}
+}
+
 func TestThinkTankService_ChatStream_ContinuesAfterRequestContextIsCanceled(t *testing.T) {
 	librarian := &contextSensitiveLibrarian{
 		delay: 20 * time.Millisecond,
@@ -571,6 +605,48 @@ func TestThinkTankService_ChatStream_ContinuesAfterRequestContextIsCanceled(t *t
 	}
 	if !doneSeen {
 		t.Fatal("expected stream to complete after the original request context is canceled")
+	}
+}
+
+func TestThinkTankService_RejectsNewQuestionWhenRunIsAlreadyRunning(t *testing.T) {
+	now := time.Now()
+	runRepo := &stubConversationRunRepository{active: &model.ConversationRun{
+		ID:             17,
+		ConversationID: 41,
+		UserID:         12,
+		Status:         "running",
+		CurrentStage:   "web_research",
+		HeartbeatAt:    &now,
+	}}
+	convRepo := &stubConversationRepository{conversation: &model.Conversation{ID: 41, UserID: 12, Title: "研究会话"}}
+	svc := NewThinkTankService(&stubLibrarian{}, nil, &stubSynthesizer{answer: "不应该生成"}, runRepo, &stubConversationRunStepRepository{}, &stubConversationMemoryRepository{}, convRepo, &stubChatMessageRepository{}, nil, &stubAILogger{})
+
+	_, err := svc.Chat(context.Background(), "新问题", ptrInt64(41), ptrInt64(12))
+	if err == nil || !strings.Contains(err.Error(), "another answer is still running") {
+		t.Fatalf("expected active run rejection, got %v", err)
+	}
+}
+
+func TestThinkTankService_AllowsNewQuestionAfterStaleRunningRun(t *testing.T) {
+	stale := time.Now().Add(-thinkTankRunStaleAfter - time.Minute)
+	runRepo := &stubConversationRunRepository{active: &model.ConversationRun{
+		ID:             18,
+		ConversationID: 42,
+		UserID:         12,
+		Status:         "running",
+		CurrentStage:   "web_research",
+		HeartbeatAt:    &stale,
+	}}
+	convRepo := &stubConversationRepository{conversation: &model.Conversation{ID: 42, UserID: 12, Title: "研究会话"}}
+	synthesizer := &stubSynthesizer{answer: "新回答"}
+	svc := NewThinkTankService(&stubLibrarian{result: LibrarianResult{CoverageStatus: "sufficient", Summary: "站内资料"}}, nil, synthesizer, runRepo, &stubConversationRunStepRepository{}, &stubConversationMemoryRepository{}, convRepo, &stubChatMessageRepository{}, nil, &stubAILogger{})
+
+	resp, err := svc.Chat(context.Background(), "新问题", ptrInt64(42), ptrInt64(12))
+	if err != nil {
+		t.Fatalf("expected stale run to be cleared and new question to proceed, got %v", err)
+	}
+	if resp.Message != "新回答" {
+		t.Fatalf("expected new answer, got %#v", resp)
 	}
 }
 
