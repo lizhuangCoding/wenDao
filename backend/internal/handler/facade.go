@@ -49,7 +49,9 @@ func NewUploadHandler(uploadSvc service.UploadService) *UploadHandler {
 	return uploadhandler.NewUploadHandler(uploadSvc)
 }
 func NewAIHandler(aiSvc service.AIService) *AIHandler { return chathandler.NewAIHandler(aiSvc) }
-func NewSiteHandler(cfg *config.Config) *SiteHandler  { return sitehandler.NewSiteHandler(cfg) }
+func NewSiteHandler(cfg *config.Config, articleSvc service.ArticleService) *SiteHandler {
+	return sitehandler.NewSiteHandler(cfg, articleSvc)
+}
 func NewStatHandler(statSvc *service.StatService) *StatHandler {
 	return stathandler.NewStatHandler(statSvc)
 }

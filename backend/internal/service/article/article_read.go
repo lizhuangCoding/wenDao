@@ -43,6 +43,11 @@ func (s *articleService) GetBySlug(slug string) (*model.Article, error) {
 	return article, nil
 }
 
+// GetAllPublished 获取所有已发布的文章
+func (s *articleService) GetAllPublished() ([]*model.Article, error) {
+	return s.articleRepo.GetAllPublished()
+}
+
 // List 获取文章列表
 func (s *articleService) List(status string, categoryID int64, keyword string, sortByPopularity bool, page, pageSize int) ([]*model.Article, int64, error) {
 	if page <= 0 {

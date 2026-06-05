@@ -30,6 +30,7 @@ type ArticleService interface {
 	UnlikeArticle(id int64) error
 	ToggleTop(id int64) (*model.Article, error)
 	UpdatePopularityScores() error
+	GetAllPublished() ([]*model.Article, error)
 }
 
 // articleService 文章服务实现

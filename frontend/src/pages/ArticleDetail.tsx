@@ -10,6 +10,7 @@ import { formatDate } from '@/utils';
 import { useAuth } from '@/hooks';
 import { useMemo } from 'react';
 import { motion } from 'framer-motion';
+import { Helmet } from 'react-helmet-async';
 
 export const ArticleDetail = () => {
   const { t } = useTranslation();
@@ -41,8 +42,52 @@ export const ArticleDetail = () => {
     );
   }
 
+  const canonicalUrl = slug ? `${window.location.origin}/article/${slug}` : '';
+  const pageTitle = `${article.title} - 问道`;
+  const pageDescription = article.summary || article.title;
+  const ogImage = article.cover_image || `${window.location.origin}/favicon.svg`;
+  const publishDate = article.created_at;
+
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'Article',
+    headline: article.title,
+    description: pageDescription,
+    ...(article.cover_image ? { image: article.cover_image } : {}),
+    datePublished: publishDate,
+    ...(article.author ? {
+      author: {
+        '@type': 'Person',
+        name: article.author.username,
+      },
+    } : {}),
+    publisher: {
+      '@type': 'Organization',
+      name: '问道',
+    },
+  };
+
   return (
     <Layout>
+      <Helmet>
+        <title>{pageTitle}</title>
+        <meta name="description" content={pageDescription} />
+        <meta property="og:title" content={pageTitle} />
+        <meta property="og:description" content={pageDescription} />
+        <meta property="og:type" content="article" />
+        <meta property="og:image" content={ogImage} />
+        <meta property="og:url" content={canonicalUrl} />
+        {publishDate && <meta property="article:published_time" content={publishDate} />}
+        {article.author?.username && <meta property="article:author" content={article.author.username} />}
+        <meta name="twitter:card" content={article.cover_image ? 'summary_large_image' : 'summary'} />
+        <meta name="twitter:title" content={pageTitle} />
+        <meta name="twitter:description" content={pageDescription} />
+        <meta name="twitter:image" content={ogImage} />
+        <link rel="canonical" href={canonicalUrl} />
+        <script type="application/ld+json">
+          {JSON.stringify(jsonLd)}
+        </script>
+      </Helmet>
       <div className="max-w-display mx-auto px-6 sm:px-10 lg:px-12 py-20">
         <motion.div
           initial={{ opacity: 0, y: 20 }}

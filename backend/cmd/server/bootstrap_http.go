@@ -37,7 +37,7 @@ func initHandlers(cfg *config.Config, repos *repositories, services *appServices
 		comment:           handler.NewCommentHandler(services.comment, services.stat),
 		upload:            handler.NewUploadHandler(services.upload),
 		ai:                handler.NewAIHandler(services.ai),
-		site:              handler.NewSiteHandler(cfg),
+		site:              handler.NewSiteHandler(cfg, services.article),
 		stat:              handler.NewStatHandler(services.stat),
 		chat:              handler.NewChatHandler(repos.conversation, repos.chatMessage, repos.conversationRun, repos.conversationRunStep, repos.conversationMemory),
 		knowledgeDocument: handler.NewKnowledgeDocumentHandler(services.knowledgeDocument),
@@ -258,4 +258,6 @@ func registerRoutes(
 	router.GET("/health", func(c *gin.Context) {
 		response.Success(c, gin.H{"status": "ok"})
 	})
+	router.GET("/robots.txt", siteHandler.RobotsTxt)
+	router.GET("/sitemap.xml", siteHandler.SitemapXml)
 }

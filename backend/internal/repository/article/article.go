@@ -236,9 +236,9 @@ func (r *articleRepository) UpdatePopularity(id int64, popularity float64) error
 	return r.db.Model(&model.Article{}).Where("id = ?", id).Update("popularity", popularity).Error
 }
 
-// GetAllPublished 获取所有已发布的文章（用于批量计算分数）
+// GetAllPublished 获取所有已发布的文章（用于批量计算分数和站点地图）
 func (r *articleRepository) GetAllPublished() ([]*model.Article, error) {
 	var articles []*model.Article
-	err := r.db.Where("status = ?", "published").Find(&articles).Error
+	err := r.db.Select("id, slug, title, updated_at, published_at, created_at, view_count, comment_count, like_count").Where("status = ?", "published").Find(&articles).Error
 	return articles, err
 }

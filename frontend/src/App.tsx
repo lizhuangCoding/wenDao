@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { RouterProvider } from 'react-router-dom';
+import { HelmetProvider } from 'react-helmet-async';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { router } from './router';
 import { useAuthStore, useUIStore } from './store';
@@ -63,10 +64,12 @@ function App() {
   }, [token, fetchCurrentUser]);
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <RouterProvider router={router} />
-      <Toast />
-    </QueryClientProvider>
+    <HelmetProvider>
+      <QueryClientProvider client={queryClient}>
+        <RouterProvider router={router} />
+        <Toast />
+      </QueryClientProvider>
+    </HelmetProvider>
   );
 }
 
