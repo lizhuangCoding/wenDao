@@ -203,7 +203,7 @@ wenDao/
 │   ├── src/store/              # Zustand 状态
 │   ├── src/hooks/              # 自定义 Hooks
 │   └── src/styles/             # 全局样式
-├── docs/                       # 设计文档、方案和计划
+├── docs/                       # 核心设计文档与部署指南
 ├── examples/                   # 实验性示例
 └── scripts/                    # 辅助脚本
 ```
@@ -211,9 +211,8 @@ wenDao/
 ## Notes
 
 - 仓库中不应提交真实的 `.env`、日志、上传文件和本地构建产物
-- 日志保留与轮转的技术实现说明见 [docs/2026-05-18-log-retention-implementation.md](./docs/2026-05-18-log-retention-implementation.md)
-- 当前前端子项目已有单独的说明文档，见 [frontend/README.md](./frontend/README.md)
-- `docs/` 目录中保留了较多设计稿与计划文档，可作为后续迭代参考
+- 前端子项目说明见 [frontend/README.md](./frontend/README.md)
+- 部署细节见 [docs/deployment.md](./docs/deployment.md)
 
 ## License
 
