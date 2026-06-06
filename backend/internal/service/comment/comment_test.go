@@ -116,6 +116,18 @@ func (r *replyNotificationArticleRepo) GetDueScheduledArticles() ([]*model.Artic
 func (r *replyNotificationArticleRepo) PublishScheduled(articleID int64) error {
 	return nil
 }
+func (r *replyNotificationArticleRepo) AddInteraction(userID, articleID int64, interactionType string) (bool, error) {
+	return false, nil
+}
+func (r *replyNotificationArticleRepo) RemoveInteraction(userID, articleID int64, interactionType string) (bool, error) {
+	return false, nil
+}
+func (r *replyNotificationArticleRepo) GetInteractionState(userID, articleID int64) (*model.ArticleInteractionState, error) {
+	return nil, nil
+}
+func (r *replyNotificationArticleRepo) ListByInteraction(userID int64, interactionType string, filter repository.ArticleFilter) ([]*model.Article, int64, error) {
+	return nil, 0, nil
+}
 
 type recordingReplyNotificationSender struct {
 	notifications []CommentReplyNotification

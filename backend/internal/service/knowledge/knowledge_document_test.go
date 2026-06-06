@@ -142,6 +142,18 @@ func (r *stubKnowledgeArticleRepository) GetDueScheduledArticles() ([]*model.Art
 func (r *stubKnowledgeArticleRepository) PublishScheduled(articleID int64) error {
 	return nil
 }
+func (r *stubKnowledgeArticleRepository) AddInteraction(userID, articleID int64, interactionType string) (bool, error) {
+	return false, nil
+}
+func (r *stubKnowledgeArticleRepository) RemoveInteraction(userID, articleID int64, interactionType string) (bool, error) {
+	return false, nil
+}
+func (r *stubKnowledgeArticleRepository) GetInteractionState(userID, articleID int64) (*model.ArticleInteractionState, error) {
+	return nil, nil
+}
+func (r *stubKnowledgeArticleRepository) ListByInteraction(userID int64, interactionType string, filter repository.ArticleFilter) ([]*model.Article, int64, error) {
+	return nil, 0, nil
+}
 
 type stubKnowledgeCategoryRepository struct {
 	categories  []*model.Category

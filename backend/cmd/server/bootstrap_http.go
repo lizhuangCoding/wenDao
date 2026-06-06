@@ -182,6 +182,13 @@ func registerRoutes(
 			authRequired.POST("/users/me/avatar", userHandler.UploadAvatar)
 			authRequired.PUT("/users/me/username", userHandler.UpdateUsername)
 			authRequired.PUT("/users/me/preferences", userHandler.UpdatePreferences)
+			authRequired.GET("/users/me/liked-articles", articleHandler.ListLikedArticles)
+			authRequired.GET("/users/me/favorite-articles", articleHandler.ListFavoriteArticles)
+			authRequired.GET("/articles/:id/interaction", articleHandler.GetInteraction)
+			authRequired.POST("/articles/:id/like", articleHandler.Like)
+			authRequired.DELETE("/articles/:id/like", articleHandler.Unlike)
+			authRequired.POST("/articles/:id/favorite", articleHandler.Favorite)
+			authRequired.DELETE("/articles/:id/favorite", articleHandler.Unfavorite)
 			authRequired.POST("/comments", commentHandler.Create)
 			authRequired.DELETE("/comments/:id", commentHandler.Delete)
 

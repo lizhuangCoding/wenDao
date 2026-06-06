@@ -50,6 +50,18 @@ func (r *viewCountArticleRepoStub) GetDueScheduledArticles() ([]*model.Article, 
 	return nil, nil
 }
 func (r *viewCountArticleRepoStub) PublishScheduled(articleID int64) error { return nil }
+func (r *viewCountArticleRepoStub) AddInteraction(userID, articleID int64, interactionType string) (bool, error) {
+	return false, nil
+}
+func (r *viewCountArticleRepoStub) RemoveInteraction(userID, articleID int64, interactionType string) (bool, error) {
+	return false, nil
+}
+func (r *viewCountArticleRepoStub) GetInteractionState(userID, articleID int64) (*model.ArticleInteractionState, error) {
+	return &model.ArticleInteractionState{}, nil
+}
+func (r *viewCountArticleRepoStub) ListByInteraction(userID int64, interactionType string, filter repository.ArticleFilter) ([]*model.Article, int64, error) {
+	return nil, 0, nil
+}
 func (r *viewCountArticleRepoStub) IncrementViewCount(id int64) error {
 	if r.incrementCh != nil {
 		r.incrementCh <- id

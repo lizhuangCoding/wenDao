@@ -36,3 +36,13 @@ func TestAutoMigrateModelsIncludesNotification(t *testing.T) {
 
 	t.Fatal("expected AutoMigrate model list to include Notification")
 }
+
+func TestAutoMigrateModelsIncludesArticleInteraction(t *testing.T) {
+	for _, migrationModel := range autoMigrateModels() {
+		if _, ok := migrationModel.(*model.ArticleInteraction); ok {
+			return
+		}
+	}
+
+	t.Fatal("expected AutoMigrate model list to include ArticleInteraction")
+}

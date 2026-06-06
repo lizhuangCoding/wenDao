@@ -1,9 +1,11 @@
 package article
 
 import (
+	"errors"
 	"time"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	"wenDao/internal/model"
 )
@@ -42,6 +44,10 @@ type ArticleRepository interface {
 	GetAllPublished() ([]*model.Article, error)
 	GetDueScheduledArticles() ([]*model.Article, error)
 	PublishScheduled(articleID int64) error
+	AddInteraction(userID, articleID int64, interactionType string) (bool, error)
+	RemoveInteraction(userID, articleID int64, interactionType string) (bool, error)
+	GetInteractionState(userID, articleID int64) (*model.ArticleInteractionState, error)
+	ListByInteraction(userID int64, interactionType string, filter ArticleFilter) ([]*model.Article, int64, error)
 }
 
 // articleRepository 文章数据访问实现
@@ -183,6 +189,9 @@ func (r *articleRepository) Delete(id int64) error {
 		if err := tx.Where("article_id = ?", id).Delete(&model.ArticleStat{}).Error; err != nil {
 			return err
 		}
+		if err := tx.Where("article_id = ?", id).Delete(&model.ArticleInteraction{}).Error; err != nil {
+			return err
+		}
 		if err := tx.Model(&model.KnowledgeDocument{}).Where("article_id = ?", id).Update("article_id", nil).Error; err != nil {
 			return err
 		}
@@ -227,7 +236,7 @@ func (r *articleRepository) IncrementLikeCount(id int64) error {
 // DecrementLikeCount 减少点赞数
 func (r *articleRepository) DecrementLikeCount(id int64) error {
 	return r.db.Model(&model.Article{}).Where("id = ?", id).
-		UpdateColumn("like_count", gorm.Expr("like_count - ?", 1)).Error
+		UpdateColumn("like_count", gorm.Expr("CASE WHEN like_count > 0 THEN like_count - 1 ELSE 0 END")).Error
 }
 
 // UpdateTop 更新置顶状态
@@ -263,4 +272,101 @@ func (r *articleRepository) PublishScheduled(articleID int64) error {
 		"status":       "published",
 		"published_at": time.Now(),
 	}).Error
+}
+
+func (r *articleRepository) AddInteraction(userID, articleID int64, interactionType string) (bool, error) {
+	interaction := &model.ArticleInteraction{
+		UserID:          userID,
+		ArticleID:       articleID,
+		InteractionType: interactionType,
+	}
+	result := r.db.Clauses(clause.OnConflict{DoNothing: true}).Create(interaction)
+	if result.Error != nil {
+		return false, result.Error
+	}
+	return result.RowsAffected > 0, nil
+}
+
+func (r *articleRepository) RemoveInteraction(userID, articleID int64, interactionType string) (bool, error) {
+	result := r.db.Where(
+		"user_id = ? AND article_id = ? AND interaction_type = ?",
+		userID,
+		articleID,
+		interactionType,
+	).Delete(&model.ArticleInteraction{})
+	if result.Error != nil {
+		return false, result.Error
+	}
+	return result.RowsAffected > 0, nil
+}
+
+func (r *articleRepository) GetInteractionState(userID, articleID int64) (*model.ArticleInteractionState, error) {
+	var interactions []model.ArticleInteraction
+	if err := r.db.
+		Select("interaction_type").
+		Where("user_id = ? AND article_id = ? AND interaction_type IN ?", userID, articleID, []string{
+			model.ArticleInteractionTypeLike,
+			model.ArticleInteractionTypeFavorite,
+		}).
+		Find(&interactions).Error; err != nil {
+		return nil, err
+	}
+
+	state := &model.ArticleInteractionState{}
+	for _, interaction := range interactions {
+		switch interaction.InteractionType {
+		case model.ArticleInteractionTypeLike:
+			state.Liked = true
+		case model.ArticleInteractionTypeFavorite:
+			state.Favorited = true
+		}
+	}
+	return state, nil
+}
+
+func (r *articleRepository) ListByInteraction(userID int64, interactionType string, filter ArticleFilter) ([]*model.Article, int64, error) {
+	if filter.Page <= 0 {
+		filter.Page = 1
+	}
+	if filter.PageSize <= 0 {
+		filter.PageSize = 20
+	}
+	if filter.PageSize > 100 {
+		filter.PageSize = 100
+	}
+
+	query := r.db.Model(&model.Article{}).
+		Joins("JOIN article_interactions ON article_interactions.article_id = articles.id").
+		Where("article_interactions.user_id = ? AND article_interactions.interaction_type = ?", userID, interactionType).
+		Where("articles.status = ?", "published")
+
+	var total int64
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	var articles []*model.Article
+	offset := (filter.Page - 1) * filter.PageSize
+	err := query.
+		Select(
+			"articles.id", "articles.title", "articles.slug", "articles.summary", "articles.category_id",
+			"articles.author_id", "articles.cover_image", "articles.status", "articles.ai_index_status",
+			"articles.source_type", "articles.source_id", "articles.view_count", "articles.comment_count",
+			"articles.like_count", "articles.is_top", "articles.popularity", "articles.published_at",
+			"articles.created_at", "articles.updated_at",
+		).
+		Preload("Category", func(db *gorm.DB) *gorm.DB {
+			return db.Select("id", "name", "slug")
+		}).
+		Preload("Author", func(db *gorm.DB) *gorm.DB {
+			return db.Select("id", "username", "avatar_url", "avatar_source")
+		}).
+		Order("article_interactions.created_at DESC").
+		Offset(offset).
+		Limit(filter.PageSize).
+		Find(&articles).Error
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, 0, err
+	}
+	return articles, total, nil
 }

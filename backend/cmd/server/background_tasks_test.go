@@ -86,6 +86,24 @@ func (s *immediateArticleSchedulerService) AutoSave(id int64, title, content, su
 func (s *immediateArticleSchedulerService) IncrViewCount(id int64) error { return nil }
 func (s *immediateArticleSchedulerService) LikeArticle(id int64) error   { return nil }
 func (s *immediateArticleSchedulerService) UnlikeArticle(id int64) error { return nil }
+func (s *immediateArticleSchedulerService) LikeArticleForUser(userID, articleID int64) (*model.ArticleInteractionState, error) {
+	return nil, nil
+}
+func (s *immediateArticleSchedulerService) UnlikeArticleForUser(userID, articleID int64) (*model.ArticleInteractionState, error) {
+	return nil, nil
+}
+func (s *immediateArticleSchedulerService) FavoriteArticleForUser(userID, articleID int64) (*model.ArticleInteractionState, error) {
+	return nil, nil
+}
+func (s *immediateArticleSchedulerService) UnfavoriteArticleForUser(userID, articleID int64) (*model.ArticleInteractionState, error) {
+	return nil, nil
+}
+func (s *immediateArticleSchedulerService) GetArticleInteractionState(userID, articleID int64) (*model.ArticleInteractionState, error) {
+	return nil, nil
+}
+func (s *immediateArticleSchedulerService) ListArticlesByInteraction(userID int64, interactionType string, page, pageSize int) ([]*model.Article, int64, error) {
+	return nil, 0, nil
+}
 func (s *immediateArticleSchedulerService) ToggleTop(id int64) (*model.Article, error) {
 	return nil, nil
 }

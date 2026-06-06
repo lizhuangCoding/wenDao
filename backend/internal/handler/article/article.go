@@ -33,6 +33,24 @@ func isAdminRequest(c *gin.Context) bool {
 	return exists && role == "admin"
 }
 
+func currentUserID(c *gin.Context) (int64, bool) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		return 0, false
+	}
+	id, ok := userID.(int64)
+	return id, ok
+}
+
+func parseArticleIDParam(c *gin.Context) (int64, bool) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		response.InvalidParams(c, "Invalid article ID")
+		return 0, false
+	}
+	return id, true
+}
+
 // GetSortMode 获取全站排序模式
 func (h *ArticleHandler) GetSortMode(c *gin.Context) {
 	enabled := h.settingService.GetSortByPopularity()
@@ -579,4 +597,100 @@ func (h *ArticleHandler) AutoSave(c *gin.Context) {
 	}
 
 	response.Success(c, nil)
+}
+
+func (h *ArticleHandler) GetInteraction(c *gin.Context) {
+	id, ok := parseArticleIDParam(c)
+	if !ok {
+		return
+	}
+	userID, ok := currentUserID(c)
+	if !ok {
+		response.Unauthorized(c, "Unauthorized")
+		return
+	}
+
+	state, err := h.articleService.GetArticleInteractionState(userID, id)
+	if err != nil {
+		if err.Error() == "article not found" {
+			response.NotFound(c, "Article not found")
+			return
+		}
+		response.InternalErrorWithErr(c, "Failed to get article interaction state", err)
+		return
+	}
+	response.Success(c, state)
+}
+
+func (h *ArticleHandler) Like(c *gin.Context) {
+	h.updateInteraction(c, h.articleService.LikeArticleForUser)
+}
+
+func (h *ArticleHandler) Unlike(c *gin.Context) {
+	h.updateInteraction(c, h.articleService.UnlikeArticleForUser)
+}
+
+func (h *ArticleHandler) Favorite(c *gin.Context) {
+	h.updateInteraction(c, h.articleService.FavoriteArticleForUser)
+}
+
+func (h *ArticleHandler) Unfavorite(c *gin.Context) {
+	h.updateInteraction(c, h.articleService.UnfavoriteArticleForUser)
+}
+
+func (h *ArticleHandler) updateInteraction(
+	c *gin.Context,
+	update func(userID, articleID int64) (*model.ArticleInteractionState, error),
+) {
+	id, ok := parseArticleIDParam(c)
+	if !ok {
+		return
+	}
+	userID, ok := currentUserID(c)
+	if !ok {
+		response.Unauthorized(c, "Unauthorized")
+		return
+	}
+
+	state, err := update(userID, id)
+	if err != nil {
+		if err.Error() == "article not found" {
+			response.NotFound(c, "Article not found")
+			return
+		}
+		response.InternalErrorWithErr(c, "Failed to update article interaction", err)
+		return
+	}
+	response.Success(c, state)
+}
+
+func (h *ArticleHandler) ListLikedArticles(c *gin.Context) {
+	h.listInteractedArticles(c, model.ArticleInteractionTypeLike)
+}
+
+func (h *ArticleHandler) ListFavoriteArticles(c *gin.Context) {
+	h.listInteractedArticles(c, model.ArticleInteractionTypeFavorite)
+}
+
+func (h *ArticleHandler) listInteractedArticles(c *gin.Context, interactionType string) {
+	userID, ok := currentUserID(c)
+	if !ok {
+		response.Unauthorized(c, "Unauthorized")
+		return
+	}
+	p := pagination.FromQuery(c)
+
+	articles, total, err := h.articleService.ListArticlesByInteraction(userID, interactionType, p.Page, p.PageSize)
+	if err != nil {
+		response.InternalErrorWithErr(c, "Failed to list articles", err)
+		return
+	}
+
+	response.Success(c, gin.H{
+		"data":       articles,
+		"total":      total,
+		"page":       p.Page,
+		"pageSize":   p.PageSize,
+		"totalPages": pagination.TotalPages(total, p.PageSize),
+	})
 }

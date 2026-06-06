@@ -1,6 +1,7 @@
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
+import { Bookmark, Heart } from 'lucide-react';
 import { articleApi } from '@/api';
 import { Layout, Loading, ErrorState } from '@/components/common';
 import { ArticleContent, TableOfContents } from '@/components/article';
@@ -9,20 +10,69 @@ import { CommentList } from '@/components/comment';
 import { formatDate } from '@/utils';
 import { toAbsoluteSeoUrl } from '@/utils/seo';
 import { useAuth } from '@/hooks';
+import { useUIStore } from '@/store';
 import { useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Helmet } from 'react-helmet-async';
+import type { Article, ArticleInteractionState } from '@/types';
+
+type ArticleInteractionAction = 'like' | 'unlike' | 'favorite' | 'unfavorite';
 
 export const ArticleDetail = () => {
   const { t } = useTranslation();
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
-  const { isAdmin } = useAuth();
+  const queryClient = useQueryClient();
+  const { showToast } = useUIStore();
+  const { isAdmin, isAuthenticated } = useAuth();
 
   const { data: article, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['article', slug],
     queryFn: () => articleApi.getArticleBySlug(slug!),
     enabled: !!slug,
+  });
+
+  const interactionQuery = useQuery({
+    queryKey: ['article-interaction', article?.id],
+    queryFn: () => articleApi.getArticleInteraction(article!.id),
+    enabled: isAuthenticated && !!article?.id,
+    staleTime: 60_000,
+  });
+
+  const updateArticleLikeCount = (delta: number) => {
+    queryClient.setQueryData<Article | undefined>(['article', slug], (current) => {
+      if (!current) return current;
+      return {
+        ...current,
+        like_count: Math.max(0, current.like_count + delta),
+      };
+    });
+  };
+
+  const interactionMutation = useMutation({
+    mutationFn: async (action: ArticleInteractionAction) => {
+      if (!article) throw new Error('article missing');
+      switch (action) {
+      case 'like':
+        return articleApi.likeArticle(article.id);
+      case 'unlike':
+        return articleApi.unlikeArticle(article.id);
+      case 'favorite':
+        return articleApi.favoriteArticle(article.id);
+      case 'unfavorite':
+        return articleApi.unfavoriteArticle(article.id);
+      }
+    },
+    onSuccess: (state: ArticleInteractionState, action) => {
+      if (!article) return;
+      queryClient.setQueryData(['article-interaction', article.id], state);
+      if (action === 'like') updateArticleLikeCount(1);
+      if (action === 'unlike') updateArticleLikeCount(-1);
+      queryClient.invalidateQueries({ queryKey: ['article', slug] });
+    },
+    onError: (mutationError: any) => {
+      showToast(mutationError?.message || '操作失败，请稍后再试', 'error');
+    },
   });
 
   const headings = useMemo(() => {
@@ -62,6 +112,29 @@ export const ArticleDetail = () => {
   const ogImage = toAbsoluteSeoUrl(article.cover_image || '/favicon.svg');
   const publishDate = article.published_at || article.created_at;
   const modifiedDate = article.updated_at || publishDate;
+  const interactionState = interactionQuery.data || { liked: false, favorited: false };
+  const isInteractionPending = interactionMutation.isPending || interactionQuery.isLoading;
+
+  const requireLogin = () => {
+    showToast('登录后可以点赞和收藏文章', 'info');
+    navigate('/login');
+  };
+
+  const handleLikeClick = () => {
+    if (!isAuthenticated) {
+      requireLogin();
+      return;
+    }
+    interactionMutation.mutate(interactionState.liked ? 'unlike' : 'like');
+  };
+
+  const handleFavoriteClick = () => {
+    if (!isAuthenticated) {
+      requireLogin();
+      return;
+    }
+    interactionMutation.mutate(interactionState.favorited ? 'unfavorite' : 'favorite');
+  };
 
   const jsonLd = {
     '@context': 'https://schema.org',
@@ -178,6 +251,38 @@ export const ArticleDetail = () => {
 
             <div className="article-reading-body">
               <ArticleContent content={article.content} />
+            </div>
+
+            <div className="article-interaction-actions mt-16 flex flex-wrap items-center justify-center gap-3 border-y border-neutral-100 py-8 dark:border-neutral-800">
+              <button
+                type="button"
+                onClick={handleLikeClick}
+                disabled={isInteractionPending}
+                aria-pressed={interactionState.liked}
+                className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-bold transition-all disabled:cursor-not-allowed disabled:opacity-60 ${
+                  interactionState.liked
+                    ? 'border-rose-200 bg-rose-50 text-rose-600 shadow-sm dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-300'
+                    : 'border-neutral-200 bg-white text-neutral-600 hover:border-rose-200 hover:text-rose-600 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300 dark:hover:border-rose-500/40 dark:hover:text-rose-300'
+                }`}
+              >
+                <Heart size={18} fill={interactionState.liked ? 'currentColor' : 'none'} />
+                <span>{interactionState.liked ? '已喜欢' : '喜欢'}</span>
+                <span className="tabular-nums text-neutral-400 dark:text-neutral-500">{article.like_count}</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleFavoriteClick}
+                disabled={isInteractionPending}
+                aria-pressed={interactionState.favorited}
+                className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-bold transition-all disabled:cursor-not-allowed disabled:opacity-60 ${
+                  interactionState.favorited
+                    ? 'border-amber-200 bg-amber-50 text-amber-700 shadow-sm dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300'
+                    : 'border-neutral-200 bg-white text-neutral-600 hover:border-amber-200 hover:text-amber-700 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300 dark:hover:border-amber-500/40 dark:hover:text-amber-300'
+                }`}
+              >
+                <Bookmark size={18} fill={interactionState.favorited ? 'currentColor' : 'none'} />
+                <span>{interactionState.favorited ? '已收藏' : '收藏'}</span>
+              </button>
             </div>
 
             <div className="mt-24 pt-16 border-t border-neutral-100 dark:border-neutral-800">

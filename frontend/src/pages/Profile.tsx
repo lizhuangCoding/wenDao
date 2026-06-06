@@ -1,9 +1,13 @@
 import { useRef, useState, type ChangeEvent } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Layout, Loading } from '@/components/common';
-import { uploadApi, authApi } from '@/api';
+import { ArticleCard } from '@/components/article';
+import { uploadApi, authApi, articleApi } from '@/api';
 import { useAuth } from '@/hooks';
 import { useUIStore } from '@/store';
 import { useTranslation } from 'react-i18next';
+
+type ArticleActivityTab = 'liked' | 'favorite';
 
 export const Profile = () => {
   const { t } = useTranslation();
@@ -15,6 +19,22 @@ export const Profile = () => {
   const [newUsername, setNewUsername] = useState(user?.username || '');
   const [isSaving, setIsSaving] = useState(false);
   const [isSavingPreferences, setIsSavingPreferences] = useState(false);
+  const [articleActivityTab, setArticleActivityTab] = useState<ArticleActivityTab>('liked');
+  const [articleActivityPage, setArticleActivityPage] = useState(1);
+
+  const articleActivityQuery = useQuery({
+    queryKey: [
+      'profile',
+      articleActivityTab === 'liked' ? 'liked-articles' : 'favorite-articles',
+      articleActivityPage,
+    ],
+    queryFn: () =>
+      articleActivityTab === 'liked'
+        ? articleApi.getLikedArticles({ page: articleActivityPage, pageSize: 4 })
+        : articleApi.getFavoriteArticles({ page: articleActivityPage, pageSize: 4 }),
+    enabled: !!user,
+    staleTime: 30_000,
+  });
 
   if (!user) {
     return (
@@ -98,9 +118,20 @@ export const Profile = () => {
     }
   };
 
+  const handleArticleActivityTabChange = (tab: ArticleActivityTab) => {
+    setArticleActivityTab(tab);
+    setArticleActivityPage(1);
+  };
+
+  const activityArticles = articleActivityQuery.data?.data || [];
+  const activityTotalPages = articleActivityQuery.data?.totalPages || 1;
+  const activityTitle = articleActivityTab === 'liked' ? '我的点赞' : '我的收藏';
+  const activityEmptyText =
+    articleActivityTab === 'liked' ? '还没有点赞过文章' : '还没有收藏过文章';
+
   return (
     <Layout>
-      <div className="max-w-3xl mx-auto px-6 sm:px-10 py-16">
+      <div className="max-w-5xl mx-auto px-6 sm:px-10 py-16">
         <div className="bg-white dark:bg-neutral-900 border border-neutral-100 dark:border-neutral-800 rounded-3xl shadow-sm p-8 sm:p-10">
           <div className="flex flex-col sm:flex-row sm:items-center gap-6 mb-10">
             <img
@@ -245,6 +276,101 @@ export const Profile = () => {
                 </button>
               </div>
             </div>
+
+            <section className="border-t border-neutral-100 pt-8 dark:border-neutral-800">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h2 className="text-xl font-serif font-black text-neutral-900 dark:text-neutral-100">
+                    文章互动
+                  </h2>
+                  <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
+                    查看你喜欢和收藏过的文章
+                  </p>
+                </div>
+                <div className="inline-flex rounded-full border border-neutral-200 bg-neutral-50 p-1 dark:border-neutral-700 dark:bg-neutral-800">
+                  <button
+                    type="button"
+                    onClick={() => handleArticleActivityTabChange('liked')}
+                    className={`rounded-full px-4 py-2 text-sm font-bold transition-colors ${
+                      articleActivityTab === 'liked'
+                        ? 'bg-white text-neutral-900 shadow-sm dark:bg-neutral-950 dark:text-neutral-100'
+                        : 'text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-100'
+                    }`}
+                  >
+                    我的点赞
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleArticleActivityTabChange('favorite')}
+                    className={`rounded-full px-4 py-2 text-sm font-bold transition-colors ${
+                      articleActivityTab === 'favorite'
+                        ? 'bg-white text-neutral-900 shadow-sm dark:bg-neutral-950 dark:text-neutral-100'
+                        : 'text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-100'
+                    }`}
+                  >
+                    我的收藏
+                  </button>
+                </div>
+              </div>
+
+              <div className="mt-8">
+                {articleActivityQuery.isLoading ? (
+                  <div className="rounded-2xl border border-dashed border-neutral-200 py-12 text-center text-sm font-medium text-neutral-400 dark:border-neutral-700 dark:text-neutral-500">
+                    正在加载{activityTitle}
+                  </div>
+                ) : articleActivityQuery.isError ? (
+                  <div className="rounded-2xl border border-dashed border-red-200 bg-red-50/60 py-12 text-center dark:border-red-500/30 dark:bg-red-500/10">
+                    <p className="text-sm font-bold text-red-600 dark:text-red-300">
+                      {activityTitle}加载失败
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => articleActivityQuery.refetch()}
+                      className="mt-3 text-xs font-black uppercase tracking-widest text-red-500 hover:text-red-600 dark:text-red-300"
+                    >
+                      重试
+                    </button>
+                  </div>
+                ) : activityArticles.length === 0 ? (
+                  <div className="rounded-2xl border border-dashed border-neutral-200 py-12 text-center text-sm font-medium text-neutral-400 dark:border-neutral-700 dark:text-neutral-500">
+                    {activityEmptyText}
+                  </div>
+                ) : (
+                  <>
+                    <div className="grid gap-8 sm:grid-cols-2">
+                      {activityArticles.map((article) => (
+                        <ArticleCard key={article.id} article={article} />
+                      ))}
+                    </div>
+                    {activityTotalPages > 1 && (
+                      <div className="mt-8 flex items-center justify-between border-t border-neutral-100 pt-6 dark:border-neutral-800">
+                        <button
+                          type="button"
+                          onClick={() => setArticleActivityPage((page) => Math.max(1, page - 1))}
+                          disabled={articleActivityPage <= 1}
+                          className="btn btn-secondary disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          上一页
+                        </button>
+                        <span className="text-xs font-bold tracking-widest text-neutral-400 dark:text-neutral-500">
+                          {articleActivityPage} / {activityTotalPages}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setArticleActivityPage((page) => Math.min(activityTotalPages, page + 1))
+                          }
+                          disabled={articleActivityPage >= activityTotalPages}
+                          className="btn btn-secondary disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          下一页
+                        </button>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            </section>
           </div>
         </div>
       </div>

@@ -29,6 +29,12 @@ type ArticleService interface {
 	IncrViewCount(id int64) error
 	LikeArticle(id int64) error
 	UnlikeArticle(id int64) error
+	LikeArticleForUser(userID, articleID int64) (*model.ArticleInteractionState, error)
+	UnlikeArticleForUser(userID, articleID int64) (*model.ArticleInteractionState, error)
+	FavoriteArticleForUser(userID, articleID int64) (*model.ArticleInteractionState, error)
+	UnfavoriteArticleForUser(userID, articleID int64) (*model.ArticleInteractionState, error)
+	GetArticleInteractionState(userID, articleID int64) (*model.ArticleInteractionState, error)
+	ListArticlesByInteraction(userID int64, interactionType string, page, pageSize int) ([]*model.Article, int64, error)
 	ToggleTop(id int64) (*model.Article, error)
 	UpdatePopularityScores() error
 	GetAllPublished() ([]*model.Article, error)

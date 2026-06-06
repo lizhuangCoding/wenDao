@@ -121,6 +121,11 @@ export interface ArticleOrbitResponse {
   total: number;
 }
 
+export interface ArticleInteractionState {
+  liked: boolean;
+  favorited: boolean;
+}
+
 export interface CreateArticleRequest {
   title: string;
   summary: string;

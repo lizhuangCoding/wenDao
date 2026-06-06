@@ -87,6 +87,18 @@ func (r *vectorSyncArticleRepoStub) GetDueScheduledArticles() ([]*model.Article,
 	return nil, nil
 }
 func (r *vectorSyncArticleRepoStub) PublishScheduled(articleID int64) error { return nil }
+func (r *vectorSyncArticleRepoStub) AddInteraction(userID, articleID int64, interactionType string) (bool, error) {
+	return false, nil
+}
+func (r *vectorSyncArticleRepoStub) RemoveInteraction(userID, articleID int64, interactionType string) (bool, error) {
+	return false, nil
+}
+func (r *vectorSyncArticleRepoStub) GetInteractionState(userID, articleID int64) (*model.ArticleInteractionState, error) {
+	return nil, nil
+}
+func (r *vectorSyncArticleRepoStub) ListByInteraction(userID int64, interactionType string, filter repository.ArticleFilter) ([]*model.Article, int64, error) {
+	return nil, 0, nil
+}
 
 type vectorSyncServiceStub struct {
 	vectorized []int64

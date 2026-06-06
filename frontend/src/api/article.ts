@@ -1,6 +1,7 @@
 import { request } from './client';
 import type {
   Article,
+  ArticleInteractionState,
   ArticleListItem,
   ArticleOrbitResponse,
   CreateArticleRequest,
@@ -23,6 +24,38 @@ export const articleApi = {
   // 获取文章详情（通过 slug）
   getArticleBySlug: (slug: string) => {
     return request.get<Article>(`/articles/slug/${slug}`);
+  },
+
+  getArticleInteraction: (id: number) => {
+    return request.get<ArticleInteractionState>(`/articles/${id}/interaction`);
+  },
+
+  likeArticle: (id: number) => {
+    return request.post<ArticleInteractionState>(`/articles/${id}/like`);
+  },
+
+  unlikeArticle: (id: number) => {
+    return request.delete<ArticleInteractionState>(`/articles/${id}/like`);
+  },
+
+  favoriteArticle: (id: number) => {
+    return request.post<ArticleInteractionState>(`/articles/${id}/favorite`);
+  },
+
+  unfavoriteArticle: (id: number) => {
+    return request.delete<ArticleInteractionState>(`/articles/${id}/favorite`);
+  },
+
+  getLikedArticles: (params: PaginationParams) => {
+    return request.get<PaginatedResponse<ArticleListItem>>('/users/me/liked-articles', {
+      params: toPaginationQuery(params),
+    });
+  },
+
+  getFavoriteArticles: (params: PaginationParams) => {
+    return request.get<PaginatedResponse<ArticleListItem>>('/users/me/favorite-articles', {
+      params: toPaginationQuery(params),
+    });
   },
 
   // --- 管理员接口 ---

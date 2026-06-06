@@ -14,17 +14,25 @@ import (
 )
 
 type stubArticleService struct {
-	articleByID      *model.Article
-	articleBySlug    *model.Article
-	updatedArticle   *model.Article
-	incrViewCountIDs []int64
-	listPage         int
-	listPageSize     int
-	batchIDs         []int64
-	orbitArticles    []*model.Article
-	scheduledSetID   int64
-	scheduledSetAt   *time.Time
-	draftIDs         []int64
+	articleByID        *model.Article
+	articleBySlug      *model.Article
+	updatedArticle     *model.Article
+	incrViewCountIDs   []int64
+	listPage           int
+	listPageSize       int
+	batchIDs           []int64
+	orbitArticles      []*model.Article
+	scheduledSetID     int64
+	scheduledSetAt     *time.Time
+	draftIDs           []int64
+	likedUserID        int64
+	likedArticleID     int64
+	favoritedUserID    int64
+	favoritedArticleID int64
+	stateUserID        int64
+	stateArticleID     int64
+	listUserID         int64
+	listType           string
 }
 
 func (s *stubArticleService) Create(title, content, summary string, categoryID, authorID int64, coverImage *string, status string) (*model.Article, error) {
@@ -60,8 +68,36 @@ func (s *stubArticleService) IncrViewCount(id int64) error {
 	s.incrViewCountIDs = append(s.incrViewCountIDs, id)
 	return nil
 }
-func (s *stubArticleService) LikeArticle(id int64) error                 { return nil }
-func (s *stubArticleService) UnlikeArticle(id int64) error               { return nil }
+func (s *stubArticleService) LikeArticle(id int64) error   { return nil }
+func (s *stubArticleService) UnlikeArticle(id int64) error { return nil }
+func (s *stubArticleService) LikeArticleForUser(userID, articleID int64) (*model.ArticleInteractionState, error) {
+	s.likedUserID = userID
+	s.likedArticleID = articleID
+	return &model.ArticleInteractionState{Liked: true}, nil
+}
+func (s *stubArticleService) UnlikeArticleForUser(userID, articleID int64) (*model.ArticleInteractionState, error) {
+	return &model.ArticleInteractionState{}, nil
+}
+func (s *stubArticleService) FavoriteArticleForUser(userID, articleID int64) (*model.ArticleInteractionState, error) {
+	s.favoritedUserID = userID
+	s.favoritedArticleID = articleID
+	return &model.ArticleInteractionState{Favorited: true}, nil
+}
+func (s *stubArticleService) UnfavoriteArticleForUser(userID, articleID int64) (*model.ArticleInteractionState, error) {
+	return &model.ArticleInteractionState{}, nil
+}
+func (s *stubArticleService) GetArticleInteractionState(userID, articleID int64) (*model.ArticleInteractionState, error) {
+	s.stateUserID = userID
+	s.stateArticleID = articleID
+	return &model.ArticleInteractionState{Liked: true, Favorited: true}, nil
+}
+func (s *stubArticleService) ListArticlesByInteraction(userID int64, interactionType string, page, pageSize int) ([]*model.Article, int64, error) {
+	s.listUserID = userID
+	s.listType = interactionType
+	s.listPage = page
+	s.listPageSize = pageSize
+	return []*model.Article{}, 0, nil
+}
 func (s *stubArticleService) ToggleTop(id int64) (*model.Article, error) { return nil, nil }
 func (s *stubArticleService) UpdatePopularityScores() error              { return nil }
 func (s *stubArticleService) GetAllPublished() ([]*model.Article, error) { return nil, nil }
@@ -318,5 +354,104 @@ func TestArticleHandlerListOrbitArticles_ReturnsLightweightArticleNodes(t *testi
 	category := item["category"].(map[string]any)
 	if category["name"] != "AI" || category["slug"] != "ai" {
 		t.Fatalf("expected category summary, got %#v", category)
+	}
+}
+
+func TestArticleHandlerLike_UsesAuthenticatedUserID(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	articleSvc := &stubArticleService{}
+	h := NewArticleHandler(articleSvc, nil, &stubSettingService{})
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest(http.MethodPost, "/api/articles/42/like", nil)
+	c.Params = gin.Params{{Key: "id", Value: "42"}}
+	c.Set("user_id", int64(7))
+
+	h.Like(c)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d with body %s", w.Code, w.Body.String())
+	}
+	if articleSvc.likedUserID != 7 || articleSvc.likedArticleID != 42 {
+		t.Fatalf("expected like to use user 7 article 42, got user=%d article=%d", articleSvc.likedUserID, articleSvc.likedArticleID)
+	}
+}
+
+func TestArticleHandlerFavorite_UsesAuthenticatedUserID(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	articleSvc := &stubArticleService{}
+	h := NewArticleHandler(articleSvc, nil, &stubSettingService{})
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest(http.MethodPost, "/api/articles/42/favorite", nil)
+	c.Params = gin.Params{{Key: "id", Value: "42"}}
+	c.Set("user_id", int64(7))
+
+	h.Favorite(c)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d with body %s", w.Code, w.Body.String())
+	}
+	if articleSvc.favoritedUserID != 7 || articleSvc.favoritedArticleID != 42 {
+		t.Fatalf("expected favorite to use user 7 article 42, got user=%d article=%d", articleSvc.favoritedUserID, articleSvc.favoritedArticleID)
+	}
+}
+
+func TestArticleHandlerGetInteraction_ReturnsUserState(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	articleSvc := &stubArticleService{}
+	h := NewArticleHandler(articleSvc, nil, &stubSettingService{})
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest(http.MethodGet, "/api/articles/42/interaction", nil)
+	c.Params = gin.Params{{Key: "id", Value: "42"}}
+	c.Set("user_id", int64(7))
+
+	h.GetInteraction(c)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d with body %s", w.Code, w.Body.String())
+	}
+	if articleSvc.stateUserID != 7 || articleSvc.stateArticleID != 42 {
+		t.Fatalf("expected interaction state to use user 7 article 42, got user=%d article=%d", articleSvc.stateUserID, articleSvc.stateArticleID)
+	}
+
+	var payload struct {
+		Data struct {
+			Liked     bool `json:"liked"`
+			Favorited bool `json:"favorited"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if !payload.Data.Liked || !payload.Data.Favorited {
+		t.Fatalf("expected liked and favorited state, got %#v", payload.Data)
+	}
+}
+
+func TestArticleHandlerListLikedArticles_ReturnsPaginatedUserArticles(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	articleSvc := &stubArticleService{}
+	h := NewArticleHandler(articleSvc, nil, &stubSettingService{})
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest(http.MethodGet, "/api/users/me/liked-articles?page=2&pageSize=8", nil)
+	c.Set("user_id", int64(7))
+
+	h.ListLikedArticles(c)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d with body %s", w.Code, w.Body.String())
+	}
+	if articleSvc.listUserID != 7 || articleSvc.listType != model.ArticleInteractionTypeLike {
+		t.Fatalf("expected liked list to use user 7 type like, got user=%d type=%q", articleSvc.listUserID, articleSvc.listType)
+	}
+	if articleSvc.listPage != 2 || articleSvc.listPageSize != 8 {
+		t.Fatalf("expected page 2 pageSize 8, got page=%d pageSize=%d", articleSvc.listPage, articleSvc.listPageSize)
 	}
 }
