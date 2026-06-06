@@ -4,7 +4,6 @@ import { Search } from 'lucide-react';
 import { userApi } from '@/api/user';
 import {
   Button,
-  BulkActionBar,
   ConfirmModal,
   DataTable,
   DataTableBody,
@@ -21,8 +20,10 @@ import {
   SelectInput,
   StatusBadge,
   TextInput,
+  getButtonClassName,
 } from '@/components/common';
 import { useUIStore } from '@/store';
+import { formatDate } from '@/utils';
 
 export const UserManagement = () => {
   const queryClient = useQueryClient();
@@ -33,9 +34,7 @@ export const UserManagement = () => {
   const [roleFilter, setRoleFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [searchInput, setSearchInput] = useState('');
-  const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [banConfirm, setBanConfirm] = useState<{ id: number; action: 'ban' | 'unban' } | null>(null);
-  const [roleConfirm, setRoleConfirm] = useState<{ id: number; role: string } | null>(null);
 
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['admin-users', page, pageSize, search, roleFilter, statusFilter],
@@ -45,16 +44,12 @@ export const UserManagement = () => {
 
   const users = data?.data ?? [];
   const totalPages = Math.max(1, data?.totalPages ?? 1);
-  const currentPageIds = users.map((u) => u.id);
-  const allCurrentPageSelected =
-    currentPageIds.length > 0 && currentPageIds.every((id) => selectedIds.includes(id));
 
   const roleMutation = useMutation({
     mutationFn: ({ id, role }: { id: number; role: string }) => userApi.updateUserRole(id, role),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-users'] });
       showToast('角色已更新', 'success');
-      setRoleConfirm(null);
     },
     onError: (error: any) => showToast(error.message || '更新失败', 'error'),
   });
@@ -76,7 +71,6 @@ export const UserManagement = () => {
     event.preventDefault();
     setSearch(searchInput.trim());
     setPage(1);
-    setSelectedIds([]);
   };
 
   const resetFilters = () => {
@@ -85,20 +79,6 @@ export const UserManagement = () => {
     setSearch('');
     setSearchInput('');
     setPage(1);
-    setSelectedIds([]);
-  };
-
-  const toggleUserSelection = (id: number) => {
-    setSelectedIds((ids) => (ids.includes(id) ? ids.filter((item) => item !== id) : [...ids, id]));
-  };
-
-  const toggleCurrentPageSelection = () => {
-    setSelectedIds((ids) => {
-      if (allCurrentPageSelected) {
-        return ids.filter((id) => !currentPageIds.includes(id));
-      }
-      return Array.from(new Set([...ids, ...currentPageIds]));
-    });
   };
 
   if (isLoading) return <Loading />;
@@ -120,7 +100,6 @@ export const UserManagement = () => {
             onChange={(event) => {
               setRoleFilter(event.target.value);
               setPage(1);
-              setSelectedIds([]);
             }}
           >
             <option value="">全部角色</option>
@@ -132,7 +111,6 @@ export const UserManagement = () => {
             onChange={(event) => {
               setStatusFilter(event.target.value);
               setPage(1);
-              setSelectedIds([]);
             }}
           >
             <option value="">全部状态</option>
@@ -140,20 +118,10 @@ export const UserManagement = () => {
             <option value="banned">已封禁</option>
           </SelectInput>
           <div className="flex gap-2">
-            <Button type="submit">
-              搜索
-            </Button>
-            <Button variant="secondary" onClick={resetFilters}>
-              重置
-            </Button>
+            <Button type="submit">搜索</Button>
+            <Button variant="secondary" onClick={resetFilters}>重置</Button>
           </div>
         </form>
-        <BulkActionBar
-          selectedCount={selectedIds.length}
-          onDelete={undefined}
-          onClear={() => setSelectedIds([])}
-          deleteLabel=""
-        />
       </Panel>
 
       {isError ? (
@@ -168,15 +136,6 @@ export const UserManagement = () => {
         >
           <thead>
             <DataTableHeadRow>
-              <DataTableHeaderCell>
-                <input
-                  type="checkbox"
-                  checked={allCurrentPageSelected}
-                  onChange={toggleCurrentPageSelection}
-                  className="h-4 w-4 rounded border-neutral-300 text-primary-600 focus:ring-primary-500"
-                  aria-label="选择当前页用户"
-                />
-              </DataTableHeaderCell>
               <DataTableHeaderCell>用户</DataTableHeaderCell>
               <DataTableHeaderCell>邮箱</DataTableHeaderCell>
               <DataTableHeaderCell>角色</DataTableHeaderCell>
@@ -189,66 +148,68 @@ export const UserManagement = () => {
             {users.map((user) => (
               <DataTableRow key={user.id}>
                 <DataTableCell>
-                  <input
-                    type="checkbox"
-                    checked={selectedIds.includes(user.id)}
-                    onChange={() => toggleUserSelection(user.id)}
-                    className="h-4 w-4 rounded border-neutral-300 text-primary-600 focus:ring-primary-500"
-                    aria-label={`选择用户 ${user.username}`}
-                  />
-                </DataTableCell>
-                <DataTableCell>
                   <div className="flex items-center gap-3">
                     <img
                       src={user.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.username}`}
                       alt={user.username}
-                      className="w-8 h-8 rounded-full"
+                      className="w-8 h-8 rounded-full shrink-0"
                     />
-                    <span className="font-medium text-neutral-800 dark:text-neutral-200">{user.username}</span>
+                    <span className="font-medium text-neutral-800 dark:text-neutral-200 truncate">
+                      {user.username}
+                    </span>
                   </div>
                 </DataTableCell>
-                <DataTableCell className="text-neutral-600 dark:text-neutral-400">{user.email}</DataTableCell>
-                <DataTableCell>
+                <DataTableCell className="text-neutral-600 dark:text-neutral-400 max-w-[200px] truncate">
+                  {user.email}
+                </DataTableCell>
+                <DataTableCell className="whitespace-nowrap">
                   <StatusBadge variant={user.role === 'admin' ? 'warning' : 'neutral'}>
                     {roleLabel[user.role] || user.role}
                   </StatusBadge>
                 </DataTableCell>
-                <DataTableCell>
+                <DataTableCell className="whitespace-nowrap">
                   <StatusBadge variant={user.status === 'active' ? 'success' : 'danger'}>
                     {statusLabel[user.status] || user.status}
                   </StatusBadge>
                 </DataTableCell>
-                <DataTableCell>
-                  {new Date(user.created_at).toLocaleDateString()}
+                <DataTableCell className="whitespace-nowrap">
+                  {formatDate(user.created_at)}
                 </DataTableCell>
-                <DataTableCell align="right">
-                  <div className="flex items-center justify-end gap-2">
-                    <SelectInput
-                      value={user.role}
-                      onChange={(event) => {
-                        setRoleConfirm({ id: user.id, role: event.target.value });
+                <DataTableCell align="right" className="whitespace-nowrap">
+                  <div className="inline-flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const newRole = user.role === 'admin' ? 'user' : 'admin';
+                        roleMutation.mutate({ id: user.id, role: newRole });
                       }}
-                      className="w-24 py-1 text-xs"
+                      disabled={roleMutation.isPending}
+                      className={getButtonClassName({
+                        variant: 'ghost',
+                        size: 'sm',
+                        className: 'text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/30',
+                      })}
                     >
-                      <option value="user">用户</option>
-                      <option value="admin">管理员</option>
-                    </SelectInput>
-                    <Button
-                      variant="ghost"
-                      size="sm"
+                      {user.role === 'admin' ? '取消管理' : '设为管理员'}
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => {
                         const newStatus = user.status === 'active' ? 'banned' : 'active';
                         const action = newStatus === 'banned' ? 'ban' : 'unban';
                         setBanConfirm({ id: user.id, action: action as 'ban' | 'unban' });
                       }}
-                      className={
-                        user.status === 'active'
-                          ? 'text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/30'
-                          : 'text-emerald-600 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-900/30'
-                      }
+                      className={getButtonClassName({
+                        variant: 'ghost',
+                        size: 'sm',
+                        className:
+                          user.status === 'active'
+                            ? 'text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/30'
+                            : 'text-emerald-600 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-900/30',
+                      })}
                     >
                       {user.status === 'active' ? '封禁' : '解封'}
-                    </Button>
+                    </button>
                   </div>
                 </DataTableCell>
               </DataTableRow>
@@ -263,37 +224,19 @@ export const UserManagement = () => {
           totalPages={totalPages}
           total={data?.total}
           pageSize={pageSize}
-          onChange={(nextPage) => {
-            setPage(nextPage);
-            setSelectedIds([]);
-          }}
+          onChange={(nextPage) => setPage(nextPage)}
           onPageSizeChange={(newSize) => {
             setPageSize(newSize);
             setPage(1);
-            setSelectedIds([]);
           }}
         />
       )}
 
       <ConfirmModal
-        isOpen={roleConfirm !== null}
-        title="修改角色"
-        message={`确定要将该用户的角色改为 ${roleLabel[roleConfirm?.role || '']} 吗？`}
-        confirmText="确认"
-        onConfirm={() => {
-          if (roleConfirm) {
-            roleMutation.mutate(roleConfirm);
-          }
-        }}
-        onCancel={() => setRoleConfirm(null)}
-        isConfirming={roleMutation.isPending}
-      />
-
-      <ConfirmModal
         isOpen={banConfirm !== null}
         title={banConfirm?.action === 'ban' ? '封禁用户' : '解封用户'}
         message={`确定要${banConfirm?.action === 'ban' ? '封禁' : '解封'}该用户吗？`}
-        confirmText={banConfirm?.action === 'ban' ? '封禁' : '取消'}
+        confirmText={banConfirm?.action === 'ban' ? '封禁' : '解封'}
         onConfirm={() => {
           if (banConfirm) {
             const newStatus = banConfirm.action === 'ban' ? 'banned' : 'active';
