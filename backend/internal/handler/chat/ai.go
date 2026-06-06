@@ -10,6 +10,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"wenDao/config"
 	"wenDao/internal/pkg/response"
 	"wenDao/internal/service"
 )
@@ -17,11 +18,12 @@ import (
 // AIHandler AI Handler
 type AIHandler struct {
 	aiService service.AIService
+	cfg       *config.Config
 }
 
 // NewAIHandler 创建 AI Handler 实例
-func NewAIHandler(aiService service.AIService) *AIHandler {
-	return &AIHandler{aiService: aiService}
+func NewAIHandler(aiService service.AIService, cfg *config.Config) *AIHandler {
+	return &AIHandler{aiService: aiService, cfg: cfg}
 }
 
 // ChatRequest AI 对话请求
@@ -29,6 +31,8 @@ type ChatRequest struct {
 	Message        string `json:"message" binding:"required"`
 	ArticleID      *int64 `json:"article_id"`
 	ConversationID *int64 `json:"conversation_id"`
+	ModelProvider  string `json:"model_provider"`
+	ModelName      string `json:"model_name"`
 }
 
 // ChatResponse AI 对话响应
@@ -87,6 +91,38 @@ func writeSSEvent(c *gin.Context, event string, payload interface{}) error {
 
 	c.Writer.Flush()
 	return nil
+}
+
+// ModelInfo 模型信息
+type ModelInfo struct {
+	Provider    string `json:"provider"`
+	ModelName   string `json:"model_name"`
+	DisplayName string `json:"display_name"`
+}
+
+// GetModels 获取可用的 AI 模型列表
+func (h *AIHandler) GetModels(c *gin.Context) {
+	models := []ModelInfo{
+		{
+			Provider:    h.cfg.AI.Provider,
+			ModelName:   h.cfg.AI.LLMModel,
+			DisplayName: fmt.Sprintf("%s (%s)", h.cfg.AI.Provider, h.cfg.AI.LLMModel),
+		},
+	}
+
+	for _, m := range h.cfg.AI.Models {
+		displayName := m.DisplayName
+		if displayName == "" {
+			displayName = fmt.Sprintf("%s/%s", m.Provider, m.ModelName)
+		}
+		models = append(models, ModelInfo{
+			Provider:    m.Provider,
+			ModelName:   m.ModelName,
+			DisplayName: displayName,
+		})
+	}
+
+	response.Success(c, gin.H{"models": models})
 }
 
 // Chat 处理 AI 对话请求

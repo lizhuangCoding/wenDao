@@ -13,14 +13,17 @@ import (
 func startBackgroundTasks(cfg *config.Config, logger *zap.Logger, services *appServices) func() {
 	stopUploadCleanup := func() {}
 	stopStatFlush := func() {}
+	stopArticleScheduler := func() {}
 	if services != nil {
 		stopUploadCleanup = startUploadCleanupScheduler(cfg, logger, services.upload)
 		stopStatFlush = startStatFlushScheduler(logger, services.stat)
+		stopArticleScheduler = startArticleScheduler(logger, services.article)
 	}
 
 	return func() {
 		stopUploadCleanup()
 		stopStatFlush()
+		stopArticleScheduler()
 	}
 }
 
@@ -93,6 +96,50 @@ func startStatFlushScheduler(logger *zap.Logger, statService *service.StatServic
 				runStatFlush(logger, statService)
 				logger.Info("Stat flush scheduler stopped")
 				return
+			}
+		}
+	}()
+
+	return cancel
+}
+
+func startArticleScheduler(logger *zap.Logger, articleService service.ArticleService) func() {
+	if logger == nil || articleService == nil {
+		return func() {}
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		ticker := time.NewTicker(30 * time.Second)
+		defer ticker.Stop()
+
+		logger.Info("Article scheduler started", zap.Duration("interval", 30*time.Second))
+
+		for {
+			select {
+			case <-ctx.Done():
+				logger.Info("Article scheduler stopped")
+				return
+			case <-ticker.C:
+				articles, err := articleService.GetDueScheduledArticles()
+				if err != nil {
+					logger.Warn("Failed to get due scheduled articles", zap.Error(err))
+					continue
+				}
+				for _, article := range articles {
+					if err := articleService.PublishScheduled(article.ID); err != nil {
+						logger.Error("Failed to publish scheduled article",
+							zap.Int64("article_id", article.ID),
+							zap.Error(err))
+						continue
+					}
+					logger.Info("Published scheduled article",
+						zap.Int64("article_id", article.ID),
+						zap.String("title", article.Title))
+				}
+				if len(articles) > 0 {
+					logger.Info("Processed scheduled articles", zap.Int("count", len(articles)))
+				}
 			}
 		}
 	}()

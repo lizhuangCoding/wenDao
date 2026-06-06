@@ -31,7 +31,8 @@ type Article struct {
 	IsTop        bool    `gorm:"default:false" json:"is_top"`
 	Popularity   float64 `gorm:"default:0;index:idx_popularity" json:"popularity"` // 活跃度分数
 
-	PublishedAt *time.Time `gorm:"index:idx_status_published" json:"published_at,omitempty"`
+	PublishedAt        *time.Time `gorm:"index:idx_status_published" json:"published_at,omitempty"`
+	ScheduledPublishAt *time.Time `gorm:"index" json:"scheduled_publish_at,omitempty"`
 	CreatedAt   time.Time  `json:"created_at"`
 	UpdatedAt   time.Time  `json:"updated_at"`
 

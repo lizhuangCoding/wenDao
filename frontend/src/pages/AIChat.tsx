@@ -2,17 +2,19 @@ import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { Layout, ConfirmModal } from '@/components/common';
 import { AIProcessingHalo } from '@/components/chat/AgentMoodIndicator';
 import { ChatComposer } from '@/components/chat/ChatComposer';
+import { ModelSelector } from '@/components/chat/ModelSelector';
 import { ChatHistorySidebar } from '@/components/chat/ChatHistorySidebar';
 import { ChatMessageList } from '@/components/chat/ChatMessageList';
 import { ChatQuestionNavigator } from '@/components/chat/ChatQuestionNavigator';
 import { ChatStageBanner } from '@/components/chat/ChatStageBanner';
 import { StarterPrompts } from '@/components/chat/StarterPrompts';
+import { chatApi } from '@/api';
 import { useChatStore, useUIStore } from '@/store';
 import { useAuth } from '@/hooks';
 import { useProcessingTimer } from '@/hooks/useProcessingTimer';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowDown } from 'lucide-react';
+import { ArrowDown, Share2, Download, Check, Copy } from 'lucide-react';
 import { buildChatQuestionNavItems } from '@/utils/chatQuestionNavigator';
 import { selectFeaturedAgentStep } from '@/utils/agentMood';
 import type { ChatMessage } from '@/types';
@@ -41,6 +43,9 @@ export const AIChat = () => {
     return window.localStorage.getItem(CHAT_IMMERSIVE_STORAGE_KEY) === 'immersive';
   });
   const [isHistoryDrawerOpen, setIsHistoryDrawerOpen] = useState(false);
+  const [isSharing, setIsSharing] = useState(false);
+  const [shareCopied, setShareCopied] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -56,12 +61,14 @@ export const AIChat = () => {
     requiresUserInput,
     pendingQuestion,
     runStatus,
+    selectedModel,
     loadConversations,
     sendMessage,
     createNewChat,
     setActiveChat,
     deleteChat,
     renameChat,
+    setSelectedModel,
   } = useChatStore();
 
   useEffect(() => {
@@ -254,6 +261,55 @@ export const AIChat = () => {
     });
   };
 
+  const handleToggleShare = async () => {
+    if (!activeChat || isSharing) return;
+    setIsSharing(true);
+    try {
+      const res = await chatApi.shareConversation(activeChat.id, !activeChat.isShared);
+      // Update conversation in store to reflect new share status
+      const updatedConversations = {
+        ...conversations,
+        [activeChat.id]: {
+          ...activeChat,
+          isShared: res.is_shared,
+          shareToken: res.share_token,
+        },
+      };
+      (useChatStore.getState() as any).conversations = updatedConversations;
+      useChatStore.setState({ conversations: updatedConversations });
+      showToast(res.is_shared ? '已开启分享' : '已关闭分享', 'success');
+    } catch (err: any) {
+      showToast(err.message || '操作失败', 'error');
+    } finally {
+      setIsSharing(false);
+    }
+  };
+
+  const handleCopyShareLink = () => {
+    const token = (activeChat as any)?.shareToken;
+    if (!token) return;
+    const url = `${window.location.origin}/shared/${token}`;
+    navigator.clipboard.writeText(url);
+    setShareCopied(true);
+    showToast('分享链接已复制到剪贴板', 'success');
+    setTimeout(() => setShareCopied(false), 2000);
+  };
+
+  const handleExport = async () => {
+    if (!activeChat || isExporting) return;
+    setIsExporting(true);
+    try {
+      await chatApi.exportConversation(activeChat.id, activeChat.title || 'conversation');
+      showToast('导出成功', 'success');
+    } catch (err: any) {
+      showToast(err.message || '导出失败', 'error');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const isShared = (activeChat as any)?.isShared as boolean | undefined;
+
   return (
     <Layout hideHeader={isImmersive} hideFooter={isImmersive}>
       <div className={`${
@@ -366,6 +422,60 @@ export const AIChat = () => {
               </div>
             </div>
             <div className="flex items-center gap-2">
+              {activeChat && (
+                <>
+                  {/* Export button */}
+                  <button
+                    type="button"
+                    onClick={handleExport}
+                    disabled={isExporting || messages.length === 0}
+                    className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-neutral-100 dark:border-neutral-700 px-2.5 py-2 sm:px-3 text-xs font-bold text-neutral-500 dark:text-neutral-300 hover:text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors disabled:opacity-30"
+                    title="导出对话"
+                  >
+                    <Download className="h-4 w-4" aria-hidden="true" />
+                    <span className="hidden sm:inline">{isExporting ? '导出中...' : '导出'}</span>
+                  </button>
+
+                  {/* Share toggle and copy link */}
+                  {isShared ? (
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={handleCopyShareLink}
+                        className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-primary-200 dark:border-primary-800 bg-primary-50 dark:bg-primary-900/20 px-2.5 py-2 sm:px-3 text-xs font-bold text-primary-700 dark:text-primary-300 hover:bg-primary-100 dark:hover:bg-primary-900/40 transition-colors"
+                        title="复制分享链接"
+                      >
+                        {shareCopied ? (
+                          <Check className="h-4 w-4" aria-hidden="true" />
+                        ) : (
+                          <Copy className="h-4 w-4" aria-hidden="true" />
+                        )}
+                        <span className="hidden sm:inline">{shareCopied ? '已复制' : '复制链接'}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleToggleShare}
+                        disabled={isSharing}
+                        className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-neutral-100 dark:border-neutral-700 px-2 py-2 sm:px-2.5 text-xs font-bold text-neutral-400 hover:text-red-500 hover:border-red-200 dark:hover:border-red-800 transition-colors disabled:opacity-30"
+                        title="取消分享"
+                      >
+                        <span className="hidden sm:inline">{isSharing ? '...' : '取消分享'}</span>
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleToggleShare}
+                      disabled={isSharing || messages.length === 0}
+                      className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-neutral-100 dark:border-neutral-700 px-2.5 py-2 sm:px-3 text-xs font-bold text-neutral-500 dark:text-neutral-300 hover:text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors disabled:opacity-30"
+                      title="分享对话"
+                    >
+                      <Share2 className="h-4 w-4" aria-hidden="true" />
+                      <span className="hidden sm:inline">{isSharing ? '...' : '分享'}</span>
+                    </button>
+                  )}
+                </>
+              )}
               <button
                 type="button"
                 onClick={() => setIsImmersive((value) => !value)}
@@ -461,6 +571,12 @@ export const AIChat = () => {
                 />
               )}
             </AnimatePresence>
+            <div className="flex justify-end mb-2">
+              <ModelSelector
+                selectedModel={selectedModel}
+                onSelect={setSelectedModel}
+              />
+            </div>
             <ChatComposer
               disabled={isTyping}
               input={input}

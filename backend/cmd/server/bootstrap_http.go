@@ -26,9 +26,14 @@ type appHandlers struct {
 	stat              *handler.StatHandler
 	chat              *handler.ChatHandler
 	knowledgeDocument *handler.KnowledgeDocumentHandler
+	notification      *handler.NotificationHandler
 }
 
 func initHandlers(cfg *config.Config, repos *repositories, services *appServices, rdb *redis.Client) *appHandlers {
+	notificationHandler := handler.NewNotificationHandler(services.notification)
+	notificationHandler.SetUserIDProvider(func() ([]int64, error) {
+		return services.user.GetAllActiveUserIDs()
+	})
 	return &appHandlers{
 		user:              handler.NewUserHandler(services.user, services.upload, services.oauth, services.verification, cfg),
 		auth:              handler.NewAuthHandler(services.user, cfg, rdb),
@@ -36,11 +41,12 @@ func initHandlers(cfg *config.Config, repos *repositories, services *appServices
 		article:           handler.NewArticleHandler(services.article, services.stat, services.setting),
 		comment:           handler.NewCommentHandler(services.comment, services.stat),
 		upload:            handler.NewUploadHandler(services.upload),
-		ai:                handler.NewAIHandler(services.ai),
-		site:              handler.NewSiteHandler(cfg, services.article),
+		ai:                handler.NewAIHandler(services.ai, cfg),
+		site:              handler.NewSiteHandler(cfg, services.article, services.setting),
 		stat:              handler.NewStatHandler(services.stat),
-		chat:              handler.NewChatHandler(repos.conversation, repos.chatMessage, repos.conversationRun, repos.conversationRunStep, repos.conversationMemory),
+		chat:              handler.NewChatHandler(cfg, repos.conversation, repos.chatMessage, repos.conversationRun, repos.conversationRunStep, repos.conversationMemory),
 		knowledgeDocument: handler.NewKnowledgeDocumentHandler(services.knowledgeDocument),
+		notification:      notificationHandler,
 	}
 }
 
@@ -69,6 +75,7 @@ func buildRouter(cfg *config.Config, logger *zap.Logger, rdb *redis.Client, hand
 		handlers.stat,
 		handlers.chat,
 		handlers.knowledgeDocument,
+		handlers.notification,
 	)
 
 	return router
@@ -100,6 +107,7 @@ func registerRoutes(
 	statHandler *handler.StatHandler,
 	chatHandler *handler.ChatHandler,
 	knowledgeDocumentHandler *handler.KnowledgeDocumentHandler,
+	notificationHandler *handler.NotificationHandler,
 ) {
 	api := router.Group("/api")
 	{
@@ -158,8 +166,11 @@ func registerRoutes(
 		api.GET("/categories", categoryHandler.List)
 		api.GET("/categories/:id/articles", articleHandler.List)
 		api.GET("/comments/article/:id", commentHandler.GetByArticleID)
+		api.POST("/comments/:id/like", commentHandler.Like)
+		api.POST("/comments/:id/dislike", commentHandler.Dislike)
 		api.GET("/slogan", siteHandler.GetSlogan)
 		api.GET("/settings/sort-mode", articleHandler.GetSortMode)
+		api.GET("/models", aiHandler.GetModels)
 
 		authRequired := api.Group("")
 		authRequired.Use(middleware.AuthRequired(cfg.JWT.Secret, rdb))
@@ -171,6 +182,15 @@ func registerRoutes(
 			authRequired.PUT("/users/me/preferences", userHandler.UpdatePreferences)
 			authRequired.POST("/comments", commentHandler.Create)
 			authRequired.DELETE("/comments/:id", commentHandler.Delete)
+
+			// 通知相关
+			notifications := authRequired.Group("/notifications")
+			{
+				notifications.GET("", notificationHandler.List)
+				notifications.GET("/unread-count", notificationHandler.GetUnreadCount)
+				notifications.PUT("/:id/read", notificationHandler.MarkRead)
+				notifications.PUT("/read-all", notificationHandler.MarkAllRead)
+			}
 		}
 
 		ai := api.Group("/ai")
@@ -205,11 +225,23 @@ func registerRoutes(
 			conversations.GET("/:id", chatHandler.Get)
 			conversations.PATCH("/:id", chatHandler.Update)
 			conversations.DELETE("/:id", chatHandler.Delete)
+			conversations.POST("/:id/share", chatHandler.Share)
+			conversations.GET("/:id/export", chatHandler.Export)
 		}
+
+		// 公开分享的对话
+		api.GET("/shared/conversations/:token", chatHandler.GetShared)
 
 		admin := api.Group("/admin")
 		admin.Use(middleware.AuthRequired(cfg.JWT.Secret, rdb), middleware.AdminRequired(cfg.JWT.Secret, rdb))
 		{
+			// 用户管理
+			users := admin.Group("/users")
+			{
+				users.GET("", userHandler.ListUsers)
+				users.PUT("/:id/role", userHandler.UpdateUserRole)
+				users.PUT("/:id/status", userHandler.UpdateUserStatus)
+			}
 			articles := admin.Group("/articles")
 			{
 				articles.GET("", articleHandler.AdminList)
@@ -251,6 +283,10 @@ func registerRoutes(
 			admin.POST("/upload/image", uploadHandler.UploadImage)
 			admin.GET("/stats/dashboard", statHandler.GetDashboardStats)
 			admin.PUT("/settings/sort-mode", articleHandler.SetSortMode)
+			admin.PUT("/settings/slogan", siteHandler.SetSlogan)
+
+			// 消息广播
+			admin.POST("/notifications/broadcast", notificationHandler.Broadcast)
 		}
 	}
 

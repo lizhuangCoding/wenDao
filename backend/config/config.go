@@ -103,6 +103,15 @@ type LogConfig struct {
 	Compress   bool   `mapstructure:"compress"`
 }
 
+// ModelConfig 单个模型配置
+type ModelConfig struct {
+	Provider    string `mapstructure:"provider"`
+	ModelName   string `mapstructure:"model_name"`
+	DisplayName string `mapstructure:"display_name"`
+	APIKey      string `mapstructure:"api_key"`
+	BaseURL     string `mapstructure:"base_url"`
+}
+
 // AIConfig AI 配置
 type AIConfig struct {
 	Provider               string  `mapstructure:"provider"`
@@ -117,7 +126,8 @@ type AIConfig struct {
 	ResearchEndpoint       string  `mapstructure:"research_endpoint"`
 	ResearchAPIKey         string  `mapstructure:"research_api_key"`
 	ResearchMaxResults     int     `mapstructure:"research_max_results"`
-	ResearchTimeoutSeconds int     `mapstructure:"research_timeout_seconds"`
+	ResearchTimeoutSeconds int           `mapstructure:"research_timeout_seconds"`
+	Models                 []ModelConfig `mapstructure:"models"`
 }
 
 // RateLimitConfig 限流配置

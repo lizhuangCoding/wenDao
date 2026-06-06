@@ -14,6 +14,10 @@ type UserRepository interface {
 	GetByUsername(username string) (*model.User, error)
 	GetByOAuth(provider string, oauthID string) (*model.User, error)
 	Update(user *model.User) error
+	ListUsers(page, pageSize int, role, status, search string) ([]*model.User, int64, error)
+	UpdateUserRole(userID int64, role string) error
+	UpdateUserStatus(userID int64, status string) error
+	GetAllActiveUserIDs() ([]int64, error)
 }
 
 // userRepository 用户数据访问实现
@@ -74,4 +78,50 @@ func (r *userRepository) GetByOAuth(provider string, oauthID string) (*model.Use
 // Update 更新用户信息
 func (r *userRepository) Update(user *model.User) error {
 	return r.db.Save(user).Error
+}
+
+// ListUsers 获取用户列表（管理员，支持分页和筛选）
+func (r *userRepository) ListUsers(page, pageSize int, role, status, search string) ([]*model.User, int64, error) {
+	var users []*model.User
+	var total int64
+
+	query := r.db.Model(&model.User{})
+	if role != "" {
+		query = query.Where("role = ?", role)
+	}
+	if status != "" {
+		query = query.Where("status = ?", status)
+	}
+	if search != "" {
+		keyword := "%" + search + "%"
+		query = query.Where("username LIKE ? OR email LIKE ?", keyword, keyword)
+	}
+
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	offset := (page - 1) * pageSize
+	err := query.Offset(offset).Limit(pageSize).
+		Order("created_at DESC").
+		Find(&users).Error
+
+	return users, total, err
+}
+
+// UpdateUserRole 更新用户角色
+func (r *userRepository) UpdateUserRole(userID int64, role string) error {
+	return r.db.Model(&model.User{}).Where("id = ?", userID).Update("role", role).Error
+}
+
+// UpdateUserStatus 更新用户状态
+func (r *userRepository) UpdateUserStatus(userID int64, status string) error {
+	return r.db.Model(&model.User{}).Where("id = ?", userID).Update("status", status).Error
+}
+
+// GetAllActiveUserIDs 获取所有活跃用户的 ID 列表
+func (r *userRepository) GetAllActiveUserIDs() ([]int64, error) {
+	var ids []int64
+	err := r.db.Model(&model.User{}).Where("status = ?", "active").Pluck("id", &ids).Error
+	return ids, err
 }

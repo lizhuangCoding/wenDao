@@ -24,4 +24,5 @@ export * from './RouteErrorFallback';
 export * from './RouteLoadSuccessMarker';
 export * from './RouteTransition';
 export * from './RouteSuspenseBoundary';
+export * from './NotificationBell';
 export * from './NotFoundPage';

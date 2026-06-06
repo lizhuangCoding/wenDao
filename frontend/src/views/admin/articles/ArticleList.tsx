@@ -34,7 +34,7 @@ type ArticleStatusFilter = '' | 'published' | 'draft';
 
 export const ArticleList = () => {
   const { t } = useTranslation();
-  const pageSize = 10;
+  const [pageSize, setPageSize] = useState(10);
   const [page, setPage] = useState(1);
   const [status, setStatus] = useState<ArticleStatusFilter>('');
   const [categoryID, setCategoryID] = useState('');
@@ -63,7 +63,7 @@ export const ArticleList = () => {
     error,
     refetch,
   } = useQuery({
-    queryKey: ['admin-articles', page, status, categoryID, keyword, sortMode?.enabled],
+    queryKey: ['admin-articles', page, pageSize, status, categoryID, keyword, sortMode?.enabled],
     queryFn: () =>
       articleApi.getAdminArticles({
         page,
@@ -366,8 +366,15 @@ export const ArticleList = () => {
         <Pagination
           page={page}
           totalPages={totalPages}
+          total={articlesData?.total}
+          pageSize={pageSize}
           onChange={(nextPage) => {
             setPage(nextPage);
+            setSelectedIds([]);
+          }}
+          onPageSizeChange={(newSize) => {
+            setPageSize(newSize);
+            setPage(1);
             setSelectedIds([]);
           }}
           previousLabel={t('admin.previous')}

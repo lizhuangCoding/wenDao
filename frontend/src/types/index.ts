@@ -6,6 +6,7 @@ export interface User {
   avatar_url?: string;
   bio?: string;
   role: 'user' | 'admin';
+  status: 'active' | 'banned';
   comment_reply_email_enabled?: boolean;
   created_at: string;
   updated_at: string;
@@ -71,6 +72,7 @@ export interface Article {
   author: User;
   tags?: string[];
   published_at?: string;
+  scheduled_publish_at?: string;
   created_at: string;
   updated_at: string;
 }
@@ -127,6 +129,7 @@ export interface CreateArticleRequest {
   category_id: number | undefined;
   status: 'draft' | 'published';
   tags?: string[];
+  scheduled_publish_at?: string;
 }
 
 // 分类相关类型
@@ -153,6 +156,8 @@ export interface Comment {
   replies?: Comment[];
   status: string;
   article?: Article;
+  like_count: number;
+  dislike_count: number;
   created_at: string;
   updated_at: string;
 }
@@ -162,6 +167,18 @@ export interface CreateCommentRequest {
   articleId: number;
   parentId?: number;
   replyToUserId?: number;
+}
+
+// 通知相关类型
+export interface Notification {
+  id: number;
+  user_id: number;
+  type: 'comment_reply' | 'admin_broadcast' | 'system_notice';
+  title: string;
+  content: string;
+  link_url: string;
+  is_read: boolean;
+  created_at: string;
 }
 
 // AI 聊天相关类型
@@ -264,6 +281,14 @@ export interface ChatRequest {
   message: string;
   article_id?: number;
   conversation_id?: number;
+  model_provider?: string;
+  model_name?: string;
+}
+
+export interface ModelInfo {
+  provider: string;
+  model_name: string;
+  display_name: string;
 }
 
 export interface ChatResponse {
@@ -271,11 +296,39 @@ export interface ChatResponse {
   sources?: string[];
 }
 
+export interface SharedConversationData {
+  conversation: {
+    id: number;
+    user_id: number;
+    title: string;
+    is_shared: boolean;
+    share_token: string;
+    created_at: string;
+    updated_at: string;
+  };
+  messages: Array<{
+    id: number;
+    conversation_id: number;
+    run_id?: number;
+    role: 'user' | 'assistant';
+    content: string;
+    created_at: string;
+    process_steps?: ChatStep[];
+  }>;
+  steps?: ChatStep[];
+  shared_by: {
+    username: string;
+    avatar_url?: string;
+  };
+}
+
 export interface ChatConversationDetailResponse {
   conversation: {
     id: number;
     title: string;
     user_id: number;
+    is_shared: boolean;
+    share_token?: string;
     created_at: string;
     updated_at: string;
   };

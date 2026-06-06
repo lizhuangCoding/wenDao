@@ -30,6 +30,10 @@ type UserService interface {
 	UpdateAvatar(userID int64, avatarURL string) error
 	UpdateUsername(userID int64, username string) error
 	UpdateCommentReplyEmailEnabled(userID int64, enabled bool) error
+	ListUsers(page, pageSize int, role, status, search string) ([]*model.User, int64, error)
+	UpdateUserRole(userID int64, role string) error
+	UpdateUserStatus(userID int64, status string) error
+	GetAllActiveUserIDs() ([]int64, error)
 }
 
 // userService 用户服务实现
@@ -374,6 +378,43 @@ func (s *userService) UpdateUsername(userID int64, username string) error {
 
 	user.Username = username
 	return s.userRepo.Update(user)
+}
+
+// ListUsers 获取用户列表（管理员）
+func (s *userService) ListUsers(page, pageSize int, role, status, search string) ([]*model.User, int64, error) {
+	if page <= 0 {
+		page = 1
+	}
+	if pageSize <= 0 {
+		pageSize = 20
+	}
+	if pageSize > 100 {
+		pageSize = 100
+	}
+	users, total, err := s.userRepo.ListUsers(page, pageSize, role, status, search)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to list users: %w", err)
+	}
+	// 清除密码哈希
+	for _, user := range users {
+		user.PasswordHash = nil
+	}
+	return users, total, nil
+}
+
+// UpdateUserRole 更新用户角色
+func (s *userService) UpdateUserRole(userID int64, role string) error {
+	return s.userRepo.UpdateUserRole(userID, role)
+}
+
+// UpdateUserStatus 更新用户状态
+func (s *userService) UpdateUserStatus(userID int64, status string) error {
+	return s.userRepo.UpdateUserStatus(userID, status)
+}
+
+// GetAllActiveUserIDs 获取所有活跃用户的 ID 列表
+func (s *userService) GetAllActiveUserIDs() ([]int64, error) {
+	return s.userRepo.GetAllActiveUserIDs()
 }
 
 func (s *userService) UpdateCommentReplyEmailEnabled(userID int64, enabled bool) error {

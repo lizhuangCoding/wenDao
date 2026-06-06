@@ -14,6 +14,7 @@ import (
 	chatrepo "wenDao/internal/repository/chat"
 	commentrepo "wenDao/internal/repository/comment"
 	knowledgerepo "wenDao/internal/repository/knowledge"
+	notifrepo "wenDao/internal/repository/notification"
 	settingrepo "wenDao/internal/repository/setting"
 	statrepo "wenDao/internal/repository/stat"
 	uploadrepo "wenDao/internal/repository/upload"
@@ -26,6 +27,7 @@ import (
 	chatcore "wenDao/internal/service/chatcore"
 	commentsvc "wenDao/internal/service/comment"
 	knowledgesvc "wenDao/internal/service/knowledge"
+	notifsvc "wenDao/internal/service/notification"
 	settingsvc "wenDao/internal/service/setting"
 	statsvc "wenDao/internal/service/stat"
 	uploadsvc "wenDao/internal/service/upload"
@@ -50,6 +52,7 @@ type ArticleService = articlesvc.ArticleService
 type CommentService = commentsvc.CommentService
 type CommentServiceOption = commentsvc.CommentServiceOption
 type CommentReplyNotificationSender = commentsvc.CommentReplyNotificationSender
+type NotificationService = notifsvc.NotificationService
 type UploadService = uploadsvc.UploadService
 type UploadCleanupResult = uploadsvc.UploadCleanupResult
 type StatService = statsvc.StatService
@@ -113,6 +116,12 @@ func NewSMTPCommentReplyEmailSender(cfg config.EmailConfig, siteURL string) Comm
 }
 func WithReplyNotificationSender(sender CommentReplyNotificationSender) CommentServiceOption {
 	return commentsvc.WithReplyNotificationSender(sender)
+}
+func WithCommentNotificationService(notifSvc NotificationService) CommentServiceOption {
+	return commentsvc.WithNotificationService(notifSvc)
+}
+func NewNotificationService(repo notifrepo.NotificationRepository) NotificationService {
+	return notifsvc.NewNotificationService(repo)
 }
 func NewUploadService(repo uploadrepo.UploadRepository, cfg *config.Config) UploadService {
 	return uploadsvc.NewUploadService(repo, cfg)

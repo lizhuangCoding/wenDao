@@ -15,6 +15,9 @@ type Comment struct {
 	RootID        *int64 `gorm:"index" json:"root_id,omitempty"`
 	ReplyToUserID *int64 `json:"reply_to_user_id,omitempty"`
 
+	LikeCount    int `gorm:"default:0" json:"like_count"`
+	DislikeCount int `gorm:"default:0" json:"dislike_count"`
+
 	Status    string    `gorm:"size:10;not null;default:'normal'" json:"status"` // normal/deleted
 	CreatedAt time.Time `gorm:"index:idx_article" json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`

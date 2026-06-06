@@ -10,7 +10,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { Select } from 'tdesign-react';
 import { articleApi, categoryApi, uploadApi, chatApi } from '@/api';
-import { Loading } from '@/components/common';
+import { Loading, ErrorState } from '@/components/common';
 import { useUIStore } from '@/store';
 import { getArticlePrimaryActionLabel } from '@/utils/pageBehavior';
 import { MarkdownWritingStudio } from './components/MarkdownWritingStudio';
@@ -36,6 +36,7 @@ export const ArticleEditor = () => {
     cover_image: '',
     category_id: undefined as number | undefined,
     status: 'draft' as 'draft' | 'published',
+    scheduled_publish_at: '',
   });
   const primaryActionLabel = getArticlePrimaryActionLabel({
     isEdit,
@@ -48,12 +49,12 @@ export const ArticleEditor = () => {
     formDataRef.current = formData;
   }, [formData]);
 
-  const { data: categories } = useQuery({
+  const { data: categories, isError: isCategoriesError, error: categoriesError, refetch: refetchCategories } = useQuery({
     queryKey: ['categories'],
     queryFn: categoryApi.getCategories,
   });
 
-  const { data: article, isLoading: isArticleLoading } = useQuery({
+  const { data: article, isLoading: isArticleLoading, isError: isArticleError, error: articleError, refetch: refetchArticle } = useQuery({
     queryKey: ['admin-article', id],
     queryFn: () => articleApi.getAdminArticleById(Number(id)),
     enabled: isEdit,
@@ -83,6 +84,7 @@ export const ArticleEditor = () => {
         cover_image: article.cover_image || '',
         category_id: article.category_id,
         status: article.status,
+        scheduled_publish_at: article.scheduled_publish_at || '',
       });
       lastSavedDataRef.current = { title: article.title, content: article.content, summary: article.summary };
     }
@@ -99,6 +101,7 @@ export const ArticleEditor = () => {
       content: formData.content,
       category_id: formData.category_id,
       cover_image: formData.cover_image,
+      scheduled_publish_at: formData.scheduled_publish_at,
     };
     localStorage.setItem(draftKey, JSON.stringify(backupData));
   }, [formData, draftKey]);
@@ -248,6 +251,28 @@ export const ArticleEditor = () => {
 
   if (isEdit && isArticleLoading) return <Loading />;
 
+  if (isEdit && isArticleError) {
+    return (
+      <div className="max-w-6xl mx-auto pb-12">
+        <ErrorState
+          message={(articleError as any)?.message || '文章加载失败'}
+          onRetry={() => refetchArticle()}
+        />
+      </div>
+    );
+  }
+
+  if (isCategoriesError) {
+    return (
+      <div className="max-w-6xl mx-auto pb-12">
+        <ErrorState
+          message={(categoriesError as any)?.message || '分类列表加载失败'}
+          onRetry={() => refetchCategories()}
+        />
+      </div>
+    );
+  }
+
   return (
     <div
       className={`${isWritingFocused ? 'max-w-display' : 'max-w-6xl'} mx-auto pb-12 transition-[max-width] duration-300`}
@@ -346,6 +371,20 @@ export const ArticleEditor = () => {
                   <Select.Option value="published" label="发布" />
                 </Select>
               </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">定时发布</label>
+              <input
+                type="datetime-local"
+                className="input w-full"
+                value={formData.scheduled_publish_at}
+                onChange={(e) => setFormData({ ...formData, scheduled_publish_at: e.target.value })}
+                min={new Date().toISOString().slice(0, 16)}
+              />
+              <p className="mt-1 text-xs text-neutral-400 dark:text-neutral-500">
+                设置后文章将在指定时间自动发布。留空则立即发布。
+              </p>
             </div>
 
             <div>

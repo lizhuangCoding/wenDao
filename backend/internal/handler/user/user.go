@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -12,6 +13,7 @@ import (
 
 	"wenDao/config"
 	"wenDao/internal/pkg/httpcookie"
+	"wenDao/internal/pkg/pagination"
 	"wenDao/internal/pkg/response"
 	"wenDao/internal/service"
 )
@@ -436,4 +438,88 @@ func generateRandomState() string {
 	b := make([]byte, 16)
 	rand.Read(b)
 	return hex.EncodeToString(b)
+}
+
+// ListUsers 获取用户列表（管理员）
+func (h *UserHandler) ListUsers(c *gin.Context) {
+	p := pagination.FromQuery(c)
+	role := c.Query("role")
+	status := c.Query("status")
+	search := c.Query("search")
+
+	users, total, err := h.userService.ListUsers(p.Page, p.PageSize, role, status, search)
+	if err != nil {
+		response.InternalErrorWithErr(c, "Failed to list users", err)
+		return
+	}
+
+	response.Success(c, gin.H{
+		"data":       users,
+		"total":      total,
+		"page":       p.Page,
+		"pageSize":   p.PageSize,
+		"totalPages": pagination.TotalPages(total, p.PageSize),
+	})
+}
+
+// UpdateUserRole 更新用户角色（管理员）
+func (h *UserHandler) UpdateUserRole(c *gin.Context) {
+	userID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		response.InvalidParams(c, "Invalid user ID")
+		return
+	}
+
+	var req struct {
+		Role string `json:"role" binding:"required,oneof=user admin"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.InvalidParams(c, err.Error())
+		return
+	}
+
+	// 不能修改自己的角色
+	currentUserID, _ := c.Get("user_id")
+	if currentUserID.(int64) == userID {
+		response.Error(c, response.CodeInvalidParams, "Cannot modify your own role")
+		return
+	}
+
+	if err := h.userService.UpdateUserRole(userID, req.Role); err != nil {
+		response.InternalErrorWithErr(c, "Failed to update user role", err)
+		return
+	}
+
+	response.Success(c, nil)
+}
+
+// UpdateUserStatus 更新用户状态（管理员：封禁/解封）
+func (h *UserHandler) UpdateUserStatus(c *gin.Context) {
+	userID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		response.InvalidParams(c, "Invalid user ID")
+		return
+	}
+
+	var req struct {
+		Status string `json:"status" binding:"required,oneof=active banned"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.InvalidParams(c, err.Error())
+		return
+	}
+
+	// 不能修改自己的状态
+	currentUserID, _ := c.Get("user_id")
+	if currentUserID.(int64) == userID {
+		response.Error(c, response.CodeInvalidParams, "Cannot modify your own status")
+		return
+	}
+
+	if err := h.userService.UpdateUserStatus(userID, req.Status); err != nil {
+		response.InternalErrorWithErr(c, "Failed to update user status", err)
+		return
+	}
+
+	response.Success(c, nil)
 }

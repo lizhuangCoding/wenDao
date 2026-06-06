@@ -86,7 +86,12 @@ func (h *CommentHandler) GetByArticleID(c *gin.Context) {
 		return
 	}
 
-	comments, err := h.commentService.GetByArticleID(articleID)
+	sort := c.Query("sort")
+	if sort != "hottest" {
+		sort = "newest"
+	}
+
+	comments, err := h.commentService.GetByArticleIDSorted(articleID, sort)
 	if err != nil {
 		response.InternalErrorWithErr(c, "Failed to get comments", err)
 		return
@@ -190,6 +195,38 @@ func normalizeCommentIDs(ids []int64) ([]int64, bool) {
 		normalized = append(normalized, id)
 	}
 	return normalized, len(normalized) > 0
+}
+
+// Like 点赞评论
+func (h *CommentHandler) Like(c *gin.Context) {
+	commentID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		response.InvalidParams(c, "Invalid comment ID")
+		return
+	}
+
+	if err := h.commentService.Like(commentID); err != nil {
+		response.InternalErrorWithErr(c, "Failed to like comment", err)
+		return
+	}
+
+	response.Success(c, nil)
+}
+
+// Dislike 点踩评论
+func (h *CommentHandler) Dislike(c *gin.Context) {
+	commentID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		response.InvalidParams(c, "Invalid comment ID")
+		return
+	}
+
+	if err := h.commentService.Dislike(commentID); err != nil {
+		response.InternalErrorWithErr(c, "Failed to dislike comment", err)
+		return
+	}
+
+	response.Success(c, nil)
 }
 
 // Restore 恢复评论（管理员）

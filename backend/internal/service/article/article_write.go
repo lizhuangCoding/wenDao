@@ -153,3 +153,17 @@ func (s *articleService) AutoSave(id int64, title, content, summary string) erro
 	s.deleteArticleVectorAsync(id)
 	return nil
 }
+
+// SetScheduledPublishAt 设置文章定时发布时间
+func (s *articleService) SetScheduledPublishAt(articleID int64, t *time.Time) error {
+	article, err := s.getArticleByIDOrNotFound(articleID)
+	if err != nil {
+		return err
+	}
+	article.ScheduledPublishAt = t
+	if err := s.articleRepo.Update(article); err != nil {
+		return fmt.Errorf("failed to set scheduled publish time: %w", err)
+	}
+	s.deleteArticleFromCache(articleID)
+	return nil
+}

@@ -3,6 +3,7 @@ package article
 import (
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
@@ -31,6 +32,9 @@ type ArticleService interface {
 	ToggleTop(id int64) (*model.Article, error)
 	UpdatePopularityScores() error
 	GetAllPublished() ([]*model.Article, error)
+	GetDueScheduledArticles() ([]*model.Article, error)
+	PublishScheduled(articleID int64) error
+	SetScheduledPublishAt(articleID int64, t *time.Time) error
 }
 
 // articleService 文章服务实现

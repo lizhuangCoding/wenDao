@@ -16,10 +16,13 @@ import (
 type CommentService interface {
 	Create(articleID, userID int64, content string, parentID, replyToUserID *int64) (*model.Comment, error)
 	GetByArticleID(articleID int64) ([]*model.Comment, error)
+	GetByArticleIDSorted(articleID int64, sort string) ([]*model.Comment, error)
 	ListAll(filter repository.CommentFilter) ([]*model.Comment, int64, error)
 	Delete(id, userID int64, isAdmin bool) error
 	DeleteBatch(ids []int64, userID int64, isAdmin bool) error
 	Restore(id int64) error
+	Like(commentID int64) error
+	Dislike(commentID int64) error
 }
 
 // commentService 评论服务实现
@@ -27,6 +30,12 @@ type commentService struct {
 	commentRepo             repository.CommentRepository
 	articleRepo             repository.ArticleRepository
 	replyNotificationSender CommentReplyNotificationSender
+	notificationService     NotificationService
+}
+
+// NotificationService 站内通知服务接口（用于评论回复时创建通知）
+type NotificationService interface {
+	Create(userID int64, notifType, title, content, linkURL string) error
 }
 
 type CommentServiceOption func(*commentService)
@@ -34,6 +43,12 @@ type CommentServiceOption func(*commentService)
 func WithReplyNotificationSender(sender CommentReplyNotificationSender) CommentServiceOption {
 	return func(s *commentService) {
 		s.replyNotificationSender = sender
+	}
+}
+
+func WithNotificationService(notifSvc NotificationService) CommentServiceOption {
+	return func(s *commentService) {
+		s.notificationService = notifSvc
 	}
 }
 
@@ -170,6 +185,17 @@ func (s *commentService) notifyReplyRecipient(ctx context.Context, article *mode
 		ArticleSlug:         article.Slug,
 		CommentPreview:      commentPreview(comment.Content),
 	})
+
+	// 创建站内通知
+	if s.notificationService != nil {
+		_ = s.notificationService.Create(
+			recipient.ID,
+			"comment_reply",
+			fmt.Sprintf("%s 回复了你的评论", replyAuthor),
+			fmt.Sprintf("在《%s》中，%s 回复了你的评论：%s", article.Title, replyAuthor, commentPreview(comment.Content)),
+			fmt.Sprintf("/article/%s", article.Slug),
+		)
+	}
 }
 
 // GetByArticleID 获取文章的评论列表
@@ -302,4 +328,26 @@ func (s *commentService) Restore(id int64) error {
 	s.articleRepo.IncrementCommentCount(comment.ArticleID)
 
 	return nil
+}
+
+// GetByArticleIDSorted 获取文章的评论列表（支持排序）
+func (s *commentService) GetByArticleIDSorted(articleID int64, sort string) ([]*model.Comment, error) {
+	if sort != "hottest" {
+		sort = "newest"
+	}
+	comments, err := s.commentRepo.GetByArticleIDSorted(articleID, sort)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get comments: %w", err)
+	}
+	return s.buildCommentTree(comments), nil
+}
+
+// Like 点赞评论
+func (s *commentService) Like(commentID int64) error {
+	return s.commentRepo.IncrementLike(commentID)
+}
+
+// Dislike 点踩评论
+func (s *commentService) Dislike(commentID int64) error {
+	return s.commentRepo.IncrementDislike(commentID)
 }

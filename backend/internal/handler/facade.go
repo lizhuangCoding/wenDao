@@ -10,6 +10,7 @@ import (
 	chathandler "wenDao/internal/handler/chat"
 	commenthandler "wenDao/internal/handler/comment"
 	knowledgehandler "wenDao/internal/handler/knowledge"
+	notifhandler "wenDao/internal/handler/notification"
 	sitehandler "wenDao/internal/handler/site"
 	stathandler "wenDao/internal/handler/stat"
 	uploadhandler "wenDao/internal/handler/upload"
@@ -29,6 +30,7 @@ type SiteHandler = sitehandler.SiteHandler
 type StatHandler = stathandler.StatHandler
 type ChatHandler = chathandler.ChatHandler
 type KnowledgeDocumentHandler = knowledgehandler.KnowledgeDocumentHandler
+type NotificationHandler = notifhandler.NotificationHandler
 
 func NewUserHandler(userSvc service.UserService, uploadSvc service.UploadService, oauthSvc service.OAuthService, verificationSvc service.VerificationService, cfg *config.Config) *UserHandler {
 	return userhandler.NewUserHandler(userSvc, uploadSvc, oauthSvc, verificationSvc, cfg)
@@ -48,22 +50,26 @@ func NewCommentHandler(commentSvc service.CommentService, statSvc *service.StatS
 func NewUploadHandler(uploadSvc service.UploadService) *UploadHandler {
 	return uploadhandler.NewUploadHandler(uploadSvc)
 }
-func NewAIHandler(aiSvc service.AIService) *AIHandler { return chathandler.NewAIHandler(aiSvc) }
-func NewSiteHandler(cfg *config.Config, articleSvc service.ArticleService) *SiteHandler {
-	return sitehandler.NewSiteHandler(cfg, articleSvc)
+func NewAIHandler(aiSvc service.AIService, cfg *config.Config) *AIHandler { return chathandler.NewAIHandler(aiSvc, cfg) }
+func NewSiteHandler(cfg *config.Config, articleSvc service.ArticleService, settingSvc service.SettingService) *SiteHandler {
+	return sitehandler.NewSiteHandler(cfg, articleSvc, settingSvc)
 }
 func NewStatHandler(statSvc *service.StatService) *StatHandler {
 	return stathandler.NewStatHandler(statSvc)
 }
 func NewChatHandler(
+	cfg *config.Config,
 	convRepo repository.ConversationRepository,
 	msgRepo repository.ChatMessageRepository,
 	runRepo repository.ConversationRunRepository,
 	runStepRepo repository.ConversationRunStepRepository,
 	memoryRepo repository.ConversationMemoryRepository,
 ) *ChatHandler {
-	return chathandler.NewChatHandler(convRepo, msgRepo, runRepo, runStepRepo, memoryRepo)
+	return chathandler.NewChatHandler(cfg, convRepo, msgRepo, runRepo, runStepRepo, memoryRepo)
 }
 func NewKnowledgeDocumentHandler(knowledgeSvc service.KnowledgeDocumentService) *KnowledgeDocumentHandler {
 	return knowledgehandler.NewKnowledgeDocumentHandler(knowledgeSvc)
+}
+func NewNotificationHandler(notifSvc service.NotificationService) *NotificationHandler {
+	return notifhandler.NewNotificationHandler(notifSvc)
 }

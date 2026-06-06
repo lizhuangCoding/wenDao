@@ -44,7 +44,7 @@ const getKnowledgeDocumentStatusMeta = (
 };
 
 export const KnowledgeDocumentList = () => {
-  const pageSize = 10;
+  const [pageSize, setPageSize] = useState(10);
   const [page, setPage] = useState(1);
   const [status, setStatus] = useState<KnowledgeDocumentStatusFilter>('');
   const [keyword, setKeyword] = useState('');
@@ -61,7 +61,7 @@ export const KnowledgeDocumentList = () => {
     error,
     refetch,
   } = useQuery({
-    queryKey: ['admin-knowledge-documents', page, status, keyword],
+    queryKey: ['admin-knowledge-documents', page, pageSize, status, keyword],
     queryFn: () =>
       knowledgeDocumentApi.getKnowledgeDocuments({
         page,
@@ -250,8 +250,15 @@ export const KnowledgeDocumentList = () => {
         <Pagination
           page={page}
           totalPages={totalPages}
+          total={documentsData?.total}
+          pageSize={pageSize}
           onChange={(nextPage) => {
             setPage(nextPage);
+            setSelectedIds([]);
+          }}
+          onPageSizeChange={(newSize) => {
+            setPageSize(newSize);
+            setPage(1);
             setSelectedIds([]);
           }}
         />

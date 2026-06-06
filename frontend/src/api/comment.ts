@@ -5,8 +5,8 @@ import { toPaginationQuery } from './pagination';
 // 评论 API
 export const commentApi = {
   // 获取文章评论
-  getComments: (articleId: number) => {
-    return request.get<Comment[]>(`/comments/article/${articleId}`);
+  getComments: (articleId: number, sort: string = 'newest') => {
+    return request.get<Comment[]>(`/comments/article/${articleId}`, { params: { sort } });
   },
 
   // 获取所有评论（管理员）
@@ -42,5 +42,15 @@ export const commentApi = {
   // 管理员恢复评论
   adminRestoreComment: (id: number) => {
     return request.post(`/admin/comments/${id}/restore`);
+  },
+
+  // 点赞评论
+  likeComment: (id: number) => {
+    return request.post(`/comments/${id}/like`);
+  },
+
+  // 点踩评论
+  dislikeComment: (id: number) => {
+    return request.post(`/comments/${id}/dislike`);
   },
 };

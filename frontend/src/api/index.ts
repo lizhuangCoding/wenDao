@@ -8,4 +8,5 @@ export * from './knowledgeDocument';
 export * from './site';
 export * from './stat';
 export * from './upload';
+export * from './notification';
 export { request } from './client';

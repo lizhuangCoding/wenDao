@@ -43,6 +43,7 @@ type repositories struct {
 	upload                  repository.UploadRepository
 	setting                 repository.SettingRepository
 	stat                    *repository.StatRepository
+	notification            repository.NotificationRepository
 }
 
 type aiComponents struct {
@@ -97,6 +98,7 @@ func initRepositories(db *gorm.DB) *repositories {
 		upload:                  repository.NewUploadRepository(db),
 		setting:                 repository.NewSettingRepository(db),
 		stat:                    repository.NewStatRepository(db),
+		notification:            repository.NewNotificationRepository(db),
 	}
 }
 

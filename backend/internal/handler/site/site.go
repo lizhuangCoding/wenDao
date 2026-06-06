@@ -10,27 +10,56 @@ import (
 	"wenDao/config"
 	"wenDao/internal/pkg/response"
 	"wenDao/internal/service/article"
+	"wenDao/internal/service/setting"
 )
 
 // SiteHandler 网站配置处理器
 type SiteHandler struct {
 	cfg            *config.Config
 	articleService article.ArticleService
+	settingService setting.SettingService
 }
 
 // NewSiteHandler 创建网站配置处理器
-func NewSiteHandler(cfg *config.Config, articleService article.ArticleService) *SiteHandler {
+func NewSiteHandler(cfg *config.Config, articleService article.ArticleService, settingService setting.SettingService) *SiteHandler {
 	return &SiteHandler{
 		cfg:            cfg,
 		articleService: articleService,
+		settingService: settingService,
 	}
 }
 
 // GetSlogan 获取网站标语
 func (h *SiteHandler) GetSlogan(c *gin.Context) {
+	slogan := h.cfg.Site.Slogan
+	if h.settingService != nil {
+		if dbSlogan := h.settingService.GetSlogan(); dbSlogan != "" {
+			slogan = dbSlogan
+		}
+	}
 	response.Success(c, gin.H{
-		"slogan": h.cfg.Site.Slogan,
+		"slogan": slogan,
 	})
+}
+
+// SetSlogan 设置网站标语（管理员）
+func (h *SiteHandler) SetSlogan(c *gin.Context) {
+	var req struct {
+		Slogan string `json:"slogan" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.InvalidParams(c, "标语不能为空")
+		return
+	}
+	if h.settingService == nil {
+		response.InternalError(c, "Setting service unavailable")
+		return
+	}
+	if err := h.settingService.SetSlogan(req.Slogan); err != nil {
+		response.InternalErrorWithErr(c, "设置标语失败", err)
+		return
+	}
+	response.Success(c, gin.H{"slogan": req.Slogan})
 }
 
 // RobotsTxt 返回 robots.txt 内容

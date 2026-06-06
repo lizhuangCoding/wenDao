@@ -2,7 +2,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { articleApi } from '@/api';
-import { Layout, Loading } from '@/components/common';
+import { Layout, Loading, ErrorState } from '@/components/common';
 import { ArticleContent, TableOfContents } from '@/components/article';
 import { extractHeadings } from '@/utils/markdown';
 import { CommentList } from '@/components/comment';
@@ -18,7 +18,7 @@ export const ArticleDetail = () => {
   const navigate = useNavigate();
   const { isAdmin } = useAuth();
 
-  const { data: article, isLoading } = useQuery({
+  const { data: article, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['article', slug],
     queryFn: () => articleApi.getArticleBySlug(slug!),
     enabled: !!slug,
@@ -30,6 +30,19 @@ export const ArticleDetail = () => {
   }, [article?.content]);
 
   if (isLoading) return <Layout><Loading /></Layout>;
+
+  if (isError) {
+    return (
+      <Layout>
+        <div className="max-w-reading mx-auto px-6 py-16">
+          <ErrorState
+            message={(error as any)?.message || '文章加载失败'}
+            onRetry={() => refetch()}
+          />
+        </div>
+      </Layout>
+    );
+  }
 
   if (!article) {
     return (

@@ -5,6 +5,7 @@ import { useThemeStore } from '@/store';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/utils';
 import { Menu, X } from 'lucide-react';
+import { NotificationBell } from './NotificationBell';
 
 export const Header = () => {
   const scrollDirection = useScrollDirection();
@@ -106,6 +107,9 @@ export const Header = () => {
                   {getThemeIcon()}
                 </button>
               </div>
+
+              {/* Notification Bell */}
+              <NotificationBell />
 
               {/* User Menu */}
               {isAuthenticated ? (

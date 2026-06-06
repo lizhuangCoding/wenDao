@@ -1,6 +1,8 @@
 package article
 
 import (
+	"time"
+
 	"gorm.io/gorm"
 
 	"wenDao/internal/model"
@@ -38,6 +40,8 @@ type ArticleRepository interface {
 	UpdateTop(id int64, isTop bool) error
 	UpdatePopularity(id int64, popularity float64) error
 	GetAllPublished() ([]*model.Article, error)
+	GetDueScheduledArticles() ([]*model.Article, error)
+	PublishScheduled(articleID int64) error
 }
 
 // articleRepository 文章数据访问实现
@@ -241,4 +245,22 @@ func (r *articleRepository) GetAllPublished() ([]*model.Article, error) {
 	var articles []*model.Article
 	err := r.db.Select("id, slug, title, updated_at, published_at, created_at, view_count, comment_count, like_count").Where("status = ?", "published").Find(&articles).Error
 	return articles, err
+}
+
+// GetDueScheduledArticles 获取所有到期的待发布文章
+func (r *articleRepository) GetDueScheduledArticles() ([]*model.Article, error) {
+	var articles []*model.Article
+	err := r.db.Select("id, title, content, slug, category_id, author_id").
+		Where("status = ? AND scheduled_publish_at IS NOT NULL AND scheduled_publish_at <= NOW()", "draft").
+		Limit(50).
+		Find(&articles).Error
+	return articles, err
+}
+
+// PublishScheduled 将定时文章发布
+func (r *articleRepository) PublishScheduled(articleID int64) error {
+	return r.db.Model(&model.Article{}).Where("id = ?", articleID).Updates(map[string]interface{}{
+		"status":       "published",
+		"published_at": time.Now(),
+	}).Error
 }

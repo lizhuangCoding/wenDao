@@ -16,4 +16,9 @@ export const siteApi = {
   setSortMode: (enabled: boolean): Promise<void> => {
     return request.put('/admin/settings/sort-mode', { enabled });
   },
+
+  // 设置网站标语（管理员）
+  setSlogan: (slogan: string): Promise<{ slogan: string }> => {
+    return request.put('/admin/settings/slogan', { slogan });
+  },
 };

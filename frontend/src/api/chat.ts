@@ -9,6 +9,8 @@ import type {
   ChatSnapshotEvent,
   ChatStageEvent,
   ChatStepEvent,
+  ModelInfo,
+  SharedConversationData,
 } from '@/types';
 
 type ChatStreamHandlers = {
@@ -129,5 +131,39 @@ export const chatApi = {
 
   generateSummary: (content: string) => {
     return request.post<{ summary: string }>('/ai/summary', { content });
+  },
+
+  getModels: () => {
+    return request.get<{ models: ModelInfo[] }>('/models');
+  },
+
+  shareConversation: (id: number, share: boolean) => {
+    return request.post<{ id: number; is_shared: boolean; share_token: string }>(`/chat/conversations/${id}/share`, { share });
+  },
+
+  getSharedConversation: (token: string) => {
+    return request.get<SharedConversationData>(`/shared/conversations/${token}`);
+  },
+
+  exportConversation: async (id: number, title: string) => {
+    const token = localStorage.getItem('access_token');
+    const response = await fetch(getApiUrl(`/chat/conversations/${id}/export`), {
+      credentials: 'include',
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+    });
+    if (!response.ok) {
+      throw new Error('导出失败');
+    }
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `conversation-${title.replace(/[\\/:\*\?"<>\|]/g, '_')}.md`;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
   },
 };

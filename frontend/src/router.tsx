@@ -44,6 +44,21 @@ const KnowledgeDocumentDetail = lazy(() =>
     default: module.KnowledgeDocumentDetail,
   }))
 );
+const UserManagement = lazy(() =>
+  import('./views/admin/users/UserManagement').then((module) => ({ default: module.UserManagement }))
+);
+const Broadcast = lazy(() =>
+  import('./pages/admin/Broadcast').then((module) => ({ default: module.Broadcast }))
+);
+const Settings = lazy(() =>
+  import('./views/admin/Settings').then((module) => ({ default: module.Settings }))
+);
+const NotificationList = lazy(() =>
+  import('./pages/NotificationList').then((module) => ({ default: module.NotificationList }))
+);
+const SharedConversation = lazy(() =>
+  import('./pages/SharedConversation').then((module) => ({ default: module.SharedConversation }))
+);
 
 const withSuspense = (element: React.ReactNode) => (
   <RouteSuspenseBoundary>{element}</RouteSuspenseBoundary>
@@ -89,6 +104,20 @@ export const router = createBrowserRouter([
     errorElement: <RouteErrorFallback />,
   },
   {
+    path: '/shared/:token',
+    element: withSuspense(<SharedConversation />),
+    errorElement: <RouteErrorFallback />,
+  },
+  {
+    path: '/notifications',
+    element: withSuspense(
+      <ProtectedRoute>
+        <NotificationList />
+      </ProtectedRoute>
+    ),
+    errorElement: <RouteErrorFallback />,
+  },
+  {
     path: '/admin',
     element: withSuspense(
       <AdminRoute>
@@ -104,8 +133,11 @@ export const router = createBrowserRouter([
       { path: 'articles/edit/:id', element: withSuspense(<ArticleEditor />) },
       { path: 'categories', element: withSuspense(<CategoryList />) },
       { path: 'comments', element: withSuspense(<CommentList />) },
+      { path: 'users', element: withSuspense(<UserManagement />) },
       { path: 'knowledge-documents', element: withSuspense(<KnowledgeDocumentList />) },
       { path: 'knowledge-documents/:id', element: withSuspense(<KnowledgeDocumentDetail />) },
+      { path: 'broadcast', element: withSuspense(<Broadcast />) },
+      { path: 'settings', element: withSuspense(<Settings />) },
     ],
   },
   {

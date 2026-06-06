@@ -8,6 +8,7 @@ import (
 	chatrepo "wenDao/internal/repository/chat"
 	commentrepo "wenDao/internal/repository/comment"
 	knowledgerepo "wenDao/internal/repository/knowledge"
+	notifrepo "wenDao/internal/repository/notification"
 	settingrepo "wenDao/internal/repository/setting"
 	statrepo "wenDao/internal/repository/stat"
 	uploadrepo "wenDao/internal/repository/upload"
@@ -31,6 +32,7 @@ type KnowledgeDocumentSourceRepository = knowledgerepo.KnowledgeDocumentSourceRe
 type KnowledgeDocumentFilter = knowledgerepo.KnowledgeDocumentFilter
 type UploadRepository = uploadrepo.UploadRepository
 type SettingRepository = settingrepo.SettingRepository
+type NotificationRepository = notifrepo.NotificationRepository
 type StatRepository = statrepo.StatRepository
 
 func NewUserRepository(db *gorm.DB) UserRepository       { return userrepo.NewUserRepository(db) }
@@ -62,4 +64,7 @@ func NewKnowledgeDocumentSourceRepository(db *gorm.DB) KnowledgeDocumentSourceRe
 }
 func NewUploadRepository(db *gorm.DB) UploadRepository   { return uploadrepo.NewUploadRepository(db) }
 func NewSettingRepository(db *gorm.DB) SettingRepository { return settingrepo.NewSettingRepository(db) }
-func NewStatRepository(db *gorm.DB) *StatRepository      { return statrepo.NewStatRepository(db) }
+func NewNotificationRepository(db *gorm.DB) NotificationRepository {
+	return notifrepo.NewNotificationRepository(db)
+}
+func NewStatRepository(db *gorm.DB) *StatRepository { return statrepo.NewStatRepository(db) }

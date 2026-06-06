@@ -59,12 +59,13 @@ func (h *ArticleHandler) SetSortMode(c *gin.Context) {
 
 // CreateArticleRequest 创建文章请求
 type CreateArticleRequest struct {
-	Title      string  `json:"title" binding:"required,min=1,max=200"`
-	Content    string  `json:"content" binding:"required,min=10"`
-	Summary    string  `json:"summary" binding:"max=500"`
-	CategoryID int64   `json:"category_id" binding:"required"`
-	CoverImage *string `json:"cover_image"`
-	Status     string  `json:"status" binding:"required,oneof=draft published"`
+	Title              string  `json:"title" binding:"required,min=1,max=200"`
+	Content            string  `json:"content" binding:"required,min=10"`
+	Summary            string  `json:"summary" binding:"max=500"`
+	CategoryID         int64   `json:"category_id" binding:"required"`
+	CoverImage         *string `json:"cover_image"`
+	Status             string  `json:"status" binding:"required,oneof=draft published"`
+	ScheduledPublishAt *string `json:"scheduled_publish_at"`
 }
 
 // UpdateArticleRequest 更新文章请求
@@ -138,6 +139,23 @@ func (h *ArticleHandler) Create(c *gin.Context) {
 		return
 	}
 
+	// 处理定时发布
+	var scheduledAt *time.Time
+	effectiveStatus := req.Status
+	if req.ScheduledPublishAt != nil && *req.ScheduledPublishAt != "" {
+		scheduledTime, err := time.Parse(time.RFC3339, *req.ScheduledPublishAt)
+		if err != nil {
+			response.InvalidParams(c, "Invalid scheduled_publish_at format, use RFC3339")
+			return
+		}
+		if scheduledTime.Before(time.Now()) {
+			response.InvalidParams(c, "scheduled_publish_at must be in the future")
+			return
+		}
+		scheduledAt = &scheduledTime
+		effectiveStatus = "draft"
+	}
+
 	authorID, _ := c.Get("user_id")
 
 	article, err := h.articleService.Create(
@@ -147,7 +165,7 @@ func (h *ArticleHandler) Create(c *gin.Context) {
 		req.CategoryID,
 		authorID.(int64),
 		req.CoverImage,
-		req.Status,
+		effectiveStatus,
 	)
 	if err != nil {
 		if err.Error() == "category not found" {
@@ -156,6 +174,14 @@ func (h *ArticleHandler) Create(c *gin.Context) {
 		}
 		response.InternalErrorWithErr(c, "Failed to create article", err)
 		return
+	}
+
+	// 如果有定时发布，需要单独设置
+	if scheduledAt != nil {
+		if updateErr := h.articleService.SetScheduledPublishAt(article.ID, scheduledAt); updateErr != nil {
+			// 已成功创建文章，但定时设置失败，仅记录
+			c.Error(updateErr)
+		}
 	}
 
 	response.Success(c, article)

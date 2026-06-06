@@ -11,6 +11,8 @@ interface Conversation {
   createdAt: number;
   updatedAt: number;
   isLoaded: boolean;
+  isShared?: boolean;
+  shareToken?: string;
 }
 
 interface ChatState {
@@ -27,7 +29,9 @@ interface ChatState {
   isRecovering: boolean;
   reconnectAttempts: number;
   lastHeartbeatAt: number | null;
+  selectedModel: { provider: string; model_name: string } | null;
 
+  setSelectedModel: (model: { provider: string; model_name: string } | null) => void;
   loadConversations: () => Promise<void>;
   createNewChat: () => Promise<void>;
   setActiveChat: (id: number) => Promise<void>;
@@ -296,6 +300,7 @@ const preserveExistingProcessSteps = (next: Conversation, previous?: Conversatio
 };
 
 const ACTIVE_CHAT_STORAGE_KEY = 'wendao.aiChat.activeId';
+const MODEL_STORAGE_KEY = 'wendao.aiChat.model';
 
 const readStoredActiveId = () => {
   if (typeof window === 'undefined') return null;
@@ -303,6 +308,21 @@ const readStoredActiveId = () => {
   if (!raw) return null;
   const parsed = Number(raw);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+};
+
+const readStoredModel = () => {
+  if (typeof window === 'undefined') return null;
+  const raw = window.localStorage.getItem(MODEL_STORAGE_KEY);
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed.provider === 'string' && typeof parsed.model_name === 'string') {
+      return parsed as { provider: string; model_name: string };
+    }
+  } catch {
+    // ignore
+  }
+  return null;
 };
 
 const persistActiveChatId = (id: number | null) => {
@@ -632,6 +652,16 @@ export const useChatStore = create<ChatState>()((set, get) => {
     isRecovering: false,
     reconnectAttempts: 0,
     lastHeartbeatAt: null,
+    selectedModel: readStoredModel(),
+
+    setSelectedModel: (model) => {
+      if (model) {
+        window.localStorage.setItem(MODEL_STORAGE_KEY, JSON.stringify(model));
+      } else {
+        window.localStorage.removeItem(MODEL_STORAGE_KEY);
+      }
+      set({ selectedModel: model });
+    },
 
     loadConversations: async () => {
       try {
@@ -648,6 +678,8 @@ export const useChatStore = create<ChatState>()((set, get) => {
             createdAt: new Date(conv.created_at).getTime(),
             updatedAt: new Date(conv.updated_at).getTime(),
             isLoaded: false,
+            isShared: conv.is_shared,
+            shareToken: conv.share_token,
           };
         }
 
@@ -846,8 +878,13 @@ export const useChatStore = create<ChatState>()((set, get) => {
       }));
 
       try {
+        const reqModel = get().selectedModel;
         await chatApi.streamMessage(
-          { message: content, conversation_id: currentId },
+          {
+            message: content,
+            conversation_id: currentId,
+            ...(reqModel ? { model_provider: reqModel.provider, model_name: reqModel.model_name } : {}),
+          },
           {
             onResume: ({ run_id, stage, status }) => {
               set((state) => ({

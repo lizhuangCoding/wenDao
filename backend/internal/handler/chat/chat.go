@@ -1,11 +1,16 @@
 package chat
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
+	"regexp"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
 
+	"wenDao/config"
 	"wenDao/internal/model"
 	"wenDao/internal/pkg/response"
 	"wenDao/internal/repository"
@@ -13,6 +18,7 @@ import (
 
 // ChatHandler 对话处理器
 type ChatHandler struct {
+	cfg         *config.Config
 	convRepo    repository.ConversationRepository
 	msgRepo     repository.ChatMessageRepository
 	runRepo     repository.ConversationRunRepository
@@ -22,6 +28,7 @@ type ChatHandler struct {
 
 // NewChatHandler 创建对话处理器
 func NewChatHandler(
+	cfg *config.Config,
 	convRepo repository.ConversationRepository,
 	msgRepo repository.ChatMessageRepository,
 	runRepo repository.ConversationRunRepository,
@@ -29,6 +36,7 @@ func NewChatHandler(
 	memoryRepo repository.ConversationMemoryRepository,
 ) *ChatHandler {
 	return &ChatHandler{
+		cfg:         cfg,
 		convRepo:    convRepo,
 		msgRepo:     msgRepo,
 		runRepo:     runRepo,
@@ -49,11 +57,13 @@ type UpdateConversationRequest struct {
 
 // ConversationResponse 对话响应
 type ConversationResponse struct {
-	ID        int64  `json:"id"`
-	UserID    int64  `json:"user_id"`
-	Title     string `json:"title"`
-	CreatedAt string `json:"created_at"`
-	UpdatedAt string `json:"updated_at"`
+	ID         int64  `json:"id"`
+	UserID     int64  `json:"user_id"`
+	Title      string `json:"title"`
+	ShareToken string `json:"share_token,omitempty"`
+	IsShared   bool   `json:"is_shared"`
+	CreatedAt  string `json:"created_at"`
+	UpdatedAt  string `json:"updated_at"`
 }
 
 // MessageResponse 消息响应
@@ -123,11 +133,13 @@ func parseConversationID(c *gin.Context) (int64, bool) {
 
 func buildConversationResponse(conv *model.Conversation) ConversationResponse {
 	return ConversationResponse{
-		ID:        conv.ID,
-		UserID:    conv.UserID,
-		Title:     conv.Title,
-		CreatedAt: conv.CreatedAt.Format("2006-01-02 15:04:05"),
-		UpdatedAt: conv.UpdatedAt.Format("2006-01-02 15:04:05"),
+		ID:         conv.ID,
+		UserID:     conv.UserID,
+		Title:      conv.Title,
+		ShareToken: conv.ShareToken,
+		IsShared:   conv.IsShared,
+		CreatedAt:  conv.CreatedAt.Format("2006-01-02 15:04:05"),
+		UpdatedAt:  conv.UpdatedAt.Format("2006-01-02 15:04:05"),
 	}
 }
 
@@ -396,4 +408,220 @@ func (h *ChatHandler) Delete(c *gin.Context) {
 	}
 
 	response.Success(c, gin.H{"message": "Conversation deleted successfully"})
+}
+
+// Share 切换对话分享状态
+// POST /api/chat/conversations/:id/share
+func (h *ChatHandler) Share(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		response.Unauthorized(c, "Missing user ID")
+		return
+	}
+
+	convIDInt, ok := parseConversationID(c)
+	if !ok {
+		return
+	}
+
+	conv, err := h.convRepo.GetByID(convIDInt)
+	if err != nil {
+		response.NotFound(c, "Conversation not found")
+		return
+	}
+
+	if conv.UserID != userID.(int64) {
+		response.Forbidden(c, "Access denied")
+		return
+	}
+
+	var req struct {
+		Share bool `json:"share"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.InvalidParams(c, "Invalid request: share is required")
+		return
+	}
+
+	token := conv.ShareToken
+	if req.Share && token == "" {
+		token = generateShareToken()
+	}
+	if !req.Share {
+		token = ""
+	}
+
+	if err := h.convRepo.UpdateShare(convIDInt, req.Share, token); err != nil {
+		response.InternalError(c, "Failed to update share status")
+		return
+	}
+
+	conv.ShareToken = token
+	conv.IsShared = req.Share
+
+	response.Success(c, buildConversationResponse(conv))
+}
+
+// GetShared 获取公开分享的会话
+// GET /api/shared/conversations/:token
+func (h *ChatHandler) GetShared(c *gin.Context) {
+	token := c.Param("token")
+	if token == "" {
+		response.InvalidParams(c, "Missing share token")
+		return
+	}
+
+	conv, err := h.convRepo.GetByShareToken(token)
+	if err != nil {
+		response.NotFound(c, "Conversation not found or not shared")
+		return
+	}
+
+	msgs, err := h.msgRepo.GetByConversationID(conv.ID)
+	if err != nil {
+		response.InternalError(c, "Failed to get messages")
+		return
+	}
+
+	var steps []model.ConversationRunStep
+	if h.runStepRepo != nil {
+		steps, _ = h.runStepRepo.GetByConversationID(conv.ID)
+	}
+
+	stepResponses := make([]StepResponse, len(steps))
+	stepsByRunID := make(map[int64][]StepResponse)
+	for i, step := range steps {
+		stepResponse := buildStepResponse(step)
+		stepResponses[i] = stepResponse
+		stepsByRunID[step.RunID] = append(stepsByRunID[step.RunID], stepResponse)
+	}
+
+	msgResponses := make([]MessageResponse, len(msgs))
+	for i, msg := range msgs {
+		msgResponse := MessageResponse{
+			ID:             msg.ID,
+			ConversationID: msg.ConversationID,
+			RunID:          msg.RunID,
+			Role:           msg.Role,
+			Content:        msg.Content,
+			CreatedAt:      msg.CreatedAt.Format("2006-01-02 15:04:05"),
+		}
+		if msg.RunID != nil {
+			msgResponse.ProcessSteps = stepsByRunID[*msg.RunID]
+		}
+		msgResponses[i] = msgResponse
+	}
+
+	// 构建分享者信息（精简版）
+	sharedBy := gin.H{
+		"username":   conv.User.Username,
+		"avatar_url": conv.User.AvatarURL,
+	}
+
+	response.Success(c, gin.H{
+		"conversation": buildConversationResponse(conv),
+		"messages":     msgResponses,
+		"steps":        stepResponses,
+		"shared_by":    sharedBy,
+	})
+}
+
+// Export 导出对话为 Markdown
+// GET /api/chat/conversations/:id/export
+func (h *ChatHandler) Export(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		response.Unauthorized(c, "Missing user ID")
+		return
+	}
+
+	convIDInt, ok := parseConversationID(c)
+	if !ok {
+		return
+	}
+
+	conv, err := h.convRepo.GetByID(convIDInt)
+	if err != nil {
+		response.NotFound(c, "Conversation not found")
+		return
+	}
+
+	if conv.UserID != userID.(int64) {
+		response.Forbidden(c, "Access denied")
+		return
+	}
+
+	msgs, err := h.msgRepo.GetByConversationID(convIDInt)
+	if err != nil {
+		response.InternalError(c, "Failed to get messages")
+		return
+	}
+
+	var steps []model.ConversationRunStep
+	if h.runStepRepo != nil {
+		steps, _ = h.runStepRepo.GetByConversationID(convIDInt)
+	}
+
+	stepsByRunID := make(map[int64][]StepResponse)
+	for _, step := range steps {
+		stepResponse := buildStepResponse(step)
+		stepsByRunID[step.RunID] = append(stepsByRunID[step.RunID], stepResponse)
+	}
+
+	var md strings.Builder
+	md.WriteString(fmt.Sprintf("# %s\n\n", conv.Title))
+	md.WriteString(fmt.Sprintf("> 导出时间：%s\n\n", time.Now().Format("2006-01-02 15:04:05")))
+
+	siteURL := ""
+	if h.cfg != nil {
+		siteURL = strings.TrimRight(h.cfg.Site.URL, "/")
+	}
+
+	for _, msg := range msgs {
+		content := resolveRelativeLinks(msg.Content, siteURL)
+		if msg.Role == "user" {
+			md.WriteString(fmt.Sprintf("## 👤 用户\n\n%s\n\n", content))
+		} else {
+			md.WriteString(fmt.Sprintf("## 🤖 AI 助手\n\n%s\n\n", content))
+			if msg.RunID != nil {
+				if runSteps, ok := stepsByRunID[*msg.RunID]; ok && len(runSteps) > 0 {
+					md.WriteString("<details>\n<summary>处理过程</summary>\n\n")
+					for _, step := range runSteps {
+						statusIcon := "✅"
+						if step.Status == "running" {
+							statusIcon = "⏳"
+						} else if step.Status == "failed" {
+							statusIcon = "❌"
+						}
+						md.WriteString(fmt.Sprintf("- %s **%s** (%s): %s\n", statusIcon, step.AgentName, step.Type, step.Summary))
+						if step.Detail != "" {
+							md.WriteString(fmt.Sprintf("  > %s\n", step.Detail))
+						}
+					}
+					md.WriteString("\n</details>\n\n")
+				}
+			}
+		}
+	}
+
+	filename := fmt.Sprintf("conversation-%d.md", convIDInt)
+	c.Header("Content-Type", "text/markdown; charset=utf-8")
+	c.Header("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, filename))
+	c.Header("Cache-Control", "private, max-age=300")
+	c.String(200, md.String())
+}
+
+var reArticleLink = regexp.MustCompile(`\]\((/article/[^)]+)\)`)
+
+func resolveRelativeLinks(content string, siteURL string) string {
+	if siteURL == "" {
+		return content
+	}
+	return reArticleLink.ReplaceAllString(content, "]("+siteURL+"$1)")
+}
+
+func generateShareToken() string {
+	b := make([]byte, 16)
+	_, _ = rand.Read(b)
+	return hex.EncodeToString(b)
 }

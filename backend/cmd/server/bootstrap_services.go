@@ -25,6 +25,7 @@ type appServices struct {
 	comment           service.CommentService
 	upload            service.UploadService
 	stat              *service.StatService
+	notification      service.NotificationService
 }
 
 func initServices(cfg *config.Config, logger *zap.Logger, repos *repositories, infra *infrastructure, aiCore *aiComponents) (*appServices, func(), error) {
@@ -34,6 +35,7 @@ func initServices(cfg *config.Config, logger *zap.Logger, repos *repositories, i
 	verificationService := service.NewVerificationService(cfg, rdb, nil)
 	userService := service.NewUserService(repos.user, oauthService, cfg, rdb)
 	commentReplyEmailSender := service.NewSMTPCommentReplyEmailSender(cfg.Email, cfg.Site.URL)
+	notifSvc := service.NewNotificationService(repos.notification)
 	categoryService := service.NewCategoryService(repos.category)
 	settingService := service.NewSettingService(repos.setting)
 	knowledgeDocumentService := service.NewKnowledgeDocumentService(repos.knowledgeDocument, repos.knowledgeDocumentSource, nil, repos.article, repos.category, logger)
@@ -112,9 +114,10 @@ func initServices(cfg *config.Config, logger *zap.Logger, repos *repositories, i
 			knowledgeDocument: knowledgeDocumentService,
 			ai:                aiService,
 			article:           service.NewArticleService(repos.article, repos.category, infra.rdb, vectorService, logger),
-			comment:           service.NewCommentService(repos.comment, repos.article, service.WithReplyNotificationSender(commentReplyEmailSender)),
+			comment:           service.NewCommentService(repos.comment, repos.article, service.WithReplyNotificationSender(commentReplyEmailSender), service.WithCommentNotificationService(notifSvc)),
 			upload:            service.NewUploadService(repos.upload, cfg),
 			stat:              service.NewStatService(repos.stat, infra.rdb),
+			notification:      notifSvc,
 		}, cleanup, nil
 	}
 
@@ -128,9 +131,10 @@ func initServices(cfg *config.Config, logger *zap.Logger, repos *repositories, i
 		knowledgeDocument: knowledgeDocumentService,
 		ai:                aiService,
 		article:           service.NewArticleService(repos.article, repos.category, infra.rdb, nil, logger),
-		comment:           service.NewCommentService(repos.comment, repos.article, service.WithReplyNotificationSender(commentReplyEmailSender)),
+		comment:           service.NewCommentService(repos.comment, repos.article, service.WithReplyNotificationSender(commentReplyEmailSender), service.WithCommentNotificationService(notifSvc)),
 		upload:            service.NewUploadService(repos.upload, cfg),
 		stat:              service.NewStatService(repos.stat, infra.rdb),
+		notification:      notifSvc,
 	}, cleanup, nil
 }
 

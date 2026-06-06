@@ -30,7 +30,7 @@ type CommentStatusFilter = '' | 'normal' | 'deleted';
 
 export const CommentList = () => {
   const { t } = useTranslation();
-  const pageSize = 15;
+  const [pageSize, setPageSize] = useState(15);
   const [page, setPage] = useState(1);
   const [status, setStatus] = useState<CommentStatusFilter>('');
   const [keyword, setKeyword] = useState('');
@@ -56,7 +56,7 @@ export const CommentList = () => {
     error,
     refetch,
   } = useQuery({
-    queryKey: ['admin-comments', page, status, keyword],
+    queryKey: ['admin-comments', page, pageSize, status, keyword],
     queryFn: () =>
       commentApi.getAdminComments({
         page,
@@ -280,8 +280,15 @@ export const CommentList = () => {
         <Pagination
           page={page}
           totalPages={totalPages}
+          total={commentsData?.total}
+          pageSize={pageSize}
           onChange={(nextPage) => {
             setPage(nextPage);
+            setSelectedIds([]);
+          }}
+          onPageSizeChange={(newSize) => {
+            setPageSize(newSize);
+            setPage(1);
             setSelectedIds([]);
           }}
           previousLabel={t('admin.previous')}

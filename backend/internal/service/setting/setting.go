@@ -7,6 +7,8 @@ import (
 type SettingService interface {
 	GetSortByPopularity() bool
 	SetSortByPopularity(enabled bool) error
+	GetSlogan() string
+	SetSlogan(slogan string) error
 }
 
 type settingService struct {
@@ -32,4 +34,16 @@ func (s *settingService) SetSortByPopularity(enabled bool) error {
 		val = "true"
 	}
 	return s.repo.Set("sort_by_popularity", val)
+}
+
+func (s *settingService) GetSlogan() string {
+	setting, err := s.repo.Get("slogan")
+	if err != nil {
+		return ""
+	}
+	return setting.Value
+}
+
+func (s *settingService) SetSlogan(slogan string) error {
+	return s.repo.Set("slogan", slogan)
 }

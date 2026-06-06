@@ -11,7 +11,9 @@ type ConversationRepository interface {
 	Create(conv *model.Conversation) error
 	GetByID(id int64) (*model.Conversation, error)
 	GetByUserID(userID int64) ([]model.Conversation, error)
+	GetByShareToken(token string) (*model.Conversation, error)
 	Update(conv *model.Conversation) error
+	UpdateShare(id int64, share bool, token string) error
 	Delete(id int64) error
 }
 
@@ -52,6 +54,25 @@ func (r *conversationRepository) GetByUserID(userID int64) ([]model.Conversation
 // Update 更新对话
 func (r *conversationRepository) Update(conv *model.Conversation) error {
 	return r.db.Save(conv).Error
+}
+
+// GetByShareToken 根据分享令牌查询对话
+func (r *conversationRepository) GetByShareToken(token string) (*model.Conversation, error) {
+	var conv model.Conversation
+	err := r.db.Preload("User").Where("share_token = ? AND is_shared = ?", token, true).First(&conv).Error
+	if err != nil {
+		return nil, err
+	}
+	return &conv, nil
+}
+
+// UpdateShare 更新分享状态
+func (r *conversationRepository) UpdateShare(id int64, share bool, token string) error {
+	return r.db.Model(&model.Conversation{}).Where("id = ?", id).
+		Updates(map[string]interface{}{
+			"is_shared":   share,
+			"share_token": token,
+		}).Error
 }
 
 // Delete 删除对话

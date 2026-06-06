@@ -36,7 +36,7 @@ export const CategoryList = () => {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const { showToast } = useUIStore();
-  const pageSize = 10;
+  const [pageSize, setPageSize] = useState(10);
   const [page, setPage] = useState(1);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
@@ -52,7 +52,7 @@ export const CategoryList = () => {
     error,
     refetch,
   } = useQuery({
-    queryKey: ['admin-categories', page],
+    queryKey: ['admin-categories', page, pageSize],
     queryFn: () => categoryApi.getAdminCategories({ page, pageSize }),
   });
 
@@ -240,8 +240,15 @@ export const CategoryList = () => {
         <Pagination
           page={page}
           totalPages={totalPages}
+          total={categoriesData?.total}
+          pageSize={pageSize}
           onChange={(nextPage) => {
             setPage(nextPage);
+            setSelectedIds([]);
+          }}
+          onPageSizeChange={(newSize) => {
+            setPageSize(newSize);
+            setPage(1);
             setSelectedIds([]);
           }}
           previousLabel={t('admin.previous')}

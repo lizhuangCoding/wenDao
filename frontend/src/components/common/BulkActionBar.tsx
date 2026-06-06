@@ -2,7 +2,7 @@ import { Trash2 } from 'lucide-react';
 
 interface BulkActionBarProps {
   selectedCount: number;
-  onDelete: () => void;
+  onDelete?: () => void;
   onClear: () => void;
   isDeleting?: boolean;
   deleteLabel?: string;
@@ -32,6 +32,7 @@ export const BulkActionBar = ({
         >
           取消选择
         </button>
+        {onDelete && (
         <button
           type="button"
           onClick={onDelete}
@@ -41,6 +42,7 @@ export const BulkActionBar = ({
           <Trash2 className="h-4 w-4" />
           {deleteLabel}
         </button>
+        )}
       </div>
     </div>
   );

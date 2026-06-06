@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Comment } from '@/types';
 import { formatDate } from '@/utils';
+import { commentApi } from '@/api';
 import { CommentForm } from './CommentForm';
 
 interface CommentItemProps {
@@ -20,6 +21,39 @@ const DefaultDeletedUserAvatar = () => (
 export const CommentItem = ({ comment, articleId, isReply = false }: CommentItemProps) => {
   const { t } = useTranslation();
   const [showReplyForm, setShowReplyForm] = useState(false);
+  const votedKey = `comment_vote_${comment.id}`;
+  const [voted, setVoted] = useState<boolean>(() => localStorage.getItem(votedKey) === '1');
+  const [optLikeCount, setOptLikeCount] = useState(comment.like_count || 0);
+  const [optDislikeCount, setOptDislikeCount] = useState(comment.dislike_count || 0);
+
+  const handleLike = useCallback(async () => {
+    if (voted) return;
+    setOptLikeCount((c) => c + 1);
+    setVoted(true);
+    localStorage.setItem(votedKey, '1');
+    try {
+      await commentApi.likeComment(comment.id);
+    } catch {
+      setOptLikeCount((c) => c - 1);
+      setVoted(false);
+      localStorage.removeItem(votedKey);
+    }
+  }, [voted, comment.id, votedKey]);
+
+  const handleDislike = useCallback(async () => {
+    if (voted) return;
+    setOptDislikeCount((c) => c + 1);
+    setVoted(true);
+    localStorage.setItem(votedKey, '1');
+    try {
+      await commentApi.dislikeComment(comment.id);
+    } catch {
+      setOptDislikeCount((c) => c - 1);
+      setVoted(false);
+      localStorage.removeItem(votedKey);
+    }
+  }, [voted, comment.id, votedKey]);
+
   const user = comment.user;
   const isDeletedUser = !user;
   const username = user?.username || '已注销用户';
@@ -63,14 +97,47 @@ export const CommentItem = ({ comment, articleId, isReply = false }: CommentItem
         {/* 评论内容 */}
         <p className="text-neutral-800 dark:text-neutral-100 mb-2">{comment.content}</p>
 
-        {/* 回复按钮 - 始终显示回复按钮，支持二级评论继续回复 */}
-        <button
-          type="button"
-          onClick={() => setShowReplyForm(!showReplyForm)}
-          className="text-xs font-bold text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 uppercase tracking-wider"
-        >
-          {showReplyForm ? t('article.cancelReply') : t('article.reply')}
-        </button>
+        {/* 操作按钮 */}
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={handleLike}
+            disabled={voted}
+            className={`text-xs font-medium flex items-center gap-1 transition-colors ${
+              voted
+                ? 'text-neutral-400 dark:text-neutral-500 cursor-not-allowed'
+                : 'text-neutral-500 dark:text-neutral-400 hover:text-primary-600 dark:hover:text-primary-400'
+            }`}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+              <path d="M2 10.5a1.5 1.5 0 113 0v6a1.5 1.5 0 01-3 0v-6zM6 10.333v5.43a2 2 0 001.106 1.79l.05.025A4 4 0 008.943 18h5.416a2 2 0 001.962-1.608l1.2-6A2 2 0 0015.56 8H12V4a2 2 0 00-2-2 1 1 0 00-1 1v.667a4 4 0 01-.8 2.4L6.8 7.933a4 4 0 00-.8 2.4z" />
+            </svg>
+            <span>{optLikeCount}</span>
+          </button>
+          <button
+            type="button"
+            onClick={handleDislike}
+            disabled={voted}
+            className={`text-xs font-medium flex items-center gap-1 transition-colors ${
+              voted
+                ? 'text-neutral-400 dark:text-neutral-500 cursor-not-allowed'
+                : 'text-neutral-500 dark:text-neutral-400 hover:text-red-500 dark:hover:text-red-400'
+            }`}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+              <path d="M18 9.5a1.5 1.5 0 11-3 0v-6a1.5 1.5 0 013 0v6zM14 9.667v-5.43a2 2 0 00-1.105-1.79l-.05-.025A4 4 0 0011.055 2H5.64a2 2 0 00-1.962 1.608l-1.2 6A2 2 0 004.44 12H8v4a2 2 0 002 2 1 1 0 001-1v-.667a4 4 0 01.8-2.4l1.4-1.866a4 4 0 00.8-2.4z" />
+            </svg>
+            <span>{optDislikeCount}</span>
+          </button>
+          {/* 回复按钮 */}
+          <button
+            type="button"
+            onClick={() => setShowReplyForm(!showReplyForm)}
+            className="text-xs font-bold text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 uppercase tracking-wider"
+          >
+            {showReplyForm ? t('article.cancelReply') : t('article.reply')}
+          </button>
+        </div>
       </div>
 
       {/* 回复表单 */}
