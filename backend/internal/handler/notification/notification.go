@@ -12,8 +12,8 @@ import (
 
 // NotificationHandler 通知处理器
 type NotificationHandler struct {
-	notifSvc    notification.NotificationService
-	getUserIDs  func() ([]int64, error)
+	notifSvc   notification.NotificationService
+	getUserIDs func() ([]int64, error)
 }
 
 // NewNotificationHandler 创建通知处理器
@@ -38,11 +38,11 @@ func (h *NotificationHandler) List(c *gin.Context) {
 	}
 
 	response.Success(c, gin.H{
-		"data":        notifications,
-		"total":       total,
-		"page":        p.Page,
-		"page_size":   p.PageSize,
-		"total_pages": pagination.TotalPages(total, p.PageSize),
+		"data":       notifications,
+		"total":      total,
+		"page":       p.Page,
+		"pageSize":   p.PageSize,
+		"totalPages": pagination.TotalPages(total, p.PageSize),
 	})
 }
 

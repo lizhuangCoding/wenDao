@@ -10,6 +10,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"wenDao/config"
 	"wenDao/internal/model"
 )
 
@@ -27,8 +28,14 @@ func (r *stubConversationRepo) GetByUserID(userID int64) ([]model.Conversation, 
 	}
 	return []model.Conversation{*r.conversation}, nil
 }
+func (r *stubConversationRepo) GetByShareToken(token string) (*model.Conversation, error) {
+	return r.conversation, nil
+}
 func (r *stubConversationRepo) Update(conv *model.Conversation) error { return nil }
-func (r *stubConversationRepo) Delete(id int64) error                 { return nil }
+func (r *stubConversationRepo) UpdateShare(id int64, share bool, token string) error {
+	return nil
+}
+func (r *stubConversationRepo) Delete(id int64) error { return nil }
 
 type stubChatMessageRepo struct {
 	messages              []model.ChatMessage
@@ -494,7 +501,7 @@ func TestChatHandler_DeleteCleansConversationRelatedData(t *testing.T) {
 	runRepo := &stubConversationRunRepo{}
 	stepRepo := &stubConversationRunStepRepo{}
 	memoryRepo := &stubConversationMemoryRepo{}
-	h := NewChatHandler(convRepo, msgRepo, runRepo, stepRepo, memoryRepo)
+	h := NewChatHandler(&config.Config{}, convRepo, msgRepo, runRepo, stepRepo, memoryRepo)
 
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)

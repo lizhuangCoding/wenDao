@@ -1,26 +1,57 @@
-import { useState } from 'react';
-import { useMutation } from '@tanstack/react-query';
+import { useMemo, useRef, useState } from 'react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { Send } from 'lucide-react';
 import { notificationApi } from '@/api';
-import { useUIStore } from '@/store';
+import { PageHeader } from '@/components/common';
+import { useNotificationStore, useUIStore } from '@/store';
+import { MarkdownWritingStudio } from '@/views/admin/articles/components/MarkdownWritingStudio';
+
+const getContentStats = (content: string) => {
+  const trimmed = content.trim();
+  const lineCount = content ? content.split('\n').length : 0;
+  const cjkCount = (trimmed.match(/[\u4e00-\u9fff]/g) || []).length;
+  const wordCount =
+    trimmed
+      .replace(/[\u4e00-\u9fff]/g, '')
+      .split(/\s+/)
+      .filter(Boolean).length + cjkCount;
+
+  return {
+    characters: content.length,
+    lines: lineCount,
+    words: wordCount,
+    readingMinutes: Math.max(1, Math.ceil(wordCount / 450)),
+  };
+};
 
 export const Broadcast = () => {
+  const queryClient = useQueryClient();
   const { showToast } = useUIStore();
+  const { fetchUnreadCount } = useNotificationStore();
+  const contentInputRef = useRef<HTMLTextAreaElement>(null);
+  const [isWritingFocused, setIsWritingFocused] = useState(false);
   const [formData, setFormData] = useState({
     title: '',
     content: '',
-    link_url: '',
   });
+  const contentStats = useMemo(() => getContentStats(formData.content), [formData.content]);
 
   const broadcastMutation = useMutation({
     mutationFn: notificationApi.broadcast,
     onSuccess: () => {
       showToast('消息已成功广播给所有用户', 'success');
-      setFormData({ title: '', content: '', link_url: '' });
+      setFormData({ title: '', content: '' });
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      void fetchUnreadCount();
     },
     onError: (error: any) => {
       showToast(error.message || '广播发送失败', 'error');
     },
   });
+
+  const handleContentPaste = () => {
+    // 广播站内信暂不处理图片上传；MarkdownWritingStudio 在此页面隐藏图片按钮。
+  };
 
   const handleSubmit = () => {
     if (!formData.title.trim()) {
@@ -32,87 +63,59 @@ export const Broadcast = () => {
       return;
     }
     broadcastMutation.mutate({
-      title: formData.title,
-      content: formData.content,
-      link_url: formData.link_url || undefined,
+      title: formData.title.trim(),
+      content: formData.content.trim(),
     });
   };
 
   return (
-    <div className="max-w-2xl">
-      <h1 className="text-2xl font-bold text-neutral-700 dark:text-neutral-100 mb-8">消息广播</h1>
+    <div
+      className={`${isWritingFocused ? 'max-w-display' : 'max-w-6xl'} mx-auto space-y-6 pb-12 transition-[max-width] duration-300`}
+    >
+      <PageHeader
+        title="编辑站内信"
+        description="像写文章一样编写 Markdown 内容，发送后会以站内信形式广播给所有活跃用户。"
+        actions={
+          <button
+            type="button"
+            onClick={handleSubmit}
+            disabled={broadcastMutation.isPending}
+            className="btn btn-primary"
+          >
+            <Send className="h-4 w-4" />
+            {broadcastMutation.isPending ? '发送中...' : '发送广播'}
+          </button>
+        }
+      />
 
-      <div className="space-y-6 rounded-xl border border-neutral-100 bg-white p-8 shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
-        <div>
-          <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-            通知标题
-          </label>
-          <input
-            type="text"
-            className="input w-full"
-            value={formData.title}
-            onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-            placeholder="输入通知标题"
-          />
-        </div>
+      <section className="rounded-2xl border border-neutral-100 bg-white p-5 shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
+        <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
+          通知标题
+        </label>
+        <input
+          type="text"
+          className="input w-full"
+          value={formData.title}
+          onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+          placeholder="输入通知标题"
+        />
+      </section>
 
-        <div>
-          <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-            通知内容
-          </label>
-          <textarea
-            className="input w-full h-32 py-2"
-            value={formData.content}
-            onChange={(e) => setFormData({ ...formData, content: e.target.value })}
-            placeholder="输入通知内容（支持纯文本）"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-            跳转链接 <span className="text-neutral-400 font-normal">（可选）</span>
-          </label>
-          <input
-            type="text"
-            className="input w-full"
-            value={formData.link_url}
-            onChange={(e) => setFormData({ ...formData, link_url: e.target.value })}
-            placeholder="例如：/article/your-article-slug"
-          />
-          <p className="mt-1 text-xs text-neutral-400 dark:text-neutral-500">
-            用户点击通知后将跳转到此链接
-          </p>
-        </div>
-
-        {/* Preview */}
-        <div className="rounded-xl border border-primary-100 dark:border-primary-900/30 bg-primary-50/50 dark:bg-primary-900/10 p-5">
-          <h3 className="text-xs font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wider mb-3">
-            通知预览
-          </h3>
-          <div className="flex items-start gap-4">
-            <div className="flex-1">
-              <h4 className="text-sm font-semibold text-neutral-700 dark:text-neutral-200">
-                {formData.title || '通知标题'}
-              </h4>
-              <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">
-                {formData.content || '通知内容将显示在这里'}
-              </p>
-            </div>
-            <span className="px-2 py-0.5 text-[10px] font-bold text-primary-600 dark:text-primary-400 bg-primary-100 dark:bg-primary-900/30 rounded-full">
-              新
-            </span>
-          </div>
-        </div>
-
-        <button
-          type="button"
-          onClick={handleSubmit}
-          disabled={broadcastMutation.isPending}
-          className="btn btn-primary w-full"
-        >
-          {broadcastMutation.isPending ? '发送中...' : '发送广播'}
-        </button>
-      </div>
+      <MarkdownWritingStudio
+        content={formData.content}
+        onContentChange={(content) => setFormData({ ...formData, content })}
+        textareaRef={contentInputRef}
+        onPaste={handleContentPaste}
+        onImageUploadClick={() => undefined}
+        allowImageUpload={false}
+        helperText="支持标题、列表、引用、代码块等 Markdown 内容；发送后用户将在站内信页面阅读。"
+        placeholder="编写要发送给用户的站内信内容..."
+        contentStats={contentStats}
+        lastSavedTime={null}
+        isAutoSaving={false}
+        isImmersive={isWritingFocused}
+        onImmersiveChange={setIsWritingFocused}
+      />
     </div>
   );
 };

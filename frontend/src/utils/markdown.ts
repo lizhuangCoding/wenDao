@@ -12,6 +12,45 @@ const getVisibleHeadingText = (text: string): string => {
     .trim();
 };
 
+export const markdownToPlainText = (content: string): string => {
+  if (!content) return '';
+
+  return content
+    .replace(/\r\n?/g, '\n')
+    .replace(/```[\s\S]*?```/g, (block) =>
+      block.replace(/^```[^\n]*\n?/, '').replace(/\n?```$/, '\n')
+    )
+    .replace(/~~~[\s\S]*?~~~/g, (block) =>
+      block.replace(/^~~~[^\n]*\n?/, '').replace(/\n?~~~$/, '\n')
+    )
+    .replace(/!\[([^\]]*)\]\([^)]+\)/g, '$1')
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+    .replace(/\[([^\]]+)\]\[[^\]]*\]/g, '$1')
+    .replace(/^\s{0,3}\[[^\]]+\]:\s+\S+.*$/gm, '')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<[^>]*>/g, '')
+    .replace(/^\s*\|?[\s:-]+\|[\s|:-]*$/gm, '')
+    .split('\n')
+    .map((line) =>
+      line
+        .replace(/^\s{0,3}#{1,6}\s+/, '')
+        .replace(/^\s{0,3}>\s?/, '')
+        .replace(/^\s*([-*+]|\d+[.)])\s+/, '')
+        .replace(/^\s*\[[ xX]\]\s+/, '')
+        .replace(/^\s*[-*_]{3,}\s*$/, '')
+    )
+    .join('\n')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/\*\*([^*]+)\*\*/g, '$1')
+    .replace(/__([^_]+)__/g, '$1')
+    .replace(/\*([^*]+)\*/g, '$1')
+    .replace(/_([^_]+)_/g, '$1')
+    .replace(/~~([^~]+)~~/g, '$1')
+    .replace(/\|/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+};
+
 /**
  * 稳定的 Slug 生成器
  * 注意：由于 extractHeadings 和 ReactMarkdown 渲染是分开的，

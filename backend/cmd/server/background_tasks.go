@@ -114,6 +114,7 @@ func startArticleScheduler(logger *zap.Logger, articleService service.ArticleSer
 		defer ticker.Stop()
 
 		logger.Info("Article scheduler started", zap.Duration("interval", 30*time.Second))
+		runArticleSchedulerOnce(logger, articleService)
 
 		for {
 			select {
@@ -121,30 +122,39 @@ func startArticleScheduler(logger *zap.Logger, articleService service.ArticleSer
 				logger.Info("Article scheduler stopped")
 				return
 			case <-ticker.C:
-				articles, err := articleService.GetDueScheduledArticles()
-				if err != nil {
-					logger.Warn("Failed to get due scheduled articles", zap.Error(err))
-					continue
-				}
-				for _, article := range articles {
-					if err := articleService.PublishScheduled(article.ID); err != nil {
-						logger.Error("Failed to publish scheduled article",
-							zap.Int64("article_id", article.ID),
-							zap.Error(err))
-						continue
-					}
-					logger.Info("Published scheduled article",
-						zap.Int64("article_id", article.ID),
-						zap.String("title", article.Title))
-				}
-				if len(articles) > 0 {
-					logger.Info("Processed scheduled articles", zap.Int("count", len(articles)))
-				}
+				runArticleSchedulerOnce(logger, articleService)
 			}
 		}
 	}()
 
 	return cancel
+}
+
+func runArticleSchedulerOnce(logger *zap.Logger, articleService service.ArticleService) {
+	articles, err := articleService.GetDueScheduledArticles()
+	if err != nil {
+		logger.Warn("Failed to get due scheduled articles", zap.Error(err))
+		return
+	}
+	for _, article := range articles {
+		if err := articleService.PublishScheduled(article.ID); err != nil {
+			logger.Error("Failed to publish scheduled article",
+				zap.Int64("article_id", article.ID),
+				zap.Error(err))
+			continue
+		}
+		fields := []zap.Field{
+			zap.Int64("article_id", article.ID),
+			zap.String("title", article.Title),
+		}
+		if article.ScheduledPublishAt != nil {
+			fields = append(fields, zap.Time("scheduled_publish_at", *article.ScheduledPublishAt))
+		}
+		logger.Info("Published scheduled article", fields...)
+	}
+	if len(articles) > 0 {
+		logger.Info("Processed scheduled articles", zap.Int("count", len(articles)))
+	}
 }
 
 func runStatFlush(logger *zap.Logger, statService *service.StatService) {

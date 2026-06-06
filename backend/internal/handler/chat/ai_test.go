@@ -9,14 +9,19 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"wenDao/config"
 	"wenDao/internal/pkg/response"
 	"wenDao/internal/service"
 )
 
+func newTestAIHandler(aiService service.AIService) *AIHandler {
+	return NewAIHandler(aiService, &config.Config{})
+}
+
 func TestAIHandlerChat_ReturnsServiceUnavailableWhenAIDisabled(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	h := NewAIHandler(service.NewDisabledAIService("research backend unavailable"))
+	h := newTestAIHandler(service.NewDisabledAIService("research backend unavailable"))
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
 	c.Request = httptest.NewRequest(http.MethodPost, "/api/ai/chat", strings.NewReader(`{"message":"帮我总结一下"}`))
@@ -40,7 +45,7 @@ func TestAIHandlerChat_ReturnsServiceUnavailableWhenAIDisabled(t *testing.T) {
 func TestAIHandlerGenerateSummary_ReturnsServiceUnavailableWhenAIDisabled(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	h := NewAIHandler(service.NewDisabledAIService("summary backend unavailable"))
+	h := newTestAIHandler(service.NewDisabledAIService("summary backend unavailable"))
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
 	c.Request = httptest.NewRequest(http.MethodPost, "/api/ai/summary", strings.NewReader(`{"content":"正文"}`))

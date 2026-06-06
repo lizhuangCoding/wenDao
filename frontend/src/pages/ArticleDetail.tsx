@@ -7,6 +7,7 @@ import { ArticleContent, TableOfContents } from '@/components/article';
 import { extractHeadings } from '@/utils/markdown';
 import { CommentList } from '@/components/comment';
 import { formatDate } from '@/utils';
+import { toAbsoluteSeoUrl } from '@/utils/seo';
 import { useAuth } from '@/hooks';
 import { useMemo } from 'react';
 import { motion } from 'framer-motion';
@@ -55,19 +56,23 @@ export const ArticleDetail = () => {
     );
   }
 
-  const canonicalUrl = slug ? `${window.location.origin}/article/${slug}` : '';
+  const canonicalUrl = slug ? toAbsoluteSeoUrl(`/article/${slug}`) : '';
   const pageTitle = `${article.title} - 问道`;
   const pageDescription = article.summary || article.title;
-  const ogImage = article.cover_image || `${window.location.origin}/favicon.svg`;
-  const publishDate = article.created_at;
+  const ogImage = toAbsoluteSeoUrl(article.cover_image || '/favicon.svg');
+  const publishDate = article.published_at || article.created_at;
+  const modifiedDate = article.updated_at || publishDate;
 
   const jsonLd = {
     '@context': 'https://schema.org',
     '@type': 'Article',
     headline: article.title,
     description: pageDescription,
-    ...(article.cover_image ? { image: article.cover_image } : {}),
+    image: ogImage,
+    url: canonicalUrl,
+    mainEntityOfPage: canonicalUrl,
     datePublished: publishDate,
+    dateModified: modifiedDate,
     ...(article.author ? {
       author: {
         '@type': 'Person',
@@ -91,6 +96,7 @@ export const ArticleDetail = () => {
         <meta property="og:image" content={ogImage} />
         <meta property="og:url" content={canonicalUrl} />
         {publishDate && <meta property="article:published_time" content={publishDate} />}
+        {modifiedDate && <meta property="article:modified_time" content={modifiedDate} />}
         {article.author?.username && <meta property="article:author" content={article.author.username} />}
         <meta name="twitter:card" content={article.cover_image ? 'summary_large_image' : 'summary'} />
         <meta name="twitter:title" content={pageTitle} />

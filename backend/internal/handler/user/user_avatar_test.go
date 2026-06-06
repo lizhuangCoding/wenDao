@@ -137,6 +137,22 @@ func (s *stubUserService) UpdateCommentReplyEmailEnabled(userID int64, enabled b
 	return s.updatePreferenceErr
 }
 
+func (s *stubUserService) ListUsers(page, pageSize int, role, status, search string) ([]*model.User, int64, error) {
+	return nil, 0, nil
+}
+
+func (s *stubUserService) UpdateUserRole(userID int64, role string) error {
+	return nil
+}
+
+func (s *stubUserService) UpdateUserStatus(userID int64, status string) error {
+	return nil
+}
+
+func (s *stubUserService) GetAllActiveUserIDs() ([]int64, error) {
+	return nil, nil
+}
+
 type stubUploadService struct {
 	receivedUserID   int64
 	receivedFilename string

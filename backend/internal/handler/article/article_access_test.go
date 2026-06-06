@@ -16,11 +16,15 @@ import (
 type stubArticleService struct {
 	articleByID      *model.Article
 	articleBySlug    *model.Article
+	updatedArticle   *model.Article
 	incrViewCountIDs []int64
 	listPage         int
 	listPageSize     int
 	batchIDs         []int64
 	orbitArticles    []*model.Article
+	scheduledSetID   int64
+	scheduledSetAt   *time.Time
+	draftIDs         []int64
 }
 
 func (s *stubArticleService) Create(title, content, summary string, categoryID, authorID int64, coverImage *string, status string) (*model.Article, error) {
@@ -39,7 +43,10 @@ func (s *stubArticleService) ListOrbitArticles() ([]*model.Article, error) {
 	return s.orbitArticles, nil
 }
 func (s *stubArticleService) Update(id int64, title, content, summary string, categoryID int64, coverImage *string) (*model.Article, error) {
-	return nil, nil
+	if s.updatedArticle != nil {
+		return s.updatedArticle, nil
+	}
+	return &model.Article{ID: id, Status: "draft"}, nil
 }
 func (s *stubArticleService) Delete(id int64) error { return nil }
 func (s *stubArticleService) DeleteBatch(ids []int64) error {
@@ -47,7 +54,7 @@ func (s *stubArticleService) DeleteBatch(ids []int64) error {
 	return nil
 }
 func (s *stubArticleService) Publish(id int64) error                                  { return nil }
-func (s *stubArticleService) Draft(id int64) error                                    { return nil }
+func (s *stubArticleService) Draft(id int64) error                                    { s.draftIDs = append(s.draftIDs, id); return nil }
 func (s *stubArticleService) AutoSave(id int64, title, content, summary string) error { return nil }
 func (s *stubArticleService) IncrViewCount(id int64) error {
 	s.incrViewCountIDs = append(s.incrViewCountIDs, id)
@@ -57,11 +64,23 @@ func (s *stubArticleService) LikeArticle(id int64) error                 { retur
 func (s *stubArticleService) UnlikeArticle(id int64) error               { return nil }
 func (s *stubArticleService) ToggleTop(id int64) (*model.Article, error) { return nil, nil }
 func (s *stubArticleService) UpdatePopularityScores() error              { return nil }
+func (s *stubArticleService) GetAllPublished() ([]*model.Article, error) { return nil, nil }
+func (s *stubArticleService) GetDueScheduledArticles() ([]*model.Article, error) {
+	return nil, nil
+}
+func (s *stubArticleService) PublishScheduled(articleID int64) error { return nil }
+func (s *stubArticleService) SetScheduledPublishAt(articleID int64, scheduledAt *time.Time) error {
+	s.scheduledSetID = articleID
+	s.scheduledSetAt = scheduledAt
+	return nil
+}
 
 type stubSettingService struct{}
 
 func (s *stubSettingService) GetSortByPopularity() bool              { return false }
 func (s *stubSettingService) SetSortByPopularity(enabled bool) error { return nil }
+func (s *stubSettingService) GetSlogan() string                      { return "" }
+func (s *stubSettingService) SetSlogan(slogan string) error          { return nil }
 
 func TestArticleHandlerGetByID_HidesDraftFromPublicRoute(t *testing.T) {
 	gin.SetMode(gin.TestMode)
@@ -170,6 +189,74 @@ func TestArticleHandlerBatchDelete_DeletesSelectedArticles(t *testing.T) {
 	}
 	if payload.Data.DeletedCount != 3 {
 		t.Fatalf("expected deleted_count 3, got %d", payload.Data.DeletedCount)
+	}
+}
+
+func TestArticleHandlerUpdate_SavesScheduledPublishTime(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	articleSvc := &stubArticleService{
+		updatedArticle: &model.Article{ID: 42, Status: "draft"},
+	}
+	h := NewArticleHandler(articleSvc, nil, &stubSettingService{})
+	scheduledAt := time.Now().Add(time.Hour).UTC().Truncate(time.Second)
+	body, err := json.Marshal(map[string]any{
+		"title":                "定时文章",
+		"content":              "这是一篇足够长的定时文章内容",
+		"summary":              "摘要",
+		"category_id":          3,
+		"scheduled_publish_at": scheduledAt.Format(time.RFC3339),
+	})
+	if err != nil {
+		t.Fatalf("failed to build request body: %v", err)
+	}
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest(http.MethodPut, "/api/admin/articles/42", bytes.NewReader(body))
+	c.Request.Header.Set("Content-Type", "application/json")
+	c.Params = gin.Params{{Key: "id", Value: "42"}}
+
+	h.Update(c)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d and body %s", w.Code, w.Body.String())
+	}
+	if articleSvc.scheduledSetID != 42 || articleSvc.scheduledSetAt == nil || !articleSvc.scheduledSetAt.Equal(scheduledAt) {
+		t.Fatalf("expected scheduled time %s to be saved for article 42, got id=%d time=%v", scheduledAt.Format(time.RFC3339), articleSvc.scheduledSetID, articleSvc.scheduledSetAt)
+	}
+}
+
+func TestArticleHandlerUpdate_DraftsPublishedArticleWhenScheduling(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	articleSvc := &stubArticleService{
+		updatedArticle: &model.Article{ID: 42, Status: "published"},
+	}
+	h := NewArticleHandler(articleSvc, nil, &stubSettingService{})
+	scheduledAt := time.Now().Add(time.Hour).UTC().Truncate(time.Second)
+	body, err := json.Marshal(map[string]any{
+		"title":                "重新定时",
+		"content":              "这是一篇足够长的定时文章内容",
+		"summary":              "摘要",
+		"category_id":          3,
+		"scheduled_publish_at": scheduledAt.Format(time.RFC3339),
+	})
+	if err != nil {
+		t.Fatalf("failed to build request body: %v", err)
+	}
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest(http.MethodPut, "/api/admin/articles/42", bytes.NewReader(body))
+	c.Request.Header.Set("Content-Type", "application/json")
+	c.Params = gin.Params{{Key: "id", Value: "42"}}
+
+	h.Update(c)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d and body %s", w.Code, w.Body.String())
+	}
+	if len(articleSvc.draftIDs) != 1 || articleSvc.draftIDs[0] != 42 {
+		t.Fatalf("expected scheduled published article to be drafted, got %v", articleSvc.draftIDs)
 	}
 }
 

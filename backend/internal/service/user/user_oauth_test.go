@@ -85,6 +85,42 @@ func (r *stubUserRepository) Update(user *model.User) error {
 	return nil
 }
 
+func (r *stubUserRepository) ListUsers(page, pageSize int, role, status, search string) ([]*model.User, int64, error) {
+	users := make([]*model.User, 0, len(r.usersByID))
+	for _, user := range r.usersByID {
+		users = append(users, user)
+	}
+	return users, int64(len(users)), nil
+}
+
+func (r *stubUserRepository) UpdateUserRole(userID int64, role string) error {
+	user, ok := r.usersByID[userID]
+	if !ok {
+		return gorm.ErrRecordNotFound
+	}
+	user.Role = role
+	return nil
+}
+
+func (r *stubUserRepository) UpdateUserStatus(userID int64, status string) error {
+	user, ok := r.usersByID[userID]
+	if !ok {
+		return gorm.ErrRecordNotFound
+	}
+	user.Status = status
+	return nil
+}
+
+func (r *stubUserRepository) GetAllActiveUserIDs() ([]int64, error) {
+	ids := make([]int64, 0, len(r.usersByID))
+	for id, user := range r.usersByID {
+		if user.Status == "active" {
+			ids = append(ids, id)
+		}
+	}
+	return ids, nil
+}
+
 func (r *stubUserRepository) store(user *model.User) {
 	r.usersByID[user.ID] = user
 	if user.Email != "" {

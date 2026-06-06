@@ -45,3 +45,31 @@ func TestArticleRepositoryList_UsesLightweightColumnsAndAvoidsContentLikeSearch(
 		t.Fatalf("expected public list query to omit article content column, statements:\n%s", joined)
 	}
 }
+
+func TestArticleRepositoryGetDueScheduledArticles_UsesApplicationTimeInsteadOfDatabaseNow(t *testing.T) {
+	capture := &sqlCaptureLogger{Interface: logger.Discard}
+	db, err := gorm.Open(mysql.New(mysql.Config{
+		Conn:                      sql.OpenDB(noopConnector{}),
+		SkipInitializeWithVersion: true,
+	}), &gorm.Config{
+		DryRun: true,
+		Logger: capture,
+	})
+	if err != nil {
+		t.Fatalf("expected dry-run database to open, got %v", err)
+	}
+
+	repo := NewArticleRepository(db)
+	_, err = repo.GetDueScheduledArticles()
+	if err != nil {
+		t.Fatalf("expected due scheduled dry-run to succeed, got %v", err)
+	}
+
+	joined := strings.Join(capture.statements, "\n")
+	if strings.Contains(joined, "NOW()") {
+		t.Fatalf("expected due scheduled query to avoid database NOW(), statements:\n%s", joined)
+	}
+	if !strings.Contains(joined, "scheduled_publish_at <= '") {
+		t.Fatalf("expected due scheduled query to compare against an application-time parameter, statements:\n%s", joined)
+	}
+}

@@ -10,6 +10,14 @@ const loadChatComponentSource = async (name) => {
   return readFile(new URL(`../components/chat/${name}.tsx`, import.meta.url), 'utf8');
 };
 
+const loadApiSource = async (name) => {
+  return readFile(new URL(`../api/${name}.ts`, import.meta.url), 'utf8');
+};
+
+const loadStoreSource = async (name) => {
+  return readFile(new URL(`../store/${name}.ts`, import.meta.url), 'utf8');
+};
+
 const countMatches = (source, pattern) => source.match(pattern)?.length || 0;
 
 test('AIChat keeps a single desktop chat history collapse control', async () => {
@@ -107,4 +115,32 @@ test('AIChat delegates complex chat sections to focused modules', async () => {
   assert.doesNotMatch(source, /<textarea/);
   assert.doesNotMatch(source, /formatProcessingDuration/);
   assert.doesNotMatch(source, /messages\.map/);
+});
+
+test('AIChat share and export paths use store actions and safe filenames', async () => {
+  const [source, apiSource, storeSource] = await Promise.all([
+    loadAIChatSource(),
+    loadApiSource('chat'),
+    loadStoreSource('chatStore'),
+  ]);
+
+  assert.match(storeSource, /updateConversationShare/);
+  assert.match(source, /updateConversationShare/);
+  assert.doesNotMatch(source, /\(useChatStore\.getState\(\) as any\)\.conversations/);
+  assert.match(apiSource, /sanitizeConversationExportTitle/);
+  assert.match(apiSource, /const safeTitle = sanitizeConversationExportTitle\(title\)/);
+  assert.doesNotMatch(apiSource, /\\\*/);
+  assert.doesNotMatch(apiSource, /\\\?/);
+  assert.doesNotMatch(apiSource, /\\\|/);
+});
+
+test('ModelSelector exposes full long model names instead of truncating menu items', async () => {
+  const source = await loadChatComponentSource('ModelSelector');
+
+  assert.match(source, /title=\{currentLabel \|\| '默认'\}/);
+  assert.match(source, /w-\[min\(92vw,28rem\)\]/);
+  assert.match(source, /whitespace-normal/);
+  assert.match(source, /break-words/);
+  assert.match(source, /title=\{m\.display_name\}/);
+  assert.doesNotMatch(source, /<span className="flex-1 text-left truncate">/);
 });

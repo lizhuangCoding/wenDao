@@ -38,6 +38,10 @@ func (r *replyNotificationCommentRepo) GetByArticleID(articleID int64) ([]*model
 	return nil, nil
 }
 
+func (r *replyNotificationCommentRepo) GetByArticleIDSorted(articleID int64, sort string) ([]*model.Comment, error) {
+	return nil, nil
+}
+
 func (r *replyNotificationCommentRepo) ListAll(filter repository.CommentFilter) ([]*model.Comment, int64, error) {
 	return nil, 0, nil
 }
@@ -47,6 +51,22 @@ func (r *replyNotificationCommentRepo) Delete(id int64) error {
 }
 
 func (r *replyNotificationCommentRepo) Restore(id int64) error {
+	return nil
+}
+
+func (r *replyNotificationCommentRepo) IncrementLike(id int64) error {
+	return nil
+}
+
+func (r *replyNotificationCommentRepo) DecrementLike(id int64) error {
+	return nil
+}
+
+func (r *replyNotificationCommentRepo) IncrementDislike(id int64) error {
+	return nil
+}
+
+func (r *replyNotificationCommentRepo) DecrementDislike(id int64) error {
 	return nil
 }
 
@@ -90,6 +110,12 @@ func (r *replyNotificationArticleRepo) UpdatePopularity(id int64, popularity flo
 func (r *replyNotificationArticleRepo) GetAllPublished() ([]*model.Article, error) {
 	return nil, nil
 }
+func (r *replyNotificationArticleRepo) GetDueScheduledArticles() ([]*model.Article, error) {
+	return nil, nil
+}
+func (r *replyNotificationArticleRepo) PublishScheduled(articleID int64) error {
+	return nil
+}
 
 type recordingReplyNotificationSender struct {
 	notifications []CommentReplyNotification
@@ -97,6 +123,37 @@ type recordingReplyNotificationSender struct {
 
 func (s *recordingReplyNotificationSender) SendCommentReplyNotification(_ context.Context, notification CommentReplyNotification) error {
 	s.notifications = append(s.notifications, notification)
+	return nil
+}
+
+type voteCommentRepo struct {
+	decrementLikeID    int64
+	decrementDislikeID int64
+}
+
+func (r *voteCommentRepo) Create(comment *model.Comment) error { return nil }
+func (r *voteCommentRepo) GetByID(id int64) (*model.Comment, error) {
+	return nil, nil
+}
+func (r *voteCommentRepo) GetByArticleID(articleID int64) ([]*model.Comment, error) {
+	return nil, nil
+}
+func (r *voteCommentRepo) GetByArticleIDSorted(articleID int64, sort string) ([]*model.Comment, error) {
+	return nil, nil
+}
+func (r *voteCommentRepo) ListAll(filter repository.CommentFilter) ([]*model.Comment, int64, error) {
+	return nil, 0, nil
+}
+func (r *voteCommentRepo) Delete(id int64) error           { return nil }
+func (r *voteCommentRepo) Restore(id int64) error          { return nil }
+func (r *voteCommentRepo) IncrementLike(id int64) error    { return nil }
+func (r *voteCommentRepo) IncrementDislike(id int64) error { return nil }
+func (r *voteCommentRepo) DecrementLike(id int64) error {
+	r.decrementLikeID = id
+	return nil
+}
+func (r *voteCommentRepo) DecrementDislike(id int64) error {
+	r.decrementDislikeID = id
 	return nil
 }
 
@@ -181,5 +238,29 @@ func TestCommentServiceCreateSkipsReplyEmailWhenRecipientDisabledPreference(t *t
 	}
 	if len(sender.notifications) != 0 {
 		t.Fatalf("expected no notification when preference is disabled, got %d", len(sender.notifications))
+	}
+}
+
+func TestCommentServiceUnlikeDecrementsLikeCount(t *testing.T) {
+	commentRepo := &voteCommentRepo{}
+	svc := NewCommentService(commentRepo, &replyNotificationArticleRepo{})
+
+	if err := svc.Unlike(42); err != nil {
+		t.Fatalf("expected unlike to succeed, got %v", err)
+	}
+	if commentRepo.decrementLikeID != 42 {
+		t.Fatalf("expected comment 42 to be unliked, got %d", commentRepo.decrementLikeID)
+	}
+}
+
+func TestCommentServiceUndislikeDecrementsDislikeCount(t *testing.T) {
+	commentRepo := &voteCommentRepo{}
+	svc := NewCommentService(commentRepo, &replyNotificationArticleRepo{})
+
+	if err := svc.Undislike(43); err != nil {
+		t.Fatalf("expected undislike to succeed, got %v", err)
+	}
+	if commentRepo.decrementDislikeID != 43 {
+		t.Fatalf("expected comment 43 to be undisliked, got %d", commentRepo.decrementDislikeID)
 	}
 }

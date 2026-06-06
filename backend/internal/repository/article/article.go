@@ -250,8 +250,8 @@ func (r *articleRepository) GetAllPublished() ([]*model.Article, error) {
 // GetDueScheduledArticles 获取所有到期的待发布文章
 func (r *articleRepository) GetDueScheduledArticles() ([]*model.Article, error) {
 	var articles []*model.Article
-	err := r.db.Select("id, title, content, slug, category_id, author_id").
-		Where("status = ? AND scheduled_publish_at IS NOT NULL AND scheduled_publish_at <= NOW()", "draft").
+	err := r.db.Select("id, title, content, slug, category_id, author_id, scheduled_publish_at").
+		Where("status = ? AND scheduled_publish_at IS NOT NULL AND scheduled_publish_at <= ?", "draft", time.Now()).
 		Limit(50).
 		Find(&articles).Error
 	return articles, err

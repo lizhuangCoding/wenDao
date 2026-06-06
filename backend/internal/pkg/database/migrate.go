@@ -21,7 +21,11 @@ func AutoMigrate(db *gorm.DB) error {
 		return err
 	}
 
-	return db.AutoMigrate(
+	return db.AutoMigrate(autoMigrateModels()...)
+}
+
+func autoMigrateModels() []any {
+	return []any{
 		&model.User{},
 		&model.Category{},
 		&model.Article{},
@@ -37,7 +41,8 @@ func AutoMigrate(db *gorm.DB) error {
 		&model.ConversationRunStep{},
 		&model.KnowledgeDocument{},
 		&model.KnowledgeDocumentSource{},
-	)
+		&model.Notification{},
+	}
 }
 
 type userIndexRow struct {

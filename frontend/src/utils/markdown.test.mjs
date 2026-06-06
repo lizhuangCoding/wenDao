@@ -37,3 +37,19 @@ test('extractHeadings uses visible text from inline HTML headings', async () => 
     },
   ]);
 });
+
+test('markdownToPlainText returns readable notification previews without markdown syntax', async () => {
+  const { markdownToPlainText } = await loadMarkdownUtils();
+
+  const preview = markdownToPlainText(`
+# 系统通知
+
+请阅读 **重要更新**，并查看 [发布说明](/release)。
+
+- 支持 Markdown
+- 不显示语法
+`);
+
+  assert.equal(preview, '系统通知 请阅读 重要更新，并查看 发布说明。 支持 Markdown 不显示语法');
+  assert.doesNotMatch(preview, /[#*[\]()]/);
+});

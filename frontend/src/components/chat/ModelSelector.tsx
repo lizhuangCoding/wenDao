@@ -48,13 +48,14 @@ export const ModelSelector = ({ selectedModel, onSelect }: ModelSelectorProps) =
             : 'border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-neutral-500 dark:text-neutral-400 hover:text-primary-600 dark:hover:text-primary-400 hover:border-primary-200 dark:hover:border-primary-700'
         }`}
         aria-label="选择 AI 模型"
+        title={currentLabel || '默认'}
       >
         <Cpu className="h-3.5 w-3.5" aria-hidden="true" />
-        <span className="max-w-[160px] truncate">{currentLabel || '默认'}</span>
+        <span className="max-w-[min(60vw,260px)] truncate">{currentLabel || '默认'}</span>
       </button>
 
       {open && (
-        <div className="absolute bottom-full right-0 mb-2 w-56 rounded-xl border border-neutral-100 dark:border-neutral-700 bg-white dark:bg-neutral-800 shadow-elevated z-50 py-1 overflow-hidden animate-in fade-in slide-in-from-bottom-1 duration-150">
+        <div className="absolute bottom-full right-0 mb-2 w-[min(92vw,28rem)] rounded-xl border border-neutral-100 dark:border-neutral-700 bg-white dark:bg-neutral-800 shadow-elevated z-50 py-1 overflow-hidden animate-in fade-in slide-in-from-bottom-1 duration-150">
           <button
             type="button"
             onClick={() => { onSelect(null); setOpen(false); }}
@@ -72,8 +73,9 @@ export const ModelSelector = ({ selectedModel, onSelect }: ModelSelectorProps) =
                 type="button"
                 onClick={() => { onSelect({ provider: m.provider, model_name: m.model_name }); setOpen(false); }}
                 className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-700 transition-colors"
+                title={m.display_name}
               >
-                <span className="flex-1 text-left truncate">{m.display_name}</span>
+                <span className="min-w-0 flex-1 whitespace-normal break-words text-left leading-5">{m.display_name}</span>
                 {isSelected && <Check className="h-4 w-4 text-primary-600 dark:text-primary-400" />}
               </button>
             );

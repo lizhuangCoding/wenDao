@@ -1,14 +1,20 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { notificationApi } from '@/api';
 import { useAuthStore, useNotificationStore } from '@/store';
 import type { Notification } from '@/types';
 import { formatDate } from '@/utils';
+import { markdownToPlainText } from '@/utils/markdown';
+
+const getNotificationPreview = (content: string): string => {
+  return markdownToPlainText(content) || '暂无内容';
+};
 
 export const NotificationBell = () => {
+  const queryClient = useQueryClient();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
-  const { unreadCount, setUnreadCount, fetchUnreadCount, startPolling, stopPolling } =
+  const { unreadCount, decrementUnread, fetchUnreadCount, startPolling, stopPolling } =
     useNotificationStore();
   const [isOpen, setIsOpen] = useState(false);
 
@@ -30,7 +36,8 @@ export const NotificationBell = () => {
   const handleMarkRead = async (id: number) => {
     try {
       await notificationApi.markRead(id);
-      setUnreadCount(Math.max(0, unreadCount - 1));
+      decrementUnread();
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
     } catch {
       // 静默失败
     }
@@ -90,7 +97,7 @@ export const NotificationBell = () => {
                         {notif.title}
                       </p>
                       <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5 line-clamp-2">
-                        {notif.content}
+                        {getNotificationPreview(notif.content)}
                       </p>
                       <p className="text-[11px] text-neutral-400 dark:text-neutral-500 mt-1">
                         {formatDate(notif.created_at)}

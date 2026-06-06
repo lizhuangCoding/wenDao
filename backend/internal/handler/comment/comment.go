@@ -213,6 +213,22 @@ func (h *CommentHandler) Like(c *gin.Context) {
 	response.Success(c, nil)
 }
 
+// Unlike 取消点赞评论
+func (h *CommentHandler) Unlike(c *gin.Context) {
+	commentID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		response.InvalidParams(c, "Invalid comment ID")
+		return
+	}
+
+	if err := h.commentService.Unlike(commentID); err != nil {
+		response.InternalErrorWithErr(c, "Failed to unlike comment", err)
+		return
+	}
+
+	response.Success(c, nil)
+}
+
 // Dislike 点踩评论
 func (h *CommentHandler) Dislike(c *gin.Context) {
 	commentID, err := strconv.ParseInt(c.Param("id"), 10, 64)
@@ -223,6 +239,22 @@ func (h *CommentHandler) Dislike(c *gin.Context) {
 
 	if err := h.commentService.Dislike(commentID); err != nil {
 		response.InternalErrorWithErr(c, "Failed to dislike comment", err)
+		return
+	}
+
+	response.Success(c, nil)
+}
+
+// Undislike 取消点踩评论
+func (h *CommentHandler) Undislike(c *gin.Context) {
+	commentID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		response.InvalidParams(c, "Invalid comment ID")
+		return
+	}
+
+	if err := h.commentService.Undislike(commentID); err != nil {
+		response.InternalErrorWithErr(c, "Failed to undislike comment", err)
 		return
 	}
 

@@ -8,13 +8,38 @@ import {
 } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { Select } from 'tdesign-react';
+import dayjs from 'dayjs';
+import { DatePicker, Select } from 'tdesign-react';
+import type { DatePickerProps } from 'tdesign-react';
+import { CalendarClock } from 'lucide-react';
 import { articleApi, categoryApi, uploadApi, chatApi } from '@/api';
 import { Loading, ErrorState } from '@/components/common';
 import { useUIStore } from '@/store';
 import { getArticlePrimaryActionLabel } from '@/utils/pageBehavior';
 import { MarkdownWritingStudio } from './components/MarkdownWritingStudio';
 import 'tdesign-react/es/style/index.css';
+
+const SCHEDULE_PICKER_FORMAT = 'YYYY-MM-DD HH:mm';
+type ScheduledPickerValue = Parameters<NonNullable<DatePickerProps['onChange']>>[0];
+
+const getSingleScheduledPickerValue = (value: ScheduledPickerValue) => {
+  if (!value || Array.isArray(value)) return '';
+  return value instanceof Date ? dayjs(value).format(SCHEDULE_PICKER_FORMAT) : String(value);
+};
+
+const toScheduledPickerValue = (value: string) => {
+  if (!value) return '';
+  const parsed = dayjs(value);
+  return parsed.isValid() ? parsed.format(SCHEDULE_PICKER_FORMAT) : '';
+};
+
+const toScheduledPayloadValue = (value: ScheduledPickerValue) => {
+  const pickerValue = getSingleScheduledPickerValue(value);
+  if (!pickerValue) return '';
+
+  const parsed = dayjs(pickerValue);
+  return parsed.isValid() ? parsed.second(0).millisecond(0).toDate().toISOString() : '';
+};
 
 export const ArticleEditor = () => {
   const { id } = useParams<{ id: string }>();
@@ -42,6 +67,10 @@ export const ArticleEditor = () => {
     isEdit,
     status: formData.status,
   });
+  const scheduledPublishPickerValue = useMemo(
+    () => toScheduledPickerValue(formData.scheduled_publish_at),
+    [formData.scheduled_publish_at],
+  );
 
   // 使用 Ref 实时跟踪最新数据，彻底解决 setInterval 闭包拿不到最新状态的问题
   const formDataRef = useRef(formData);
@@ -374,15 +403,34 @@ export const ArticleEditor = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">定时发布</label>
-              <input
-                type="datetime-local"
-                className="input w-full"
-                value={formData.scheduled_publish_at}
-                onChange={(e) => setFormData({ ...formData, scheduled_publish_at: e.target.value })}
-                min={new Date().toISOString().slice(0, 16)}
-              />
-              <p className="mt-1 text-xs text-neutral-400 dark:text-neutral-500">
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">定时发布</label>
+                <span className="rounded-full bg-primary-50 px-2.5 py-1 text-[11px] font-semibold text-primary-600 ring-1 ring-primary-100 dark:bg-primary-500/10 dark:text-primary-300 dark:ring-primary-500/20">
+                  {formData.scheduled_publish_at ? '已设置' : '可选'}
+                </span>
+              </div>
+              <div className="article-schedule-picker rounded-2xl border border-neutral-100 bg-neutral-50/80 p-3 shadow-inner shadow-white/70 transition-colors dark:border-neutral-800 dark:bg-neutral-800/40 dark:shadow-none">
+                <DatePicker
+                  value={scheduledPublishPickerValue}
+                  onChange={(value) =>
+                    setFormData({
+                      ...formData,
+                      scheduled_publish_at: toScheduledPayloadValue(value),
+                    })
+                  }
+                  enableTimePicker
+                  valueType="YYYY-MM-DD HH:mm"
+                  format={SCHEDULE_PICKER_FORMAT}
+                  clearable
+                  needConfirm
+                  placeholder="选择自动发布时间"
+                  prefixIcon={<CalendarClock className="h-4 w-4 text-primary-500 dark:text-primary-300" />}
+                  size="large"
+                  style={{ width: '100%' }}
+                  className="w-full [&_.t-input]:rounded-xl [&_.t-input]:border-neutral-200 [&_.t-input]:bg-white [&_.t-input]:shadow-sm dark:[&_.t-input]:border-neutral-700 dark:[&_.t-input]:bg-neutral-900"
+                />
+              </div>
+              <p className="mt-2 text-xs leading-5 text-neutral-400 dark:text-neutral-500">
                 设置后文章将在指定时间自动发布。留空则立即发布。
               </p>
             </div>

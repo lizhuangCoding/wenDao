@@ -4,6 +4,8 @@ import (
 	"testing"
 
 	"gorm.io/gorm"
+
+	"wenDao/internal/model"
 )
 
 func TestDisableForeignKeyConstraintsWhenMigrating(t *testing.T) {
@@ -23,4 +25,14 @@ func TestQuoteMySQLIdentifierEscapesBackticks(t *testing.T) {
 	if got != want {
 		t.Fatalf("expected %q, got %q", want, got)
 	}
+}
+
+func TestAutoMigrateModelsIncludesNotification(t *testing.T) {
+	for _, migrationModel := range autoMigrateModels() {
+		if _, ok := migrationModel.(*model.Notification); ok {
+			return
+		}
+	}
+
+	t.Fatal("expected AutoMigrate model list to include Notification")
 }

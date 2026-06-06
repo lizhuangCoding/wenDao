@@ -64,7 +64,7 @@ func (h *SiteHandler) SetSlogan(c *gin.Context) {
 
 // RobotsTxt 返回 robots.txt 内容
 func (h *SiteHandler) RobotsTxt(c *gin.Context) {
-	sitemapURL := strings.TrimRight(h.cfg.Site.URL, "/") + "/sitemap.xml"
+	sitemapURL := h.siteBaseURL(c) + "/sitemap.xml"
 	content := strings.Join([]string{
 		"User-agent: *",
 		"Allow: /",
@@ -75,6 +75,42 @@ func (h *SiteHandler) RobotsTxt(c *gin.Context) {
 	}, "\n")
 	c.Header("Content-Type", "text/plain; charset=utf-8")
 	c.String(200, content)
+}
+
+func (h *SiteHandler) siteBaseURL(c *gin.Context) string {
+	if h != nil && h.cfg != nil {
+		if siteURL := strings.TrimRight(strings.TrimSpace(h.cfg.Site.URL), "/"); siteURL != "" {
+			return siteURL
+		}
+	}
+	if c == nil || c.Request == nil {
+		return ""
+	}
+
+	host := firstForwardedValue(c.GetHeader("X-Forwarded-Host"))
+	if host == "" {
+		host = c.Request.Host
+	}
+	if host == "" {
+		return ""
+	}
+
+	scheme := firstForwardedValue(c.GetHeader("X-Forwarded-Proto"))
+	if scheme == "" {
+		scheme = "http"
+		if c.Request.TLS != nil {
+			scheme = "https"
+		}
+	}
+
+	return scheme + "://" + host
+}
+
+func firstForwardedValue(value string) string {
+	if value == "" {
+		return ""
+	}
+	return strings.TrimSpace(strings.Split(value, ",")[0])
 }
 
 // SitemapXml 返回 sitemap.xml 内容
@@ -99,7 +135,7 @@ func (h *SiteHandler) SitemapXml(c *gin.Context) {
 		URLs    []sitemapURL `xml:"url"`
 	}
 
-	baseURL := strings.TrimRight(h.cfg.Site.URL, "/")
+	baseURL := h.siteBaseURL(c)
 	urls := []sitemapURL{
 		{
 			Loc:        baseURL + "/",

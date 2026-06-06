@@ -68,6 +68,7 @@ export const AIChat = () => {
     setActiveChat,
     deleteChat,
     renameChat,
+    updateConversationShare,
     setSelectedModel,
   } = useChatStore();
 
@@ -245,8 +246,9 @@ export const AIChat = () => {
   };
 
   const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
-    showToast('已复制到剪贴板', 'success');
+    navigator.clipboard.writeText(text)
+      .then(() => showToast('已复制到剪贴板', 'success'))
+      .catch(() => showToast('复制失败，请手动复制', 'error'));
   };
 
   const toggleProcessDetail = (id: string) => {
@@ -266,17 +268,7 @@ export const AIChat = () => {
     setIsSharing(true);
     try {
       const res = await chatApi.shareConversation(activeChat.id, !activeChat.isShared);
-      // Update conversation in store to reflect new share status
-      const updatedConversations = {
-        ...conversations,
-        [activeChat.id]: {
-          ...activeChat,
-          isShared: res.is_shared,
-          shareToken: res.share_token,
-        },
-      };
-      (useChatStore.getState() as any).conversations = updatedConversations;
-      useChatStore.setState({ conversations: updatedConversations });
+      updateConversationShare(activeChat.id, res.is_shared, res.share_token);
       showToast(res.is_shared ? '已开启分享' : '已关闭分享', 'success');
     } catch (err: any) {
       showToast(err.message || '操作失败', 'error');
@@ -285,14 +277,18 @@ export const AIChat = () => {
     }
   };
 
-  const handleCopyShareLink = () => {
+  const handleCopyShareLink = async () => {
     const token = (activeChat as any)?.shareToken;
     if (!token) return;
     const url = `${window.location.origin}/shared/${token}`;
-    navigator.clipboard.writeText(url);
-    setShareCopied(true);
-    showToast('分享链接已复制到剪贴板', 'success');
-    setTimeout(() => setShareCopied(false), 2000);
+    try {
+      await navigator.clipboard.writeText(url);
+      setShareCopied(true);
+      showToast('分享链接已复制到剪贴板', 'success');
+      setTimeout(() => setShareCopied(false), 2000);
+    } catch {
+      showToast('复制失败，请手动复制链接', 'error');
+    }
   };
 
   const handleExport = async () => {

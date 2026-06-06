@@ -61,7 +61,7 @@ func (s *stubAIService) GenerateSummary(ctx context.Context, content string) (st
 
 func TestAIHandlerChatStream_EmitsStageAndQuestionEvents(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	h := NewAIHandler(&stubAIService{
+	h := newTestAIHandler(&stubAIService{
 		streamEvents: []service.StreamEvent{
 			{Type: service.StreamEventStage, Stage: "analyzing", Label: "正在理解你的问题"},
 			{Type: service.StreamEventQuestion, Stage: "clarifying", Message: "你更关注国内还是海外案例？"},
@@ -88,7 +88,7 @@ func TestAIHandlerChatStream_EmitsStageAndQuestionEvents(t *testing.T) {
 
 func TestAIHandlerResumeChatStream_EmitsResumeSnapshotAndHeartbeatEvents(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	h := NewAIHandler(&stubAIService{
+	h := newTestAIHandler(&stubAIService{
 		resumeEvents: []service.StreamEvent{
 			{Type: service.StreamEventResume, RunID: 9, Stage: "web_research"},
 			{Type: service.StreamEventSnapshot, RunID: 9, Stage: "web_research", Message: "当前回答快照"},

@@ -83,6 +83,10 @@ func (r *vectorSyncArticleRepoStub) DecrementLikeCount(id int64) error          
 func (r *vectorSyncArticleRepoStub) UpdateTop(id int64, isTop bool) error                { return nil }
 func (r *vectorSyncArticleRepoStub) UpdatePopularity(id int64, popularity float64) error { return nil }
 func (r *vectorSyncArticleRepoStub) GetAllPublished() ([]*model.Article, error)          { return nil, nil }
+func (r *vectorSyncArticleRepoStub) GetDueScheduledArticles() ([]*model.Article, error) {
+	return nil, nil
+}
+func (r *vectorSyncArticleRepoStub) PublishScheduled(articleID int64) error { return nil }
 
 type vectorSyncServiceStub struct {
 	vectorized []int64

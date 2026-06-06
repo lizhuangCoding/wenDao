@@ -66,6 +66,11 @@ async function readSSEStream(response: Response, handlers: ChatStreamHandlers) {
   }
 }
 
+const sanitizeConversationExportTitle = (title: string) => {
+  const safeTitle = title.trim().replace(/[\\/:*?"<>|]/g, '_');
+  return safeTitle || 'conversation';
+};
+
 export const chatApi = {
   sendMessage: (data: ChatRequest) => {
     return request.post<ChatResponse>('/ai/chat', data);
@@ -159,8 +164,9 @@ export const chatApi = {
     const blob = await response.blob();
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
+    const safeTitle = sanitizeConversationExportTitle(title);
     a.href = url;
-    a.download = `conversation-${title.replace(/[\\/:\*\?"<>\|]/g, '_')}.md`;
+    a.download = `conversation-${safeTitle}.md`;
     document.body.appendChild(a);
     a.click();
     window.URL.revokeObjectURL(url);

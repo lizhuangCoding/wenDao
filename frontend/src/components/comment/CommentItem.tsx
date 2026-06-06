@@ -11,6 +11,15 @@ interface CommentItemProps {
   isReply?: boolean;
 }
 
+type CommentVote = 'like' | 'dislike' | null;
+
+const getStoredCommentVote = (key: string): CommentVote => {
+  const storedVote = localStorage.getItem(key);
+  if (storedVote === 'like' || storedVote === 'dislike') return storedVote;
+  if (storedVote === '1') return 'like';
+  return null;
+};
+
 const DefaultDeletedUserAvatar = () => (
   <div aria-hidden="true" className="relative h-full w-full bg-neutral-300 dark:bg-neutral-600">
     <div className="absolute left-1/2 top-[6px] h-[9px] w-[9px] -translate-x-1/2 rounded-full bg-neutral-50 dark:bg-neutral-300" />
@@ -22,37 +31,66 @@ export const CommentItem = ({ comment, articleId, isReply = false }: CommentItem
   const { t } = useTranslation();
   const [showReplyForm, setShowReplyForm] = useState(false);
   const votedKey = `comment_vote_${comment.id}`;
-  const [voted, setVoted] = useState<boolean>(() => localStorage.getItem(votedKey) === '1');
+  const [vote, setVote] = useState<CommentVote>(() => getStoredCommentVote(votedKey));
+  const [isVotePending, setIsVotePending] = useState(false);
   const [optLikeCount, setOptLikeCount] = useState(comment.like_count || 0);
   const [optDislikeCount, setOptDislikeCount] = useState(comment.dislike_count || 0);
 
-  const handleLike = useCallback(async () => {
-    if (voted) return;
-    setOptLikeCount((c) => c + 1);
-    setVoted(true);
-    localStorage.setItem(votedKey, '1');
-    try {
-      await commentApi.likeComment(comment.id);
-    } catch {
-      setOptLikeCount((c) => c - 1);
-      setVoted(false);
+  const applyVoteChange = useCallback((previousVote: CommentVote, nextVote: CommentVote) => {
+    if (previousVote === nextVote) return;
+
+    if (previousVote === 'like') setOptLikeCount((count) => Math.max(0, count - 1));
+    if (previousVote === 'dislike') setOptDislikeCount((count) => Math.max(0, count - 1));
+    if (nextVote === 'like') setOptLikeCount((count) => count + 1);
+    if (nextVote === 'dislike') setOptDislikeCount((count) => count + 1);
+
+    setVote(nextVote);
+    if (nextVote) {
+      localStorage.setItem(votedKey, nextVote);
+    } else {
       localStorage.removeItem(votedKey);
     }
-  }, [voted, comment.id, votedKey]);
+  }, [votedKey]);
+
+  const handleLike = useCallback(async () => {
+    if (isVotePending || vote === 'dislike') return;
+
+    const previousVote = vote;
+    const nextVote: CommentVote = vote === 'like' ? null : 'like';
+    applyVoteChange(previousVote, nextVote);
+    setIsVotePending(true);
+    try {
+      if (nextVote === 'like') {
+        await commentApi.likeComment(comment.id);
+      } else {
+        await commentApi.unlikeComment(comment.id);
+      }
+    } catch {
+      applyVoteChange(nextVote, previousVote);
+    } finally {
+      setIsVotePending(false);
+    }
+  }, [applyVoteChange, comment.id, isVotePending, vote]);
 
   const handleDislike = useCallback(async () => {
-    if (voted) return;
-    setOptDislikeCount((c) => c + 1);
-    setVoted(true);
-    localStorage.setItem(votedKey, '1');
+    if (isVotePending || vote === 'like') return;
+
+    const previousVote = vote;
+    const nextVote: CommentVote = vote === 'dislike' ? null : 'dislike';
+    applyVoteChange(previousVote, nextVote);
+    setIsVotePending(true);
     try {
-      await commentApi.dislikeComment(comment.id);
+      if (nextVote === 'dislike') {
+        await commentApi.dislikeComment(comment.id);
+      } else {
+        await commentApi.undislikeComment(comment.id);
+      }
     } catch {
-      setOptDislikeCount((c) => c - 1);
-      setVoted(false);
-      localStorage.removeItem(votedKey);
+      applyVoteChange(nextVote, previousVote);
+    } finally {
+      setIsVotePending(false);
     }
-  }, [voted, comment.id, votedKey]);
+  }, [applyVoteChange, comment.id, isVotePending, vote]);
 
   const user = comment.user;
   const isDeletedUser = !user;
@@ -102,9 +140,11 @@ export const CommentItem = ({ comment, articleId, isReply = false }: CommentItem
           <button
             type="button"
             onClick={handleLike}
-            disabled={voted}
+            disabled={isVotePending || vote === 'dislike'}
             className={`text-xs font-medium flex items-center gap-1 transition-colors ${
-              voted
+              vote === 'like'
+                ? 'text-primary-600 dark:text-primary-400'
+                : vote === 'dislike' || isVotePending
                 ? 'text-neutral-400 dark:text-neutral-500 cursor-not-allowed'
                 : 'text-neutral-500 dark:text-neutral-400 hover:text-primary-600 dark:hover:text-primary-400'
             }`}
@@ -117,9 +157,11 @@ export const CommentItem = ({ comment, articleId, isReply = false }: CommentItem
           <button
             type="button"
             onClick={handleDislike}
-            disabled={voted}
+            disabled={isVotePending || vote === 'like'}
             className={`text-xs font-medium flex items-center gap-1 transition-colors ${
-              voted
+              vote === 'dislike'
+                ? 'text-red-500 dark:text-red-400'
+                : vote === 'like' || isVotePending
                 ? 'text-neutral-400 dark:text-neutral-500 cursor-not-allowed'
                 : 'text-neutral-500 dark:text-neutral-400 hover:text-red-500 dark:hover:text-red-400'
             }`}

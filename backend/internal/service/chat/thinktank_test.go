@@ -40,8 +40,19 @@ func (r *stubConversationRepository) GetByUserID(userID int64) ([]model.Conversa
 	return []model.Conversation{*r.conversation}, nil
 }
 
+func (r *stubConversationRepository) GetByShareToken(token string) (*model.Conversation, error) {
+	if r.conversation == nil {
+		return nil, errors.New("conversation not found")
+	}
+	return r.conversation, nil
+}
+
 func (r *stubConversationRepository) Update(conv *model.Conversation) error {
 	r.updated = conv
+	return nil
+}
+
+func (r *stubConversationRepository) UpdateShare(id int64, share bool, token string) error {
 	return nil
 }
 

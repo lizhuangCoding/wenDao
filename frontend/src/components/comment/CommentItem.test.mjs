@@ -16,3 +16,11 @@ test('CommentItem renders a blank avatar placeholder for deleted users', () => {
   assert.doesNotMatch(source, /UserCircle/);
   assert.doesNotMatch(source, /deleted-user/);
 });
+
+test('CommentItem lets the active like or dislike vote be cancelled', () => {
+  assert.match(source, /type\s+CommentVote\s*=\s*'like'\s*\|\s*'dislike'\s*\|\s*null/);
+  assert.match(source, /commentApi\.unlikeComment/);
+  assert.match(source, /commentApi\.undislikeComment/);
+  assert.doesNotMatch(source, /disabled=\{voted\}/);
+  assert.doesNotMatch(source, /if\s*\(\s*voted\s*\)\s*return/);
+});

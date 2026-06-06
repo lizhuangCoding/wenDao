@@ -26,7 +26,9 @@ type CommentRepository interface {
 	Delete(id int64) error
 	Restore(id int64) error
 	IncrementLike(id int64) error
+	DecrementLike(id int64) error
 	IncrementDislike(id int64) error
+	DecrementDislike(id int64) error
 }
 
 // commentRepository 评论数据访问实现
@@ -128,8 +130,20 @@ func (r *commentRepository) IncrementLike(id int64) error {
 		UpdateColumn("like_count", gorm.Expr("like_count + ?", 1)).Error
 }
 
+// DecrementLike 减少评论点赞数，避免计数低于 0
+func (r *commentRepository) DecrementLike(id int64) error {
+	return r.db.Model(&model.Comment{}).Where("id = ?", id).
+		UpdateColumn("like_count", gorm.Expr("CASE WHEN like_count > 0 THEN like_count - 1 ELSE 0 END")).Error
+}
+
 // IncrementDislike 增加评论点踩数
 func (r *commentRepository) IncrementDislike(id int64) error {
 	return r.db.Model(&model.Comment{}).Where("id = ?", id).
 		UpdateColumn("dislike_count", gorm.Expr("dislike_count + ?", 1)).Error
+}
+
+// DecrementDislike 减少评论点踩数，避免计数低于 0
+func (r *commentRepository) DecrementDislike(id int64) error {
+	return r.db.Model(&model.Comment{}).Where("id = ?", id).
+		UpdateColumn("dislike_count", gorm.Expr("CASE WHEN dislike_count > 0 THEN dislike_count - 1 ELSE 0 END")).Error
 }

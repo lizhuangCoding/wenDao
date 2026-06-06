@@ -22,7 +22,9 @@ type CommentService interface {
 	DeleteBatch(ids []int64, userID int64, isAdmin bool) error
 	Restore(id int64) error
 	Like(commentID int64) error
+	Unlike(commentID int64) error
 	Dislike(commentID int64) error
+	Undislike(commentID int64) error
 }
 
 // commentService 评论服务实现
@@ -347,7 +349,17 @@ func (s *commentService) Like(commentID int64) error {
 	return s.commentRepo.IncrementLike(commentID)
 }
 
+// Unlike 取消点赞评论
+func (s *commentService) Unlike(commentID int64) error {
+	return s.commentRepo.DecrementLike(commentID)
+}
+
 // Dislike 点踩评论
 func (s *commentService) Dislike(commentID int64) error {
 	return s.commentRepo.IncrementDislike(commentID)
+}
+
+// Undislike 取消点踩评论
+func (s *commentService) Undislike(commentID int64) error {
+	return s.commentRepo.DecrementDislike(commentID)
 }

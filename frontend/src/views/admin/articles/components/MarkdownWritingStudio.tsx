@@ -57,6 +57,9 @@ interface MarkdownWritingStudioProps {
   textareaRef: RefObject<HTMLTextAreaElement>;
   onPaste: (event: ClipboardEvent<HTMLTextAreaElement>) => void;
   onImageUploadClick: () => void;
+  allowImageUpload?: boolean;
+  helperText?: string;
+  placeholder?: string;
   contentStats: ContentStats;
   lastSavedTime: string | null;
   isAutoSaving: boolean;
@@ -141,6 +144,9 @@ export const MarkdownWritingStudio = ({
   textareaRef,
   onPaste,
   onImageUploadClick,
+  allowImageUpload = true,
+  helperText = '支持工具栏插入常用 Markdown，粘贴图片会自动上传。',
+  placeholder = '使用 Markdown 编写内容...',
   contentStats,
   lastSavedTime,
   isAutoSaving,
@@ -272,7 +278,7 @@ export const MarkdownWritingStudio = ({
             内容 (Markdown)
           </label>
           <p className="mt-1 text-xs text-neutral-400 dark:text-neutral-500">
-            支持工具栏插入常用 Markdown，粘贴图片会自动上传。
+            {helperText}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -372,16 +378,18 @@ export const MarkdownWritingStudio = ({
             </div>
           </div>
 
-          <button
-            type="button"
-            aria-label="插入图片"
-            onClick={onImageUploadClick}
-            className="group relative inline-flex h-9 items-center gap-2 rounded-xl px-3 text-xs font-semibold text-primary-600 transition-colors hover:bg-white focus-visible:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/30 dark:text-primary-400 dark:hover:bg-neutral-800 dark:focus-visible:bg-neutral-800"
-          >
-            <ImagePlus className="h-4 w-4" aria-hidden="true" />
-            图片
-            <span className={tooltipClassName}>插入图片</span>
-          </button>
+          {allowImageUpload && (
+            <button
+              type="button"
+              aria-label="插入图片"
+              onClick={onImageUploadClick}
+              className="group relative inline-flex h-9 items-center gap-2 rounded-xl px-3 text-xs font-semibold text-primary-600 transition-colors hover:bg-white focus-visible:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/30 dark:text-primary-400 dark:hover:bg-neutral-800 dark:focus-visible:bg-neutral-800"
+            >
+              <ImagePlus className="h-4 w-4" aria-hidden="true" />
+              图片
+              <span className={tooltipClassName}>插入图片</span>
+            </button>
+          )}
 
           <div className="ml-auto flex flex-wrap items-center gap-3 text-[11px] font-medium text-neutral-400 dark:text-neutral-500">
             <span>{contentStats.characters} 字符</span>
@@ -423,7 +431,7 @@ export const MarkdownWritingStudio = ({
                 onChange={(event) => onContentChange(event.target.value)}
                 onScroll={handleEditorScroll}
                 onPaste={onPaste}
-                placeholder="使用 Markdown 编写内容..."
+                placeholder={placeholder}
               />
             </section>
           )}

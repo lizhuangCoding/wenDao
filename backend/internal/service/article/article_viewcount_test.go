@@ -46,6 +46,10 @@ func (r *viewCountArticleRepoStub) DecrementLikeCount(id int64) error           
 func (r *viewCountArticleRepoStub) UpdateTop(id int64, isTop bool) error                { return nil }
 func (r *viewCountArticleRepoStub) UpdatePopularity(id int64, popularity float64) error { return nil }
 func (r *viewCountArticleRepoStub) GetAllPublished() ([]*model.Article, error)          { return nil, nil }
+func (r *viewCountArticleRepoStub) GetDueScheduledArticles() ([]*model.Article, error) {
+	return nil, nil
+}
+func (r *viewCountArticleRepoStub) PublishScheduled(articleID int64) error { return nil }
 func (r *viewCountArticleRepoStub) IncrementViewCount(id int64) error {
 	if r.incrementCh != nil {
 		r.incrementCh <- id

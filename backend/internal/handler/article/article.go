@@ -70,11 +70,12 @@ type CreateArticleRequest struct {
 
 // UpdateArticleRequest 更新文章请求
 type UpdateArticleRequest struct {
-	Title      string  `json:"title" binding:"required,min=1,max=200"`
-	Content    string  `json:"content" binding:"required,min=10"`
-	Summary    string  `json:"summary" binding:"max=500"`
-	CategoryID int64   `json:"category_id" binding:"required"`
-	CoverImage *string `json:"cover_image"`
+	Title              string  `json:"title" binding:"required,min=1,max=200"`
+	Content            string  `json:"content" binding:"required,min=10"`
+	Summary            string  `json:"summary" binding:"max=500"`
+	CategoryID         int64   `json:"category_id" binding:"required"`
+	CoverImage         *string `json:"cover_image"`
+	ScheduledPublishAt *string `json:"scheduled_publish_at"`
 }
 
 type BatchDeleteArticleRequest struct {
@@ -131,6 +132,24 @@ type AutoSaveRequest struct {
 	Summary string `json:"summary"`
 }
 
+func parseScheduledPublishAt(value *string) (*time.Time, bool, string) {
+	if value == nil {
+		return nil, false, ""
+	}
+	if *value == "" {
+		return nil, true, ""
+	}
+
+	scheduledTime, err := time.Parse(time.RFC3339, *value)
+	if err != nil {
+		return nil, true, "Invalid scheduled_publish_at format, use RFC3339"
+	}
+	if scheduledTime.Before(time.Now()) {
+		return nil, true, "scheduled_publish_at must be in the future"
+	}
+	return &scheduledTime, true, ""
+}
+
 // Create 创建文章（管理员）
 func (h *ArticleHandler) Create(c *gin.Context) {
 	var req CreateArticleRequest
@@ -140,19 +159,13 @@ func (h *ArticleHandler) Create(c *gin.Context) {
 	}
 
 	// 处理定时发布
-	var scheduledAt *time.Time
 	effectiveStatus := req.Status
-	if req.ScheduledPublishAt != nil && *req.ScheduledPublishAt != "" {
-		scheduledTime, err := time.Parse(time.RFC3339, *req.ScheduledPublishAt)
-		if err != nil {
-			response.InvalidParams(c, "Invalid scheduled_publish_at format, use RFC3339")
-			return
-		}
-		if scheduledTime.Before(time.Now()) {
-			response.InvalidParams(c, "scheduled_publish_at must be in the future")
-			return
-		}
-		scheduledAt = &scheduledTime
+	scheduledAt, _, scheduleErr := parseScheduledPublishAt(req.ScheduledPublishAt)
+	if scheduleErr != "" {
+		response.InvalidParams(c, scheduleErr)
+		return
+	}
+	if scheduledAt != nil {
 		effectiveStatus = "draft"
 	}
 
@@ -382,6 +395,12 @@ func (h *ArticleHandler) Update(c *gin.Context) {
 		return
 	}
 
+	scheduledAt, hasScheduledPublishAt, scheduleErr := parseScheduledPublishAt(req.ScheduledPublishAt)
+	if scheduleErr != "" {
+		response.InvalidParams(c, scheduleErr)
+		return
+	}
+
 	article, err := h.articleService.Update(
 		id,
 		req.Title,
@@ -401,6 +420,23 @@ func (h *ArticleHandler) Update(c *gin.Context) {
 		}
 		response.InternalErrorWithErr(c, "Failed to update article", err)
 		return
+	}
+
+	if hasScheduledPublishAt {
+		if scheduledAt != nil && article.Status == "published" {
+			if err := h.articleService.Draft(id); err != nil {
+				response.InternalErrorWithErr(c, "Failed to draft article for scheduled publish", err)
+				return
+			}
+		}
+		if err := h.articleService.SetScheduledPublishAt(id, scheduledAt); err != nil {
+			response.InternalErrorWithErr(c, "Failed to set scheduled publish time", err)
+			return
+		}
+		article.ScheduledPublishAt = scheduledAt
+		if scheduledAt != nil {
+			article.Status = "draft"
+		}
 	}
 
 	response.Success(c, article)

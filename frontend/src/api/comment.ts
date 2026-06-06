@@ -49,8 +49,18 @@ export const commentApi = {
     return request.post(`/comments/${id}/like`);
   },
 
+  // 取消点赞评论
+  unlikeComment: (id: number) => {
+    return request.delete(`/comments/${id}/like`);
+  },
+
   // 点踩评论
   dislikeComment: (id: number) => {
     return request.post(`/comments/${id}/dislike`);
+  },
+
+  // 取消点踩评论
+  undislikeComment: (id: number) => {
+    return request.delete(`/comments/${id}/dislike`);
   },
 };

@@ -136,6 +136,12 @@ func (r *stubKnowledgeArticleRepository) UpdatePopularity(id int64, popularity f
 func (r *stubKnowledgeArticleRepository) GetAllPublished() ([]*model.Article, error) {
 	return nil, nil
 }
+func (r *stubKnowledgeArticleRepository) GetDueScheduledArticles() ([]*model.Article, error) {
+	return nil, nil
+}
+func (r *stubKnowledgeArticleRepository) PublishScheduled(articleID int64) error {
+	return nil
+}
 
 type stubKnowledgeCategoryRepository struct {
 	categories  []*model.Category

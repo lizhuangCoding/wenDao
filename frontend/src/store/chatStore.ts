@@ -37,6 +37,7 @@ interface ChatState {
   setActiveChat: (id: number) => Promise<void>;
   deleteChat: (id: number) => Promise<void>;
   renameChat: (id: number, title: string) => Promise<void>;
+  updateConversationShare: (id: number, isShared: boolean, shareToken?: string) => void;
   sendMessage: (content: string) => Promise<void>;
   clearMessages: () => void;
 }
@@ -254,6 +255,8 @@ const mapConversationDetail = (detail: ChatConversationDetailResponse): Conversa
     createdAt: new Date(detail.conversation.created_at).getTime(),
     updatedAt: new Date(detail.conversation.updated_at).getTime(),
     isLoaded: true,
+    isShared: detail.conversation.is_shared,
+    shareToken: detail.conversation.share_token,
   };
 };
 
@@ -801,6 +804,23 @@ export const useChatStore = create<ChatState>()((set, get) => {
         console.error('Failed to rename conversation:', error);
         throw error;
       }
+    },
+
+    updateConversationShare: (id, isShared, shareToken) => {
+      set((state) => {
+        const conversation = state.conversations[id];
+        if (!conversation) return state;
+        return {
+          conversations: {
+            ...state.conversations,
+            [id]: {
+              ...conversation,
+              isShared,
+              shareToken,
+            },
+          },
+        };
+      });
     },
 
     sendMessage: async (content) => {
