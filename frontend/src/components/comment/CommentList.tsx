@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { commentApi } from '@/api';
 import { CommentForm } from './CommentForm';
 import { CommentItem } from './CommentItem';
@@ -11,6 +12,7 @@ interface CommentListProps {
 }
 
 export const CommentList = ({ articleId, totalCommentCount }: CommentListProps) => {
+  const { t } = useTranslation();
   const [sort, setSort] = useState<'newest' | 'hottest'>('newest');
   const {
     data: comments,
@@ -34,7 +36,7 @@ export const CommentList = ({ articleId, totalCommentCount }: CommentListProps) 
     <div className="space-y-6">
       <div className="flex items-center justify-between mb-6">
         <h3 className="text-2xl font-semibold text-neutral-700 dark:text-neutral-200">
-          评论 {displayCount}
+          {t('comment.title', { count: displayCount })}
         </h3>
         <div className="flex items-center bg-neutral-100 dark:bg-neutral-800 rounded-lg p-1">
           <button
@@ -46,7 +48,7 @@ export const CommentList = ({ articleId, totalCommentCount }: CommentListProps) 
                 : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-300'
             }`}
           >
-            最新
+            {t('comment.newest')}
           </button>
           <button
             type="button"
@@ -57,7 +59,7 @@ export const CommentList = ({ articleId, totalCommentCount }: CommentListProps) 
                 : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-300'
             }`}
           >
-            最热
+            {t('comment.hottest')}
           </button>
         </div>
       </div>
@@ -67,8 +69,8 @@ export const CommentList = ({ articleId, totalCommentCount }: CommentListProps) 
 
       {isError ? (
         <ErrorState
-          title="评论加载失败"
-          message={(error as any)?.message || '无法加载评论，请稍后重试。'}
+          title={t('comment.loadFailed')}
+          message={(error as any)?.message || t('comment.loadFailedDescription')}
           onRetry={() => refetch()}
         />
       ) : (
@@ -81,7 +83,7 @@ export const CommentList = ({ articleId, totalCommentCount }: CommentListProps) 
 
       {!isError && comments?.length === 0 && (
         <div className="text-center py-8 text-neutral-500 dark:text-neutral-400">
-          暂无评论，快来发表第一条评论吧
+          {t('comment.noCommentsYet')}
         </div>
       )}
     </div>

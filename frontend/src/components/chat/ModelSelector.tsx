@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Cpu, Check } from 'lucide-react';
 import { chatApi } from '@/api';
 import type { ModelInfo } from '@/types';
@@ -9,6 +10,7 @@ interface ModelSelectorProps {
 }
 
 export const ModelSelector = ({ selectedModel, onSelect }: ModelSelectorProps) => {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [models, setModels] = useState<ModelInfo[]>([]);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -47,11 +49,11 @@ export const ModelSelector = ({ selectedModel, onSelect }: ModelSelectorProps) =
             ? 'border-primary-200 dark:border-primary-800 bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300'
             : 'border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-neutral-500 dark:text-neutral-400 hover:text-primary-600 dark:hover:text-primary-400 hover:border-primary-200 dark:hover:border-primary-700'
         }`}
-        aria-label="选择 AI 模型"
-        title={currentLabel || '默认'}
+        aria-label={t('chat.selectModel')}
+        title={currentLabel || t('common.defaultModel')}
       >
         <Cpu className="h-3.5 w-3.5" aria-hidden="true" />
-        <span className="max-w-[min(60vw,260px)] truncate">{currentLabel || '默认'}</span>
+        <span className="max-w-[min(60vw,260px)] truncate">{currentLabel || t('common.defaultModel')}</span>
       </button>
 
       {open && (
@@ -61,7 +63,7 @@ export const ModelSelector = ({ selectedModel, onSelect }: ModelSelectorProps) =
             onClick={() => { onSelect(null); setOpen(false); }}
             className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-700 transition-colors"
           >
-            <span className="flex-1 text-left">默认模型</span>
+            <span className="flex-1 text-left">{t('chat.modelSelectorDefault')}</span>
             {!selectedModel && <Check className="h-4 w-4 text-primary-600 dark:text-primary-400" />}
           </button>
           <div className="mx-3 h-px bg-neutral-100 dark:bg-neutral-700 my-1" />

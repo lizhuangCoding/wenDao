@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { ExternalLink, Mail } from 'lucide-react';
 import { cn } from '@/utils';
 
@@ -6,6 +7,7 @@ interface ContactLinksProps {
 }
 
 export const ContactLinks = ({ className }: ContactLinksProps) => {
+  const { t } = useTranslation();
   return (
     <div className={cn('grid gap-3 sm:grid-cols-2', className)}>
       <a
@@ -17,7 +19,7 @@ export const ContactLinks = ({ className }: ContactLinksProps) => {
         </span>
         <span className="min-w-0">
           <span className="block text-[11px] font-black uppercase tracking-[0.28em] text-neutral-400 dark:text-neutral-500">
-            QQ 邮箱
+            {t('common.qqMailbox')}
           </span>
           <span className="mt-1 block truncate text-sm font-semibold text-neutral-900 dark:text-neutral-100">
             3174285493@qq.com

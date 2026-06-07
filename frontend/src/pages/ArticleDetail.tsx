@@ -71,7 +71,7 @@ export const ArticleDetail = () => {
       queryClient.invalidateQueries({ queryKey: ['article', slug] });
     },
     onError: (mutationError: any) => {
-      showToast(mutationError?.message || '操作失败，请稍后再试', 'error');
+      showToast(mutationError?.message || t('article.operationFailed'), 'error');
     },
   });
 
@@ -87,7 +87,7 @@ export const ArticleDetail = () => {
       <Layout>
         <div className="max-w-reading mx-auto px-6 py-16">
           <ErrorState
-            message={(error as any)?.message || '文章加载失败'}
+            message={(error as any)?.message || t('article.articleLoadFailed')}
             onRetry={() => refetch()}
           />
         </div>
@@ -116,7 +116,7 @@ export const ArticleDetail = () => {
   const isInteractionPending = interactionMutation.isPending || interactionQuery.isLoading;
 
   const requireLogin = () => {
-    showToast('登录后可以点赞和收藏文章', 'info');
+    showToast(t('article.loginToInteract'), 'info');
     navigate('/login');
   };
 
@@ -266,7 +266,7 @@ export const ArticleDetail = () => {
                 }`}
               >
                 <Heart size={18} fill={interactionState.liked ? 'currentColor' : 'none'} />
-                <span>{interactionState.liked ? '已喜欢' : '喜欢'}</span>
+                <span>{interactionState.liked ? t('article.liked') : t('article.like')}</span>
                 <span className="tabular-nums text-neutral-400 dark:text-neutral-500">{article.like_count}</span>
               </button>
               <button
@@ -281,7 +281,7 @@ export const ArticleDetail = () => {
                 }`}
               >
                 <Bookmark size={18} fill={interactionState.favorited ? 'currentColor' : 'none'} />
-                <span>{interactionState.favorited ? '已收藏' : '收藏'}</span>
+                <span>{interactionState.favorited ? t('article.favorited') : t('article.favorite')}</span>
               </button>
             </div>
 

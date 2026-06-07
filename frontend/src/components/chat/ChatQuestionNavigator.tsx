@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import type { ChatQuestionNavItem } from '@/utils/chatQuestionNavigator';
 
 interface ChatQuestionNavigatorProps {
@@ -12,11 +13,12 @@ const formatQuestionTime = (timestamp?: number) => {
 };
 
 export const ChatQuestionNavigator = ({ activeId, items, onSelect }: ChatQuestionNavigatorProps) => {
+  const { t } = useTranslation();
   if (items.length < 2) return null;
 
   return (
     <nav
-      aria-label="对话问题目录"
+      aria-label={t('chat.questionDirectory')}
       className="group absolute bottom-36 right-3 top-28 z-20 hidden xl:flex items-stretch justify-end"
     >
       <div className="relative h-full w-8 transition-[width] duration-200 ease-out group-hover:w-80 group-focus-within:w-80">
@@ -38,7 +40,7 @@ export const ChatQuestionNavigator = ({ activeId, items, onSelect }: ChatQuestio
         <div className="absolute inset-y-0 right-0 w-80 translate-x-4 rounded-2xl border border-neutral-100 bg-white/95 p-3 opacity-0 shadow-elevated backdrop-blur transition-all duration-200 group-hover:translate-x-0 group-hover:opacity-100 group-focus-within:translate-x-0 group-focus-within:opacity-100 dark:border-neutral-700 dark:bg-neutral-900/95">
           <div className="mb-3 flex items-center justify-between px-1">
             <p className="text-xs font-black tracking-wider text-neutral-800 dark:text-neutral-100">
-              问题目录
+              {t('chat.questionDirectory')}
             </p>
             <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-[10px] font-bold text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400">
               {items.length}

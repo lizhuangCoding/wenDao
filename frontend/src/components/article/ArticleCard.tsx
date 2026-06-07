@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import type { ArticleListItem } from '@/types';
 import { formatDate } from '@/utils';
 
@@ -7,6 +8,7 @@ interface ArticleCardProps {
 }
 
 export const ArticleCard = ({ article }: ArticleCardProps) => {
+  const { t } = useTranslation();
   return (
     <Link to={`/article/${article.slug}`} className="group block">
       <article className="flex flex-col h-full">
@@ -32,7 +34,7 @@ export const ArticleCard = ({ article }: ArticleCardProps) => {
               </span>
               {article.source_type === 'knowledge_document' && (
                 <span className="px-3 py-1 bg-primary-500/90 backdrop-blur-md text-[10px] font-black tracking-[0.2em] text-white rounded-full shadow-sm">
-                  知识文档
+                  {t('article.sourceDocument')}
                 </span>
               )}
             </div>
@@ -49,7 +51,7 @@ export const ArticleCard = ({ article }: ArticleCardProps) => {
                   </svg>
                 </span>
                 <span className="text-[10px] font-black tracking-[0.24em] text-amber-700 uppercase dark:text-amber-900">
-                  置顶
+                  {t('article.pinned')}
                 </span>
               </div>
             </div>
@@ -65,7 +67,7 @@ export const ArticleCard = ({ article }: ArticleCardProps) => {
 
           <div className="mb-6 flex-1">
             <p className="text-neutral-500 dark:text-neutral-400 text-sm leading-relaxed line-clamp-3 font-medium italic">
-              {article.summary || 'Click to explore the depths of this curated piece.'}
+              {article.summary || t('article.summaryPlaceholder')}
             </p>
           </div>
 

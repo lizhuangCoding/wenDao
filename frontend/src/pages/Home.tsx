@@ -83,7 +83,7 @@ export const Home = () => {
         {isLoading ? (
           <div className="py-20 flex justify-center"><Loading /></div>
         ) : isError ? (
-          <ErrorState message={(error as any)?.message || '文章列表加载失败'} onRetry={() => refetch()} />
+          <ErrorState message={(error as any)?.message || t('home.articleListLoadFailed')} onRetry={() => refetch()} />
         ) : (
           <>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-12 gap-y-16 sm:gap-y-24">

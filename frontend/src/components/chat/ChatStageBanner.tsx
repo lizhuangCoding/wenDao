@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { AgentMoodIndicator } from './AgentMoodIndicator';
 import type { ChatStage, ChatStep } from '@/types';
 
@@ -20,6 +21,7 @@ export const ChatStageBanner = ({
   processingDurationLabel,
   requiresUserInput,
 }: ChatStageBannerProps) => {
+  const { t } = useTranslation();
   if (!label) return null;
 
   return (
@@ -42,7 +44,7 @@ export const ChatStageBanner = ({
         </span>
         {isAssistantProcessing && (
           <span className="inline-flex items-center rounded-full bg-white/80 dark:bg-primary-950/40 px-2.5 py-1 text-[11px] font-bold text-primary-700 dark:text-primary-200">
-            已耗时 {processingDurationLabel}
+            {t('chat.elapsed', { duration: processingDurationLabel })}
           </span>
         )}
       </div>

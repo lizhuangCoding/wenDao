@@ -1,6 +1,7 @@
 import { Component, lazy, Suspense, useMemo, useState } from 'react';
 import type { FormEvent, ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { Loading } from '@/components/common';
 import type { ArticleOrbitItem, Category } from '@/types';
 import { ArticlePlanetOverlay } from './ArticlePlanetOverlay';
@@ -82,6 +83,7 @@ export const ArticlePlanetHero = ({
   onSearchInputChange,
 }: ArticlePlanetHeroProps) => {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [activeArticleId, setActiveArticleId] = useState<number>();
   const [isActiveArticleCardVisible, setIsActiveArticleCardVisible] = useState(true);
   const activeArticle = useMemo(
@@ -108,10 +110,10 @@ export const ArticlePlanetHero = ({
           <Loading />
         </div>
       ) : isError || articles.length === 0 ? (
-        <ArticlePlanetSceneFallback message={isError ? '文章星球加载失败' : '暂无可展示文章'} />
+        <ArticlePlanetSceneFallback message={isError ? t('articlePlanet.loadFailed') : t('articlePlanet.noArticles')} />
       ) : (
         <SceneErrorBoundary
-          fallbackMessage="文章星球渲染失败"
+          fallbackMessage={t('articlePlanet.renderFailed')}
           resetKey={`${articles.length}-${selectedCategory ?? 'all'}`}
         >
           <Suspense

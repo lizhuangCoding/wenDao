@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { TocItem } from '@/utils/markdown';
 
 interface Props {
@@ -6,6 +7,7 @@ interface Props {
 }
 
 export const TableOfContents: React.FC<Props> = ({ headings }) => {
+  const { t } = useTranslation();
   const [activeId, setActiveId] = useState<string>('');
   const isClickingRef = useRef(false);
   const clickTimerRef = useRef<ReturnType<typeof setTimeout>>();
@@ -63,7 +65,7 @@ export const TableOfContents: React.FC<Props> = ({ headings }) => {
   return (
     <div className="sticky top-24 max-h-[calc(100vh-140px)] overflow-y-auto scrollbar-hide rounded-2xl border border-neutral-200/70 bg-white/70 px-4 py-4 shadow-soft backdrop-blur-xl dark:border-primary-900/20 dark:bg-[#07111a]/80">
       <h4 className="mb-4 pl-1 text-xs font-bold uppercase tracking-widest text-neutral-400 dark:text-neutral-300">
-        目录导航
+        {t('article.tableOfContents')}
       </h4>
       <div className="relative ml-1 border-l border-neutral-200 dark:border-neutral-700/80">
         <div

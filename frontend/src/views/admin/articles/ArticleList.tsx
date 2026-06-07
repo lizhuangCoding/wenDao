@@ -89,32 +89,32 @@ export const ArticleList = () => {
   const sortModeMutation = useMutation({
     mutationFn: (enabled: boolean) => siteApi.setSortMode(enabled),
     onSuccess: () => {
-      showToast('排序模式已更新', 'success');
+      showToast(t('admin.sortModeUpdated'), 'success');
       queryClient.invalidateQueries({ queryKey: ['site-sort-mode'] });
       invalidateArticles();
     },
     onError: (err: any) => {
-      showToast(err.message || '切换失败，请重试', 'error');
+      showToast(err.message || t('admin.switchFailed'), 'error');
     },
   });
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) => articleApi.deleteArticle(id),
     onSuccess: () => {
-      showToast('文章已删除', 'success');
+      showToast(t('common.success'), 'success');
       setDeleteId(null);
       setSelectedIds((ids) => ids.filter((id) => id !== deleteId));
       invalidateArticles();
     },
     onError: (err: any) => {
-      showToast(err.message || '删除失败', 'error');
+      showToast(err.message || t('admin.deleteFailed'), 'error');
     },
   });
 
   const batchDeleteMutation = useMutation({
     mutationFn: (ids: number[]) => articleApi.batchDeleteArticles(ids),
     onSuccess: (result) => {
-      showToast(`已删除 ${result.deleted_count} 篇文章`, 'success');
+      showToast(t('admin.batchDeleteArticlesSuccess', { count: result.deleted_count }), 'success');
       setSelectedIds([]);
       setConfirmBatchDelete(false);
       invalidateArticles();
@@ -123,7 +123,7 @@ export const ArticleList = () => {
       }
     },
     onError: (err: any) => {
-      showToast(err.message || '批量删除失败', 'error');
+      showToast(err.message || t('admin.batchDeleteFailed'), 'error');
     },
   });
 
@@ -131,22 +131,22 @@ export const ArticleList = () => {
     mutationFn: ({ id, status: articleStatus }: { id: number; status: string }) =>
       articleStatus === 'published' ? articleApi.draftArticle(id) : articleApi.publishArticle(id),
     onSuccess: () => {
-      showToast('文章状态已更新', 'success');
+      showToast(t('admin.statusUpdated'), 'success');
       invalidateArticles();
     },
     onError: (err: any) => {
-      showToast(err.message || '状态更新失败', 'error');
+      showToast(err.message || t('admin.switchFailed'), 'error');
     },
   });
 
   const topMutation = useMutation({
     mutationFn: (id: number) => articleApi.toggleTop(id),
     onSuccess: () => {
-      showToast('置顶状态已更新', 'success');
+      showToast(t('admin.topUpdated'), 'success');
       invalidateArticles();
     },
     onError: (err: any) => {
-      showToast(err.message || '置顶状态更新失败', 'error');
+      showToast(err.message || t('admin.switchFailed'), 'error');
     },
   });
 
@@ -187,16 +187,16 @@ export const ArticleList = () => {
         title={t('admin.articleManagement')}
         actions={
           <>
-            <Panel padding="sm" className="flex flex-col gap-3 border-neutral-200 dark:border-neutral-700 sm:flex-row sm:items-center">
+          <Panel padding="sm" className="flex flex-col gap-3 border-neutral-200 dark:border-neutral-700 sm:flex-row sm:items-center">
             <div className="min-w-0 sm:pr-1">
-              <div className="text-xs font-semibold text-neutral-700 dark:text-neutral-200">排序方式</div>
-              <div className="text-[11px] text-neutral-400 dark:text-neutral-500">控制文章列表与首页展示顺序</div>
+              <div className="text-xs font-semibold text-neutral-700 dark:text-neutral-200">{t('admin.sortBy')}</div>
+              <div className="text-[11px] text-neutral-400 dark:text-neutral-500">{t('admin.sortHint')}</div>
             </div>
               <SegmentedControl
                 value={sortMode?.enabled ? 'popularity' : 'created'}
                 items={[
-                  { label: '发布时间', value: 'created', disabled: sortModeMutation.isPending },
-                  { label: '活跃度', value: 'popularity', disabled: sortModeMutation.isPending },
+                  { label: t('admin.sortByCreated'), value: 'created', disabled: sortModeMutation.isPending },
+                  { label: t('admin.sortByPopularity'), value: 'popularity', disabled: sortModeMutation.isPending },
                 ]}
                 onChange={(value) => sortModeMutation.mutate(value === 'popularity')}
               />
@@ -217,7 +217,7 @@ export const ArticleList = () => {
           <TextInput
             value={keywordInput}
             onChange={(event) => setKeywordInput(event.target.value)}
-            placeholder="搜索标题、摘要或正文"
+            placeholder={t('admin.searchArticles')}
             leading={<Search className="h-4 w-4" />}
           />
           <SelectInput
@@ -228,9 +228,9 @@ export const ArticleList = () => {
               setSelectedIds([]);
             }}
           >
-            <option value="">全部状态</option>
-            <option value="published">已发布</option>
-            <option value="draft">草稿</option>
+            <option value="">{t('admin.allStatus')}</option>
+            <option value="published">{t('admin.published')}</option>
+            <option value="draft">{t('admin.draft')}</option>
           </SelectInput>
           <SelectInput
             value={categoryID}
@@ -240,7 +240,7 @@ export const ArticleList = () => {
               setSelectedIds([]);
             }}
           >
-            <option value="">全部分类</option>
+            <option value="">{t('admin.allCategories')}</option>
             {categories?.map((category) => (
               <option key={category.id} value={category.id}>
                 {category.name}
@@ -249,10 +249,10 @@ export const ArticleList = () => {
           </SelectInput>
           <div className="flex gap-2">
             <Button type="submit">
-              搜索
+              {t('common.search')}
             </Button>
             <Button variant="secondary" onClick={resetFilters}>
-              重置
+              {t('common.reset')}
             </Button>
           </div>
         </form>
@@ -261,17 +261,17 @@ export const ArticleList = () => {
           onDelete={() => setConfirmBatchDelete(true)}
           onClear={() => setSelectedIds([])}
           isDeleting={batchDeleteMutation.isPending}
-          deleteLabel="删除文章"
+          deleteLabel={t('admin.deleteSelectedArticles')}
         />
       </Panel>
 
       {isError ? (
-        <ErrorState message={(error as any)?.message || '文章列表加载失败'} onRetry={() => refetch()} />
+        <ErrorState message={(error as any)?.message || t('admin.articleListLoadingFailed')} onRetry={() => refetch()} />
       ) : (
         <DataTable
           emptyState={
             articles.length === 0 ? (
-              <EmptyState title="暂无文章" description="当前筛选条件下没有文章。" className="m-6" />
+              <EmptyState title={t('admin.noArticles')} description={t('admin.noArticlesDescription')} className="m-6" />
             ) : null
           }
         >
@@ -283,11 +283,11 @@ export const ArticleList = () => {
                       checked={allCurrentPageSelected}
                       onChange={toggleCurrentPageSelection}
                       className="h-4 w-4 rounded border-neutral-300 text-primary-600 focus:ring-primary-500"
-                      aria-label="选择当前页文章"
+                      aria-label={t('admin.selectCurrentPageArticles')}
                     />
               </DataTableHeaderCell>
               <DataTableHeaderCell>{t('admin.title')}</DataTableHeaderCell>
-              <DataTableHeaderCell>置顶</DataTableHeaderCell>
+              <DataTableHeaderCell>{t('article.pinned')}</DataTableHeaderCell>
               <DataTableHeaderCell>{t('admin.status')}</DataTableHeaderCell>
               <DataTableHeaderCell>{t('admin.createdAt')}</DataTableHeaderCell>
               <DataTableHeaderCell align="right">{t('admin.actions')}</DataTableHeaderCell>
@@ -304,7 +304,7 @@ export const ArticleList = () => {
                         checked={selectedIds.includes(article.id)}
                         onChange={() => toggleArticleSelection(article.id)}
                         className="h-4 w-4 rounded border-neutral-300 text-primary-600 focus:ring-primary-500"
-                        aria-label={`选择文章 ${article.title}`}
+                        aria-label={t('admin.selectArticle', { title: article.title })}
                       />
                 </DataTableCell>
                 <DataTableCell>
@@ -315,7 +315,7 @@ export const ArticleList = () => {
                   <ToggleSwitch
                     checked={article.is_top}
                         onClick={() => topMutation.mutate(article.id)}
-                        aria-label="切换置顶"
+                        aria-label={t('article.pinned')}
                   />
                 </DataTableCell>
                 <DataTableCell>
@@ -398,9 +398,9 @@ export const ArticleList = () => {
 
       <ConfirmModal
         isOpen={confirmBatchDelete}
-        title="批量删除文章"
-        message={`确定删除选中的 ${selectedIds.length} 篇文章吗？关联评论、统计和向量数据也会同步清理。`}
-        confirmText="删除"
+        title={t('admin.deleteSelectedArticles')}
+        message={t('admin.confirmDeleteSelectedArticles', { count: selectedIds.length })}
+        confirmText={t('common.delete')}
         onConfirm={() => batchDeleteMutation.mutate(selectedIds)}
         onCancel={() => setConfirmBatchDelete(false)}
         isConfirming={batchDeleteMutation.isPending}

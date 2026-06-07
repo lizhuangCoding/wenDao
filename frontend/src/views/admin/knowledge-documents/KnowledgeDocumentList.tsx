@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { Search } from 'lucide-react';
+import i18n from '@/i18n';
 import { knowledgeDocumentApi } from '@/api/knowledgeDocument';
 import {
   Button,
@@ -31,19 +33,21 @@ type KnowledgeDocumentStatusFilter = 'pending_review' | 'approved' | 'rejected' 
 const getKnowledgeDocumentStatusMeta = (
   status: string
 ): { label: string; variant: 'success' | 'warning' | 'danger' | 'neutral' } => {
+  const isEnglish = (i18n.resolvedLanguage || i18n.language || 'zh').startsWith('en');
   if (status === 'approved') {
-    return { label: '已通过', variant: 'success' };
+    return { label: isEnglish ? 'Approved' : '已通过', variant: 'success' };
   }
   if (status === 'rejected') {
-    return { label: '已拒绝', variant: 'danger' };
+    return { label: isEnglish ? 'Rejected' : '已拒绝', variant: 'danger' };
   }
   if (status === 'pending_review') {
-    return { label: '待审核', variant: 'warning' };
+    return { label: isEnglish ? 'Pending Review' : '待审核', variant: 'warning' };
   }
   return { label: status, variant: 'neutral' };
 };
 
 export const KnowledgeDocumentList = () => {
+  const { t } = useTranslation();
   const [pageSize, setPageSize] = useState(10);
   const [page, setPage] = useState(1);
   const [status, setStatus] = useState<KnowledgeDocumentStatusFilter>('');
@@ -79,8 +83,8 @@ export const KnowledgeDocumentList = () => {
 
   const batchDeleteMutation = useMutation({
     mutationFn: (ids: number[]) => knowledgeDocumentApi.batchDeleteKnowledgeDocuments(ids),
-    onSuccess: (result) => {
-      showToast(`已删除 ${result.deleted_count} 个知识文档`, 'success');
+    onSuccess: () => {
+      showToast(t('knowledgeDocument.deleteSuccess'), 'success');
       setSelectedIds([]);
       setConfirmBatchDelete(false);
       queryClient.invalidateQueries({ queryKey: ['admin-knowledge-documents'] });
@@ -89,7 +93,7 @@ export const KnowledgeDocumentList = () => {
       }
     },
     onError: (err: any) => {
-      showToast(err.message || '批量删除失败', 'error');
+      showToast(err.message || t('knowledgeDocument.deleteFailed'), 'error');
     },
   });
 
@@ -135,31 +139,31 @@ export const KnowledgeDocumentList = () => {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="知识文档审核" description="审核 AI 生成的知识文档，并管理它们生成的文章。" />
+      <PageHeader title={t('knowledgeDocument.reviewTitle')} description={t('knowledgeDocument.reviewDescription')} />
 
       <Panel className="space-y-3">
         <form onSubmit={applySearch} className="grid gap-3 md:grid-cols-[1fr_auto_auto]">
           <TextInput
             value={keywordInput}
             onChange={(event) => setKeywordInput(event.target.value)}
-            placeholder="搜索标题、摘要或正文"
+            placeholder={t('knowledgeDocument.searchPlaceholder')}
             leading={<Search className="h-4 w-4" />}
           />
           <SelectInput
             value={status}
             onChange={(event) => changeStatus(event.target.value as KnowledgeDocumentStatusFilter)}
           >
-            <option value="">全部状态</option>
-            <option value="pending_review">待审核</option>
-            <option value="approved">已通过</option>
-            <option value="rejected">已拒绝</option>
+            <option value="">{t('knowledgeDocument.allStatus')}</option>
+            <option value="pending_review">{t('knowledgeDocument.statusPendingReview')}</option>
+            <option value="approved">{t('knowledgeDocument.statusApprovedOption')}</option>
+            <option value="rejected">{t('knowledgeDocument.statusRejectedOption')}</option>
           </SelectInput>
           <div className="flex gap-2">
             <Button type="submit">
-              搜索
+              {t('common.search')}
             </Button>
             <Button variant="secondary" onClick={resetFilters}>
-              重置
+              {t('common.reset')}
             </Button>
           </div>
         </form>
@@ -168,17 +172,17 @@ export const KnowledgeDocumentList = () => {
           onDelete={() => setConfirmBatchDelete(true)}
           onClear={() => setSelectedIds([])}
           isDeleting={batchDeleteMutation.isPending}
-          deleteLabel="删除知识文档"
+          deleteLabel={t('knowledgeDocument.delete')}
         />
       </Panel>
 
       {isError ? (
-        <ErrorState message={(error as any)?.message || '知识文档列表加载失败'} onRetry={() => refetch()} />
+        <ErrorState message={(error as any)?.message || t('knowledgeDocument.listLoadFailed')} onRetry={() => refetch()} />
       ) : (
         <DataTable
           emptyState={
             documents.length === 0 ? (
-              <EmptyState title="暂无知识文档" description="当前筛选条件下没有知识文档。" className="m-6" />
+              <EmptyState title={t('knowledgeDocument.noDocuments')} description={t('knowledgeDocument.noDocumentsDescription')} className="m-6" />
             ) : null
           }
         >
@@ -190,13 +194,13 @@ export const KnowledgeDocumentList = () => {
                       checked={allCurrentPageSelected}
                       onChange={toggleCurrentPageSelection}
                       className="h-4 w-4 rounded border-neutral-300 text-primary-600 focus:ring-primary-500"
-                      aria-label="选择当前页知识文档"
+                      aria-label={t('knowledgeDocument.selectCurrentPage')}
                     />
               </DataTableHeaderCell>
-              <DataTableHeaderCell>标题</DataTableHeaderCell>
-              <DataTableHeaderCell>状态</DataTableHeaderCell>
-              <DataTableHeaderCell>创建时间</DataTableHeaderCell>
-              <DataTableHeaderCell align="right">操作</DataTableHeaderCell>
+              <DataTableHeaderCell>{t('admin.title')}</DataTableHeaderCell>
+              <DataTableHeaderCell>{t('admin.status')}</DataTableHeaderCell>
+              <DataTableHeaderCell>{t('knowledgeDocument.createdAt')}</DataTableHeaderCell>
+              <DataTableHeaderCell align="right">{t('knowledgeDocument.actionView')}</DataTableHeaderCell>
             </DataTableHeadRow>
               </thead>
           <DataTableBody>
@@ -210,7 +214,7 @@ export const KnowledgeDocumentList = () => {
                         checked={selectedIds.includes(doc.id)}
                         onChange={() => toggleDocumentSelection(doc.id)}
                         className="h-4 w-4 rounded border-neutral-300 text-primary-600 focus:ring-primary-500"
-                        aria-label={`选择知识文档 ${doc.title}`}
+                        aria-label={t('knowledgeDocument.selectDocument', { title: doc.title })}
                       />
                   </DataTableCell>
                   <DataTableCell className="font-medium text-neutral-800 dark:text-neutral-200">{doc.title}</DataTableCell>
@@ -219,7 +223,7 @@ export const KnowledgeDocumentList = () => {
                       <StatusBadge variant={statusMeta.variant}>{statusMeta.label}</StatusBadge>
                       {doc.article_id && (
                         <span className="text-xs text-primary-600 dark:text-primary-400">
-                          已生成文章 #{doc.article_id}
+                          {t('knowledgeDocument.articleGenerated', { id: doc.article_id })}
                         </span>
                       )}
                       </div>
@@ -236,7 +240,7 @@ export const KnowledgeDocumentList = () => {
                         className: 'text-primary-600 hover:bg-primary-50 dark:text-primary-400 dark:hover:bg-primary-900/30',
                       })}
                     >
-                        查看
+                        {t('knowledgeDocument.actionView')}
                       </Link>
                   </DataTableCell>
                 </DataTableRow>
@@ -266,9 +270,9 @@ export const KnowledgeDocumentList = () => {
 
       <ConfirmModal
         isOpen={confirmBatchDelete}
-        title="批量删除知识文档"
-        message={`确定删除选中的 ${selectedIds.length} 个知识文档吗？已通过审核生成的文章也会同步删除。`}
-        confirmText="删除"
+        title={t('knowledgeDocument.delete')}
+        message={t('knowledgeDocument.deleteConfirmMessage')}
+        confirmText={t('common.delete')}
         onConfirm={() => batchDeleteMutation.mutate(selectedIds)}
         onCancel={() => setConfirmBatchDelete(false)}
         isConfirming={batchDeleteMutation.isPending}

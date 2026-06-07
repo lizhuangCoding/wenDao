@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { Trash2 } from 'lucide-react';
 
 interface BulkActionBarProps {
@@ -13,8 +14,10 @@ export const BulkActionBar = ({
   onDelete,
   onClear,
   isDeleting = false,
-  deleteLabel = '批量删除',
+  deleteLabel,
 }: BulkActionBarProps) => {
+  const { t } = useTranslation();
+  const resolvedDeleteLabel = deleteLabel || t('common.delete');
   if (selectedCount <= 0) {
     return null;
   }
@@ -22,7 +25,7 @@ export const BulkActionBar = ({
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-red-100 bg-red-50 px-4 py-3 dark:border-red-900/40 dark:bg-red-950/20">
       <span className="text-sm font-semibold text-red-700 dark:text-red-300">
-        已选择 {selectedCount} 项
+        {t('common.selectedCount', { count: selectedCount })}
       </span>
       <div className="flex items-center gap-2">
         <button
@@ -30,7 +33,7 @@ export const BulkActionBar = ({
           onClick={onClear}
           className="rounded-xl px-3 py-2 text-xs font-bold text-red-500 transition-colors hover:bg-red-100 dark:text-red-300 dark:hover:bg-red-900/30"
         >
-          取消选择
+          {t('common.cancelSelection')}
         </button>
         {onDelete && (
         <button
@@ -40,7 +43,7 @@ export const BulkActionBar = ({
           className="inline-flex items-center gap-2 rounded-xl bg-red-600 px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
         >
           <Trash2 className="h-4 w-4" />
-          {deleteLabel}
+          {resolvedDeleteLabel}
         </button>
         )}
       </div>

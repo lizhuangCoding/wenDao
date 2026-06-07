@@ -65,12 +65,12 @@ export const Dashboard = () => {
     ? Math.round(chartData.reduce((sum: number, item: ChartDataPoint) => sum + item.pv, 0) / chartData.length)
     : 0;
   const activeRangeLabel = queryType === '7days'
-    ? '近 7 天'
+    ? t('admin.recent7Days')
     : queryType === '30days'
-      ? '近 30 天'
+      ? t('admin.recent30Days')
       : dateRange[0] && dateRange[1]
-        ? `${dateRange[0]} 至 ${dateRange[1]}`
-        : '自定义时间';
+        ? `${dateRange[0]} ${t('common.to')} ${dateRange[1]}`
+        : t('admin.custom');
 
   const handleQuickSelect = (type: QueryType) => {
     setQueryType(type);
@@ -89,7 +89,7 @@ export const Dashboard = () => {
       const start = dayjs(startDateInput).format('YYYY-MM-DD');
       const end = dayjs(endDateInput).format('YYYY-MM-DD');
       if (dayjs(start).isAfter(dayjs(end))) {
-        showToast('开始日期不能晚于结束日期', 'error');
+        showToast(t('dashboard.startAfterEnd'), 'error');
         return;
       }
       setDateRange([start, end]);
@@ -109,8 +109,8 @@ export const Dashboard = () => {
   if (isError) {
     return (
       <ErrorState
-        title="统计加载失败"
-        message={(error as any)?.message || '无法加载访问统计，请稍后重试。'}
+        title={t('dashboard.loadFailed')}
+        message={(error as any)?.message || t('dashboard.loadFailedDescription')}
         onRetry={() => refetch()}
       />
     );
@@ -124,8 +124,8 @@ export const Dashboard = () => {
           <Panel padding="sm" className="w-full border-neutral-200 dark:border-neutral-700 sm:w-auto">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
             <div className="min-w-0 lg:pr-2">
-              <div className="text-xs font-semibold text-neutral-700 dark:text-neutral-200">时间范围</div>
-              <div className="text-[11px] text-neutral-400 dark:text-neutral-500">当前查看：{activeRangeLabel}</div>
+              <div className="text-xs font-semibold text-neutral-700 dark:text-neutral-200">{t('admin.timeRange')}</div>
+              <div className="text-[11px] text-neutral-400 dark:text-neutral-500">{t('admin.currentViewing', { range: activeRangeLabel })}</div>
             </div>
 
             <SegmentedControl<QueryType>
@@ -133,7 +133,7 @@ export const Dashboard = () => {
               items={[
                 { label: t('admin.recent7Days'), value: '7days' },
                 { label: t('admin.recent30Days'), value: '30days' },
-                { label: '自定义', value: 'custom' },
+                { label: t('admin.custom'), value: 'custom' },
               ]}
               onChange={(value) => (value === 'custom' ? handleCustomSelect() : handleQuickSelect(value))}
             />
@@ -145,15 +145,15 @@ export const Dashboard = () => {
                     value={startDateInput && endDateInput ? [startDateInput, endDateInput] : []}
                     valueType="YYYY-MM-DD"
                     format="YYYY-MM-DD"
-                    placeholder={['开始日期', '结束日期']}
-                    separator="至"
+                    placeholder={[t('admin.startDate'), t('admin.endDate')]}
+                    separator={t('common.to') || '至'}
                     clearable
                     size="medium"
                     borderless
                     presets={{
-                      '最近 7 天': [dayjs().subtract(6, 'day').format('YYYY-MM-DD'), dayjs().format('YYYY-MM-DD')],
-                      '最近 30 天': [dayjs().subtract(29, 'day').format('YYYY-MM-DD'), dayjs().format('YYYY-MM-DD')],
-                      '本月': [dayjs().startOf('month').format('YYYY-MM-DD'), dayjs().format('YYYY-MM-DD')],
+                      [t('admin.recent7Days')]: [dayjs().subtract(6, 'day').format('YYYY-MM-DD'), dayjs().format('YYYY-MM-DD')],
+                      [t('admin.recent30Days')]: [dayjs().subtract(29, 'day').format('YYYY-MM-DD'), dayjs().format('YYYY-MM-DD')],
+                      [t('admin.thisMonth')]: [dayjs().startOf('month').format('YYYY-MM-DD'), dayjs().format('YYYY-MM-DD')],
                     }}
                     presetsPlacement="bottom"
                     popupProps={{ overlayClassName: 'wendao-date-range-popup' }}
@@ -207,15 +207,15 @@ export const Dashboard = () => {
           <div>
             <div className="text-xl font-semibold text-neutral-700 dark:text-neutral-200">{t('admin.trafficTrend')}</div>
             <div className="text-xs text-neutral-400 dark:text-neutral-500 mt-1">
-              无访问的日期会以 0 补齐，方便观察连续趋势
+              {t('admin.noTrafficFill')}
             </div>
           </div>
           <div className="flex flex-wrap gap-2 text-xs">
             <span className="rounded-full bg-blue-50 dark:bg-blue-900/20 px-3 py-1 text-blue-600 dark:text-blue-300">
-              峰值 PV {peakPV}
+              {t('admin.peakPv', { count: peakPV })}
             </span>
             <span className="rounded-full bg-neutral-100 dark:bg-neutral-800 px-3 py-1 text-neutral-500 dark:text-neutral-300">
-              日均 PV {avgPV}
+              {t('admin.avgPv', { count: avgPV })}
             </span>
           </div>
         </div>

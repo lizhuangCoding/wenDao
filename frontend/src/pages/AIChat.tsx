@@ -238,7 +238,7 @@ export const AIChat = () => {
         setDeleteId(null);
         showToast(t('chat.deleteSuccess'), 'success');
       } catch (err: any) {
-        showToast(err.message || '删除会话失败，请重试', 'error');
+        showToast(err.message || t('chat.deleteFailed'), 'error');
       } finally {
         setIsDeletingChat(false);
       }
@@ -247,8 +247,8 @@ export const AIChat = () => {
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text)
-      .then(() => showToast('已复制到剪贴板', 'success'))
-      .catch(() => showToast('复制失败，请手动复制', 'error'));
+      .then(() => showToast(t('chat.copySuccess'), 'success'))
+      .catch(() => showToast(t('chat.copyFailed'), 'error'));
   };
 
   const toggleProcessDetail = (id: string) => {
@@ -269,9 +269,9 @@ export const AIChat = () => {
     try {
       const res = await chatApi.shareConversation(activeChat.id, !activeChat.isShared);
       updateConversationShare(activeChat.id, res.is_shared, res.share_token);
-      showToast(res.is_shared ? '已开启分享' : '已关闭分享', 'success');
+      showToast(res.is_shared ? t('chat.shareEnabled') : t('chat.shareDisabled'), 'success');
     } catch (err: any) {
-      showToast(err.message || '操作失败', 'error');
+      showToast(err.message || t('article.operationFailed'), 'error');
     } finally {
       setIsSharing(false);
     }
@@ -284,10 +284,10 @@ export const AIChat = () => {
     try {
       await navigator.clipboard.writeText(url);
       setShareCopied(true);
-      showToast('分享链接已复制到剪贴板', 'success');
+      showToast(t('chat.copySuccess'), 'success');
       setTimeout(() => setShareCopied(false), 2000);
     } catch {
-      showToast('复制失败，请手动复制链接', 'error');
+      showToast(t('chat.copyFailed'), 'error');
     }
   };
 
@@ -296,9 +296,9 @@ export const AIChat = () => {
     setIsExporting(true);
     try {
       await chatApi.exportConversation(activeChat.id, activeChat.title || 'conversation');
-      showToast('导出成功', 'success');
+      showToast(t('chat.exportSuccess'), 'success');
     } catch (err: any) {
-      showToast(err.message || '导出失败', 'error');
+      showToast(err.message || t('chat.exportFailed'), 'error');
     } finally {
       setIsExporting(false);
     }
@@ -352,7 +352,7 @@ export const AIChat = () => {
                 type="button"
                 onClick={() => setIsHistoryDrawerOpen(true)}
                 className="lg:hidden h-9 w-9 sm:w-10 sm:h-10 flex shrink-0 items-center justify-center rounded-xl border border-neutral-100 dark:border-neutral-700 text-neutral-500 dark:text-neutral-300 hover:text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors"
-                aria-label="打开会话历史"
+                aria-label={t('chat.openHistory')}
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h10M4 18h16" />
@@ -426,10 +426,10 @@ export const AIChat = () => {
                     onClick={handleExport}
                     disabled={isExporting || messages.length === 0}
                     className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-neutral-100 dark:border-neutral-700 px-2.5 py-2 sm:px-3 text-xs font-bold text-neutral-500 dark:text-neutral-300 hover:text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors disabled:opacity-30"
-                    title="导出对话"
+                    title={t('chat.exportConversation')}
                   >
                     <Download className="h-4 w-4" aria-hidden="true" />
-                    <span className="hidden sm:inline">{isExporting ? '导出中...' : '导出'}</span>
+                    <span className="hidden sm:inline">{isExporting ? t('chat.exportingConversation') : t('chat.exportConversation')}</span>
                   </button>
 
                   {/* Share toggle and copy link */}
@@ -439,23 +439,23 @@ export const AIChat = () => {
                         type="button"
                         onClick={handleCopyShareLink}
                         className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-primary-200 dark:border-primary-800 bg-primary-50 dark:bg-primary-900/20 px-2.5 py-2 sm:px-3 text-xs font-bold text-primary-700 dark:text-primary-300 hover:bg-primary-100 dark:hover:bg-primary-900/40 transition-colors"
-                        title="复制分享链接"
+                        title={t('chat.copyShareLink')}
                       >
                         {shareCopied ? (
                           <Check className="h-4 w-4" aria-hidden="true" />
                         ) : (
                           <Copy className="h-4 w-4" aria-hidden="true" />
                         )}
-                        <span className="hidden sm:inline">{shareCopied ? '已复制' : '复制链接'}</span>
+                        <span className="hidden sm:inline">{shareCopied ? t('chat.copiedShareLink') : t('chat.copyShareLink')}</span>
                       </button>
                       <button
                         type="button"
                         onClick={handleToggleShare}
                         disabled={isSharing}
                         className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-neutral-100 dark:border-neutral-700 px-2 py-2 sm:px-2.5 text-xs font-bold text-neutral-400 hover:text-red-500 hover:border-red-200 dark:hover:border-red-800 transition-colors disabled:opacity-30"
-                        title="取消分享"
+                        title={t('chat.cancelShare')}
                       >
-                        <span className="hidden sm:inline">{isSharing ? '...' : '取消分享'}</span>
+                        <span className="hidden sm:inline">{isSharing ? '...' : t('chat.cancelShare')}</span>
                       </button>
                     </div>
                   ) : (
@@ -464,10 +464,10 @@ export const AIChat = () => {
                       onClick={handleToggleShare}
                       disabled={isSharing || messages.length === 0}
                       className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-neutral-100 dark:border-neutral-700 px-2.5 py-2 sm:px-3 text-xs font-bold text-neutral-500 dark:text-neutral-300 hover:text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors disabled:opacity-30"
-                      title="分享对话"
+                      title={t('chat.shareConversation')}
                     >
                       <Share2 className="h-4 w-4" aria-hidden="true" />
-                      <span className="hidden sm:inline">{isSharing ? '...' : '分享'}</span>
+                      <span className="hidden sm:inline">{isSharing ? '...' : t('chat.shareConversation')}</span>
                     </button>
                   )}
                 </>
@@ -476,7 +476,7 @@ export const AIChat = () => {
                 type="button"
                 onClick={() => setIsImmersive((value) => !value)}
                 className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-neutral-100 dark:border-neutral-700 px-2.5 py-2 sm:px-3 text-xs font-bold text-neutral-500 dark:text-neutral-300 hover:text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors"
-                title={isImmersive ? '退出沉浸模式' : '开启沉浸模式'}
+                title={isImmersive ? t('chat.exitImmersiveMode') : t('chat.immersiveMode')}
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   {isImmersive ? (
@@ -485,7 +485,7 @@ export const AIChat = () => {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V5a1 1 0 011-1h3m8 0h3a1 1 0 011 1v3m0 8v3a1 1 0 01-1 1h-3M8 20H5a1 1 0 01-1-1v-3" />
                   )}
                 </svg>
-                <span className="hidden sm:inline">{isImmersive ? '退出全屏' : '沉浸模式'}</span>
+                <span className="hidden sm:inline">{isImmersive ? t('chat.exitImmersiveMode') : t('chat.immersiveMode')}</span>
               </button>
             </div>
           </header>
@@ -545,10 +545,10 @@ export const AIChat = () => {
                 exit={{ opacity: 0, y: 8 }}
                 onClick={() => scrollToBottom('smooth')}
                 className="absolute bottom-28 left-1/2 z-20 hidden -translate-x-1/2 items-center gap-2 rounded-full border border-neutral-200 bg-white/95 px-4 py-2 text-xs font-bold text-neutral-600 shadow-soft backdrop-blur transition-colors hover:border-primary-200 hover:text-primary-600 sm:inline-flex dark:border-neutral-700 dark:bg-neutral-900/95 dark:text-neutral-300 dark:hover:border-primary-800 dark:hover:text-primary-300"
-                aria-label="回到底部"
+                aria-label={t('chat.backToBottom')}
               >
                 <ArrowDown className="h-4 w-4" aria-hidden="true" />
-                回到底部
+                {t('chat.backToBottom')}
               </motion.button>
             )}
           </AnimatePresence>
@@ -559,7 +559,7 @@ export const AIChat = () => {
                 <AIProcessingHalo
                   agentName={featuredAgentStep?.agent_name}
                   detail={featuredAgentStep?.detail}
-                  elapsedLabel={`已耗时 ${processingDurationLabel}`}
+                  elapsedLabel={t('chat.elapsed', { duration: processingDurationLabel })}
                   stage={currentStage}
                   stageLabel={currentStageLabel}
                   status={featuredAgentStep?.status || 'running'}

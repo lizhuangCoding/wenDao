@@ -1,4 +1,5 @@
 import { motion } from 'framer-motion';
+import { useTranslation } from 'react-i18next';
 import { ArticleContent } from '@/components/article';
 import { AgentMoodIndicator } from './AgentMoodIndicator';
 import { AgentProcessPanel } from './AgentProcessPanel';
@@ -35,6 +36,39 @@ export const ChatMessageList = ({
   userAvatarUrl,
   username,
 }: ChatMessageListProps) => (
+  <MessageList
+    currentStage={currentStage}
+    expandedProcessIds={expandedProcessIds}
+    featuredAgentStep={featuredAgentStep}
+    isAssistantProcessing={isAssistantProcessing}
+    isTyping={isTyping}
+    messages={messages}
+    onCopy={onCopy}
+    onToggleProcessDetail={onToggleProcessDetail}
+    processingDurationLabel={processingDurationLabel}
+    questionAnchorByMessageId={questionAnchorByMessageId}
+    userAvatarUrl={userAvatarUrl}
+    username={username}
+  />
+);
+
+const MessageList = ({
+  currentStage,
+  expandedProcessIds,
+  featuredAgentStep,
+  isAssistantProcessing,
+  isTyping,
+  messages,
+  onCopy,
+  onToggleProcessDetail,
+  processingDurationLabel,
+  questionAnchorByMessageId,
+  userAvatarUrl,
+  username,
+}: ChatMessageListProps) => {
+  const { t } = useTranslation();
+
+  return (
   <>
     {messages.map((message) => {
       const articleRefs = message.role === 'assistant'
@@ -89,7 +123,7 @@ export const ChatMessageList = ({
                       <ArticleReferencesPanel references={articleRefs.references} />
                     </>
                   ) : (
-                    <p className="text-sm text-neutral-500 dark:text-neutral-400">正在生成最终回答...</p>
+                    <p className="text-sm text-neutral-500 dark:text-neutral-400">{t('chat.generatingFinalAnswer')}</p>
                   )}
                 </div>
               ) : (
@@ -105,7 +139,7 @@ export const ChatMessageList = ({
                   type="button"
                   onClick={() => onCopy(message.content)}
                   className="opacity-0 group-hover/msg:opacity-100 p-1 text-neutral-400 hover:text-primary-500 transition-all ml-4"
-                  title="复制内容"
+                  title={t('chat.copyContent')}
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
@@ -145,11 +179,12 @@ export const ChatMessageList = ({
               summary={featuredAgentStep?.summary}
             />
             <p className="mt-3 text-[11px] font-bold text-neutral-500 dark:text-neutral-400">
-              AI 助手处理中{isAssistantProcessing ? ` · 已耗时 ${processingDurationLabel}` : '...'}
+              {t('chat.processing')}{isAssistantProcessing ? ` · ${t('chat.elapsed', { duration: processingDurationLabel })}` : '...'}
             </p>
           </div>
         </div>
       </motion.div>
     )}
   </>
-);
+  );
+};

@@ -12,6 +12,7 @@ import dayjs from 'dayjs';
 import { DatePicker, Select } from 'tdesign-react';
 import type { DatePickerProps } from 'tdesign-react';
 import { CalendarClock } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { articleApi, categoryApi, uploadApi, chatApi } from '@/api';
 import { Loading, ErrorState } from '@/components/common';
 import { useUIStore } from '@/store';
@@ -42,6 +43,7 @@ const toScheduledPayloadValue = (value: ScheduledPickerValue) => {
 };
 
 export const ArticleEditor = () => {
+  const { t } = useTranslation();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { showToast } = useUIStore();
@@ -99,7 +101,7 @@ export const ArticleEditor = () => {
       try {
         const parsed = JSON.parse(localDraft);
         setFormData((prev) => ({ ...prev, ...parsed }));
-        setLastSavedTime(new Date().toLocaleTimeString() + ' (从本地恢复)');
+        setLastSavedTime(new Date().toLocaleTimeString() + ` ${t('articleEditor.draftRecovered')}`);
       } catch (e) {
         console.error('Failed to parse local draft:', e);
       }
@@ -117,7 +119,7 @@ export const ArticleEditor = () => {
       });
       lastSavedDataRef.current = { title: article.title, content: article.content, summary: article.summary };
     }
-  }, [article, draftKey, id]); // 监听 id 变化
+  }, [article, draftKey, id, t]); // 监听 id 变化
 
   // 实时备份到本地
   useEffect(() => {
@@ -133,7 +135,7 @@ export const ArticleEditor = () => {
       scheduled_publish_at: formData.scheduled_publish_at,
     };
     localStorage.setItem(draftKey, JSON.stringify(backupData));
-  }, [formData, draftKey]);
+  }, [formData, draftKey, t]);
 
   useEffect(() => {
     // 只有草稿状态才开启自动保存
@@ -161,7 +163,7 @@ export const ArticleEditor = () => {
           // 新建文章：持久化到数据库
           const newArticle = await articleApi.createArticle({
             ...formDataRef.current,
-            title: title || '无标题草稿',
+            title: title || t('articleEditor.noTitleDraft'),
             status: 'draft'
           });
           // 成功后清除本地 'new' 缓存，并跳转到带 ID 的编辑页
@@ -178,18 +180,18 @@ export const ArticleEditor = () => {
     }, 30000);
 
     return () => clearInterval(timer);
-  }, [draftKey, formData.status, id, isAutoSaving, isEdit, navigate]);
+  }, [draftKey, formData.status, id, isAutoSaving, isEdit, navigate, t]);
 
   const saveMutation = useMutation({
     mutationFn: (data: typeof formData) =>
       isEdit ? articleApi.updateArticle(Number(id), data) : articleApi.createArticle(data),
     onSuccess: () => {
       localStorage.removeItem(draftKey);
-      showToast(isEdit ? '文章已更新' : '文章已发布', 'success');
+      showToast(isEdit ? t('articleEditor.articleUpdated') : t('articleEditor.articlePublished'), 'success');
       navigate('/admin/articles');
     },
     onError: (error: any) => {
-      showToast(error.message || '保存失败', 'error');
+      showToast(error.message || t('articleEditor.saveFailed'), 'error');
     },
   });
 
@@ -198,7 +200,7 @@ export const ArticleEditor = () => {
       const res = await uploadApi.uploadImage(file, type);
       if (type === 'cover') {
         setFormData((prev) => ({ ...prev, cover_image: res.url }));
-        showToast('封面上传成功', 'success');
+        showToast(t('articleEditor.coverUploadSuccess'), 'success');
       } else {
         const markdownImage = `\n![${res.filename}](${res.url})\n`;
         const textarea = contentInputRef.current;
@@ -217,10 +219,10 @@ export const ArticleEditor = () => {
         } else {
           setFormData((prev) => ({ ...prev, content: prev.content + markdownImage }));
         }
-        showToast('内容图片上传成功', 'success');
+        showToast(t('articleEditor.contentImageUploadSuccess'), 'success');
       }
     } catch (error: any) {
-      showToast(error.message || '图片上传失败', 'error');
+      showToast(error.message || t('articleEditor.imageUploadFailed'), 'error');
     }
   };
 
@@ -234,7 +236,7 @@ export const ArticleEditor = () => {
         if (!file) return;
 
         e.preventDefault();
-        showToast('检测到图片，正在上传...', 'info');
+        showToast(t('articleEditor.imageUploading'), 'info');
         await handleImageUpload(file, 'content');
         return;
       }
@@ -243,7 +245,7 @@ export const ArticleEditor = () => {
 
   const handleGenerateSummary = async () => {
     if (!formData.content.trim() || formData.content.length < 50) {
-      showToast('文章内容太少，无法生成摘要（至少需要 50 个字符）', 'error');
+      showToast(t('articleEditor.contentTooShort'), 'error');
       return;
     }
 
@@ -251,9 +253,9 @@ export const ArticleEditor = () => {
     try {
       const res = await chatApi.generateSummary(formData.content);
       setFormData((prev) => ({ ...prev, summary: res.summary }));
-      showToast('摘要生成成功', 'success');
+      showToast(t('articleEditor.summarySuccess'), 'success');
     } catch (error: any) {
-      showToast(error.message || '生成摘要失败', 'error');
+      showToast(error.message || t('articleEditor.summaryFailed'), 'error');
     } finally {
       setIsGeneratingSummary(false);
     }
@@ -284,7 +286,7 @@ export const ArticleEditor = () => {
     return (
       <div className="max-w-6xl mx-auto pb-12">
         <ErrorState
-          message={(articleError as any)?.message || '文章加载失败'}
+          message={(articleError as any)?.message || t('articleEditor.articleLoadFailed')}
           onRetry={() => refetchArticle()}
         />
       </div>
@@ -295,7 +297,7 @@ export const ArticleEditor = () => {
     return (
       <div className="max-w-6xl mx-auto pb-12">
         <ErrorState
-          message={(categoriesError as any)?.message || '分类列表加载失败'}
+          message={(categoriesError as any)?.message || t('articleEditor.categoryLoadFailed')}
           onRetry={() => refetchCategories()}
         />
       </div>
@@ -308,7 +310,7 @@ export const ArticleEditor = () => {
     >
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold text-neutral-700 dark:text-neutral-100">
-          {isEdit ? '编辑文章' : '新建文章'}
+          {isEdit ? t('articleEditor.editArticle') : t('articleEditor.newArticle')}
         </h1>
         <div className="space-x-4">
           <button
@@ -316,21 +318,21 @@ export const ArticleEditor = () => {
             onClick={() => navigate('/admin/articles')}
             className="btn btn-secondary"
           >
-            取消
+            {t('articleEditor.cancel')}
           </button>
           <button
             type="button"
             onClick={() => {
               if (!formData.title.trim()) {
-                showToast('请输入标题', 'error');
+                showToast(t('articleEditor.titleRequired'), 'error');
                 return;
               }
               if (!formData.category_id) {
-                showToast('请选择文章分类', 'error');
+                showToast(t('articleEditor.categoryRequired'), 'error');
                 return;
               }
               if (formData.content.length < 10) {
-                showToast('文章内容太少（至少10个字符）', 'error');
+                showToast(t('articleEditor.contentTooShortToSave'), 'error');
                 return;
               }
               saveMutation.mutate(formData);
@@ -338,7 +340,7 @@ export const ArticleEditor = () => {
             disabled={saveMutation.isPending}
             className="btn btn-primary"
           >
-            {saveMutation.isPending ? '保存中...' : primaryActionLabel}
+            {saveMutation.isPending ? t('common.saving') : primaryActionLabel}
           </button>
         </div>
       </div>
@@ -364,23 +366,23 @@ export const ArticleEditor = () => {
           >
           <div className={isWritingFocused ? 'space-y-4' : 'lg:col-span-2 space-y-6'}>
             <div>
-              <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">标题</label>
+              <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">{t('articleEditor.titleLabel')}</label>
               <input
                 type="text"
                 className="input w-full"
                 value={formData.title}
                 onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                placeholder="请输入文章标题"
+                placeholder={t('articleEditor.titlePlaceholder')}
               />
             </div>
 
             <div className="grid grid-cols-2 gap-6">
               <div>
-                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">分类</label>
+                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">{t('articleEditor.categoryLabel')}</label>
                 <Select
                   value={formData.category_id || undefined}
                   onChange={(value) => setFormData({ ...formData, category_id: value as number })}
-                  placeholder="请选择分类"
+                  placeholder={t('articleEditor.categoryPlaceholder')}
                   style={{ width: '100%' }}
                 >
                   {categories?.map((c) => (
@@ -389,24 +391,24 @@ export const ArticleEditor = () => {
                 </Select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">状态</label>
+                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">{t('articleEditor.statusLabel')}</label>
                 <Select
                   value={formData.status}
                   onChange={(value) => setFormData({ ...formData, status: value as 'draft' | 'published' })}
-                  placeholder="请选择状态"
+                  placeholder={t('articleEditor.statusLabel')}
                   style={{ width: '100%' }}
                 >
-                  <Select.Option value="draft" label="草稿" />
-                  <Select.Option value="published" label="发布" />
+                  <Select.Option value="draft" label={t('articleEditor.statusDraft')} />
+                  <Select.Option value="published" label={t('articleEditor.statusPublished')} />
                 </Select>
               </div>
             </div>
 
             <div>
               <div className="mb-2 flex items-center justify-between gap-3">
-                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">定时发布</label>
+                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">{t('articleEditor.scheduledPublish')}</label>
                 <span className="rounded-full bg-primary-50 px-2.5 py-1 text-[11px] font-semibold text-primary-600 ring-1 ring-primary-100 dark:bg-primary-500/10 dark:text-primary-300 dark:ring-primary-500/20">
-                  {formData.scheduled_publish_at ? '已设置' : '可选'}
+                  {formData.scheduled_publish_at ? t('articleEditor.scheduledSet') : t('articleEditor.optional')}
                 </span>
               </div>
               <div className="article-schedule-picker rounded-2xl border border-neutral-100 bg-neutral-50/80 p-3 shadow-inner shadow-white/70 transition-colors dark:border-neutral-800 dark:bg-neutral-800/40 dark:shadow-none">
@@ -423,7 +425,7 @@ export const ArticleEditor = () => {
                   format={SCHEDULE_PICKER_FORMAT}
                   clearable
                   needConfirm
-                  placeholder="选择自动发布时间"
+                  placeholder={t('articleEditor.scheduledPlaceholder')}
                   prefixIcon={<CalendarClock className="h-4 w-4 text-primary-500 dark:text-primary-300" />}
                   size="large"
                   style={{ width: '100%' }}
@@ -431,13 +433,13 @@ export const ArticleEditor = () => {
                 />
               </div>
               <p className="mt-2 text-xs leading-5 text-neutral-400 dark:text-neutral-500">
-                设置后文章将在指定时间自动发布。留空则立即发布。
+                {t('articleEditor.scheduledHint')}
               </p>
             </div>
 
             <div>
               <div className="flex justify-between items-center mb-1">
-                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">摘要</label>
+                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">{t('articleEditor.summaryLabel')}</label>
                 <button
                   type="button"
                   onClick={handleGenerateSummary}
@@ -450,14 +452,14 @@ export const ArticleEditor = () => {
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                       </svg>
-                      生成中...
+                      {t('articleEditor.summaryGenerating')}
                     </>
                   ) : (
                     <>
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                       </svg>
-                      AI 生成摘要
+                      {t('articleEditor.summaryGenerate')}
                     </>
                   )}
                 </button>
@@ -466,19 +468,19 @@ export const ArticleEditor = () => {
                 className={`input w-full py-2 ${isWritingFocused ? 'h-20' : 'h-24'}`}
                 value={formData.summary}
                 onChange={(e) => setFormData({ ...formData, summary: e.target.value })}
-                placeholder="请输入文章摘要，或点击上方按钮使用 AI 生成"
+                placeholder={t('articleEditor.summaryPlaceholder')}
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">封面图</label>
+            <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">{t('articleEditor.coverLabel')}</label>
             <div className="relative aspect-video rounded-lg overflow-hidden bg-neutral-100 dark:bg-neutral-800 border-2 border-dashed border-neutral-200 dark:border-neutral-700 hover:border-primary-300 transition-colors cursor-pointer group">
               {formData.cover_image ? (
                 <>
                   <img
                     src={formData.cover_image}
-                    alt="Cover"
+                    alt={t('articleEditor.coverLabel')}
                     className="w-full h-full object-cover"
                   />
                   <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
@@ -501,7 +503,7 @@ export const ArticleEditor = () => {
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                   </svg>
-                  <span className="text-sm">点击上传封面</span>
+                  <span className="text-sm">{t('articleEditor.clickUploadCover')}</span>
                 </div>
               )}
               <input
@@ -514,7 +516,7 @@ export const ArticleEditor = () => {
                 }}
               />
             </div>
-            <p className="mt-2 text-xs text-neutral-400 dark:text-neutral-500">支持 jpg、png、webp 等格式，建议比例 16:9</p>
+            <p className="mt-2 text-xs text-neutral-400 dark:text-neutral-500">{t('articleEditor.coverHint')}</p>
           </div>
         </div>
 

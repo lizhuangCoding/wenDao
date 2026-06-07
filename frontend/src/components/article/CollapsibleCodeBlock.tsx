@@ -1,4 +1,5 @@
 import { type ComponentProps, type ReactNode, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { cn } from '@/utils';
 
@@ -23,6 +24,7 @@ const getLineCount = (text: string) => {
 };
 
 export const CollapsibleCodeBlock = ({ className, children, ...props }: ComponentProps<'pre'>) => {
+  const { t } = useTranslation();
   const codeText = getTextContent(children);
   const lineCount = getLineCount(codeText);
   const shouldCollapse = lineCount > MAX_COLLAPSED_CODE_LINES || codeText.length > 1200;
@@ -33,7 +35,7 @@ export const CollapsibleCodeBlock = ({ className, children, ...props }: Componen
   }, [codeText, shouldCollapse]);
 
   const isCollapsed = shouldCollapse && !isExpanded;
-  const buttonLabel = isExpanded ? '收起代码' : '展开完整代码';
+  const buttonLabel = isExpanded ? t('codeBlock.collapse') : t('codeBlock.expand');
 
   return (
     <div className="relative my-8">
@@ -74,4 +76,3 @@ export const CollapsibleCodeBlock = ({ className, children, ...props }: Componen
     </div>
   );
 };
-

@@ -1,4 +1,5 @@
 import { motion, useReducedMotion } from 'framer-motion';
+import { useTranslation } from 'react-i18next';
 import { Sparkles } from 'lucide-react';
 import { AgentCharacter } from './AgentCharacter';
 import { failedTone, toneClasses } from './agentPersonaConfig';
@@ -27,6 +28,7 @@ export const AgentMoodIndicator = ({
   status,
   summary,
 }: AgentMoodIndicatorProps) => {
+  const { t } = useTranslation();
   const mood = resolveAgentMood({ agentName, detail, stage, status, summary });
   const isFailed = status === 'failed';
   const tone = getTone(status, mood.tone);
@@ -44,10 +46,10 @@ export const AgentMoodIndicator = ({
       {showText && (
         <span className="min-w-0">
           <span className="block truncate text-xs font-black text-neutral-800 dark:text-neutral-100">
-            {isFailed ? '执行遇到阻碍' : mood.label}
+            {isFailed ? t('agentMood.failedLabel') : mood.label}
           </span>
           <span className="mt-0.5 block truncate text-[11px] font-medium text-neutral-500 dark:text-neutral-400">
-            {isFailed ? '需要检查当前步骤' : mood.caption}
+            {isFailed ? t('agentMood.failedCaption') : mood.caption}
           </span>
         </span>
       )}
@@ -64,6 +66,7 @@ export const AIProcessingHalo = ({
   status,
   summary,
 }: AIProcessingHaloProps) => {
+  const { t } = useTranslation();
   const mood = resolveAgentMood({ agentName, detail, stage, status, summary });
   const tone = getTone(status, mood.tone);
 
@@ -95,7 +98,7 @@ export const AIProcessingHalo = ({
         />
         <div className={`flex flex-shrink-0 items-center gap-2 rounded-full px-3 py-1 text-[11px] font-black ${tone.badge}`}>
           <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
-          {mood.key === 'found' ? '已命中 · ' : ''}
+          {mood.key === 'found' ? `${t('agentMood.foundPrefix')} · ` : ''}
           {stageLabel || mood.label} · {elapsedLabel}
         </div>
       </div>

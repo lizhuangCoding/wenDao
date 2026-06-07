@@ -124,7 +124,9 @@ export const Header = () => {
                     </div>
                     <div className="flex flex-col">
                       <span className="text-sm font-bold text-neutral-800 dark:text-neutral-200 leading-tight transition-colors group-hover:text-primary-600 dark:group-hover:text-primary-400">{user?.username}</span>
-                      <span className="text-[10px] text-neutral-400 font-bold uppercase tracking-widest">{user?.role}</span>
+                      <span className="text-[10px] text-neutral-400 font-bold uppercase tracking-widest">
+                        {user?.role === 'admin' ? t('users.admin') : t('users.user')}
+                      </span>
                     </div>
                   </Link>
 
@@ -165,7 +167,7 @@ export const Header = () => {
               type="button"
               onClick={() => setIsMobileMenuOpen((open) => !open)}
               className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-neutral-200 text-neutral-700 transition-colors hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-800 md:hidden"
-              aria-label={isMobileMenuOpen ? '关闭导航菜单' : '打开导航菜单'}
+              aria-label={isMobileMenuOpen ? t('nav.closeMenu') : t('nav.openMenu')}
               aria-expanded={isMobileMenuOpen}
             >
               {isMobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}

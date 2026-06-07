@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface PaginationProps {
@@ -31,16 +32,19 @@ export const Pagination = ({
   pageSizeOptions = [10, 15, 20, 50],
   onChange,
   onPageSizeChange,
-  previousLabel = '上一页',
-  nextLabel = '下一页',
+  previousLabel,
+  nextLabel,
   className = '',
 }: PaginationProps) => {
+  const { t } = useTranslation();
+  const resolvedPreviousLabel = previousLabel || t('admin.previous');
+  const resolvedNextLabel = nextLabel || t('admin.next');
   const safeTotalPages = Math.max(1, totalPages);
   const safePage = Math.min(Math.max(1, page), safeTotalPages);
   const visiblePages = getVisiblePages(safePage, safeTotalPages);
 
   return (
-    <nav className={`flex flex-col items-center gap-3 ${className}`} aria-label="分页导航">
+    <nav className={`flex flex-col items-center gap-3 ${className}`} aria-label={t('common.pagination')}>
       <div className="flex flex-wrap items-center justify-center gap-3">
         <button
           type="button"
@@ -49,7 +53,7 @@ export const Pagination = ({
           className="inline-flex items-center gap-2 rounded-xl bg-neutral-100 px-4 py-2 text-sm font-medium text-neutral-700 transition-all hover:bg-neutral-200 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-700"
         >
           <ChevronLeft className="h-4 w-4" />
-          {previousLabel}
+          {resolvedPreviousLabel}
         </button>
 
         <div className="flex items-center gap-2">
@@ -82,27 +86,27 @@ export const Pagination = ({
           disabled={safePage === safeTotalPages}
           className="inline-flex items-center gap-2 rounded-xl bg-neutral-100 px-4 py-2 text-sm font-medium text-neutral-700 transition-all hover:bg-neutral-200 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-700"
         >
-          {nextLabel}
+          {resolvedNextLabel}
           <ChevronRight className="h-4 w-4" />
         </button>
       </div>
 
       <div className="flex items-center justify-center gap-4">
         {total !== undefined && (
-          <span className="text-xs font-medium text-neutral-400 dark:text-neutral-500">
-            共 {total} 条
-          </span>
-        )}
+            <span className="text-xs font-medium text-neutral-400 dark:text-neutral-500">
+            {t('common.totalCount', { count: total })}
+            </span>
+          )}
         {pageSize !== undefined && onPageSizeChange && (
           <select
             value={pageSize}
             onChange={(e) => onPageSizeChange(Number(e.target.value))}
             className="rounded-lg border border-neutral-100 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 px-2 py-1 text-xs font-medium text-neutral-600 dark:text-neutral-400 focus:outline-none focus:border-primary-500 cursor-pointer"
-            aria-label="每页条数"
+            aria-label={t('common.perPage', { count: pageSize })}
           >
             {pageSizeOptions.map((size) => (
               <option key={size} value={size}>
-                {size} 条/页
+                {t('common.perPage', { count: size })}
               </option>
             ))}
           </select>

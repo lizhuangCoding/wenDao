@@ -125,9 +125,9 @@ export const Profile = () => {
 
   const activityArticles = articleActivityQuery.data?.data || [];
   const activityTotalPages = articleActivityQuery.data?.totalPages || 1;
-  const activityTitle = articleActivityTab === 'liked' ? '我的点赞' : '我的收藏';
+  const activityTitle = articleActivityTab === 'liked' ? t('profile.likedArticles') : t('profile.favoriteArticles');
   const activityEmptyText =
-    articleActivityTab === 'liked' ? '还没有点赞过文章' : '还没有收藏过文章';
+    articleActivityTab === 'liked' ? t('profile.noLikedArticles') : t('profile.noFavoriteArticles');
 
   return (
     <Layout>
@@ -281,10 +281,10 @@ export const Profile = () => {
               <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <h2 className="text-xl font-serif font-black text-neutral-900 dark:text-neutral-100">
-                    文章互动
+                    {t('profile.articleActivity')}
                   </h2>
                   <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
-                    查看你喜欢和收藏过的文章
+                    {t('profile.articleActivityHint')}
                   </p>
                 </div>
                 <div className="inline-flex rounded-full border border-neutral-200 bg-neutral-50 p-1 dark:border-neutral-700 dark:bg-neutral-800">
@@ -297,7 +297,7 @@ export const Profile = () => {
                         : 'text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-100'
                     }`}
                   >
-                    我的点赞
+                    {t('profile.likedArticles')}
                   </button>
                   <button
                     type="button"
@@ -308,7 +308,7 @@ export const Profile = () => {
                         : 'text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-100'
                     }`}
                   >
-                    我的收藏
+                    {t('profile.favoriteArticles')}
                   </button>
                 </div>
               </div>
@@ -316,19 +316,19 @@ export const Profile = () => {
               <div className="mt-8">
                 {articleActivityQuery.isLoading ? (
                   <div className="rounded-2xl border border-dashed border-neutral-200 py-12 text-center text-sm font-medium text-neutral-400 dark:border-neutral-700 dark:text-neutral-500">
-                    正在加载{activityTitle}
+                    {t('common.loading')} {activityTitle}
                   </div>
                 ) : articleActivityQuery.isError ? (
                   <div className="rounded-2xl border border-dashed border-red-200 bg-red-50/60 py-12 text-center dark:border-red-500/30 dark:bg-red-500/10">
                     <p className="text-sm font-bold text-red-600 dark:text-red-300">
-                      {activityTitle}加载失败
+                      {t('profile.activityLoadFailed', { title: activityTitle })}
                     </p>
                     <button
                       type="button"
                       onClick={() => articleActivityQuery.refetch()}
                       className="mt-3 text-xs font-black uppercase tracking-widest text-red-500 hover:text-red-600 dark:text-red-300"
                     >
-                      重试
+                      {t('common.retry')}
                     </button>
                   </div>
                 ) : activityArticles.length === 0 ? (
@@ -346,24 +346,24 @@ export const Profile = () => {
                       <div className="mt-8 flex items-center justify-between border-t border-neutral-100 pt-6 dark:border-neutral-800">
                         <button
                           type="button"
-                          onClick={() => setArticleActivityPage((page) => Math.max(1, page - 1))}
+                        onClick={() => setArticleActivityPage((page) => Math.max(1, page - 1))}
                           disabled={articleActivityPage <= 1}
                           className="btn btn-secondary disabled:cursor-not-allowed disabled:opacity-50"
                         >
-                          上一页
+                          {t('admin.previous')}
                         </button>
                         <span className="text-xs font-bold tracking-widest text-neutral-400 dark:text-neutral-500">
                           {articleActivityPage} / {activityTotalPages}
                         </span>
                         <button
                           type="button"
-                          onClick={() =>
+                        onClick={() =>
                             setArticleActivityPage((page) => Math.min(activityTotalPages, page + 1))
                           }
                           disabled={articleActivityPage >= activityTotalPages}
                           className="btn btn-secondary disabled:cursor-not-allowed disabled:opacity-50"
                         >
-                          下一页
+                          {t('admin.next')}
                         </button>
                       </div>
                     )}

@@ -40,7 +40,7 @@ export const ArticlePlanetOverlay = ({
             <span className="text-xs font-black uppercase tracking-[0.28em]">{t('home.heroSub')}</span>
           </div>
           <h1 className="max-w-4xl text-[2rem] font-black leading-tight text-white drop-shadow-2xl sm:text-5xl sm:leading-[1.05] lg:text-7xl">
-            {slogan || '我不在执着于得到，而是享受走到'}
+            {slogan || t('articlePlanet.sloganFallback')}
           </h1>
           <form onSubmit={onSearch} className="pointer-events-auto relative mt-5 max-w-xl sm:mt-8">
             <input
@@ -96,8 +96,8 @@ export const ArticlePlanetOverlay = ({
               className="pointer-events-auto mt-4 flex items-center justify-between gap-4 rounded-2xl border border-white/15 bg-neutral-950/65 px-4 py-3 text-left shadow-2xl backdrop-blur-xl transition-colors hover:border-primary-300/70 sm:hidden"
             >
               <span className="min-w-0">
-                <span className="block text-[10px] font-black uppercase tracking-[0.22em] text-primary-300">
-                  {activeArticle.category?.name || 'Article'}
+              <span className="block text-[10px] font-black uppercase tracking-[0.22em] text-primary-300">
+                  {activeArticle.category?.name || t('common.default')}
                 </span>
                 <span className="mt-1 block truncate text-sm font-black text-white">{activeArticle.title}</span>
               </span>
@@ -112,20 +112,20 @@ export const ArticlePlanetOverlay = ({
           >
             <div className="mb-3 flex items-center justify-between gap-4">
               <span className="text-[10px] font-black uppercase tracking-[0.24em] text-primary-300">
-                {activeArticle.category?.name || 'Article'}
+                {activeArticle.category?.name || t('common.default')}
               </span>
               <div className="flex items-center gap-2">
                 <Link
                   to={`/article/${activeArticle.slug}`}
                   className="inline-flex h-8 w-8 items-center justify-center border border-white/10 text-white/70 transition-colors hover:border-primary-300/60 hover:text-primary-200"
-                  aria-label={`打开文章 ${activeArticle.title}`}
+                  aria-label={`${t('common.view')} ${activeArticle.title}`}
                 >
                   <ArrowRight className="h-4 w-4" />
                 </Link>
                 <button
                   type="button"
                   className="inline-flex h-8 w-8 items-center justify-center border border-white/10 text-white/55 transition-colors hover:border-white/35 hover:text-white"
-                  aria-label="关闭文章卡片"
+                  aria-label={t('common.close')}
                   onClick={onActiveArticleClose}
                 >
                   <X className="h-4 w-4" />
@@ -137,11 +137,11 @@ export const ArticlePlanetOverlay = ({
                 {activeArticle.title}
               </h2>
               <p className="mt-3 line-clamp-3 text-sm font-medium leading-relaxed text-white/70">
-                {activeArticle.summary || '暂无摘要'}
+                {activeArticle.summary || t('article.summaryPlaceholder')}
               </p>
               <div className="mt-4 flex gap-5 text-[10px] font-bold uppercase tracking-widest text-white/50 sm:mt-5">
-                <span>{activeArticle.view_count} views</span>
-                <span>{activeArticle.comment_count} comments</span>
+                <span>{activeArticle.view_count} {t('article.views')}</span>
+                <span>{activeArticle.comment_count} {t('article.comments')}</span>
               </div>
             </Link>
           </div>

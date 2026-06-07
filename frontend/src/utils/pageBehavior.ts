@@ -1,3 +1,5 @@
+import i18n from '@/i18n';
+
 type ArticleStatus = 'draft' | 'published';
 
 interface TokenRefreshDecision {
@@ -41,6 +43,11 @@ export const getArticlePrimaryActionLabel = ({
   isEdit,
   status,
 }: ArticlePrimaryActionOptions) => {
-  if (isEdit) return '更新文章';
-  return status === 'published' ? '发布文章' : '保存草稿';
+  const locale = i18n.resolvedLanguage || i18n.language || 'zh';
+  const isEnglish = locale.startsWith('en');
+
+  if (isEdit) return isEnglish ? 'Update Article' : '更新文章';
+  return status === 'published'
+    ? isEnglish ? 'Publish Article' : '发布文章'
+    : isEnglish ? 'Save Draft' : '保存草稿';
 };

@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Search } from 'lucide-react';
 import { userApi } from '@/api/user';
 import {
@@ -26,6 +27,7 @@ import { useUIStore } from '@/store';
 import { formatDate } from '@/utils';
 
 export const UserManagement = () => {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const { showToast } = useUIStore();
   const [page, setPage] = useState(1);
@@ -49,23 +51,23 @@ export const UserManagement = () => {
     mutationFn: ({ id, role }: { id: number; role: string }) => userApi.updateUserRole(id, role),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-users'] });
-      showToast('角色已更新', 'success');
+      showToast(t('users.roleUpdated'), 'success');
     },
-    onError: (error: any) => showToast(error.message || '更新失败', 'error'),
+    onError: (error: any) => showToast(error.message || t('users.updateFailed'), 'error'),
   });
 
   const statusMutation = useMutation({
     mutationFn: ({ id, status }: { id: number; status: string }) => userApi.updateUserStatus(id, status),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-users'] });
-      showToast('状态已更新', 'success');
+      showToast(t('users.statusUpdated'), 'success');
       setBanConfirm(null);
     },
-    onError: (error: any) => showToast(error.message || '更新失败', 'error'),
+    onError: (error: any) => showToast(error.message || t('users.updateFailed'), 'error'),
   });
 
-  const roleLabel = { admin: '管理员', user: '用户' } as Record<string, string>;
-  const statusLabel = { active: '正常', banned: '已封禁' } as Record<string, string>;
+  const roleLabel = { admin: t('users.admin'), user: t('users.user') } as Record<string, string>;
+  const statusLabel = { active: t('users.normal'), banned: t('users.banned') } as Record<string, string>;
 
   const applySearch = (event: React.FormEvent) => {
     event.preventDefault();
@@ -85,14 +87,14 @@ export const UserManagement = () => {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="用户管理" />
+      <PageHeader title={t('users.title')} />
 
       <Panel className="space-y-3">
         <form onSubmit={applySearch} className="grid gap-3 md:grid-cols-[1fr_auto_auto_auto]">
           <TextInput
             value={searchInput}
             onChange={(event) => setSearchInput(event.target.value)}
-            placeholder="搜索用户名或邮箱"
+            placeholder={t('users.searchPlaceholder')}
             leading={<Search className="h-4 w-4" />}
           />
           <SelectInput
@@ -102,9 +104,9 @@ export const UserManagement = () => {
               setPage(1);
             }}
           >
-            <option value="">全部角色</option>
-            <option value="admin">管理员</option>
-            <option value="user">用户</option>
+            <option value="">{t('users.allRoles')}</option>
+            <option value="admin">{t('users.admin')}</option>
+            <option value="user">{t('users.user')}</option>
           </SelectInput>
           <SelectInput
             value={statusFilter}
@@ -113,35 +115,35 @@ export const UserManagement = () => {
               setPage(1);
             }}
           >
-            <option value="">全部状态</option>
-            <option value="active">正常</option>
-            <option value="banned">已封禁</option>
+            <option value="">{t('users.allStatus')}</option>
+            <option value="active">{t('users.normal')}</option>
+            <option value="banned">{t('users.banned')}</option>
           </SelectInput>
           <div className="flex gap-2">
-            <Button type="submit">搜索</Button>
-            <Button variant="secondary" onClick={resetFilters}>重置</Button>
+            <Button type="submit">{t('common.search')}</Button>
+            <Button variant="secondary" onClick={resetFilters}>{t('common.reset')}</Button>
           </div>
         </form>
       </Panel>
 
       {isError ? (
-        <ErrorState message={(error as any)?.message || '用户列表加载失败'} onRetry={() => refetch()} />
+        <ErrorState message={(error as any)?.message || t('users.loadFailed')} onRetry={() => refetch()} />
       ) : (
         <DataTable
           emptyState={
             users.length === 0 ? (
-              <EmptyState title="暂无用户" description="当前筛选条件下没有用户。" className="m-6" />
+              <EmptyState title={t('users.noUsers')} description={t('users.noUsersDescription')} className="m-6" />
             ) : null
           }
         >
           <thead>
             <DataTableHeadRow>
-              <DataTableHeaderCell>用户</DataTableHeaderCell>
-              <DataTableHeaderCell>邮箱</DataTableHeaderCell>
-              <DataTableHeaderCell>角色</DataTableHeaderCell>
-              <DataTableHeaderCell>状态</DataTableHeaderCell>
-              <DataTableHeaderCell>注册时间</DataTableHeaderCell>
-              <DataTableHeaderCell align="right">操作</DataTableHeaderCell>
+              <DataTableHeaderCell>{t('users.userColumn')}</DataTableHeaderCell>
+              <DataTableHeaderCell>{t('users.emailColumn')}</DataTableHeaderCell>
+              <DataTableHeaderCell>{t('users.roleColumn')}</DataTableHeaderCell>
+              <DataTableHeaderCell>{t('users.statusColumn')}</DataTableHeaderCell>
+              <DataTableHeaderCell>{t('users.createdAt')}</DataTableHeaderCell>
+              <DataTableHeaderCell align="right">{t('users.actions')}</DataTableHeaderCell>
             </DataTableHeadRow>
           </thead>
           <DataTableBody>
@@ -190,7 +192,7 @@ export const UserManagement = () => {
                         className: 'text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/30',
                       })}
                     >
-                      {user.role === 'admin' ? '取消管理' : '设为管理员'}
+                      {user.role === 'admin' ? t('users.revokeAdmin') : t('users.grantAdmin')}
                     </button>
                     <button
                       type="button"
@@ -208,7 +210,7 @@ export const UserManagement = () => {
                             : 'text-emerald-600 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-900/30',
                       })}
                     >
-                      {user.status === 'active' ? '封禁' : '解封'}
+                      {user.status === 'active' ? t('users.ban') : t('users.unban')}
                     </button>
                   </div>
                 </DataTableCell>
@@ -234,9 +236,9 @@ export const UserManagement = () => {
 
       <ConfirmModal
         isOpen={banConfirm !== null}
-        title={banConfirm?.action === 'ban' ? '封禁用户' : '解封用户'}
-        message={`确定要${banConfirm?.action === 'ban' ? '封禁' : '解封'}该用户吗？`}
-        confirmText={banConfirm?.action === 'ban' ? '封禁' : '解封'}
+        title={banConfirm?.action === 'ban' ? t('users.banUserTitle') : t('users.unbanUserTitle')}
+        message={banConfirm?.action === 'ban' ? t('users.banUserMessage') : t('users.unbanUserMessage')}
+        confirmText={banConfirm?.action === 'ban' ? t('users.banConfirm') : t('users.unbanConfirm')}
         onConfirm={() => {
           if (banConfirm) {
             const newStatus = banConfirm.action === 'ban' ? 'banned' : 'active';

@@ -1,4 +1,5 @@
 import type { ChatStage, ChatStep } from '@/types';
+import i18n from '@/i18n';
 
 export type AgentMoodKey =
   | 'clarifier'
@@ -28,6 +29,9 @@ export interface AgentMood {
 }
 
 const normalize = (value?: string | null) => (value || '').trim().toLowerCase();
+const isEnglish = () => (i18n.resolvedLanguage || i18n.language || 'zh').startsWith('en');
+
+const text = (zh: string, en: string) => (isEnglish() ? en : zh);
 
 const hasMatchedAnswerSignal = (summary?: string | null, detail?: string | null) => {
   const normalized = normalize(`${summary || ''}\n${detail || ''}`);
@@ -67,9 +71,9 @@ export const resolveAgentMood = ({
 }: AgentMoodInput): AgentMood => {
   if (status === 'completed' && hasMatchedAnswerSignal(summary, detail)) {
     return {
-      caption: '找到了值得展开的线索',
+      caption: text('找到了值得展开的线索', 'Found a lead worth expanding'),
       key: 'found',
-      label: '发现高匹配答案',
+      label: text('发现高匹配答案', 'High-match answer found'),
       tone: 'amber',
     };
   }
@@ -80,80 +84,80 @@ export const resolveAgentMood = ({
 
   if (combined.includes('librarian') || combined.includes('local_search')) {
     return {
-      caption: '戴上眼镜翻找站内知识',
+      caption: text('戴上眼镜翻找站内知识', 'Searching the internal knowledge base'),
       key: 'librarian',
-      label: 'Librarian 正在查图书馆',
+      label: text('Librarian 正在查图书馆', 'Librarian is searching the library'),
       tone: 'emerald',
     };
   }
 
   if (combined.includes('journalist') || combined.includes('web_research')) {
     return {
-      caption: '搜索外部线索并校验来源',
+      caption: text('搜索外部线索并校验来源', 'Searching external leads and verifying sources'),
       key: 'journalist',
-      label: 'Journalist 正在外部调研',
+      label: text('Journalist 正在外部调研', 'Journalist is researching externally'),
       tone: 'cyan',
     };
   }
 
   if (combined.includes('synthesizer') || combined.includes('synthesizing') || combined.includes('integration')) {
     return {
-      caption: '把线索编织成完整回答',
+      caption: text('把线索编织成完整回答', 'Weaving signals into a complete answer'),
       key: 'synthesizer',
-      label: 'Synthesizer 正在整合观点',
+      label: text('Synthesizer 正在整合观点', 'Synthesizer is integrating perspectives'),
       tone: 'violet',
     };
   }
 
   if (combined.includes('reviewer') || combined.includes('reviewing') || combined.includes('revising')) {
     return {
-      caption: '检查结论、漏洞和表达质量',
+      caption: text('检查结论、漏洞和表达质量', 'Checking conclusions, gaps, and clarity'),
       key: 'reviewer',
-      label: 'Reviewer 正在校验答案',
+      label: text('Reviewer 正在校验答案', 'Reviewer is validating the answer'),
       tone: 'rose',
     };
   }
 
   if (combined.includes('replanner')) {
     return {
-      caption: '根据新结果调整路线',
+      caption: text('根据新结果调整路线', 'Adjusting the route based on new results'),
       key: 'replanner',
-      label: 'Replanner 正在重规划',
+      label: text('Replanner 正在重规划', 'Replanner is updating the plan'),
       tone: 'fuchsia',
     };
   }
 
   if (combined.includes('planner') || combined.includes('analyzing')) {
     return {
-      caption: '拆解任务并规划路径',
+      caption: text('拆解任务并规划路径', 'Breaking down the task and planning a path'),
       key: 'planner',
-      label: 'Planner 正在规划路线',
+      label: text('Planner 正在规划路线', 'Planner is mapping the route'),
       tone: 'blue',
     };
   }
 
   if (combined.includes('executor')) {
     return {
-      caption: '执行计划中的当前步骤',
+      caption: text('执行计划中的当前步骤', 'Executing the current step'),
       key: 'executor',
-      label: 'Executor 正在行动',
+      label: text('Executor 正在行动', 'Executor is taking action'),
       tone: 'indigo',
     };
   }
 
   if (combined.includes('clarifying')) {
     return {
-      caption: '确认问题边界和目标',
+      caption: text('确认问题边界和目标', 'Clarifying the scope and goal'),
       key: 'clarifier',
-      label: 'Clarifier 正在追问关键点',
+      label: text('Clarifier 正在追问关键点', 'Clarifier is asking for key details'),
       tone: 'amber',
     };
   }
 
   return {
-    caption: '保持思考，等待下一条线索',
+    caption: text('保持思考，等待下一条线索', 'Thinking and waiting for the next signal'),
     key: 'thinking',
-    label: 'AI 助手正在思考',
+    label: text('AI 助手正在思考', 'AI Assistant is thinking'),
     tone: 'emerald',
   };
 };

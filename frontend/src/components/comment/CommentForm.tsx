@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/hooks';
 import { commentApi } from '@/api';
 import { useUIStore } from '@/store';
@@ -22,6 +23,7 @@ export const CommentForm = ({
   const [content, setContent] = useState('');
   const { isAuthenticated } = useAuth();
   const { showToast } = useUIStore();
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
 
   const createCommentMutation = useMutation({
@@ -29,11 +31,11 @@ export const CommentForm = ({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['comments', articleId] });
       setContent('');
-      showToast('评论成功', 'success');
+      showToast(t('common.success'), 'success');
       onSuccess?.();
     },
     onError: () => {
-      showToast('评论失败', 'error');
+      showToast(t('common.failed'), 'error');
     },
   });
 
@@ -41,7 +43,7 @@ export const CommentForm = ({
     e.preventDefault();
 
     if (!content.trim()) {
-      showToast('请输入评论内容', 'error');
+      showToast(t('comment.enterContent'), 'error');
       return;
     }
 
@@ -56,7 +58,7 @@ export const CommentForm = ({
   if (!isAuthenticated) {
     return (
       <div className="text-center py-8 text-neutral-500 dark:text-neutral-400">
-        请先登录后再评论
+        {t('comment.loginToComment')}
       </div>
     );
   }
@@ -66,7 +68,7 @@ export const CommentForm = ({
       <textarea
         value={content}
         onChange={(e) => setContent(e.target.value)}
-        placeholder={replyToUsername ? `回复 @${replyToUsername}...` : '写下你的评论...'}
+        placeholder={replyToUsername ? t('comment.replyTo', { username: replyToUsername }) : t('comment.placeholder')}
         className="input min-h-[100px] resize-none dark:bg-neutral-800 dark:border-neutral-700 dark:text-neutral-100"
         disabled={createCommentMutation.isPending}
       />
@@ -76,7 +78,7 @@ export const CommentForm = ({
           className="btn btn-primary"
           disabled={createCommentMutation.isPending}
         >
-          {createCommentMutation.isPending ? '发送中...' : '发送'}
+          {createCommentMutation.isPending ? t('common.sending') : t('common.submit')}
         </button>
       </div>
     </form>

@@ -73,19 +73,19 @@ export const CategoryList = () => {
         ? categoryApi.updateCategory(editingCategory.id, data)
         : categoryApi.createCategory(data),
     onSuccess: () => {
-      showToast(editingCategory ? '分类已更新' : '分类已创建', 'success');
+      showToast(editingCategory ? t('admin.categoryUpdated') : t('admin.categoryCreated'), 'success');
       handleClose();
       invalidateCategories();
     },
     onError: (err: any) => {
-      showToast(err.message || '操作失败', 'error');
+      showToast(err.message || t('common.failed'), 'error');
     },
   });
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) => categoryApi.deleteCategory(id),
     onSuccess: () => {
-      showToast('分类已删除', 'success');
+      showToast(t('admin.categoryDeleted'), 'success');
       setDeleteId(null);
       invalidateCategories();
       if (page > 1 && categories.length <= 1) {
@@ -93,14 +93,14 @@ export const CategoryList = () => {
       }
     },
     onError: (err: any) => {
-      showToast(err.message || '删除失败，该分类下可能还有文章', 'error');
+      showToast(err.message || t('admin.deleteCategoryFailed'), 'error');
     },
   });
 
   const batchDeleteMutation = useMutation({
     mutationFn: (ids: number[]) => categoryApi.batchDeleteCategories(ids),
     onSuccess: (result) => {
-      showToast(`已删除 ${result.deleted_count} 个分类`, 'success');
+      showToast(t('admin.batchDeleteCategoriesSuccess', { count: result.deleted_count }), 'success');
       setSelectedIds([]);
       setConfirmBatchDelete(false);
       invalidateCategories();
@@ -109,7 +109,7 @@ export const CategoryList = () => {
       }
     },
     onError: (err: any) => {
-      showToast(err.message || '批量删除失败，分类下可能还有文章', 'error');
+      showToast(err.message || t('admin.batchDeleteCategoryFailed'), 'error');
     },
   });
 
@@ -161,16 +161,16 @@ export const CategoryList = () => {
         onDelete={() => setConfirmBatchDelete(true)}
         onClear={() => setSelectedIds([])}
         isDeleting={batchDeleteMutation.isPending}
-        deleteLabel="删除分类"
+        deleteLabel={t('admin.deleteCategory')}
       />
 
       {isError ? (
-        <ErrorState message={(error as any)?.message || '分类列表加载失败'} onRetry={() => refetch()} />
+        <ErrorState message={(error as any)?.message || t('admin.categoryListLoadingFailed')} onRetry={() => refetch()} />
       ) : (
         <DataTable
           emptyState={
             categories.length === 0 ? (
-              <EmptyState title="暂无分类" description="还没有创建分类。" className="m-6" />
+              <EmptyState title={t('admin.noCategories')} description={t('admin.noCategoriesDescription')} className="m-6" />
             ) : null
           }
         >
@@ -182,7 +182,7 @@ export const CategoryList = () => {
                       checked={allCurrentPageSelected}
                       onChange={toggleCurrentPageSelection}
                       className="h-4 w-4 rounded border-neutral-300 text-primary-600 focus:ring-primary-500"
-                      aria-label="选择当前页分类"
+                      aria-label={t('admin.selectCurrentPageCategories')}
                     />
               </DataTableHeaderCell>
               <DataTableHeaderCell>{t('admin.name')}</DataTableHeaderCell>
@@ -203,7 +203,7 @@ export const CategoryList = () => {
                         checked={selectedIds.includes(category.id)}
                         onChange={() => toggleCategorySelection(category.id)}
                         className="h-4 w-4 rounded border-neutral-300 text-primary-600 focus:ring-primary-500"
-                        aria-label={`选择分类 ${category.name}`}
+                        aria-label={t('admin.selectCategory', { name: category.name })}
                       />
                 </DataTableCell>
                 <DataTableCell className="font-medium text-neutral-800 dark:text-neutral-200">{category.name}</DataTableCell>
@@ -272,9 +272,9 @@ export const CategoryList = () => {
 
       <ConfirmModal
         isOpen={confirmBatchDelete}
-        title="批量删除分类"
-        message={`确定删除选中的 ${selectedIds.length} 个分类吗？有文章的分类不能删除。`}
-        confirmText="删除"
+        title={t('admin.deleteCategory')}
+        message={t('admin.confirmDeleteCategory')}
+        confirmText={t('common.delete')}
         onConfirm={() => batchDeleteMutation.mutate(selectedIds)}
         onCancel={() => setConfirmBatchDelete(false)}
         isConfirming={batchDeleteMutation.isPending}
@@ -308,7 +308,7 @@ export const CategoryList = () => {
                     type="text"
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    placeholder="如：Go 语言"
+                    placeholder="Go / Rust / Python"
                   />
                 </div>
                 <div>
@@ -317,7 +317,7 @@ export const CategoryList = () => {
                     type="text"
                     value={formData.slug}
                     onChange={(e) => setFormData({ ...formData, slug: e.target.value })}
-                    placeholder="如：golang"
+                    placeholder="golang"
                   />
                 </div>
                 <div>
@@ -327,7 +327,7 @@ export const CategoryList = () => {
                     rows={3}
                     value={formData.description}
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    placeholder="分类描述..."
+                    placeholder={t('admin.description')}
                   />
                 </div>
               </div>

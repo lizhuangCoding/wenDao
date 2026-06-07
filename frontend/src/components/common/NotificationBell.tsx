@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { notificationApi } from '@/api';
 import { useAuthStore, useNotificationStore } from '@/store';
@@ -8,10 +9,11 @@ import { formatDate } from '@/utils';
 import { markdownToPlainText } from '@/utils/markdown';
 
 const getNotificationPreview = (content: string): string => {
-  return markdownToPlainText(content) || '暂无内容';
+  return markdownToPlainText(content) || '';
 };
 
 export const NotificationBell = () => {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const { unreadCount, decrementUnread, fetchUnreadCount, startPolling, stopPolling } =
@@ -51,7 +53,7 @@ export const NotificationBell = () => {
         type="button"
         onClick={() => setIsOpen(!isOpen)}
         className="relative p-2 rounded-lg text-neutral-500 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
-        aria-label="通知"
+        aria-label={t('notification.title')}
       >
         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
@@ -68,13 +70,13 @@ export const NotificationBell = () => {
           <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
           <div className="absolute right-0 top-full mt-2 w-80 bg-white dark:bg-neutral-800 rounded-xl shadow-lg border border-neutral-100 dark:border-neutral-700 z-50 overflow-hidden">
             <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-100 dark:border-neutral-700">
-              <h3 className="font-semibold text-neutral-700 dark:text-neutral-200 text-sm">通知</h3>
+              <h3 className="font-semibold text-neutral-700 dark:text-neutral-200 text-sm">{t('notification.title')}</h3>
               <Link
                 to="/notifications"
                 onClick={() => setIsOpen(false)}
                 className="text-xs text-primary-600 dark:text-primary-400 hover:underline"
               >
-                查看全部
+                {t('common.view')}
               </Link>
             </div>
 
@@ -110,7 +112,7 @@ export const NotificationBell = () => {
                 ))
               ) : (
                 <div className="py-8 text-center text-sm text-neutral-400 dark:text-neutral-500">
-                  暂无新通知
+                  {t('notification.noNotifications')}
                 </div>
               )}
             </div>

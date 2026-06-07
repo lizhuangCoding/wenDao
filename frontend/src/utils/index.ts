@@ -1,4 +1,5 @@
 import clsx, { ClassValue } from 'clsx';
+import i18n from '@/i18n';
 
 // 合并 className
 export const cn = (...classes: ClassValue[]) => {
@@ -10,29 +11,34 @@ export const formatDate = (date: string | Date): string => {
   const d = new Date(date);
   const now = new Date();
   const diff = now.getTime() - d.getTime();
+  const locale = i18n.resolvedLanguage || i18n.language || 'zh';
+  const isEnglish = locale.startsWith('en');
 
   // 1分钟内
   if (diff < 60 * 1000) {
-    return '刚刚';
+    return isEnglish ? 'Just now' : '刚刚';
   }
 
   // 1小时内
   if (diff < 60 * 60 * 1000) {
-    return `${Math.floor(diff / (60 * 1000))} 分钟前`;
+    const minutes = Math.floor(diff / (60 * 1000));
+    return isEnglish ? `${minutes} minute${minutes === 1 ? '' : 's'} ago` : `${minutes} 分钟前`;
   }
 
   // 24小时内
   if (diff < 24 * 60 * 60 * 1000) {
-    return `${Math.floor(diff / (60 * 60 * 1000))} 小时前`;
+    const hours = Math.floor(diff / (60 * 60 * 1000));
+    return isEnglish ? `${hours} hour${hours === 1 ? '' : 's'} ago` : `${hours} 小时前`;
   }
 
   // 7天内
   if (diff < 7 * 24 * 60 * 60 * 1000) {
-    return `${Math.floor(diff / (24 * 60 * 60 * 1000))} 天前`;
+    const days = Math.floor(diff / (24 * 60 * 60 * 1000));
+    return isEnglish ? `${days} day${days === 1 ? '' : 's'} ago` : `${days} 天前`;
   }
 
   // 其他情况，返回具体日期
-  return d.toLocaleDateString('zh-CN', {
+  return d.toLocaleDateString(isEnglish ? 'en-US' : 'zh-CN', {
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',

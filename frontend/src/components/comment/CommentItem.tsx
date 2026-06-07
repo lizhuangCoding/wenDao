@@ -94,7 +94,7 @@ export const CommentItem = ({ comment, articleId, isReply = false }: CommentItem
 
   const user = comment.user;
   const isDeletedUser = !user;
-  const username = user?.username || '已注销用户';
+  const username = user?.username || t('common.deletedUser');
   const commentUser = {
     username,
     avatarUrl: user?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(username)}`,

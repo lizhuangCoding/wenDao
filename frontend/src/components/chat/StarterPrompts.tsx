@@ -1,5 +1,6 @@
 import { BookOpen, Boxes, Network, Search, Sparkles, type LucideIcon } from 'lucide-react';
 import { motion, useMotionValue, useReducedMotion } from 'framer-motion';
+import { useTranslation } from 'react-i18next';
 
 interface StarterPrompt {
   title: string;
@@ -14,33 +15,6 @@ interface StarterPromptsProps {
   subheading: string;
   onSelect: (prompt: string) => void;
 }
-
-const STARTER_PROMPTS: StarterPrompt[] = [
-  {
-    title: '调研 K8s',
-    description: '从架构、组件、场景和学习路径切入',
-    prompt: '帮我调研一下 K8s，请从核心架构、关键组件、典型使用场景和学习路径四个角度总结。',
-    icon: Boxes,
-  },
-  {
-    title: '总结分布式系统',
-    description: '提炼核心概念、常见问题和工程取舍',
-    prompt: '帮我总结一下分布式系统的核心概念，包括一致性、可用性、分区容错、共识、事务和可观测性。',
-    icon: Network,
-  },
-  {
-    title: '做技术选型',
-    description: '比较方案优劣，给出可执行建议',
-    prompt: '我想做一个技术选型，请帮我按场景、成本、复杂度、风险和长期维护性做一份对比分析。',
-    icon: Search,
-  },
-  {
-    title: '生成文章大纲',
-    description: '把一个主题拆成清晰的写作结构',
-    prompt: '请帮我为一篇技术文章生成大纲，要求结构清晰、观点明确，并给出每一节应该写什么。',
-    icon: BookOpen,
-  },
-];
 
 interface StarterPromptButtonProps {
   disabled: boolean;
@@ -96,6 +70,40 @@ const StarterPromptButton = ({ disabled, onSelect, starterPrompt }: StarterPromp
 };
 
 export const StarterPrompts = ({ disabled = false, heading, onSelect, subheading }: StarterPromptsProps) => (
+  <StarterPromptShell disabled={disabled} heading={heading} onSelect={onSelect} subheading={subheading} />
+);
+
+const StarterPromptShell = ({ disabled, heading, onSelect, subheading }: StarterPromptsProps) => {
+  const { t } = useTranslation();
+
+  const starterPrompts: StarterPrompt[] = [
+    {
+      title: t('chat.starterK8sTitle'),
+      description: t('chat.starterK8sDescription'),
+      prompt: t('chat.starterK8sPrompt'),
+      icon: Boxes,
+    },
+    {
+      title: t('chat.starterDistributedTitle'),
+      description: t('chat.starterDistributedDescription'),
+      prompt: t('chat.starterDistributedPrompt'),
+      icon: Network,
+    },
+    {
+      title: t('chat.starterTradeoffTitle'),
+      description: t('chat.starterTradeoffDescription'),
+      prompt: t('chat.starterTradeoffPrompt'),
+      icon: Search,
+    },
+    {
+      title: t('chat.starterOutlineTitle'),
+      description: t('chat.starterOutlineDescription'),
+      prompt: t('chat.starterOutlinePrompt'),
+      icon: BookOpen,
+    },
+  ];
+
+  return (
   <div className="flex min-h-full flex-col items-center justify-center text-center">
     <div className="mx-auto max-w-3xl">
       <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary-50 text-primary-500 shadow-soft dark:bg-primary-900/30 dark:text-primary-300">
@@ -109,10 +117,10 @@ export const StarterPrompts = ({ disabled = false, heading, onSelect, subheading
       </p>
 
       <div className="mt-8 grid gap-3 sm:grid-cols-2">
-        {STARTER_PROMPTS.map((starterPrompt) => (
+        {starterPrompts.map((starterPrompt) => (
           <StarterPromptButton
             key={starterPrompt.title}
-            disabled={disabled}
+            disabled={disabled ?? false}
             starterPrompt={starterPrompt}
             onSelect={onSelect}
           />
@@ -120,4 +128,5 @@ export const StarterPrompts = ({ disabled = false, heading, onSelect, subheading
       </div>
     </div>
   </div>
-);
+  );
+};

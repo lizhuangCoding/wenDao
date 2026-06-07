@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { knowledgeDocumentApi } from '@/api/knowledgeDocument';
 import {
   Button,
@@ -30,6 +31,7 @@ const getKnowledgeDocumentStatusMeta = (
 };
 
 export const KnowledgeDocumentDetail = () => {
+  const { t } = useTranslation();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -54,46 +56,46 @@ export const KnowledgeDocumentDetail = () => {
   const approveMutation = useMutation({
     mutationFn: () => knowledgeDocumentApi.approveKnowledgeDocument(documentId, reviewNote),
     onSuccess: () => {
-      showToast('知识文档已通过审核', 'success');
+      showToast(t('knowledgeDocument.approved'), 'success');
       queryClient.invalidateQueries({ queryKey: ['admin-knowledge-documents'] });
       queryClient.invalidateQueries({ queryKey: ['admin-articles'] });
       queryClient.invalidateQueries({ queryKey: ['articles'] });
       navigate('/admin/knowledge-documents');
     },
     onError: (err: any) => {
-      showToast(err.message || '审核通过失败，请重试', 'error');
+      showToast(err.message || t('knowledgeDocument.rejectFailed'), 'error');
     },
   });
 
   const rejectMutation = useMutation({
     mutationFn: () => knowledgeDocumentApi.rejectKnowledgeDocument(documentId, reviewNote),
     onSuccess: () => {
-      showToast('知识文档已拒绝', 'success');
+      showToast(t('knowledgeDocument.rejected'), 'success');
       queryClient.invalidateQueries({ queryKey: ['admin-knowledge-documents'] });
       navigate('/admin/knowledge-documents');
     },
     onError: (err: any) => {
-      showToast(err.message || '拒绝失败，请重试', 'error');
+      showToast(err.message || t('knowledgeDocument.rejectFailed'), 'error');
     },
   });
 
   const deleteMutation = useMutation({
     mutationFn: () => knowledgeDocumentApi.deleteKnowledgeDocument(documentId),
     onSuccess: () => {
-      showToast('知识文档已删除，对应文章已同步删除', 'success');
+      showToast(t('knowledgeDocument.deleteSuccess'), 'success');
       queryClient.invalidateQueries({ queryKey: ['admin-knowledge-documents'] });
       queryClient.invalidateQueries({ queryKey: ['articles'] });
       navigate('/admin/knowledge-documents');
     },
     onError: (err: any) => {
-      showToast(err.message || '删除失败，请重试', 'error');
+      showToast(err.message || t('common.failed'), 'error');
     },
   });
 
   const isReviewing = approveMutation.isPending || rejectMutation.isPending;
 
   if (!hasValidDocumentId) {
-    return <ErrorState title="文档不存在" message="知识文档 ID 无效，请返回列表重新选择。" />;
+    return <ErrorState title={t('knowledgeDocument.documentNotFound')} message={t('knowledgeDocument.invalidDocumentId')} />;
   }
 
   if (isLoading) {
@@ -103,8 +105,8 @@ export const KnowledgeDocumentDetail = () => {
   if (isError || !data) {
     return (
       <ErrorState
-        title="知识文档加载失败"
-        message={(error as any)?.message || '无法加载知识文档详情，请稍后重试。'}
+        title={t('knowledgeDocument.loadFailed')}
+        message={(error as any)?.message || t('knowledgeDocument.loadFailedDescription')}
         onRetry={() => refetch()}
       />
     );
@@ -121,14 +123,14 @@ export const KnowledgeDocumentDetail = () => {
             <StatusBadge variant={statusMeta.variant}>{statusMeta.label}</StatusBadge>
           </span>
         }
-        description={data.document.article_id ? `已生成首页文章 #${data.document.article_id}` : undefined}
+        description={data.document.article_id ? t('knowledgeDocument.generatedArticle', { id: data.document.article_id }) : undefined}
         actions={
           <Button
             variant="danger"
             onClick={() => setIsDeleteConfirmOpen(true)}
             disabled={deleteMutation.isPending}
           >
-            {deleteMutation.isPending ? '删除中...' : '删除知识文档'}
+            {deleteMutation.isPending ? t('common.loading') : t('knowledgeDocument.delete')}
           </Button>
         }
       />
@@ -137,7 +139,7 @@ export const KnowledgeDocumentDetail = () => {
         <pre className="whitespace-pre-wrap text-sm text-neutral-700 dark:text-neutral-200">{data?.document.content}</pre>
       </Panel>
       <Panel padding="lg">
-        <h2 className="mb-4 text-lg font-semibold">来源</h2>
+        <h2 className="mb-4 text-lg font-semibold">{t('knowledgeDocument.source')}</h2>
         <ul className="space-y-3">
           {data?.sources.map((source) => (
             <li key={source.id}>
@@ -154,32 +156,32 @@ export const KnowledgeDocumentDetail = () => {
           ))}
         </ul>
       </Panel>
-      <TextArea
-        value={reviewNote}
-        onChange={(e) => setReviewNote(e.target.value)}
-        placeholder="审核备注"
-      />
+        <TextArea
+          value={reviewNote}
+          onChange={(e) => setReviewNote(e.target.value)}
+        placeholder={t('knowledgeDocument.reviewNote')}
+        />
       <div className="flex gap-3">
         <Button
           onClick={() => approveMutation.mutate()}
           disabled={data.document.status === 'approved' || isReviewing}
         >
-          {approveMutation.isPending ? '审核中...' : '审核通过'}
+          {approveMutation.isPending ? t('knowledgeDocument.reviewing') : t('knowledgeDocument.approve')}
         </Button>
         <Button
           variant="secondary"
           onClick={() => rejectMutation.mutate()}
           disabled={data.document.status === 'approved' || isReviewing}
         >
-          {rejectMutation.isPending ? '提交中...' : '拒绝'}
+          {rejectMutation.isPending ? t('common.sending') : t('knowledgeDocument.rejecting')}
         </Button>
       </div>
 
       <ConfirmModal
         isOpen={isDeleteConfirmOpen}
-        title="删除知识文档"
-        message="确定删除这篇知识文档吗？如果它已生成文章，对应文章也会被删除。"
-        confirmText="删除"
+        title={t('knowledgeDocument.deleteConfirmTitle')}
+        message={t('knowledgeDocument.deleteConfirmMessage')}
+        confirmText={t('common.delete')}
         onConfirm={() => deleteMutation.mutate()}
         onCancel={() => setIsDeleteConfirmOpen(false)}
         isConfirming={deleteMutation.isPending}

@@ -1,4 +1,5 @@
 import type { RefObject } from 'react';
+import { useTranslation } from 'react-i18next';
 import { AnimatePresence, motion } from 'framer-motion';
 
 export interface ChatHistoryConversation {
@@ -69,6 +70,7 @@ export const ChatHistorySidebar = ({
   onStartRename,
   setActiveMenuId,
 }: ChatHistorySidebarProps) => {
+  const { t, i18n } = useTranslation();
   const sortedConversations = sortConversations(conversations);
   const hasEmptyChat = sortedConversations.some(isEmptyChat);
 
@@ -128,7 +130,7 @@ export const ChatHistorySidebar = ({
                   {chat.title}
                 </p>
                 <p className="text-[10px] text-neutral-400 dark:text-neutral-500 font-medium uppercase mt-0.5">
-                  {new Date(chat.updatedAt).toLocaleDateString()}
+                  {new Date(chat.updatedAt).toLocaleDateString(i18n.resolvedLanguage?.startsWith('en') ? 'en-US' : 'zh-CN')}
                 </p>
               </div>
               <div className="relative">
@@ -220,12 +222,12 @@ export const ChatHistorySidebar = ({
               onClick={(event) => event.stopPropagation()}
             >
               <div className="flex items-center justify-between">
-                <p className="text-sm font-black text-neutral-900 dark:text-neutral-100">会话历史</p>
+                <p className="text-sm font-black text-neutral-900 dark:text-neutral-100">{t('chat.conversationHistory')}</p>
                 <button
                   type="button"
                   onClick={() => onDrawerOpenChange(false)}
                   className="w-10 h-10 flex items-center justify-center rounded-xl text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
-                  aria-label="关闭会话历史"
+                  aria-label={t('chat.closeHistory')}
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -247,8 +249,8 @@ export const ChatHistorySidebar = ({
           onClick={() => onSidebarCollapsedChange(!isSidebarCollapsed)}
           data-chat-history-toggle="sidebar"
           className="w-12 h-12 flex items-center justify-center rounded-2xl border border-neutral-100 dark:border-neutral-700 text-neutral-500 dark:text-neutral-300 hover:text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors"
-          aria-label={isSidebarCollapsed ? '展开会话历史' : '收起会话历史'}
-          title={isSidebarCollapsed ? '展开会话历史' : '收起会话历史'}
+          aria-label={isSidebarCollapsed ? t('chat.expandHistory') : t('chat.collapseHistory')}
+          title={isSidebarCollapsed ? t('chat.expandHistory') : t('chat.collapseHistory')}
         >
           <svg xmlns="http://www.w3.org/2000/svg" className={`h-5 w-5 transition-transform ${isSidebarCollapsed ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />

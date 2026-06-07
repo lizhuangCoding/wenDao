@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { ArrowLeft, CheckCheck, ExternalLink, Mail, MailOpen } from 'lucide-react';
 import { notificationApi } from '@/api';
 import { EmptyState, Layout, Loading, PageHeader, Pagination } from '@/components/common';
@@ -10,6 +11,7 @@ import { formatDate } from '@/utils';
 import type { Notification } from '@/types';
 
 export const NotificationList = () => {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const { decrementUnread, fetchUnreadCount, setUnreadCount } = useNotificationStore();
   const [page, setPage] = useState(1);
@@ -55,23 +57,23 @@ export const NotificationList = () => {
     <Layout>
       <div className="mx-auto max-w-5xl px-5 py-10 sm:px-8 lg:px-10">
         <PageHeader
-          title="站内信"
-          description="系统通知、评论提醒和管理员广播都会汇总在这里。"
+          title={t('notification.title')}
+          description={t('notification.description')}
           className="mb-8"
           actions={
             <>
               <Link to="/" className="btn btn-secondary">
                 <ArrowLeft className="h-4 w-4" />
-                返回首页
+                {t('notification.returnHome')}
               </Link>
               {hasNotifications && (
                 <button
                   type="button"
                   onClick={handleMarkAllRead}
                   className="btn btn-primary"
-                >
+                  >
                   <CheckCheck className="h-4 w-4" />
-                  全部已读
+                  {t('notification.markAllRead')}
                 </button>
               )}
             </>
@@ -79,7 +81,7 @@ export const NotificationList = () => {
         />
 
         {isError ? (
-          <EmptyState title="加载失败" description="无法加载通知，请稍后重试" />
+          <EmptyState title={t('common.failed')} description={t('notification.loadFailedDescription')} />
         ) : hasNotifications ? (
           <>
             <div className="space-y-4">
@@ -114,7 +116,7 @@ export const NotificationList = () => {
                           </h2>
                           {!notif.is_read && (
                             <span className="rounded-full bg-primary-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-primary-600 dark:bg-primary-500/10 dark:text-primary-300">
-                              新消息
+                              {t('notification.newMessage')}
                             </span>
                           )}
                         </div>
@@ -133,7 +135,7 @@ export const NotificationList = () => {
                           }}
                           className="inline-flex h-9 items-center gap-2 rounded-full border border-neutral-200 px-3 text-xs font-bold text-neutral-600 transition-colors hover:border-primary-200 hover:text-primary-600 dark:border-neutral-700 dark:text-neutral-300 dark:hover:border-primary-500/40 dark:hover:text-primary-300"
                         >
-                          查看相关内容
+                          {t('notification.viewRelatedContent')}
                           <ExternalLink className="h-3.5 w-3.5" />
                         </Link>
                       )}
@@ -144,7 +146,7 @@ export const NotificationList = () => {
                           className="inline-flex h-9 items-center gap-2 rounded-full bg-neutral-900 px-3 text-xs font-bold text-white transition-colors hover:bg-primary-600 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-primary-500 dark:hover:text-white"
                         >
                           <CheckCheck className="h-3.5 w-3.5" />
-                          标为已读
+                          {t('notification.markRead')}
                         </button>
                       )}
                     </div>
@@ -166,7 +168,7 @@ export const NotificationList = () => {
             )}
           </>
         ) : (
-          <EmptyState title="暂无通知" description="你还没有收到任何通知" />
+          <EmptyState title={t('notification.noNotifications')} description={t('notification.noNotificationsDescription')} />
         )}
       </div>
     </Layout>

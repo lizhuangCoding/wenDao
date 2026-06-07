@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { chatApi } from '@/api';
 import { Layout } from '@/components/common';
 import { ChatMessageList } from '@/components/chat/ChatMessageList';
@@ -11,6 +12,7 @@ import type { SharedConversationData, ChatMessage } from '@/types';
 const emptyMessages: ChatMessage[] = [];
 
 export const SharedConversation = () => {
+  const { t, i18n } = useTranslation();
   const { token } = useParams<{ token: string }>();
   const [data, setData] = useState<SharedConversationData | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -20,7 +22,7 @@ export const SharedConversation = () => {
 
   useEffect(() => {
     if (!token) {
-      setError('无效的分享链接');
+      setError(t('sharedConversation.invalidLink'));
       setLoading(false);
       return;
     }
@@ -28,11 +30,11 @@ export const SharedConversation = () => {
     chatApi.getSharedConversation(token).then((res) => {
       setData(res);
     }).catch(() => {
-      setError('会话不存在或已取消分享');
+      setError(t('sharedConversation.conversationNotFound'));
     }).finally(() => {
       setLoading(false);
     });
-  }, [token]);
+  }, [t, token]);
 
   const messages: ChatMessage[] = useMemo(() => {
     if (!data) return emptyMessages;
@@ -85,16 +87,16 @@ export const SharedConversation = () => {
       <Layout>
         <div className="max-w-4xl mx-auto px-4 py-20 text-center">
           <h1 className="text-2xl font-serif font-black text-neutral-900 dark:text-neutral-100 mb-4">
-            无法加载分享的对话
+            {t('sharedConversation.failedToLoad')}
           </h1>
           <p className="text-neutral-500 dark:text-neutral-400 mb-8">
-            {error || '未知错误'}
+            {error || t('sharedConversation.unknownError')}
           </p>
           <a
             href="/"
             className="inline-flex items-center gap-2 rounded-xl bg-primary-600 px-6 py-3 text-sm font-bold text-white hover:bg-primary-700 transition-colors"
           >
-            返回首页
+            {t('sharedConversation.returnHome')}
           </a>
         </div>
       </Layout>
@@ -115,14 +117,18 @@ export const SharedConversation = () => {
               />
             )}
             <span className="text-sm font-bold text-neutral-600 dark:text-neutral-400">
-              {data.shared_by.username} 分享的对话
+              {t('sharedConversation.sharedBy', { username: data.shared_by.username })}
             </span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-serif font-black text-neutral-900 dark:text-neutral-100">
             {data.conversation.title}
           </h1>
           <p className="mt-2 text-xs text-neutral-400 dark:text-neutral-500">
-            创建于 {new Date(data.conversation.created_at).toLocaleDateString('zh-CN')}
+            {t('sharedConversation.createdAt', {
+              date: new Date(data.conversation.created_at).toLocaleDateString(
+                i18n.resolvedLanguage?.startsWith('en') ? 'en-US' : 'zh-CN'
+              ),
+            })}
           </p>
         </div>
 
@@ -157,7 +163,21 @@ export const SharedConversation = () => {
         {/* Footer attribution */}
         <div className="mt-6 sm:mt-8 text-center">
           <p className="text-xs text-neutral-400 dark:text-neutral-500">
-            由 <a href="/" className="font-bold text-primary-600 dark:text-primary-400 hover:underline">问道 AI</a> 生成
+            {(() => {
+              const brand = (
+                <a href="/" className="font-bold text-primary-600 dark:text-primary-400 hover:underline">
+                  {i18n.resolvedLanguage?.startsWith('en') ? 'WenDao AI' : '问道 AI'}
+                </a>
+              );
+              const parts = t('sharedConversation.generatedBy', { brand: '__BRAND__' }).split('__BRAND__');
+              return (
+                <>
+                  {parts[0]}
+                  {brand}
+                  {parts[1]}
+                </>
+              );
+            })()}
           </p>
         </div>
       </div>

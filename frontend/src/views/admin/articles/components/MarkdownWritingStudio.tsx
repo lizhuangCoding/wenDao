@@ -28,6 +28,7 @@ import {
   SplitSquareHorizontal,
   type LucideIcon,
 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import {
   DEFAULT_TEXT_COLOR,
   applyMarkdownAction,
@@ -69,29 +70,29 @@ interface MarkdownWritingStudioProps {
 
 const markdownToolbarActions: Array<{
   action: MarkdownAction;
-  label: string;
+  labelKey: string;
   icon: LucideIcon;
 }> = [
-  { action: 'heading', label: '二级标题', icon: Heading2 },
-  { action: 'bold', label: '加粗', icon: Bold },
-  { action: 'quote', label: '引用', icon: Quote },
-  { action: 'unordered-list', label: '无序列表', icon: List },
-  { action: 'ordered-list', label: '有序列表', icon: ListOrdered },
-  { action: 'inline-code', label: '行内代码', icon: Code },
-  { action: 'code-block', label: '代码块', icon: Pilcrow },
-  { action: 'link', label: '链接', icon: LinkIcon },
-  { action: 'divider', label: '分割线', icon: Minus },
+  { action: 'heading', labelKey: 'articleEditor.toolbarHeading', icon: Heading2 },
+  { action: 'bold', labelKey: 'articleEditor.toolbarBold', icon: Bold },
+  { action: 'quote', labelKey: 'articleEditor.toolbarQuote', icon: Quote },
+  { action: 'unordered-list', labelKey: 'articleEditor.toolbarUnorderedList', icon: List },
+  { action: 'ordered-list', labelKey: 'articleEditor.toolbarOrderedList', icon: ListOrdered },
+  { action: 'inline-code', labelKey: 'articleEditor.toolbarInlineCode', icon: Code },
+  { action: 'code-block', labelKey: 'articleEditor.toolbarCodeBlock', icon: Pilcrow },
+  { action: 'link', labelKey: 'articleEditor.toolbarLink', icon: LinkIcon },
+  { action: 'divider', labelKey: 'articleEditor.toolbarDivider', icon: Minus },
 ];
 
 const TEXT_COLOR_PRESETS = [
-  { label: '红色', value: '#ef4444' },
-  { label: '橙色', value: '#f97316' },
-  { label: '琥珀', value: '#f59e0b' },
-  { label: '绿色', value: '#10b981' },
-  { label: '天蓝', value: '#0ea5e9' },
-  { label: '靛蓝', value: '#6366f1' },
-  { label: '粉色', value: '#ec4899' },
-  { label: '灰色', value: '#525252' },
+  { labelKey: 'articleEditor.colorRed', value: '#ef4444' },
+  { labelKey: 'articleEditor.colorOrange', value: '#f97316' },
+  { labelKey: 'articleEditor.colorAmber', value: '#f59e0b' },
+  { labelKey: 'articleEditor.colorGreen', value: '#10b981' },
+  { labelKey: 'articleEditor.colorSky', value: '#0ea5e9' },
+  { labelKey: 'articleEditor.colorIndigo', value: '#6366f1' },
+  { labelKey: 'articleEditor.colorPink', value: '#ec4899' },
+  { labelKey: 'articleEditor.colorGray', value: '#525252' },
 ];
 
 const restoreTextareaSelection = (
@@ -145,14 +146,15 @@ export const MarkdownWritingStudio = ({
   onPaste,
   onImageUploadClick,
   allowImageUpload = true,
-  helperText = '支持工具栏插入常用 Markdown，粘贴图片会自动上传。',
-  placeholder = '使用 Markdown 编写内容...',
+  helperText,
+  placeholder,
   contentStats,
   lastSavedTime,
   isAutoSaving,
   isImmersive,
   onImmersiveChange,
 }: MarkdownWritingStudioProps) => {
+  const { t } = useTranslation();
   const [editorMode, setEditorMode] = useState<EditorMode>('split');
   const [selectedTextColor, setSelectedTextColor] = useState(DEFAULT_TEXT_COLOR);
   const previewScrollRef = useRef<HTMLDivElement>(null);
@@ -269,16 +271,18 @@ export const MarkdownWritingStudio = ({
   const previewBodyClassName = isImmersive
     ? 'article-reading-body admin-markdown-preview min-h-0 flex-1 overflow-y-auto px-6 py-5'
     : 'article-reading-body admin-markdown-preview flex-1 overflow-y-auto px-6 py-5';
+  const resolvedHelperText = helperText ?? t('articleEditor.helperText');
+  const resolvedPlaceholder = placeholder ?? t('articleEditor.placeholder');
 
   return (
     <div className={rootClassName}>
       <div className={headerClassName}>
         <div>
           <label className="block text-sm font-semibold text-neutral-700 dark:text-neutral-200">
-            内容 (Markdown)
+            {t('articleEditor.contentLabel')}
           </label>
           <p className="mt-1 text-xs text-neutral-400 dark:text-neutral-500">
-            {helperText}
+            {resolvedHelperText}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -297,7 +301,11 @@ export const MarkdownWritingStudio = ({
                 }`}
               >
                 <Icon className="h-4 w-4" />
-                {mode === 'edit' ? '编辑' : mode === 'split' ? '分屏' : '预览'}
+                {mode === 'edit'
+                  ? t('articleEditor.modeEdit')
+                  : mode === 'split'
+                    ? t('articleEditor.modeSplit')
+                    : t('articleEditor.modePreview')}
               </button>
             );
           })}
@@ -311,7 +319,7 @@ export const MarkdownWritingStudio = ({
             }`}
           >
             {isImmersive ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
-            {isImmersive ? '退出专注' : '专注写作'}
+            {isImmersive ? t('articleEditor.focusExit') : t('articleEditor.focusEnter')}
           </button>
         </div>
       </div>
@@ -322,12 +330,12 @@ export const MarkdownWritingStudio = ({
             <button
               key={item.action}
               type="button"
-              aria-label={item.label}
+              aria-label={t(item.labelKey)}
               onClick={() => handleMarkdownAction(item.action)}
               className="group relative inline-flex h-9 w-9 items-center justify-center rounded-xl text-neutral-500 transition-colors hover:bg-white hover:text-neutral-900 focus-visible:bg-white focus-visible:text-neutral-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/30 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-100 dark:focus-visible:bg-neutral-800 dark:focus-visible:text-neutral-100"
             >
               <item.icon className="h-4 w-4" aria-hidden="true" />
-              <span className={tooltipClassName}>{item.label}</span>
+              <span className={tooltipClassName}>{t(item.labelKey)}</span>
             </button>
           ))}
 
@@ -335,7 +343,7 @@ export const MarkdownWritingStudio = ({
 
           <button
             type="button"
-            aria-label="应用当前字体颜色"
+            aria-label={t('articleEditor.textColorApply')}
             onClick={() => handleTextColorApply()}
             className="group relative inline-flex h-9 w-9 items-center justify-center rounded-xl text-neutral-500 transition-colors hover:bg-white hover:text-neutral-900 focus-visible:bg-white focus-visible:text-neutral-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/30 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-100 dark:focus-visible:bg-neutral-800 dark:focus-visible:text-neutral-100"
           >
@@ -344,7 +352,7 @@ export const MarkdownWritingStudio = ({
               className="absolute bottom-1 h-0.5 w-5 rounded-full"
               style={{ backgroundColor: selectedTextColor }}
             />
-            <span className={tooltipClassName}>字体颜色</span>
+            <span className={tooltipClassName}>{t('articleEditor.textColorTooltip')}</span>
           </button>
 
           <div className="flex min-h-9 max-w-full min-w-0 flex-wrap items-center gap-1 rounded-xl bg-white px-2 py-2 shadow-sm dark:bg-neutral-900">
@@ -352,7 +360,7 @@ export const MarkdownWritingStudio = ({
               <button
                 key={color.value}
                 type="button"
-                aria-label={color.label}
+                aria-label={t(color.labelKey)}
                 onClick={() => handleTextColorApply(color.value)}
                 className={`h-5 w-5 rounded-full border transition-transform hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 ${
                   selectedTextColor === color.value
@@ -381,21 +389,23 @@ export const MarkdownWritingStudio = ({
           {allowImageUpload && (
             <button
               type="button"
-              aria-label="插入图片"
+              aria-label={t('articleEditor.imageTooltip')}
               onClick={onImageUploadClick}
               className="group relative inline-flex h-9 items-center gap-2 rounded-xl px-3 text-xs font-semibold text-primary-600 transition-colors hover:bg-white focus-visible:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/30 dark:text-primary-400 dark:hover:bg-neutral-800 dark:focus-visible:bg-neutral-800"
             >
               <ImagePlus className="h-4 w-4" aria-hidden="true" />
-              图片
-              <span className={tooltipClassName}>插入图片</span>
+              {t('articleEditor.imageButton')}
+              <span className={tooltipClassName}>{t('articleEditor.imageTooltip')}</span>
             </button>
           )}
 
           <div className="ml-auto flex flex-wrap items-center gap-3 text-[11px] font-medium text-neutral-400 dark:text-neutral-500">
-            <span>{contentStats.characters} 字符</span>
-            <span>{contentStats.lines} 行</span>
-            <span>{contentStats.words} 词</span>
-            <span>约 {contentStats.readingMinutes} 分钟</span>
+            <span>{contentStats.characters} {t('articleEditor.characters')}</span>
+            <span>{contentStats.lines} {t('articleEditor.lines')}</span>
+            <span>{contentStats.words} {t('articleEditor.words')}</span>
+            <span>
+              ~ {contentStats.readingMinutes} {t('articleEditor.readingMinutes')}
+            </span>
           </div>
         </div>
 
@@ -410,7 +420,7 @@ export const MarkdownWritingStudio = ({
                     Markdown
                   </div>
                   <div className="text-[11px] text-neutral-400 dark:text-neutral-500">
-                    原文编辑
+                    {t('articleEditor.sourceEdit')}
                   </div>
                 </div>
                 {lastSavedTime && (
@@ -419,8 +429,8 @@ export const MarkdownWritingStudio = ({
                       className={`h-1.5 w-1.5 rounded-full ${
                         isAutoSaving ? 'animate-pulse bg-amber-400' : 'bg-emerald-400'
                       }`}
-                    />
-                    {isAutoSaving ? '正在自动保存' : `已保存 ${lastSavedTime}`}
+                      />
+                    {isAutoSaving ? t('articleEditor.autoSaving') : t('articleEditor.savedAt', { time: lastSavedTime })}
                   </div>
                 )}
               </div>
@@ -431,7 +441,7 @@ export const MarkdownWritingStudio = ({
                 onChange={(event) => onContentChange(event.target.value)}
                 onScroll={handleEditorScroll}
                 onPaste={onPaste}
-                placeholder={placeholder}
+                placeholder={resolvedPlaceholder}
               />
             </section>
           )}
@@ -443,10 +453,10 @@ export const MarkdownWritingStudio = ({
               <div className="flex items-center justify-between border-b border-neutral-100 px-4 py-3 dark:border-neutral-800">
                 <div>
                   <div className="text-sm font-semibold text-neutral-700 dark:text-neutral-200">
-                    Preview
+                    {t('articleEditor.previewTitle')}
                   </div>
                   <div className="text-[11px] text-neutral-400 dark:text-neutral-500">
-                    编辑时预览
+                    {t('articleEditor.previewSubtitle')}
                   </div>
                 </div>
               </div>
@@ -465,7 +475,7 @@ export const MarkdownWritingStudio = ({
                   </Suspense>
                 ) : (
                   <div className="flex h-full min-h-[420px] items-center justify-center rounded-xl border border-dashed border-neutral-200 text-sm text-neutral-400 dark:border-neutral-800 dark:text-neutral-500">
-                    预览会在这里显示
+                    {t('articleEditor.previewEmpty')}
                   </div>
                 )}
               </div>

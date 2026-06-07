@@ -78,19 +78,19 @@ export const CommentList = () => {
   const deleteMutation = useMutation({
     mutationFn: (id: number) => commentApi.adminDeleteComment(id),
     onSuccess: () => {
-      showToast('评论已删除', 'success');
+      showToast(t('admin.commentDeleted'), 'success');
       setConfirmConfig({ isOpen: false, id: null, type: 'delete' });
       invalidateComments();
     },
     onError: (err: any) => {
-      showToast(err.message || '删除失败', 'error');
+      showToast(err.message || t('admin.deleteCommentFailed'), 'error');
     },
   });
 
   const batchDeleteMutation = useMutation({
     mutationFn: (ids: number[]) => commentApi.batchDeleteComments(ids),
     onSuccess: (result) => {
-      showToast(`已删除 ${result.deleted_count} 条评论`, 'success');
+      showToast(t('admin.batchDeleteCommentsSuccess', { count: result.deleted_count }), 'success');
       setSelectedIds([]);
       setConfirmBatchDelete(false);
       invalidateComments();
@@ -99,19 +99,19 @@ export const CommentList = () => {
       }
     },
     onError: (err: any) => {
-      showToast(err.message || '批量删除失败', 'error');
+      showToast(err.message || t('admin.batchDeleteCommentFailed'), 'error');
     },
   });
 
   const restoreMutation = useMutation({
     mutationFn: (id: number) => commentApi.adminRestoreComment(id),
     onSuccess: () => {
-      showToast('评论已恢复', 'success');
+      showToast(t('admin.commentRestored'), 'success');
       setConfirmConfig({ isOpen: false, id: null, type: 'restore' });
       invalidateComments();
     },
     onError: (err: any) => {
-      showToast(err.message || '恢复失败', 'error');
+      showToast(err.message || t('admin.restoreCommentFailed'), 'error');
     },
   });
 
@@ -154,7 +154,7 @@ export const CommentList = () => {
           <TextInput
             value={keywordInput}
             onChange={(event) => setKeywordInput(event.target.value)}
-            placeholder="搜索评论内容、作者或文章标题"
+            placeholder={t('admin.searchComments')}
             leading={<Search className="h-4 w-4" />}
           />
           <SelectInput
@@ -165,16 +165,16 @@ export const CommentList = () => {
               setSelectedIds([]);
             }}
           >
-            <option value="">全部状态</option>
-            <option value="normal">正常</option>
-            <option value="deleted">已删除</option>
+            <option value="">{t('admin.allStatus')}</option>
+            <option value="normal">{t('admin.normal')}</option>
+            <option value="deleted">{t('admin.deleted')}</option>
           </SelectInput>
           <div className="flex gap-2">
             <Button type="submit">
-              搜索
+              {t('common.search')}
             </Button>
             <Button variant="secondary" onClick={resetFilters}>
-              重置
+              {t('common.reset')}
             </Button>
           </div>
         </form>
@@ -183,17 +183,17 @@ export const CommentList = () => {
           onDelete={() => setConfirmBatchDelete(true)}
           onClear={() => setSelectedIds([])}
           isDeleting={batchDeleteMutation.isPending}
-          deleteLabel="删除评论"
+          deleteLabel={t('admin.deleteComment')}
         />
       </Panel>
 
       {isError ? (
-        <ErrorState message={(error as any)?.message || '评论列表加载失败'} onRetry={() => refetch()} />
+        <ErrorState message={(error as any)?.message || t('admin.commentListLoadingFailed')} onRetry={() => refetch()} />
       ) : (
         <DataTable
           emptyState={
             comments.length === 0 ? (
-              <EmptyState title="暂无评论" description="当前筛选条件下没有评论。" className="m-6" />
+              <EmptyState title={t('admin.noComments')} description={t('admin.noCommentsDescription')} className="m-6" />
             ) : null
           }
         >
@@ -205,7 +205,7 @@ export const CommentList = () => {
                       checked={allCurrentPageSelected}
                       onChange={toggleCurrentPageSelection}
                       className="h-4 w-4 rounded border-neutral-300 text-primary-600 focus:ring-primary-500"
-                      aria-label="选择当前页评论"
+                      aria-label={t('admin.selectCurrentPageComments')}
                     />
               </DataTableHeaderCell>
               <DataTableHeaderCell>{t('admin.commentContent')}</DataTableHeaderCell>
@@ -227,7 +227,7 @@ export const CommentList = () => {
                         checked={selectedIds.includes(comment.id)}
                         onChange={() => toggleCommentSelection(comment.id)}
                         className="h-4 w-4 rounded border-neutral-300 text-primary-600 focus:ring-primary-500"
-                        aria-label={`选择评论 ${comment.id}`}
+                        aria-label={t('admin.selectComment', { id: comment.id })}
                       />
                 </DataTableCell>
                 <DataTableCell>
@@ -320,9 +320,9 @@ export const CommentList = () => {
 
       <ConfirmModal
         isOpen={confirmBatchDelete}
-        title="批量删除评论"
-        message={`确定删除选中的 ${selectedIds.length} 条评论吗？该操作会将评论标记为已删除。`}
-        confirmText="删除"
+        title={t('admin.deleteComment')}
+        message={t('admin.confirmDeleteComment')}
+        confirmText={t('common.delete')}
         onConfirm={() => batchDeleteMutation.mutate(selectedIds)}
         onCancel={() => setConfirmBatchDelete(false)}
         isConfirming={batchDeleteMutation.isPending}

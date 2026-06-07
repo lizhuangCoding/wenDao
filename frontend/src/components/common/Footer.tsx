@@ -1,6 +1,8 @@
+import { useTranslation } from 'react-i18next';
 import { ContactLinks } from './ContactLinks';
 
 export const Footer = () => {
+  const { t } = useTranslation();
   return (
     <footer className="mt-20 border-t border-neutral-200 bg-white dark:border-primary-900/20 dark:bg-[#050a10]">
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
@@ -11,7 +13,7 @@ export const Footer = () => {
 
           <div className="lg:justify-self-end">
             <div className="mb-3 text-center text-[11px] font-black uppercase tracking-[0.32em] text-neutral-400 dark:text-neutral-500 lg:text-left">
-              联系我
+              {t('common.contactMe')}
             </div>
             <ContactLinks />
           </div>

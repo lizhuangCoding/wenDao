@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import type { ChatArticleReference, ChatReferenceGroups } from '@/types';
 
 interface ArticleReferencesPanelProps {
@@ -34,13 +35,14 @@ const ReferenceGroup = ({
 };
 
 export const ArticleReferencesPanel = ({ references }: ArticleReferencesPanelProps) => {
+  const { t } = useTranslation();
   if (!references.blog.length && !references.external.length) return null;
 
   return (
     <div className="mt-4 border-t border-neutral-200 dark:border-neutral-600 pt-4">
       <div className="space-y-4">
-        <ReferenceGroup title="参考博主文章" items={references.blog} />
-        <ReferenceGroup title="参考外部文章" items={references.external} external />
+        <ReferenceGroup title={t('chat.referencesBlog')} items={references.blog} />
+        <ReferenceGroup title={t('chat.referencesExternal')} items={references.external} external />
       </div>
     </div>
   );
