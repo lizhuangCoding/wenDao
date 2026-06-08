@@ -7,6 +7,7 @@ import (
 
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
+	"golang.org/x/sync/singleflight"
 	"gorm.io/gorm"
 
 	"wenDao/internal/model"
@@ -47,9 +48,10 @@ type ArticleService interface {
 type articleService struct {
 	articleRepo   repository.ArticleRepository
 	categoryRepo  repository.CategoryRepository
-	rdb           *redis.Client
+	cache         articleCacheStore
 	vectorService VectorService
 	logger        *zap.Logger
+	cacheGroup    singleflight.Group
 }
 
 // NewArticleService 创建文章服务实例
@@ -63,7 +65,23 @@ func NewArticleService(
 	return &articleService{
 		articleRepo:   articleRepo,
 		categoryRepo:  categoryRepo,
-		rdb:           rdb,
+		cache:         newRedisArticleCacheStore(rdb),
+		vectorService: vectorService,
+		logger:        logger,
+	}
+}
+
+func newArticleServiceWithCacheStore(
+	articleRepo repository.ArticleRepository,
+	categoryRepo repository.CategoryRepository,
+	cache articleCacheStore,
+	vectorService VectorService,
+	logger *zap.Logger,
+) *articleService {
+	return &articleService{
+		articleRepo:   articleRepo,
+		categoryRepo:  categoryRepo,
+		cache:         cache,
 		vectorService: vectorService,
 		logger:        logger,
 	}

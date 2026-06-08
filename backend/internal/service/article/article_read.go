@@ -31,7 +31,12 @@ func (s *articleService) GetByID(id int64) (*model.Article, error) {
 
 // GetBySlug 根据 slug 获取文章
 func (s *articleService) GetBySlug(slug string) (*model.Article, error) {
-	article, err := s.articleRepo.GetBySlug(slug)
+	article, err := s.getArticleFromSlugCache(slug)
+	if err == nil && article != nil {
+		return article, nil
+	}
+
+	article, err = s.articleRepo.GetBySlug(slug)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errors.New("article not found")
@@ -69,21 +74,53 @@ func (s *articleService) List(status string, categoryID int64, keyword string, s
 		PageSize:         pageSize,
 	}
 
-	articles, total, err := s.articleRepo.List(filter)
+	if articles, total, ok := s.getCachedArticleList(filter); ok {
+		return articles, total, nil
+	}
+
+	cacheKey := s.articleListCacheKey(filter)
+	result, err, _ := s.cacheGroup.Do(cacheKey, func() (any, error) {
+		if articles, total, ok := s.getCachedArticleList(filter); ok {
+			return cachedArticleList{Articles: articles, Total: total}, nil
+		}
+
+		articles, total, err := s.articleRepo.List(filter)
+		if err != nil {
+			return nil, err
+		}
+		s.setCachedArticleList(filter, articles, total)
+		return cachedArticleList{Articles: articles, Total: total}, nil
+	})
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to list articles: %w", err)
 	}
 
-	return articles, total, nil
+	payload := result.(cachedArticleList)
+	return payload.Articles, payload.Total, nil
 }
 
 // ListOrbitArticles 获取首页文章星球需要的轻量文章数据。
 func (s *articleService) ListOrbitArticles() ([]*model.Article, error) {
-	articles, err := s.articleRepo.ListOrbitArticles()
+	if articles, ok := s.getCachedOrbitArticles(); ok {
+		return articles, nil
+	}
+
+	result, err, _ := s.cacheGroup.Do(s.articleOrbitCacheKey(), func() (any, error) {
+		if articles, ok := s.getCachedOrbitArticles(); ok {
+			return articles, nil
+		}
+
+		articles, err := s.articleRepo.ListOrbitArticles()
+		if err != nil {
+			return nil, err
+		}
+		s.setCachedOrbitArticles(articles)
+		return articles, nil
+	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to list orbit articles: %w", err)
 	}
-	return articles, nil
+	return result.([]*model.Article), nil
 }
 
 // IncrViewCount 增加文章浏览次数
@@ -93,19 +130,29 @@ func (s *articleService) IncrViewCount(id int64) error {
 
 // LikeArticle 点赞文章
 func (s *articleService) LikeArticle(id int64) error {
+	article, err := s.getArticleByIDOrNotFound(id)
+	if err != nil {
+		return err
+	}
 	if err := s.articleRepo.IncrementLikeCount(id); err != nil {
 		return err
 	}
-	s.deleteArticleFromCache(id)
+	s.deleteArticleFromCache(article)
+	s.invalidateArticleCollections()
 	return nil
 }
 
 // UnlikeArticle 取消点赞文章
 func (s *articleService) UnlikeArticle(id int64) error {
+	article, err := s.getArticleByIDOrNotFound(id)
+	if err != nil {
+		return err
+	}
 	if err := s.articleRepo.DecrementLikeCount(id); err != nil {
 		return err
 	}
-	s.deleteArticleFromCache(id)
+	s.deleteArticleFromCache(article)
+	s.invalidateArticleCollections()
 	return nil
 }
 
@@ -122,6 +169,7 @@ func (s *articleService) ToggleTop(id int64) (*model.Article, error) {
 	}
 
 	article.IsTop = newTopStatus
-	s.deleteArticleFromCache(id)
+	s.deleteArticleFromCache(article)
+	s.invalidateArticleCollections()
 	return article, nil
 }

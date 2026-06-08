@@ -120,6 +120,9 @@ func WithReplyNotificationSender(sender CommentReplyNotificationSender) CommentS
 func WithCommentNotificationService(notifSvc NotificationService) CommentServiceOption {
 	return commentsvc.WithNotificationService(notifSvc)
 }
+func WithArticleCacheInvalidation(rdb *redis.Client) CommentServiceOption {
+	return commentsvc.WithArticleCacheInvalidation(rdb)
+}
 func NewNotificationService(repo notifrepo.NotificationRepository) NotificationService {
 	return notifsvc.NewNotificationService(repo)
 }

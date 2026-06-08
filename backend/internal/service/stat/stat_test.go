@@ -172,3 +172,21 @@ func TestStatServiceFlushRecentDailyStatCounters_FlushesTodayAndYesterday(t *tes
 		t.Fatalf("unexpected yesterday increment: %#v", repo.increments[1])
 	}
 }
+
+func TestStatServiceGetDashboardStats_DoesNotFlushCountersOnReadPath(t *testing.T) {
+	today := time.Now().Format("2006-01-02")
+	repo := &stubDailyStatRepository{
+		stats: []model.DailyStat{
+			{Date: today, PV: 11, UV: 3, CommentCount: 2},
+		},
+	}
+	counter := &stubStatCounterStore{drainedByDate: map[string]statCounterDelta{today: {PV: 9}}}
+	svc := newStatServiceForTest(repo, counter)
+
+	if _, err := svc.GetDashboardStats(7); err != nil {
+		t.Fatalf("expected dashboard stats success, got %v", err)
+	}
+	if len(counter.drainDates) != 0 {
+		t.Fatalf("expected dashboard read to avoid flushing counters, got %v", counter.drainDates)
+	}
+}

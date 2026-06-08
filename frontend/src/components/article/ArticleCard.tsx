@@ -17,6 +17,8 @@ export const ArticleCard = ({ article }: ArticleCardProps) => {
             <img
               src={article.cover_image}
               alt={article.title}
+              loading="lazy"
+              decoding="async"
               className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-110"
             />
           ) : (
@@ -77,6 +79,8 @@ export const ArticleCard = ({ article }: ArticleCardProps) => {
                 <img
                   src={article.author.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${article.author.username}`}
                   alt={article.author.username}
+                  loading="lazy"
+                  decoding="async"
                 />
               </div>
               <span className="min-w-0 truncate text-[10px] font-bold tracking-widest text-neutral-400 uppercase dark:text-neutral-500">{article.author.username}</span>

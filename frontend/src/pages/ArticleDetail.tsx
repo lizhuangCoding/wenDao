@@ -195,7 +195,12 @@ export const ArticleDetail = () => {
                 <h4 className="text-[10px] font-black tracking-[0.2em] text-neutral-400 dark:text-neutral-500 uppercase mb-6">{t('article.sharedBy')}</h4>
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-full overflow-hidden border border-neutral-200 dark:border-neutral-700 shadow-sm">
-                    <img src={article.author.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${article.author.username}`} alt={article.author.username} />
+                    <img
+                      src={article.author.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${article.author.username}`}
+                      alt={article.author.username}
+                      loading="lazy"
+                      decoding="async"
+                    />
                   </div>
                   <div>
                     <p className="text-sm font-bold text-neutral-900 dark:text-neutral-100">{article.author.username}</p>
@@ -235,6 +240,8 @@ export const ArticleDetail = () => {
                   <img
                     src={article.cover_image}
                     alt={article.title}
+                    loading="eager"
+                    decoding="async"
                     className="w-full h-auto object-cover max-h-[500px]"
                   />
                 </div>

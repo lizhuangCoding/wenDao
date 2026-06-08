@@ -48,6 +48,8 @@ func (s *articleService) Create(title, content, summary string, categoryID, auth
 	}
 
 	article.Category = category
+	s.setArticleToCache(article)
+	s.invalidateArticleCollections()
 	return article, nil
 }
 
@@ -85,7 +87,9 @@ func (s *articleService) Update(id int64, title, content, summary string, catego
 		return nil, fmt.Errorf("failed to update article: %w", err)
 	}
 
-	s.deleteArticleFromCache(id)
+	s.deleteArticleFromCache(article)
+	s.setArticleToCache(article)
+	s.invalidateArticleCollections()
 
 	if article.Status == "published" {
 		s.vectorizeArticleAsync(article.ID, article.Title, article.Content, article.Slug)
@@ -109,7 +113,8 @@ func (s *articleService) Delete(id int64) error {
 		s.categoryRepo.DecrementArticleCount(article.CategoryID)
 	}
 
-	s.deleteArticleFromCache(id)
+	s.deleteArticleFromCache(article)
+	s.invalidateArticleCollections()
 	s.deleteArticleVectorAsync(id)
 	return nil
 }
@@ -149,7 +154,8 @@ func (s *articleService) AutoSave(id int64, title, content, summary string) erro
 		return fmt.Errorf("failed to auto-save article: %w", err)
 	}
 
-	s.deleteArticleFromCache(id)
+	s.deleteArticleFromCache(article)
+	s.invalidateArticleCollections()
 	s.deleteArticleVectorAsync(id)
 	return nil
 }
@@ -164,6 +170,8 @@ func (s *articleService) SetScheduledPublishAt(articleID int64, t *time.Time) er
 	if err := s.articleRepo.Update(article); err != nil {
 		return fmt.Errorf("failed to set scheduled publish time: %w", err)
 	}
-	s.deleteArticleFromCache(articleID)
+	s.deleteArticleFromCache(article)
+	s.setArticleToCache(article)
+	s.invalidateArticleCollections()
 	return nil
 }

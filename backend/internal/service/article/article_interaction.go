@@ -20,7 +20,8 @@ func (s *articleService) ensurePublishedArticle(articleID int64) (*model.Article
 }
 
 func (s *articleService) LikeArticleForUser(userID, articleID int64) (*model.ArticleInteractionState, error) {
-	if _, err := s.ensurePublishedArticle(articleID); err != nil {
+	article, err := s.ensurePublishedArticle(articleID)
+	if err != nil {
 		return nil, err
 	}
 	created, err := s.articleRepo.AddInteraction(userID, articleID, model.ArticleInteractionTypeLike)
@@ -31,13 +32,15 @@ func (s *articleService) LikeArticleForUser(userID, articleID int64) (*model.Art
 		if err := s.articleRepo.IncrementLikeCount(articleID); err != nil {
 			return nil, fmt.Errorf("failed to update article like count: %w", err)
 		}
-		s.deleteArticleFromCache(articleID)
+		s.deleteArticleFromCache(article)
+		s.invalidateArticleCollections()
 	}
 	return s.GetArticleInteractionState(userID, articleID)
 }
 
 func (s *articleService) UnlikeArticleForUser(userID, articleID int64) (*model.ArticleInteractionState, error) {
-	if _, err := s.ensurePublishedArticle(articleID); err != nil {
+	article, err := s.ensurePublishedArticle(articleID)
+	if err != nil {
 		return nil, err
 	}
 	removed, err := s.articleRepo.RemoveInteraction(userID, articleID, model.ArticleInteractionTypeLike)
@@ -48,7 +51,8 @@ func (s *articleService) UnlikeArticleForUser(userID, articleID int64) (*model.A
 		if err := s.articleRepo.DecrementLikeCount(articleID); err != nil {
 			return nil, fmt.Errorf("failed to update article like count: %w", err)
 		}
-		s.deleteArticleFromCache(articleID)
+		s.deleteArticleFromCache(article)
+		s.invalidateArticleCollections()
 	}
 	return s.GetArticleInteractionState(userID, articleID)
 }

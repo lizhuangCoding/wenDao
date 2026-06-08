@@ -4,8 +4,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/redis/go-redis/v9"
-
 	"wenDao/internal/model"
 	"wenDao/internal/repository"
 )
@@ -87,7 +85,7 @@ func newArticleServiceForViewCountTest(repo repository.ArticleRepository) Articl
 	return NewArticleService(
 		repo,
 		&viewCountCategoryRepoStub{},
-		redis.NewClient(&redis.Options{Addr: "127.0.0.1:0"}),
+		nil,
 		nil,
 		nil,
 	)

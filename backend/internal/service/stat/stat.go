@@ -69,16 +69,15 @@ type DashboardStats struct {
 
 // GetDashboardStats 获取后台统计数据（按天数）
 func (s *StatService) GetDashboardStats(days int) (*DashboardStats, error) {
-	s.flushRecentCountersQuietly()
+	if days <= 0 {
+		days = 7
+	}
 
 	dailyStats, err := s.statRepo.GetDailyStats(days)
 	if err != nil {
 		return nil, err
 	}
 
-	if days <= 0 {
-		days = 7
-	}
 	end := time.Now()
 	start := end.AddDate(0, 0, -(days - 1))
 
@@ -87,17 +86,15 @@ func (s *StatService) GetDashboardStats(days int) (*DashboardStats, error) {
 
 // GetDashboardStatsByRange 获取后台统计数据（按日期范围）
 func (s *StatService) GetDashboardStatsByRange(startDate, endDate string) (*DashboardStats, error) {
-	s.flushRecentCountersQuietly()
-
-	dailyStats, err := s.statRepo.GetDailyStatsByRange(startDate, endDate)
-	if err != nil {
-		return nil, err
-	}
-
 	start, startErr := time.ParseInLocation("2006-01-02", startDate, time.Local)
 	end, endErr := time.ParseInLocation("2006-01-02", endDate, time.Local)
 	if startErr != nil || endErr != nil || start.After(end) {
 		return nil, fmt.Errorf("invalid date range")
+	}
+
+	dailyStats, err := s.statRepo.GetDailyStatsByRange(startDate, endDate)
+	if err != nil {
+		return nil, err
 	}
 
 	return buildDashboardStats(dailyStats, start, end), nil

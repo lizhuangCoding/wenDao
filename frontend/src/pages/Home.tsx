@@ -37,6 +37,7 @@ export const Home = () => {
         category_id: selectedCategory,
         keyword: searchKeyword,
       }),
+    placeholderData: (previousData) => previousData,
   });
 
   const {

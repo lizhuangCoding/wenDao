@@ -6,10 +6,12 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
 
 	"wenDao/internal/model"
 	"wenDao/internal/repository"
+	articlesvc "wenDao/internal/service/article"
 )
 
 // CommentService 评论服务接口
@@ -33,6 +35,7 @@ type commentService struct {
 	articleRepo             repository.ArticleRepository
 	replyNotificationSender CommentReplyNotificationSender
 	notificationService     NotificationService
+	articleCacheRdb         *redis.Client
 }
 
 // NotificationService 站内通知服务接口（用于评论回复时创建通知）
@@ -51,6 +54,12 @@ func WithReplyNotificationSender(sender CommentReplyNotificationSender) CommentS
 func WithNotificationService(notifSvc NotificationService) CommentServiceOption {
 	return func(s *commentService) {
 		s.notificationService = notifSvc
+	}
+}
+
+func WithArticleCacheInvalidation(rdb *redis.Client) CommentServiceOption {
+	return func(s *commentService) {
+		s.articleCacheRdb = rdb
 	}
 }
 
@@ -148,6 +157,8 @@ func (s *commentService) Create(articleID, userID int64, content string, parentI
 
 	// 增加文章的评论数
 	s.articleRepo.IncrementCommentCount(articleID)
+	articlesvc.InvalidateArticleCaches(s.articleCacheRdb, article.ID, article.Slug)
+	articlesvc.BumpArticleCollectionCacheVersions(s.articleCacheRdb)
 
 	// 重新查询以获取关联的用户信息（包括被回复人的信息）
 	comment, err = s.commentRepo.GetByID(comment.ID)
@@ -280,6 +291,10 @@ func (s *commentService) Delete(id, userID int64, isAdmin bool) error {
 
 	// 减少文章的评论数
 	s.articleRepo.DecrementCommentCount(comment.ArticleID)
+	if article, err := s.articleRepo.GetByID(comment.ArticleID); err == nil {
+		articlesvc.InvalidateArticleCaches(s.articleCacheRdb, article.ID, article.Slug)
+	}
+	articlesvc.BumpArticleCollectionCacheVersions(s.articleCacheRdb)
 
 	return nil
 }
@@ -328,6 +343,10 @@ func (s *commentService) Restore(id int64) error {
 
 	// 增加文章的评论数
 	s.articleRepo.IncrementCommentCount(comment.ArticleID)
+	if article, err := s.articleRepo.GetByID(comment.ArticleID); err == nil {
+		articlesvc.InvalidateArticleCaches(s.articleCacheRdb, article.ID, article.Slug)
+	}
+	articlesvc.BumpArticleCollectionCacheVersions(s.articleCacheRdb)
 
 	return nil
 }

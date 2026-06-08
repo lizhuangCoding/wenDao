@@ -29,7 +29,9 @@ func (s *articleService) Publish(id int64) error {
 	}
 
 	s.categoryRepo.IncrementArticleCount(article.CategoryID)
-	s.deleteArticleFromCache(id)
+	s.deleteArticleFromCache(article)
+	s.setArticleToCache(article)
+	s.invalidateArticleCollections()
 	s.vectorizeArticleAsync(article.ID, article.Title, article.Content, article.Slug)
 	return nil
 }
@@ -65,7 +67,9 @@ func (s *articleService) PublishScheduled(articleID int64) error {
 	}
 
 	s.categoryRepo.IncrementArticleCount(article.CategoryID)
-	s.deleteArticleFromCache(articleID)
+	s.deleteArticleFromCache(article)
+	s.setArticleToCache(article)
+	s.invalidateArticleCollections()
 	s.vectorizeArticleAsync(article.ID, article.Title, article.Content, article.Slug)
 	return nil
 }
@@ -89,7 +93,9 @@ func (s *articleService) Draft(id int64) error {
 	}
 
 	s.categoryRepo.DecrementArticleCount(article.CategoryID)
-	s.deleteArticleFromCache(id)
+	s.deleteArticleFromCache(article)
+	s.setArticleToCache(article)
+	s.invalidateArticleCollections()
 	s.deleteArticleVectorAsync(id)
 	return nil
 }
