@@ -3,9 +3,9 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { Bookmark, Heart } from 'lucide-react';
 import { articleApi } from '@/api';
-import { Layout, Loading, ErrorState } from '@/components/common';
-import { ArticleContent, TableOfContents } from '@/components/article';
-import { extractHeadings } from '@/utils/markdown';
+import { Layout, ErrorState } from '@/components/common';
+import { ArticleContent, ArticleDetailSkeleton, TableOfContents } from '@/components/article';
+import { estimateReadingTime, extractHeadings } from '@/utils/markdown';
 import { CommentList } from '@/components/comment';
 import { formatDate } from '@/utils';
 import { toAbsoluteSeoUrl } from '@/utils/seo';
@@ -80,7 +80,24 @@ export const ArticleDetail = () => {
     return extractHeadings(article.content);
   }, [article?.content]);
 
-  if (isLoading) return <Layout><Loading /></Layout>;
+  if (isLoading) {
+    return (
+      <Layout>
+        <Helmet>
+          <title>{`${t('common.loading')} - 问道`}</title>
+        </Helmet>
+        <div className="max-w-display mx-auto px-6 sm:px-10 lg:px-12 py-20">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+          >
+            <ArticleDetailSkeleton />
+          </motion.div>
+        </div>
+      </Layout>
+    );
+  }
 
   if (isError) {
     return (
@@ -112,6 +129,7 @@ export const ArticleDetail = () => {
   const ogImage = toAbsoluteSeoUrl(article.cover_image || '/favicon.svg');
   const publishDate = article.published_at || article.created_at;
   const modifiedDate = article.updated_at || publishDate;
+  const readingTime = estimateReadingTime(article.content);
   const interactionState = interactionQuery.data || { liked: false, favorited: false };
   const isInteractionPending = interactionMutation.isPending || interactionQuery.isLoading;
 
@@ -220,6 +238,10 @@ export const ArticleDetail = () => {
                 <div className="w-8 h-px bg-neutral-200 dark:bg-neutral-700"></div>
                 <span className="text-[10px] font-black tracking-[0.2em] text-neutral-400 dark:text-neutral-500 uppercase">
                   {formatDate(article.created_at)}
+                </span>
+                <div className="w-1 h-1 rounded-full bg-neutral-300 dark:bg-neutral-600" />
+                <span className="text-[10px] font-black tracking-[0.2em] text-neutral-400 dark:text-neutral-500 uppercase">
+                  {t('article.readingTime', { count: readingTime })}
                 </span>
               </div>
 

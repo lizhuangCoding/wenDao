@@ -53,3 +53,29 @@ test('markdownToPlainText returns readable notification previews without markdow
   assert.equal(preview, '系统通知 请阅读 重要更新，并查看 发布说明。 支持 Markdown 不显示语法');
   assert.doesNotMatch(preview, /[#*[\]()]/);
 });
+
+test('estimateReadingTime gives higher weight to code-heavy articles', async () => {
+  const { estimateReadingTime } = await loadMarkdownUtils();
+
+  const proseOnly = estimateReadingTime(`
+这是一篇短文，主要是普通正文内容。
+
+It has a short English paragraph as well.
+`);
+
+  const codeLines = Array.from(
+    { length: 40 },
+    (_, index) => `const value${index} = ${index};`
+  ).join('\n');
+
+  const codeHeavy = estimateReadingTime(`
+这是一篇短文，主要是普通正文内容。
+
+\`\`\`ts
+${codeLines}
+\`\`\`
+`);
+
+  assert.ok(proseOnly >= 1);
+  assert.ok(codeHeavy > proseOnly);
+});
