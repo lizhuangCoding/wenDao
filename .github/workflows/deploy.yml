@@ -73,6 +73,22 @@ jobs:
 
           export BUILDKIT_PROGRESS=plain
           export COMPOSE_PROGRESS=plain
+          dump_compose_debug() {
+            status="$?"
+            if [[ "$status" -ne 0 ]]; then
+              echo "=== docker compose status after failure ==="
+              docker compose --env-file .env.production ${DEPLOY_COMPOSE_FILES} ps || true
+              echo "=== mysql logs ==="
+              docker compose --env-file .env.production ${DEPLOY_COMPOSE_FILES} logs --tail=200 mysql || true
+              echo "=== redis logs ==="
+              docker compose --env-file .env.production ${DEPLOY_COMPOSE_FILES} logs --tail=100 redis || true
+              echo "=== backend logs ==="
+              docker compose --env-file .env.production ${DEPLOY_COMPOSE_FILES} logs --tail=100 backend || true
+            fi
+            exit "$status"
+          }
+          trap dump_compose_debug EXIT
+
           docker compose --env-file .env.production ${DEPLOY_COMPOSE_FILES} up -d --build
           docker compose --env-file .env.production ${DEPLOY_COMPOSE_FILES} ps
           docker image prune -f
