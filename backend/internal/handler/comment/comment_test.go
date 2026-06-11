@@ -14,14 +14,18 @@ import (
 )
 
 type stubCommentService struct {
-	listPage     int
-	listPageSize int
-	listStatus   string
-	listKeyword  string
-	total        int64
-	batchIDs     []int64
-	unlikeID     int64
-	undislikeID  int64
+	listPage      int
+	listPageSize  int
+	listStatus    string
+	listKeyword   string
+	total         int64
+	batchIDs      []int64
+	unlikeID      int64
+	undislikeID   int64
+	likeUserID    int64
+	likeID        int64
+	dislikeID     int64
+	dislikeUserID int64
 }
 
 func (s *stubCommentService) Create(articleID, userID int64, content string, parentID, replyToUserID *int64) (*model.Comment, error) {
@@ -57,20 +61,24 @@ func (s *stubCommentService) Restore(id int64) error {
 	return nil
 }
 
-func (s *stubCommentService) Like(commentID int64) error {
+func (s *stubCommentService) Like(commentID, userID int64) error {
+	s.likeID = commentID
+	s.likeUserID = userID
 	return nil
 }
 
-func (s *stubCommentService) Dislike(commentID int64) error {
+func (s *stubCommentService) Dislike(commentID, userID int64) error {
+	s.dislikeID = commentID
+	s.dislikeUserID = userID
 	return nil
 }
 
-func (s *stubCommentService) Unlike(commentID int64) error {
+func (s *stubCommentService) Unlike(commentID, userID int64) error {
 	s.unlikeID = commentID
 	return nil
 }
 
-func (s *stubCommentService) Undislike(commentID int64) error {
+func (s *stubCommentService) Undislike(commentID, userID int64) error {
 	s.undislikeID = commentID
 	return nil
 }
@@ -147,6 +155,7 @@ func TestCommentHandlerUnlike_CancelsLike(t *testing.T) {
 	c, _ := gin.CreateTestContext(w)
 	c.Params = gin.Params{{Key: "id", Value: "88"}}
 	c.Request = httptest.NewRequest(http.MethodDelete, "/api/comments/88/like", nil)
+	c.Set("user_id", int64(7))
 
 	h.Unlike(c)
 
@@ -155,6 +164,30 @@ func TestCommentHandlerUnlike_CancelsLike(t *testing.T) {
 	}
 	if commentSvc.unlikeID != 88 {
 		t.Fatalf("expected unlike comment 88, got %d", commentSvc.unlikeID)
+	}
+	if commentSvc.likeUserID != 0 {
+		t.Fatalf("unexpected like user id set: %d", commentSvc.likeUserID)
+	}
+}
+
+func TestCommentHandlerLike_UsesAuthenticatedUserID(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	commentSvc := &stubCommentService{}
+	h := NewCommentHandler(commentSvc, nil)
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Params = gin.Params{{Key: "id", Value: "87"}}
+	c.Request = httptest.NewRequest(http.MethodPost, "/api/comments/87/like", nil)
+	c.Set("user_id", int64(9))
+
+	h.Like(c)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d and body %s", w.Code, w.Body.String())
+	}
+	if commentSvc.likeID != 87 || commentSvc.likeUserID != 9 {
+		t.Fatalf("expected like comment 87 by user 9, got id=%d user=%d", commentSvc.likeID, commentSvc.likeUserID)
 	}
 }
 
@@ -175,5 +208,26 @@ func TestCommentHandlerUndislike_CancelsDislike(t *testing.T) {
 	}
 	if commentSvc.undislikeID != 89 {
 		t.Fatalf("expected undislike comment 89, got %d", commentSvc.undislikeID)
+	}
+}
+
+func TestCommentHandlerDislike_UsesAuthenticatedUserID(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	commentSvc := &stubCommentService{}
+	h := NewCommentHandler(commentSvc, nil)
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Params = gin.Params{{Key: "id", Value: "90"}}
+	c.Request = httptest.NewRequest(http.MethodPost, "/api/comments/90/dislike", nil)
+	c.Set("user_id", int64(11))
+
+	h.Dislike(c)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d and body %s", w.Code, w.Body.String())
+	}
+	if commentSvc.dislikeID != 90 || commentSvc.dislikeUserID != 11 {
+		t.Fatalf("expected dislike comment 90 by user 11, got id=%d user=%d", commentSvc.dislikeID, commentSvc.dislikeUserID)
 	}
 }

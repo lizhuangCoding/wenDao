@@ -2,6 +2,7 @@ package notification
 
 import (
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 
@@ -30,8 +31,12 @@ func (h *NotificationHandler) SetUserIDProvider(fn func() ([]int64, error)) {
 func (h *NotificationHandler) List(c *gin.Context) {
 	userID, _ := c.Get("user_id")
 	p := pagination.FromQuery(c)
+	notifType := strings.TrimSpace(c.Query("type"))
+	if notifType == "all" {
+		notifType = ""
+	}
 
-	notifications, total, err := h.notifSvc.ListByUser(userID.(int64), p.Page, p.PageSize)
+	notifications, total, err := h.notifSvc.ListByUser(userID.(int64), notifType, p.Page, p.PageSize)
 	if err != nil {
 		response.InternalError(c, "Failed to list notifications")
 		return

@@ -205,7 +205,12 @@ func (h *CommentHandler) Like(c *gin.Context) {
 		return
 	}
 
-	if err := h.commentService.Like(commentID); err != nil {
+	var userID int64
+	if value, ok := c.Get("user_id"); ok {
+		userID, _ = value.(int64)
+	}
+
+	if err := h.commentService.Like(commentID, userID); err != nil {
 		response.InternalErrorWithErr(c, "Failed to like comment", err)
 		return
 	}
@@ -221,7 +226,12 @@ func (h *CommentHandler) Unlike(c *gin.Context) {
 		return
 	}
 
-	if err := h.commentService.Unlike(commentID); err != nil {
+	var userID int64
+	if value, ok := c.Get("user_id"); ok {
+		userID, _ = value.(int64)
+	}
+
+	if err := h.commentService.Unlike(commentID, userID); err != nil {
 		response.InternalErrorWithErr(c, "Failed to unlike comment", err)
 		return
 	}
@@ -237,7 +247,12 @@ func (h *CommentHandler) Dislike(c *gin.Context) {
 		return
 	}
 
-	if err := h.commentService.Dislike(commentID); err != nil {
+	var userID int64
+	if value, ok := c.Get("user_id"); ok {
+		userID, _ = value.(int64)
+	}
+
+	if err := h.commentService.Dislike(commentID, userID); err != nil {
 		response.InternalErrorWithErr(c, "Failed to dislike comment", err)
 		return
 	}
@@ -253,7 +268,12 @@ func (h *CommentHandler) Undislike(c *gin.Context) {
 		return
 	}
 
-	if err := h.commentService.Undislike(commentID); err != nil {
+	var userID int64
+	if value, ok := c.Get("user_id"); ok {
+		userID, _ = value.(int64)
+	}
+
+	if err := h.commentService.Undislike(commentID, userID); err != nil {
 		response.InternalErrorWithErr(c, "Failed to undislike comment", err)
 		return
 	}

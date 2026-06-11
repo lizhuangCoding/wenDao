@@ -34,11 +34,18 @@ test('notification list provides page navigation and renders message content ele
 
   assert.match(source, /Layout/);
   assert.match(source, /PageHeader/);
+  assert.match(source, /SegmentedControl/);
+  assert.doesNotMatch(source, /StatusBadge/);
   assert.match(source, /to="\/"/);
-  assert.match(source, /返回首页/);
+  assert.match(source, /notification\.returnHome/);
   assert.match(source, /ArticleContent/);
   assert.match(source, /notification-message-body/);
   assert.doesNotMatch(source, /to=\{notif\.link_url \|\| '\/notifications'\}/);
+  assert.match(source, /comment_like/);
+  assert.match(source, /notification\.commentLike/);
+  assert.doesNotMatch(source, /comment_dislike/);
+  assert.doesNotMatch(source, /StatusBadge variant="neutral"/);
+  assert.equal((source.match(/notification\.description/g) ?? []).length, 1);
 });
 
 test('notification bell renders markdown content as a readable preview', async () => {
@@ -46,6 +53,7 @@ test('notification bell renders markdown content as a readable preview', async (
 
   assert.match(source, /markdownToPlainText/);
   assert.match(source, /getNotificationPreview\(notif\.content\)/);
+  assert.match(source, /notification\.commentLike/);
   assert.doesNotMatch(source, /\{notif\.content\}/);
 });
 

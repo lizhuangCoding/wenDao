@@ -49,6 +49,34 @@ func AuthRequired(jwtSecret string, rdb *redis.Client) gin.HandlerFunc {
 	}
 }
 
+// AuthOptional 在 token 合法时注入用户上下文，不要求请求必须登录。
+func AuthOptional(jwtSecret string, rdb *redis.Client) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		token := extractToken(c)
+		if token == "" {
+			c.Next()
+			return
+		}
+
+		claims, err := pkgjwt.ParseToken(token, jwtSecret)
+		if err != nil {
+			c.Next()
+			return
+		}
+
+		blacklisted, err := pkgjwt.IsTokenBlacklisted(rdb, token)
+		if err == nil && blacklisted {
+			c.Next()
+			return
+		}
+
+		c.Set("user_id", claims.UserID)
+		c.Set("user_role", claims.Role)
+		c.Set("token", token)
+		c.Next()
+	}
+}
+
 // AdminRequired 验证管理员权限
 func AdminRequired(jwtSecret string, rdb *redis.Client) gin.HandlerFunc {
 	return func(c *gin.Context) {

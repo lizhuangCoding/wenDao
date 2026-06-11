@@ -9,7 +9,7 @@ import (
 // NotificationRepository 通知数据访问接口
 type NotificationRepository interface {
 	Create(notification *model.Notification) error
-	ListByUser(userID int64, page, pageSize int) ([]*model.Notification, int64, error)
+	ListByUser(userID int64, notifType string, page, pageSize int) ([]*model.Notification, int64, error)
 	GetUnreadCount(userID int64) (int64, error)
 	MarkRead(userID, notificationID int64) error
 	MarkAllRead(userID int64) error
@@ -28,11 +28,14 @@ func (r *notificationRepository) Create(notification *model.Notification) error 
 	return r.db.Create(notification).Error
 }
 
-func (r *notificationRepository) ListByUser(userID int64, page, pageSize int) ([]*model.Notification, int64, error) {
+func (r *notificationRepository) ListByUser(userID int64, notifType string, page, pageSize int) ([]*model.Notification, int64, error) {
 	var notifications []*model.Notification
 	var total int64
 
 	query := r.db.Model(&model.Notification{}).Where("user_id = ?", userID)
+	if notifType != "" {
+		query = query.Where("type = ?", notifType)
+	}
 
 	if err := query.Count(&total).Error; err != nil {
 		return nil, 0, err

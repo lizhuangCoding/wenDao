@@ -22,6 +22,7 @@ func (Notification) TableName() string {
 
 const (
 	NotificationTypeCommentReply   = "comment_reply"
+	NotificationTypeCommentLike    = "comment_like"
 	NotificationTypeAdminBroadcast = "admin_broadcast"
 	NotificationTypeSystemNotice   = "system_notice"
 )

@@ -185,10 +185,16 @@ export interface CreateCommentRequest {
 }
 
 // 通知相关类型
+export type NotificationType =
+  | 'comment_reply'
+  | 'comment_like'
+  | 'admin_broadcast'
+  | 'system_notice';
+
 export interface Notification {
   id: number;
   user_id: number;
-  type: 'comment_reply' | 'admin_broadcast' | 'system_notice';
+  type: NotificationType;
   title: string;
   content: string;
   link_url: string;

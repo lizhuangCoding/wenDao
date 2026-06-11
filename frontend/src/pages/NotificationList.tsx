@@ -4,23 +4,38 @@ import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { ArrowLeft, CheckCheck, ExternalLink, Mail, MailOpen } from 'lucide-react';
 import { notificationApi } from '@/api';
-import { EmptyState, Layout, Loading, PageHeader, Pagination } from '@/components/common';
+import {
+  EmptyState,
+  Layout,
+  Loading,
+  PageHeader,
+  Pagination,
+  SegmentedControl,
+} from '@/components/common';
 import { ArticleContent } from '@/components/article';
 import { useNotificationStore } from '@/store';
 import { formatDate } from '@/utils';
-import type { Notification } from '@/types';
+import type { Notification, NotificationType } from '@/types';
+
+type NotificationFilter = 'all' | NotificationType;
 
 export const NotificationList = () => {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const { decrementUnread, fetchUnreadCount, setUnreadCount } = useNotificationStore();
   const [page, setPage] = useState(1);
+  const [filterType, setFilterType] = useState<NotificationFilter>('all');
   const pageSize = 20;
 
   const { data, isLoading, isError } = useQuery({
-    queryKey: ['notifications', page],
-    queryFn: () => notificationApi.list(page, pageSize),
+    queryKey: ['notifications', page, filterType],
+    queryFn: () => notificationApi.list(page, pageSize, filterType === 'all' ? undefined : filterType),
   });
+
+  const handleFilterChange = (nextType: NotificationFilter) => {
+    setFilterType(nextType);
+    setPage(1);
+  };
 
   const handleMarkRead = async (id: number) => {
     try {
@@ -51,15 +66,15 @@ export const NotificationList = () => {
     );
   }
 
-  const hasNotifications = Boolean(data?.data && data.data.length > 0);
-
+  const notifications = data?.data ?? [];
+  const hasNotifications = notifications.length > 0;
   return (
     <Layout>
       <div className="mx-auto max-w-5xl px-5 py-10 sm:px-8 lg:px-10">
         <PageHeader
           title={t('notification.title')}
           description={t('notification.description')}
-          className="mb-8"
+          className="mb-6"
           actions={
             <>
               <Link to="/" className="btn btn-secondary">
@@ -67,11 +82,7 @@ export const NotificationList = () => {
                 {t('notification.returnHome')}
               </Link>
               {hasNotifications && (
-                <button
-                  type="button"
-                  onClick={handleMarkAllRead}
-                  className="btn btn-primary"
-                  >
+                <button type="button" onClick={handleMarkAllRead} className="btn btn-primary">
                   <CheckCheck className="h-4 w-4" />
                   {t('notification.markAllRead')}
                 </button>
@@ -80,12 +91,26 @@ export const NotificationList = () => {
           }
         />
 
+        <div className="mb-6 rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm dark:border-neutral-800 dark:bg-neutral-900/60">
+          <SegmentedControl
+            value={filterType}
+            onChange={handleFilterChange}
+            className="w-full"
+            items={[
+              { value: 'all', label: t('notification.all') },
+              { value: 'comment_reply', label: t('notification.commentReply') },
+              { value: 'comment_like', label: t('notification.commentLike') },
+              { value: 'admin_broadcast', label: t('notification.adminBroadcast') },
+            ]}
+          />
+        </div>
+
         {isError ? (
           <EmptyState title={t('common.failed')} description={t('notification.loadFailedDescription')} />
         ) : hasNotifications ? (
           <>
             <div className="space-y-4">
-              {data!.data.map((notif: Notification) => (
+              {notifications.map((notif: Notification) => (
                 <article
                   key={notif.id}
                   className={`group overflow-hidden rounded-2xl border bg-white shadow-sm transition-colors dark:bg-neutral-900 ${

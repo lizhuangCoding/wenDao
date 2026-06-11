@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { notificationApi } from '@/api';
+import { StatusBadge } from './StatusBadge';
 import { useAuthStore, useNotificationStore } from '@/store';
 import type { Notification } from '@/types';
 import { formatDate } from '@/utils';
@@ -10,6 +11,20 @@ import { markdownToPlainText } from '@/utils/markdown';
 
 const getNotificationPreview = (content: string): string => {
   return markdownToPlainText(content) || '';
+};
+
+const notificationTypeLabelKey: Record<Notification['type'], string> = {
+  comment_reply: 'notification.commentReply',
+  comment_like: 'notification.commentLike',
+  admin_broadcast: 'notification.adminBroadcast',
+  system_notice: 'notification.systemNotice',
+};
+
+const notificationTypeVariant: Record<Notification['type'], 'info' | 'warning' | 'success' | 'neutral'> = {
+  comment_reply: 'info',
+  comment_like: 'success',
+  admin_broadcast: 'warning',
+  system_notice: 'neutral',
 };
 
 export const NotificationBell = () => {
@@ -98,6 +113,9 @@ export const NotificationBell = () => {
                       <p className="text-sm font-medium text-neutral-700 dark:text-neutral-200 truncate">
                         {notif.title}
                       </p>
+                      <StatusBadge variant={notificationTypeVariant[notif.type]} className="mt-1">
+                        {t(notificationTypeLabelKey[notif.type])}
+                      </StatusBadge>
                       <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5 line-clamp-2">
                         {getNotificationPreview(notif.content)}
                       </p>

@@ -10,7 +10,7 @@ import (
 // NotificationService 通知服务接口
 type NotificationService interface {
 	Create(userID int64, notifType, title, content, linkURL string) error
-	ListByUser(userID int64, page, pageSize int) ([]*model.Notification, int64, error)
+	ListByUser(userID int64, notifType string, page, pageSize int) ([]*model.Notification, int64, error)
 	GetUnreadCount(userID int64) (int64, error)
 	MarkRead(userID, notificationID int64) error
 	MarkAllRead(userID int64) error
@@ -40,8 +40,8 @@ func (s *notificationService) Create(userID int64, notifType, title, content, li
 	return nil
 }
 
-func (s *notificationService) ListByUser(userID int64, page, pageSize int) ([]*model.Notification, int64, error) {
-	return s.repo.ListByUser(userID, page, pageSize)
+func (s *notificationService) ListByUser(userID int64, notifType string, page, pageSize int) ([]*model.Notification, int64, error) {
+	return s.repo.ListByUser(userID, notifType, page, pageSize)
 }
 
 func (s *notificationService) GetUnreadCount(userID int64) (int64, error) {

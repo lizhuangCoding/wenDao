@@ -2,11 +2,36 @@ package comment
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"wenDao/internal/model"
 	"wenDao/internal/repository"
 )
+
+type actorUserRepo struct {
+	users map[int64]*model.User
+}
+
+func (r *actorUserRepo) Create(user *model.User) error { return nil }
+func (r *actorUserRepo) GetByID(id int64) (*model.User, error) {
+	if user, ok := r.users[id]; ok {
+		return user, nil
+	}
+	return nil, nil
+}
+func (r *actorUserRepo) GetByEmail(email string) (*model.User, error)       { return nil, nil }
+func (r *actorUserRepo) GetByUsername(username string) (*model.User, error) { return nil, nil }
+func (r *actorUserRepo) GetByOAuth(provider string, oauthID string) (*model.User, error) {
+	return nil, nil
+}
+func (r *actorUserRepo) Update(user *model.User) error { return nil }
+func (r *actorUserRepo) ListUsers(page, pageSize int, role, status, search string) ([]*model.User, int64, error) {
+	return nil, 0, nil
+}
+func (r *actorUserRepo) UpdateUserRole(userID int64, role string) error     { return nil }
+func (r *actorUserRepo) UpdateUserStatus(userID int64, status string) error { return nil }
+func (r *actorUserRepo) GetAllActiveUserIDs() ([]int64, error)              { return nil, nil }
 
 type replyNotificationCommentRepo struct {
 	parent      *model.Comment
@@ -141,6 +166,7 @@ func (s *recordingReplyNotificationSender) SendCommentReplyNotification(_ contex
 type voteCommentRepo struct {
 	decrementLikeID    int64
 	decrementDislikeID int64
+	incrementDislikeID int64
 }
 
 func (r *voteCommentRepo) Create(comment *model.Comment) error { return nil }
@@ -156,16 +182,86 @@ func (r *voteCommentRepo) GetByArticleIDSorted(articleID int64, sort string) ([]
 func (r *voteCommentRepo) ListAll(filter repository.CommentFilter) ([]*model.Comment, int64, error) {
 	return nil, 0, nil
 }
-func (r *voteCommentRepo) Delete(id int64) error           { return nil }
-func (r *voteCommentRepo) Restore(id int64) error          { return nil }
-func (r *voteCommentRepo) IncrementLike(id int64) error    { return nil }
-func (r *voteCommentRepo) IncrementDislike(id int64) error { return nil }
+func (r *voteCommentRepo) Delete(id int64) error        { return nil }
+func (r *voteCommentRepo) Restore(id int64) error       { return nil }
+func (r *voteCommentRepo) IncrementLike(id int64) error { return nil }
+func (r *voteCommentRepo) IncrementDislike(id int64) error {
+	r.incrementDislikeID = id
+	return nil
+}
 func (r *voteCommentRepo) DecrementLike(id int64) error {
 	r.decrementLikeID = id
 	return nil
 }
 func (r *voteCommentRepo) DecrementDislike(id int64) error {
 	r.decrementDislikeID = id
+	return nil
+}
+
+type likeNotificationCommentRepo struct {
+	comment            *model.Comment
+	incrementLikeID    int64
+	decrementLikeID    int64
+	incrementDislikeID int64
+	decrementDislikeID int64
+}
+
+func (r *likeNotificationCommentRepo) Create(comment *model.Comment) error { return nil }
+func (r *likeNotificationCommentRepo) GetByID(id int64) (*model.Comment, error) {
+	return r.comment, nil
+}
+func (r *likeNotificationCommentRepo) GetByArticleID(articleID int64) ([]*model.Comment, error) {
+	return nil, nil
+}
+func (r *likeNotificationCommentRepo) GetByArticleIDSorted(articleID int64, sort string) ([]*model.Comment, error) {
+	return nil, nil
+}
+func (r *likeNotificationCommentRepo) ListAll(filter repository.CommentFilter) ([]*model.Comment, int64, error) {
+	return nil, 0, nil
+}
+func (r *likeNotificationCommentRepo) Delete(id int64) error  { return nil }
+func (r *likeNotificationCommentRepo) Restore(id int64) error { return nil }
+func (r *likeNotificationCommentRepo) IncrementLike(id int64) error {
+	r.incrementLikeID = id
+	return nil
+}
+func (r *likeNotificationCommentRepo) DecrementLike(id int64) error {
+	r.decrementLikeID = id
+	return nil
+}
+func (r *likeNotificationCommentRepo) IncrementDislike(id int64) error {
+	r.incrementDislikeID = id
+	return nil
+}
+func (r *likeNotificationCommentRepo) DecrementDislike(id int64) error {
+	r.decrementDislikeID = id
+	return nil
+}
+
+type recordingNotificationService struct {
+	creates []struct {
+		userID    int64
+		notifType string
+		title     string
+		content   string
+		linkURL   string
+	}
+}
+
+func (s *recordingNotificationService) Create(userID int64, notifType, title, content, linkURL string) error {
+	s.creates = append(s.creates, struct {
+		userID    int64
+		notifType string
+		title     string
+		content   string
+		linkURL   string
+	}{
+		userID:    userID,
+		notifType: notifType,
+		title:     title,
+		content:   content,
+		linkURL:   linkURL,
+	})
 	return nil
 }
 
@@ -243,7 +339,13 @@ func TestCommentServiceCreateSkipsReplyEmailWhenRecipientDisabledPreference(t *t
 		recipient:   recipient,
 	}
 	sender := &recordingReplyNotificationSender{}
-	svc := NewCommentService(commentRepo, &replyNotificationArticleRepo{article: article}, WithReplyNotificationSender(sender))
+	notifSvc := &recordingNotificationService{}
+	svc := NewCommentService(
+		commentRepo,
+		&replyNotificationArticleRepo{article: article},
+		WithReplyNotificationSender(sender),
+		WithNotificationService(notifSvc),
+	)
 
 	if _, err := svc.Create(article.ID, replyAuthor.ID, "收到，我稍后再看。", &parentID, nil); err != nil {
 		t.Fatalf("expected create to succeed, got %v", err)
@@ -251,13 +353,26 @@ func TestCommentServiceCreateSkipsReplyEmailWhenRecipientDisabledPreference(t *t
 	if len(sender.notifications) != 0 {
 		t.Fatalf("expected no notification when preference is disabled, got %d", len(sender.notifications))
 	}
+	if len(notifSvc.creates) != 1 {
+		t.Fatalf("expected one in-app notification even when email is disabled, got %d", len(notifSvc.creates))
+	}
+	if notifSvc.creates[0].notifType != model.NotificationTypeCommentReply {
+		t.Fatalf("expected comment reply in-app notification, got %q", notifSvc.creates[0].notifType)
+	}
 }
 
 func TestCommentServiceUnlikeDecrementsLikeCount(t *testing.T) {
-	commentRepo := &voteCommentRepo{}
+	commentRepo := &likeNotificationCommentRepo{
+		comment: &model.Comment{
+			ID:        42,
+			ArticleID: 7,
+			UserID:    88,
+			Status:    "normal",
+		},
+	}
 	svc := NewCommentService(commentRepo, &replyNotificationArticleRepo{})
 
-	if err := svc.Unlike(42); err != nil {
+	if err := svc.Unlike(42, 7); err != nil {
 		t.Fatalf("expected unlike to succeed, got %v", err)
 	}
 	if commentRepo.decrementLikeID != 42 {
@@ -266,13 +381,240 @@ func TestCommentServiceUnlikeDecrementsLikeCount(t *testing.T) {
 }
 
 func TestCommentServiceUndislikeDecrementsDislikeCount(t *testing.T) {
-	commentRepo := &voteCommentRepo{}
+	commentRepo := &likeNotificationCommentRepo{
+		comment: &model.Comment{
+			ID:        43,
+			ArticleID: 7,
+			UserID:    88,
+			Status:    "normal",
+		},
+	}
 	svc := NewCommentService(commentRepo, &replyNotificationArticleRepo{})
 
-	if err := svc.Undislike(43); err != nil {
+	if err := svc.Undislike(43, 7); err != nil {
 		t.Fatalf("expected undislike to succeed, got %v", err)
 	}
 	if commentRepo.decrementDislikeID != 43 {
 		t.Fatalf("expected comment 43 to be undisliked, got %d", commentRepo.decrementDislikeID)
+	}
+}
+
+func TestCommentServiceDislikeCreatesCommentDislikeNotification(t *testing.T) {
+	author := &model.User{ID: 88, Username: "writer", Status: "active"}
+	article := &model.Article{ID: 7, Title: "评论文章", Slug: "comment-article", Status: "published"}
+	commentRepo := &likeNotificationCommentRepo{
+		comment: &model.Comment{
+			ID:        42,
+			ArticleID: article.ID,
+			UserID:    author.ID,
+			User:      author,
+			Content:   "这是一条会收到点踩的评论",
+			Status:    "normal",
+		},
+	}
+	notifSvc := &recordingNotificationService{}
+	userRepo := &actorUserRepo{users: map[int64]*model.User{7: {ID: 7, Username: "alice"}}}
+	svc := NewCommentService(commentRepo, &replyNotificationArticleRepo{article: article}, WithNotificationService(notifSvc), WithUserRepository(userRepo))
+
+	if err := svc.Dislike(42, 7); err != nil {
+		t.Fatalf("expected dislike to succeed, got %v", err)
+	}
+	if commentRepo.incrementDislikeID != 42 {
+		t.Fatalf("expected comment 42 to be disliked, got %d", commentRepo.incrementDislikeID)
+	}
+	if len(notifSvc.creates) != 1 {
+		t.Fatalf("expected one notification, got %d", len(notifSvc.creates))
+	}
+
+	created := notifSvc.creates[0]
+	if created.userID != author.ID {
+		t.Fatalf("expected notification for author %d, got %d", author.ID, created.userID)
+	}
+	if created.notifType != model.NotificationTypeCommentLike {
+		t.Fatalf("expected comment_like notification, got %q", created.notifType)
+	}
+	if created.linkURL != "/article/comment-article" {
+		t.Fatalf("expected article link, got %q", created.linkURL)
+	}
+	if created.title == "" || created.content == "" {
+		t.Fatalf("expected title and content to be populated, got %#v", created)
+	}
+	if created.title != "alice点踩了你的评论" {
+		t.Fatalf("expected actor username in title, got %q", created.title)
+	}
+	if !strings.Contains(created.content, "在《评论文章》中，alice点踩了你的评论") {
+		t.Fatalf("expected actor username in content, got %q", created.content)
+	}
+}
+
+func TestCommentServiceUndislikeCreatesCommentDislikeNotification(t *testing.T) {
+	author := &model.User{ID: 88, Username: "writer", Status: "active"}
+	article := &model.Article{ID: 7, Title: "评论文章", Slug: "comment-article", Status: "published"}
+	commentRepo := &likeNotificationCommentRepo{
+		comment: &model.Comment{
+			ID:        42,
+			ArticleID: article.ID,
+			UserID:    author.ID,
+			User:      author,
+			Content:   "这是一条会收到点踩的评论",
+			Status:    "normal",
+		},
+	}
+	notifSvc := &recordingNotificationService{}
+	userRepo := &actorUserRepo{users: map[int64]*model.User{7: {ID: 7, Username: "alice"}}}
+	svc := NewCommentService(commentRepo, &replyNotificationArticleRepo{article: article}, WithNotificationService(notifSvc), WithUserRepository(userRepo))
+
+	if err := svc.Undislike(42, 7); err != nil {
+		t.Fatalf("expected undislike to succeed, got %v", err)
+	}
+	if commentRepo.decrementDislikeID != 42 {
+		t.Fatalf("expected comment 42 to be undisliked, got %d", commentRepo.decrementDislikeID)
+	}
+	if len(notifSvc.creates) != 1 {
+		t.Fatalf("expected one notification, got %d", len(notifSvc.creates))
+	}
+	if notifSvc.creates[0].notifType != model.NotificationTypeCommentLike {
+		t.Fatalf("expected comment_like notification, got %q", notifSvc.creates[0].notifType)
+	}
+	if notifSvc.creates[0].title == "" || notifSvc.creates[0].content == "" {
+		t.Fatalf("expected undislike notification content to be populated, got %#v", notifSvc.creates[0])
+	}
+	if notifSvc.creates[0].title != "alice取消了对你评论的点踩" {
+		t.Fatalf("expected actor username in title, got %q", notifSvc.creates[0].title)
+	}
+}
+
+func TestCommentServiceDislikeSkipsSelfNotification(t *testing.T) {
+	author := &model.User{ID: 88, Username: "writer", Status: "active"}
+	article := &model.Article{ID: 7, Title: "评论文章", Slug: "comment-article", Status: "published"}
+	commentRepo := &likeNotificationCommentRepo{
+		comment: &model.Comment{
+			ID:        42,
+			ArticleID: article.ID,
+			UserID:    author.ID,
+			User:      author,
+			Content:   "这是一条会收到点踩的评论",
+			Status:    "normal",
+		},
+	}
+	notifSvc := &recordingNotificationService{}
+	userRepo := &actorUserRepo{users: map[int64]*model.User{7: {ID: 7, Username: "alice"}}}
+	svc := NewCommentService(commentRepo, &replyNotificationArticleRepo{article: article}, WithNotificationService(notifSvc), WithUserRepository(userRepo))
+
+	if err := svc.Dislike(42, author.ID); err != nil {
+		t.Fatalf("expected dislike to succeed, got %v", err)
+	}
+	if len(notifSvc.creates) != 0 {
+		t.Fatalf("expected no notification for self-dislike, got %d", len(notifSvc.creates))
+	}
+}
+
+func TestCommentServiceLikeCreatesCommentLikeNotification(t *testing.T) {
+	author := &model.User{ID: 88, Username: "writer", Status: "active"}
+	article := &model.Article{ID: 7, Title: "评论文章", Slug: "comment-article", Status: "published"}
+	commentRepo := &likeNotificationCommentRepo{
+		comment: &model.Comment{
+			ID:        42,
+			ArticleID: article.ID,
+			UserID:    author.ID,
+			User:      author,
+			Content:   "这是一条会收到点赞的评论",
+			Status:    "normal",
+		},
+	}
+	notifSvc := &recordingNotificationService{}
+	userRepo := &actorUserRepo{users: map[int64]*model.User{7: {ID: 7, Username: "alice"}}}
+	svc := NewCommentService(commentRepo, &replyNotificationArticleRepo{article: article}, WithNotificationService(notifSvc), WithUserRepository(userRepo))
+
+	if err := svc.Like(42, 7); err != nil {
+		t.Fatalf("expected like to succeed, got %v", err)
+	}
+	if commentRepo.incrementLikeID != 42 {
+		t.Fatalf("expected comment 42 to be liked, got %d", commentRepo.incrementLikeID)
+	}
+	if len(notifSvc.creates) != 1 {
+		t.Fatalf("expected one notification, got %d", len(notifSvc.creates))
+	}
+
+	created := notifSvc.creates[0]
+	if created.userID != author.ID {
+		t.Fatalf("expected notification for author %d, got %d", author.ID, created.userID)
+	}
+	if created.notifType != model.NotificationTypeCommentLike {
+		t.Fatalf("expected comment_like notification, got %q", created.notifType)
+	}
+	if created.linkURL != "/article/comment-article" {
+		t.Fatalf("expected article link, got %q", created.linkURL)
+	}
+	if created.title == "" || created.content == "" {
+		t.Fatalf("expected title and content to be populated, got %#v", created)
+	}
+	if created.title != "alice点赞了你的评论" {
+		t.Fatalf("expected actor username in title, got %q", created.title)
+	}
+	if !strings.Contains(created.content, "在《评论文章》中，alice点赞了你的评论") {
+		t.Fatalf("expected actor username in content, got %q", created.content)
+	}
+}
+
+func TestCommentServiceUnlikeCreatesCommentLikeNotification(t *testing.T) {
+	author := &model.User{ID: 88, Username: "writer", Status: "active"}
+	article := &model.Article{ID: 7, Title: "评论文章", Slug: "comment-article", Status: "published"}
+	commentRepo := &likeNotificationCommentRepo{
+		comment: &model.Comment{
+			ID:        42,
+			ArticleID: article.ID,
+			UserID:    author.ID,
+			User:      author,
+			Content:   "这是一条会收到点赞的评论",
+			Status:    "normal",
+		},
+	}
+	notifSvc := &recordingNotificationService{}
+	userRepo := &actorUserRepo{users: map[int64]*model.User{7: {ID: 7, Username: "alice"}}}
+	svc := NewCommentService(commentRepo, &replyNotificationArticleRepo{article: article}, WithNotificationService(notifSvc), WithUserRepository(userRepo))
+
+	if err := svc.Unlike(42, 7); err != nil {
+		t.Fatalf("expected unlike to succeed, got %v", err)
+	}
+	if commentRepo.decrementLikeID != 42 {
+		t.Fatalf("expected comment 42 to be unliked, got %d", commentRepo.decrementLikeID)
+	}
+	if len(notifSvc.creates) != 1 {
+		t.Fatalf("expected one notification, got %d", len(notifSvc.creates))
+	}
+	if notifSvc.creates[0].notifType != model.NotificationTypeCommentLike {
+		t.Fatalf("expected comment_like notification, got %q", notifSvc.creates[0].notifType)
+	}
+	if notifSvc.creates[0].title == "" || notifSvc.creates[0].content == "" {
+		t.Fatalf("expected unlike notification content to be populated, got %#v", notifSvc.creates[0])
+	}
+	if notifSvc.creates[0].title != "alice取消了对你评论的点赞" {
+		t.Fatalf("expected actor username in title, got %q", notifSvc.creates[0].title)
+	}
+}
+
+func TestCommentServiceLikeSkipsSelfNotification(t *testing.T) {
+	author := &model.User{ID: 88, Username: "writer", Status: "active"}
+	article := &model.Article{ID: 7, Title: "评论文章", Slug: "comment-article", Status: "published"}
+	commentRepo := &likeNotificationCommentRepo{
+		comment: &model.Comment{
+			ID:        42,
+			ArticleID: article.ID,
+			UserID:    author.ID,
+			User:      author,
+			Content:   "这是一条会收到点赞的评论",
+			Status:    "normal",
+		},
+	}
+	notifSvc := &recordingNotificationService{}
+	userRepo := &actorUserRepo{users: map[int64]*model.User{7: {ID: 7, Username: "alice"}}}
+	svc := NewCommentService(commentRepo, &replyNotificationArticleRepo{article: article}, WithNotificationService(notifSvc), WithUserRepository(userRepo))
+
+	if err := svc.Like(42, author.ID); err != nil {
+		t.Fatalf("expected like to succeed, got %v", err)
+	}
+	if len(notifSvc.creates) != 0 {
+		t.Fatalf("expected no notification for self-like, got %d", len(notifSvc.creates))
 	}
 }

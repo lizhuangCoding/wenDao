@@ -23,16 +23,17 @@ type CommentService interface {
 	Delete(id, userID int64, isAdmin bool) error
 	DeleteBatch(ids []int64, userID int64, isAdmin bool) error
 	Restore(id int64) error
-	Like(commentID int64) error
-	Unlike(commentID int64) error
-	Dislike(commentID int64) error
-	Undislike(commentID int64) error
+	Like(commentID, userID int64) error
+	Unlike(commentID, userID int64) error
+	Dislike(commentID, userID int64) error
+	Undislike(commentID, userID int64) error
 }
 
 // commentService 评论服务实现
 type commentService struct {
 	commentRepo             repository.CommentRepository
 	articleRepo             repository.ArticleRepository
+	userRepo                repository.UserRepository
 	replyNotificationSender CommentReplyNotificationSender
 	notificationService     NotificationService
 	articleCacheRdb         *redis.Client
@@ -54,6 +55,12 @@ func WithReplyNotificationSender(sender CommentReplyNotificationSender) CommentS
 func WithNotificationService(notifSvc NotificationService) CommentServiceOption {
 	return func(s *commentService) {
 		s.notificationService = notifSvc
+	}
+}
+
+func WithUserRepository(userRepo repository.UserRepository) CommentServiceOption {
+	return func(s *commentService) {
+		s.userRepo = userRepo
 	}
 }
 
@@ -173,7 +180,7 @@ func (s *commentService) Create(articleID, userID int64, content string, parentI
 }
 
 func (s *commentService) notifyReplyRecipient(ctx context.Context, article *model.Article, comment *model.Comment, parentComment *model.Comment) {
-	if s == nil || s.replyNotificationSender == nil || article == nil || comment == nil || comment.ReplyToUserID == nil {
+	if s == nil || article == nil || comment == nil || comment.ReplyToUserID == nil {
 		return
 	}
 
@@ -181,13 +188,28 @@ func (s *commentService) notifyReplyRecipient(ctx context.Context, article *mode
 	if recipient == nil && parentComment != nil && parentComment.UserID == *comment.ReplyToUserID {
 		recipient = parentComment.User
 	}
-	if recipient == nil || recipient.ID == comment.UserID || !recipient.CommentReplyEmailEnabled || strings.TrimSpace(recipient.Email) == "" {
+	if recipient == nil || recipient.ID == comment.UserID {
 		return
 	}
 
 	replyAuthor := "读者"
 	if comment.User != nil && strings.TrimSpace(comment.User.Username) != "" {
 		replyAuthor = comment.User.Username
+	}
+
+	// 创建站内通知
+	if s.notificationService != nil {
+		_ = s.notificationService.Create(
+			recipient.ID,
+			model.NotificationTypeCommentReply,
+			fmt.Sprintf("%s 回复了你的评论", replyAuthor),
+			fmt.Sprintf("在《%s》中，%s 回复了你的评论：%s", article.Title, replyAuthor, commentPreview(comment.Content)),
+			fmt.Sprintf("/article/%s", article.Slug),
+		)
+	}
+
+	if s.replyNotificationSender == nil || !recipient.CommentReplyEmailEnabled || strings.TrimSpace(recipient.Email) == "" {
+		return
 	}
 
 	_ = s.replyNotificationSender.SendCommentReplyNotification(ctx, CommentReplyNotification{
@@ -198,17 +220,6 @@ func (s *commentService) notifyReplyRecipient(ctx context.Context, article *mode
 		ArticleSlug:         article.Slug,
 		CommentPreview:      commentPreview(comment.Content),
 	})
-
-	// 创建站内通知
-	if s.notificationService != nil {
-		_ = s.notificationService.Create(
-			recipient.ID,
-			"comment_reply",
-			fmt.Sprintf("%s 回复了你的评论", replyAuthor),
-			fmt.Sprintf("在《%s》中，%s 回复了你的评论：%s", article.Title, replyAuthor, commentPreview(comment.Content)),
-			fmt.Sprintf("/article/%s", article.Slug),
-		)
-	}
 }
 
 // GetByArticleID 获取文章的评论列表
@@ -364,21 +375,131 @@ func (s *commentService) GetByArticleIDSorted(articleID int64, sort string) ([]*
 }
 
 // Like 点赞评论
-func (s *commentService) Like(commentID int64) error {
-	return s.commentRepo.IncrementLike(commentID)
+func (s *commentService) Like(commentID, userID int64) error {
+	comment, err := s.commentRepo.GetByID(commentID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return errors.New("comment not found")
+		}
+		return fmt.Errorf("failed to get comment: %w", err)
+	}
+	if comment == nil || comment.Status == "deleted" {
+		return errors.New("comment not found")
+	}
+
+	if err := s.commentRepo.IncrementLike(commentID); err != nil {
+		return fmt.Errorf("failed to like comment: %w", err)
+	}
+
+	s.notifyCommentReaction(context.Background(), comment, userID, model.NotificationTypeCommentLike, "点赞了你的评论", "点赞了你的评论")
+	return nil
 }
 
 // Unlike 取消点赞评论
-func (s *commentService) Unlike(commentID int64) error {
-	return s.commentRepo.DecrementLike(commentID)
+func (s *commentService) Unlike(commentID, userID int64) error {
+	comment, err := s.commentRepo.GetByID(commentID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return errors.New("comment not found")
+		}
+		return fmt.Errorf("failed to get comment: %w", err)
+	}
+	if comment == nil || comment.Status == "deleted" {
+		return errors.New("comment not found")
+	}
+
+	if err := s.commentRepo.DecrementLike(commentID); err != nil {
+		return fmt.Errorf("failed to unlike comment: %w", err)
+	}
+
+	s.notifyCommentReaction(context.Background(), comment, userID, model.NotificationTypeCommentLike, "取消了对你评论的点赞", "取消了对你评论的点赞")
+	return nil
 }
 
 // Dislike 点踩评论
-func (s *commentService) Dislike(commentID int64) error {
-	return s.commentRepo.IncrementDislike(commentID)
+func (s *commentService) Dislike(commentID, userID int64) error {
+	comment, err := s.commentRepo.GetByID(commentID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return errors.New("comment not found")
+		}
+		return fmt.Errorf("failed to get comment: %w", err)
+	}
+	if comment == nil || comment.Status == "deleted" {
+		return errors.New("comment not found")
+	}
+
+	if err := s.commentRepo.IncrementDislike(commentID); err != nil {
+		return fmt.Errorf("failed to dislike comment: %w", err)
+	}
+
+	s.notifyCommentReaction(context.Background(), comment, userID, model.NotificationTypeCommentLike, "点踩了你的评论", "点踩了你的评论")
+	return nil
 }
 
 // Undislike 取消点踩评论
-func (s *commentService) Undislike(commentID int64) error {
-	return s.commentRepo.DecrementDislike(commentID)
+func (s *commentService) Undislike(commentID, userID int64) error {
+	comment, err := s.commentRepo.GetByID(commentID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return errors.New("comment not found")
+		}
+		return fmt.Errorf("failed to get comment: %w", err)
+	}
+	if comment == nil || comment.Status == "deleted" {
+		return errors.New("comment not found")
+	}
+
+	if err := s.commentRepo.DecrementDislike(commentID); err != nil {
+		return fmt.Errorf("failed to undislike comment: %w", err)
+	}
+
+	s.notifyCommentReaction(context.Background(), comment, userID, model.NotificationTypeCommentLike, "取消了对你评论的点踩", "取消了对你评论的点踩")
+	return nil
+}
+
+func (s *commentService) notifyCommentReaction(ctx context.Context, comment *model.Comment, actorID int64, notifType, titleText, actionText string) {
+	if s == nil || s.notificationService == nil || comment == nil || comment.UserID == 0 || actorID == 0 || actorID == comment.UserID {
+		return
+	}
+
+	articleTitle := "你的评论"
+	articleLink := ""
+	if article, err := s.articleRepo.GetByID(comment.ArticleID); err == nil && article != nil {
+		articleTitle = article.Title
+		if strings.TrimSpace(article.Slug) != "" {
+			articleLink = fmt.Sprintf("/article/%s", article.Slug)
+		}
+	}
+	if articleLink == "" {
+		articleLink = fmt.Sprintf("/article/%d", comment.ArticleID)
+	}
+
+	preview := commentPreview(comment.Content)
+	if preview == "" {
+		preview = "你的评论"
+	}
+	actorName := s.resolveActorName(actorID)
+
+	_ = s.notificationService.Create(
+		comment.UserID,
+		notifType,
+		fmt.Sprintf("%s%s", actorName, titleText),
+		fmt.Sprintf("在《%s》中，%s%s：%s", articleTitle, actorName, actionText, preview),
+		articleLink,
+	)
+}
+
+func (s *commentService) resolveActorName(actorID int64) string {
+	if actorID <= 0 {
+		return "读者"
+	}
+	if s.userRepo == nil {
+		return "读者"
+	}
+	user, err := s.userRepo.GetByID(actorID)
+	if err != nil || user == nil || strings.TrimSpace(user.Username) == "" {
+		return "读者"
+	}
+	return user.Username
 }

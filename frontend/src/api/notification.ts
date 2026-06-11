@@ -3,9 +3,9 @@ import type { Notification, PaginatedResponse } from '@/types';
 
 export const notificationApi = {
   // 获取通知列表
-  list: (page: number = 1, pageSize: number = 20) => {
+  list: (page: number = 1, pageSize: number = 20, type?: Notification['type']) => {
     return request.get<PaginatedResponse<Notification>>('/notifications', {
-      params: { page, page_size: pageSize },
+      params: { page, page_size: pageSize, type },
     });
   },
 

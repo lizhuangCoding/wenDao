@@ -1,9 +1,10 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Comment } from '@/types';
 import { formatDate } from '@/utils';
 import { commentApi } from '@/api';
 import { CommentForm } from './CommentForm';
+import { useAuthStore } from '@/store';
 
 interface CommentItemProps {
   comment: Comment;
@@ -29,12 +30,20 @@ const DefaultDeletedUserAvatar = () => (
 
 export const CommentItem = ({ comment, articleId, isReply = false }: CommentItemProps) => {
   const { t } = useTranslation();
+  const userId = useAuthStore((state) => state.user?.id ?? 0);
   const [showReplyForm, setShowReplyForm] = useState(false);
-  const votedKey = `comment_vote_${comment.id}`;
+  const votedKey = `comment_vote_${userId || 'anon'}_${comment.id}`;
   const [vote, setVote] = useState<CommentVote>(() => getStoredCommentVote(votedKey));
   const [isVotePending, setIsVotePending] = useState(false);
   const [optLikeCount, setOptLikeCount] = useState(comment.like_count || 0);
   const [optDislikeCount, setOptDislikeCount] = useState(comment.dislike_count || 0);
+
+  useEffect(() => {
+    setVote(getStoredCommentVote(votedKey));
+    setOptLikeCount(comment.like_count || 0);
+    setOptDislikeCount(comment.dislike_count || 0);
+    setIsVotePending(false);
+  }, [comment.dislike_count, comment.like_count, votedKey]);
 
   const applyVoteChange = useCallback((previousVote: CommentVote, nextVote: CommentVote) => {
     if (previousVote === nextVote) return;
