@@ -20,3 +20,13 @@ test('article detail displays estimated reading time in the header meta row', as
   assert.match(source, /article\.readingTime/);
   assert.match(source, /readingTime/);
 });
+
+test('article detail keeps table of contents in a sticky sidebar outside motion content', async () => {
+  const source = await loadSourceFile('pages/ArticleDetail.tsx');
+
+  assert.match(source, /lg:fixed/);
+  assert.match(source, /lg:top-32/);
+  assert.match(source, /aria-hidden="true"/);
+  assert.match(source, /<TableOfContents headings=\{headings\} \/>/);
+  assert.doesNotMatch(source, /motion\.article[\s\S]*<TableOfContents/);
+});

@@ -257,6 +257,24 @@
   top: 0.72em;
 }
 
+.article-reading-body ul ul {
+  @apply my-2 space-y-1 pl-4;
+}
+
+.article-reading-body ul ul > li {
+  @apply pl-5;
+}
+
+.article-reading-body ul ul > li::before {
+  @apply left-0 h-2 w-2 border-2 border-primary-400 bg-transparent dark:border-primary-300;
+  top: 0.66em;
+}
+
+.article-reading-body ul ul ul > li::before {
+  @apply h-0.5 w-3 rounded-full border-0 bg-neutral-400 dark:bg-neutral-500;
+  top: 0.82em;
+}
+
 .article-reading-body ol > li {
   @apply pl-1;
 }

@@ -199,37 +199,37 @@ export const ArticleDetail = () => {
         </script>
       </Helmet>
       <div className="max-w-display mx-auto px-6 sm:px-10 lg:px-12 py-20">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8 }}
-          className="flex flex-col lg:flex-row justify-center gap-16"
-        >
-          <aside className="hidden lg:block w-64 shrink-0">
-            <div className="sticky top-32">
-              <TableOfContents headings={headings} />
+        <div className="flex flex-col lg:flex-row justify-center gap-16">
+          <aside className="hidden lg:fixed lg:left-[max(1.5rem,calc((100vw-1400px)/2+3rem))] lg:top-32 lg:z-20 lg:block lg:w-64 lg:max-h-[calc(100vh-8rem)] lg:overflow-y-auto lg:scrollbar-hide">
+            <TableOfContents headings={headings} />
 
-              <div className="mt-12 pt-12 border-t border-neutral-100 dark:border-neutral-800">
-                <h4 className="text-[10px] font-black tracking-[0.2em] text-neutral-400 dark:text-neutral-500 uppercase mb-6">{t('article.sharedBy')}</h4>
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full overflow-hidden border border-neutral-200 dark:border-neutral-700 shadow-sm">
-                    <img
-                      src={article.author.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${article.author.username}`}
-                      alt={article.author.username}
-                      loading="lazy"
-                      decoding="async"
-                    />
-                  </div>
-                  <div>
-                    <p className="text-sm font-bold text-neutral-900 dark:text-neutral-100">{article.author.username}</p>
-                    <p className="text-[10px] text-neutral-400 dark:text-neutral-500 font-bold uppercase tracking-tighter">{t('article.contributor')}</p>
-                  </div>
+            <div className="mt-12 pt-12 border-t border-neutral-100 dark:border-neutral-800">
+              <h4 className="text-[10px] font-black tracking-[0.2em] text-neutral-400 dark:text-neutral-500 uppercase mb-6">{t('article.sharedBy')}</h4>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full overflow-hidden border border-neutral-200 dark:border-neutral-700 shadow-sm">
+                  <img
+                    src={article.author.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${article.author.username}`}
+                    alt={article.author.username}
+                    loading="lazy"
+                    decoding="async"
+                  />
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-neutral-900 dark:text-neutral-100">{article.author.username}</p>
+                  <p className="text-[10px] text-neutral-400 dark:text-neutral-500 font-bold uppercase tracking-tighter">{t('article.contributor')}</p>
                 </div>
               </div>
             </div>
           </aside>
 
-          <article className="flex-1 min-w-0 max-w-reading">
+          <div className="hidden lg:block w-64 shrink-0" aria-hidden="true" />
+
+          <motion.article
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8 }}
+            className="flex-1 min-w-0 max-w-reading"
+          >
             <header className="mb-16">
               <div className="flex items-center gap-4 mb-8">
                 <span className="text-[10px] font-black tracking-[0.3em] text-primary-600 dark:text-primary-400 uppercase bg-primary-50 dark:bg-primary-900/30 px-3 py-1 rounded-full">
@@ -317,10 +317,10 @@ export const ArticleDetail = () => {
             <div className="mt-24 pt-16 border-t border-neutral-100 dark:border-neutral-800">
               <CommentList articleId={article.id} totalCommentCount={article.comment_count} />
             </div>
-          </article>
+          </motion.article>
 
           <div className="hidden xl:block w-64 shrink-0"></div>
-        </motion.div>
+        </div>
       </div>
     </Layout>
   );

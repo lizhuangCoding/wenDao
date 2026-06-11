@@ -63,7 +63,7 @@ export const TableOfContents: React.FC<Props> = ({ headings }) => {
   if (headings.length === 0) return null;
 
   return (
-    <div className="sticky top-24 max-h-[calc(100vh-140px)] overflow-y-auto scrollbar-hide rounded-2xl border border-neutral-200/70 bg-white/70 px-4 py-4 shadow-soft backdrop-blur-xl dark:border-primary-900/20 dark:bg-[#07111a]/80">
+    <div className="rounded-2xl border border-neutral-200/70 bg-white/70 px-4 py-4 shadow-soft backdrop-blur-xl dark:border-primary-900/20 dark:bg-[#07111a]/80">
       <h4 className="mb-4 pl-1 text-xs font-bold uppercase tracking-widest text-neutral-400 dark:text-neutral-300">
         {t('article.tableOfContents')}
       </h4>

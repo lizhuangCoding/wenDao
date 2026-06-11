@@ -5,6 +5,7 @@ import test from 'node:test';
 const loadArticleEditor = () => readFile(new URL('./ArticleEditor.tsx', import.meta.url), 'utf8');
 const loadWritingStudio = () =>
   readFile(new URL('./components/MarkdownWritingStudio.tsx', import.meta.url), 'utf8');
+const loadArticlePreview = () => readFile(new URL('./ArticlePreview.tsx', import.meta.url), 'utf8');
 
 test('ArticleEditor delegates Markdown editing to MarkdownWritingStudio', async () => {
   const source = await loadArticleEditor();
@@ -24,10 +25,22 @@ test('MarkdownWritingStudio owns toolbar color controls and immersive toggle', a
   assert.match(source, /TEXT_COLOR_PRESETS/);
   assert.match(source, /applyMarkdownColor/);
   assert.match(source, /normalizeMarkdownColor/);
-  assert.match(source, /aria-label="应用当前字体颜色"/);
-  assert.match(source, /专注写作/);
-  assert.match(source, /退出专注/);
+  assert.match(source, /articleEditor\.textColorApply/);
+  assert.match(source, /articleEditor\.focusEnter/);
+  assert.match(source, /articleEditor\.focusExit/);
   assert.match(source, /onImmersiveChange/);
+});
+
+test('MarkdownWritingStudio exposes richer block formatting actions', async () => {
+  const source = await loadWritingStudio();
+
+  assert.match(source, /heading-3/);
+  assert.match(source, /heading-4/);
+  assert.match(source, /Heading3/);
+  assert.match(source, /Heading4/);
+  assert.match(source, /unordered-list-indented/);
+  assert.doesNotMatch(source, /task-list/);
+  assert.match(source, /toolbarNestedUnorderedList/);
 });
 
 test('MarkdownWritingStudio renders immersive mode as a fullscreen writing surface', async () => {
@@ -52,7 +65,24 @@ test('MarkdownWritingStudio synchronizes editor and preview scrolling', async ()
 
   assert.match(source, /previewScrollRef/);
   assert.match(source, /syncMarkdownScroll/);
+  assert.match(source, /syncPreviewScrollToEditorAnchor/);
+  assert.match(source, /syncEditorScrollToPreviewAnchor/);
+  assert.match(source, /getMarkdownScrollAnchorLines/);
+  assert.match(source, /getEditorMarkdownAnchors/);
+  assert.match(source, /data-editor-md-line/);
+  assert.match(source, /editorScrollMirrorRef/);
+  assert.match(source, /getScrollMap/);
+  assert.match(source, /interpolateScrollMap/);
+  assert.match(source, /getBoundingClientRect/);
   assert.match(source, /onScroll=\{handleEditorScroll\}/);
   assert.match(source, /onScroll=\{handlePreviewScroll\}/);
   assert.match(source, /getSynchronizedScrollTop/);
+});
+
+test('ArticlePreview annotates rendered blocks with markdown source lines', async () => {
+  const source = await loadArticlePreview();
+
+  assert.match(source, /data-md-line/);
+  assert.match(source, /node\?\.position\?\.start\?\.line/);
+  assert.match(source, /CollapsibleCodeBlock/);
 });

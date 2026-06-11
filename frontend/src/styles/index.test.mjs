@@ -47,6 +47,18 @@ test('front detail and admin preview share article reading styles', async () => 
   assert.doesNotMatch(renderer, /text-3xl|text-2xl|mt-8 mb-4/);
 });
 
+test('article reading styles visually distinguish nested unordered lists', async () => {
+  const css = await loadMarkdownCss();
+  const nestedListBody = getRuleBody(css, '.article-reading-body ul ul');
+  const nestedBulletBody = getRuleBody(css, '.article-reading-body ul ul > li::before');
+  const deepNestedBulletBody = getRuleBody(css, '.article-reading-body ul ul ul > li::before');
+
+  assert.match(nestedListBody, /pl-4/);
+  assert.match(nestedBulletBody, /border-2/);
+  assert.match(nestedBulletBody, /bg-transparent/);
+  assert.match(deepNestedBulletBody, /w-3/);
+});
+
 test('dark mode uses a deeper cool background and readable secondary text', async () => {
   const indexCss = await loadIndexCss();
   const layout = await loadSourceFile('components/common/Layout.tsx');

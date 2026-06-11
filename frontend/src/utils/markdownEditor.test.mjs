@@ -58,6 +58,20 @@ test('applyMarkdownAction inserts heading marker at the current line', async () 
   assert.deepEqual(result.selection, { start: 11, end: 18 });
 });
 
+test('applyMarkdownAction supports deeper heading levels', async () => {
+  const { applyMarkdownAction } = await loadMarkdownEditor();
+
+  const result = applyMarkdownAction({
+    text: 'section title',
+    selectionStart: 0,
+    selectionEnd: 13,
+    action: 'heading-3',
+  });
+
+  assert.equal(result.text, '### section title');
+  assert.deepEqual(result.selection, { start: 4, end: 17 });
+});
+
 test('applyMarkdownAction converts selected lines to unordered list items', async () => {
   const { applyMarkdownAction } = await loadMarkdownEditor();
 
@@ -70,6 +84,20 @@ test('applyMarkdownAction converts selected lines to unordered list items', asyn
 
   assert.equal(result.text, '- alpha\n- beta');
   assert.deepEqual(result.selection, { start: 2, end: 14 });
+});
+
+test('applyMarkdownAction supports indented unordered list items', async () => {
+  const { applyMarkdownAction } = await loadMarkdownEditor();
+
+  const result = applyMarkdownAction({
+    text: 'alpha\nbeta',
+    selectionStart: 0,
+    selectionEnd: 10,
+    action: 'unordered-list-indented',
+  });
+
+  assert.equal(result.text, '  - alpha\n  - beta');
+  assert.deepEqual(result.selection, { start: 4, end: 18 });
 });
 
 test('applyMarkdownAction inserts fenced code block with cursor inside', async () => {

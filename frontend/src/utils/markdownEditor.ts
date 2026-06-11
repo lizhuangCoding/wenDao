@@ -1,8 +1,12 @@
 export type MarkdownAction =
   | 'heading'
+  | 'heading-2'
+  | 'heading-3'
+  | 'heading-4'
   | 'bold'
   | 'quote'
   | 'unordered-list'
+  | 'unordered-list-indented'
   | 'ordered-list'
   | 'code-block'
   | 'inline-code'
@@ -91,6 +95,18 @@ const prefixSelectedLines = (
   });
 };
 
+const applyHeadingLevel = (input: ApplyMarkdownActionInput, level: number): ApplyMarkdownActionResult => {
+  const { lineStart, lineEnd } = getLineBounds(input.text, input.selectionStart, input.selectionEnd);
+  const line = input.text.slice(lineStart, lineEnd);
+  const replacement = `${'#'.repeat(level)} ${line.replace(/^#{1,6}\s+/, '')}`;
+  const delta = replacement.length - line.length;
+
+  return replaceRange(input.text, lineStart, lineEnd, replacement, {
+    start: input.selectionStart + Math.max(delta, 0),
+    end: input.selectionEnd + Math.max(delta, 0),
+  });
+};
+
 const wrapSelection = (
   input: ApplyMarkdownActionInput,
   before: string,
@@ -169,19 +185,20 @@ export const applyMarkdownAction = (input: ApplyMarkdownActionInput): ApplyMarkd
     case 'inline-code':
       return wrapSelection(input, '`', '`', 'code');
     case 'heading': {
-      const { lineStart, lineEnd } = getLineBounds(input.text, input.selectionStart, input.selectionEnd);
-      const line = input.text.slice(lineStart, lineEnd);
-      const replacement = line.startsWith('## ') ? line : `## ${line.replace(/^#{1,6}\s+/, '')}`;
-      const delta = replacement.length - line.length;
-      return replaceRange(input.text, lineStart, lineEnd, replacement, {
-        start: input.selectionStart + Math.max(delta, 0),
-        end: input.selectionEnd + Math.max(delta, 0),
-      });
+      return applyHeadingLevel(input, 2);
     }
+    case 'heading-2':
+      return applyHeadingLevel(input, 2);
+    case 'heading-3':
+      return applyHeadingLevel(input, 3);
+    case 'heading-4':
+      return applyHeadingLevel(input, 4);
     case 'quote':
       return prefixSelectedLines(input, () => '> ');
     case 'unordered-list':
       return prefixSelectedLines(input, () => '- ');
+    case 'unordered-list-indented':
+      return prefixSelectedLines(input, () => '  - ');
     case 'ordered-list':
       return prefixSelectedLines(input, (index) => `${index + 1}. `);
     case 'code-block': {
