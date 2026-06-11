@@ -68,7 +68,15 @@ jobs:
 
           echo "=== deployment host memory ==="
           free -h || true
+          echo "=== deployment host disk ==="
+          df -h || true
           echo "=== docker disk usage ==="
+          docker system df || true
+          echo "=== prune docker build cache before deploy ==="
+          docker builder prune -af || true
+          docker container prune -f || true
+          docker image prune -f || true
+          echo "=== docker disk usage after prune ==="
           docker system df || true
 
           export BUILDKIT_PROGRESS=plain
