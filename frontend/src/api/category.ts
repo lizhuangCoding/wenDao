@@ -2,6 +2,13 @@ import { request } from './client';
 import type { Category, PaginatedResponse, PaginationParams } from '@/types';
 import { toPaginationQuery } from './pagination';
 
+type CategoryFormPayload = {
+  name: string;
+  slug: string;
+  description?: string;
+  sort_order: number;
+};
+
 // 分类 API
 export const categoryApi = {
   // 获取所有分类
@@ -20,12 +27,12 @@ export const categoryApi = {
   },
 
   // 创建分类（管理员）
-  createCategory: (data: { name: string; slug: string; description?: string }) => {
+  createCategory: (data: CategoryFormPayload) => {
     return request.post<Category>('/admin/categories', data);
   },
 
   // 更新分类（管理员）
-  updateCategory: (id: number, data: { name?: string; slug?: string; description?: string }) => {
+  updateCategory: (id: number, data: CategoryFormPayload) => {
     return request.put<Category>(`/admin/categories/${id}`, data);
   },
 

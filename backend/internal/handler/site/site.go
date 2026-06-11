@@ -42,6 +42,20 @@ func (h *SiteHandler) GetSlogan(c *gin.Context) {
 	})
 }
 
+// GetContactLinks 获取联系方式
+func (h *SiteHandler) GetContactLinks(c *gin.Context) {
+	links := h.defaultContactLinks()
+	if h.settingService != nil {
+		if storedLinks, ok := h.settingService.GetContactLinks(); ok {
+			links = storedLinks
+		}
+	}
+
+	response.Success(c, gin.H{
+		"contact_links": links,
+	})
+}
+
 // SetSlogan 设置网站标语（管理员）
 func (h *SiteHandler) SetSlogan(c *gin.Context) {
 	var req struct {
@@ -60,6 +74,33 @@ func (h *SiteHandler) SetSlogan(c *gin.Context) {
 		return
 	}
 	response.Success(c, gin.H{"slogan": req.Slogan})
+}
+
+// SetContactLinks 设置联系方式（管理员）
+func (h *SiteHandler) SetContactLinks(c *gin.Context) {
+	var req struct {
+		ContactLinks []setting.ContactLink `json:"contact_links"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.InvalidParams(c, "联系方式格式错误")
+		return
+	}
+	if h.settingService == nil {
+		response.InternalError(c, "Setting service unavailable")
+		return
+	}
+
+	if err := h.settingService.SetContactLinks(req.ContactLinks); err != nil {
+		response.InternalErrorWithErr(c, "设置联系方式失败", err)
+		return
+	}
+
+	if savedLinks, ok := h.settingService.GetContactLinks(); ok {
+		response.Success(c, gin.H{"contact_links": savedLinks})
+		return
+	}
+
+	response.Success(c, gin.H{"contact_links": req.ContactLinks})
 }
 
 // RobotsTxt 返回 robots.txt 内容
@@ -111,6 +152,27 @@ func firstForwardedValue(value string) string {
 		return ""
 	}
 	return strings.TrimSpace(strings.Split(value, ",")[0])
+}
+
+func (h *SiteHandler) defaultContactLinks() []setting.ContactLink {
+	return []setting.ContactLink{
+		{
+			Type:      "email",
+			Label:     "QQ 邮箱",
+			Value:     "3174285493@qq.com",
+			URL:       "mailto:3174285493@qq.com",
+			Enabled:   true,
+			SortOrder: 1,
+		},
+		{
+			Type:      "github",
+			Label:     "GitHub",
+			Value:     "lizhuangCoding",
+			URL:       "https://github.com/lizhuangCoding",
+			Enabled:   true,
+			SortOrder: 2,
+		},
+	}
 }
 
 // SitemapXml 返回 sitemap.xml 内容

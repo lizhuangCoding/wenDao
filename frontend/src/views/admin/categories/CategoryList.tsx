@@ -30,6 +30,7 @@ type CategoryFormData = {
   name: string;
   slug: string;
   description: string;
+  sort_order: number;
 };
 
 export const CategoryList = () => {
@@ -43,7 +44,7 @@ export const CategoryList = () => {
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [confirmBatchDelete, setConfirmBatchDelete] = useState(false);
-  const [formData, setFormData] = useState<CategoryFormData>({ name: '', slug: '', description: '' });
+  const [formData, setFormData] = useState<CategoryFormData>({ name: '', slug: '', description: '', sort_order: 0 });
 
   const {
     data: categoriesData,
@@ -119,6 +120,7 @@ export const CategoryList = () => {
       name: category.name,
       slug: category.slug,
       description: category.description || '',
+      sort_order: category.sort_order,
     });
     setIsModalOpen(true);
   };
@@ -126,7 +128,7 @@ export const CategoryList = () => {
   const handleClose = () => {
     setIsModalOpen(false);
     setEditingCategory(null);
-    setFormData({ name: '', slug: '', description: '' });
+    setFormData({ name: '', slug: '', description: '', sort_order: 0 });
   };
 
   const toggleCategorySelection = (id: number) => {
@@ -185,11 +187,12 @@ export const CategoryList = () => {
                       aria-label={t('admin.selectCurrentPageCategories')}
                     />
               </DataTableHeaderCell>
-              <DataTableHeaderCell>{t('admin.name')}</DataTableHeaderCell>
-              <DataTableHeaderCell>{t('admin.slug')}</DataTableHeaderCell>
-              <DataTableHeaderCell>{t('admin.articleCount')}</DataTableHeaderCell>
-              <DataTableHeaderCell>{t('admin.createdAt')}</DataTableHeaderCell>
-              <DataTableHeaderCell align="right">{t('admin.actions')}</DataTableHeaderCell>
+                <DataTableHeaderCell>{t('admin.name')}</DataTableHeaderCell>
+                <DataTableHeaderCell>{t('admin.slug')}</DataTableHeaderCell>
+                <DataTableHeaderCell>{t('admin.sortOrder')}</DataTableHeaderCell>
+                <DataTableHeaderCell>{t('admin.articleCount')}</DataTableHeaderCell>
+                <DataTableHeaderCell>{t('admin.createdAt')}</DataTableHeaderCell>
+                <DataTableHeaderCell align="right">{t('admin.actions')}</DataTableHeaderCell>
             </DataTableHeadRow>
               </thead>
           <DataTableBody>
@@ -208,6 +211,7 @@ export const CategoryList = () => {
                 </DataTableCell>
                 <DataTableCell className="font-medium text-neutral-800 dark:text-neutral-200">{category.name}</DataTableCell>
                 <DataTableCell>{category.slug}</DataTableCell>
+                <DataTableCell className="tabular-nums text-neutral-500 dark:text-neutral-400">{category.sort_order}</DataTableCell>
                 <DataTableCell>{category.article_count}</DataTableCell>
                 <DataTableCell>{formatDate(category.created_at)}</DataTableCell>
                 <DataTableCell align="right">
@@ -321,6 +325,18 @@ export const CategoryList = () => {
                   />
                 </div>
                 <div>
+                  <label className="mb-2 block text-sm font-medium text-neutral-700 dark:text-neutral-300">{t('admin.sortOrder')}</label>
+                  <TextInput
+                    type="number"
+                    min={0}
+                    step={1}
+                    value={formData.sort_order}
+                    onChange={(e) => setFormData({ ...formData, sort_order: Number(e.target.value) })}
+                    placeholder="0"
+                  />
+                  <p className="mt-2 text-xs text-neutral-400 dark:text-neutral-500">{t('admin.sortOrderHint')}</p>
+                </div>
+                <div>
                   <label className="mb-2 block text-sm font-medium text-neutral-700 dark:text-neutral-300">{t('admin.description')}</label>
                   <textarea
                     className="w-full resize-none rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-3 text-neutral-800 transition-all focus:outline-none focus:ring-2 focus:ring-primary-500 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-200"
@@ -341,7 +357,10 @@ export const CategoryList = () => {
                       showToast(t('admin.pleaseFillComplete'), 'error');
                       return;
                     }
-                    saveMutation.mutate(formData);
+                    saveMutation.mutate({
+                      ...formData,
+                      sort_order: Number.isFinite(formData.sort_order) ? formData.sort_order : 0,
+                    });
                   }}
                   disabled={saveMutation.isPending}
                 >

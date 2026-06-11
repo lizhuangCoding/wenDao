@@ -171,6 +171,7 @@ func registerRoutes(
 		api.POST("/comments/:id/dislike", commentHandler.Dislike)
 		api.DELETE("/comments/:id/dislike", commentHandler.Undislike)
 		api.GET("/slogan", siteHandler.GetSlogan)
+		api.GET("/contact-links", siteHandler.GetContactLinks)
 		api.GET("/settings/sort-mode", articleHandler.GetSortMode)
 		api.GET("/models", aiHandler.GetModels)
 
@@ -293,6 +294,7 @@ func registerRoutes(
 			admin.GET("/stats/dashboard", statHandler.GetDashboardStats)
 			admin.PUT("/settings/sort-mode", articleHandler.SetSortMode)
 			admin.PUT("/settings/slogan", siteHandler.SetSlogan)
+			admin.PUT("/settings/contact-links", siteHandler.SetContactLinks)
 
 			// 消息广播
 			admin.POST("/notifications/broadcast", notificationHandler.Broadcast)

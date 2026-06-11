@@ -144,8 +144,18 @@ export interface Category {
   slug: string;
   description?: string;
   article_count: number;
+  sort_order: number;
   created_at: string;
   updated_at: string;
+}
+
+export interface ContactLink {
+  type: string;
+  label: string;
+  value: string;
+  url?: string;
+  enabled: boolean;
+  sort_order: number;
 }
 
 // 评论相关类型

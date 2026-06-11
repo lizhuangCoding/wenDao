@@ -11,6 +11,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"wenDao/internal/model"
+	"wenDao/internal/service/setting"
 )
 
 type stubArticleService struct {
@@ -117,6 +118,10 @@ func (s *stubSettingService) GetSortByPopularity() bool              { return fa
 func (s *stubSettingService) SetSortByPopularity(enabled bool) error { return nil }
 func (s *stubSettingService) GetSlogan() string                      { return "" }
 func (s *stubSettingService) SetSlogan(slogan string) error          { return nil }
+func (s *stubSettingService) GetContactLinks() ([]setting.ContactLink, bool) {
+	return nil, false
+}
+func (s *stubSettingService) SetContactLinks(links []setting.ContactLink) error { return nil }
 
 func TestArticleHandlerGetByID_HidesDraftFromPublicRoute(t *testing.T) {
 	gin.SetMode(gin.TestMode)

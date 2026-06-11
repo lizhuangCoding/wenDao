@@ -58,3 +58,18 @@ test('admin dashboard and knowledge document detail avoid rough browser defaults
   assert.match(detail, /TextArea/);
   assert.match(detail, /StatusBadge/);
 });
+
+test('admin settings and category management expose configurable site and category ordering', async () => {
+  const [settings, categories] = await Promise.all([
+    loadAdminSource('Settings.tsx'),
+    loadAdminSource('categories/CategoryList.tsx'),
+  ]);
+
+  assert.match(settings, /contactLinksTitle/);
+  assert.match(settings, /saveContactLinks/);
+  assert.match(settings, /contactLinksInput/);
+
+  assert.match(categories, /sort_order/);
+  assert.match(categories, /sortOrderHint/);
+  assert.match(categories, /admin\.sortOrder/);
+});
