@@ -25,9 +25,16 @@ test('collapsible code blocks default long snippets to collapsed state', async (
 test('collapsible code blocks expose an explicit expand and collapse affordance', async () => {
   const source = await loadSourceFile('article/CollapsibleCodeBlock.tsx');
 
-  assert.match(source, /展开完整代码/);
-  assert.match(source, /收起代码/);
+  assert.match(source, /codeBlock\.expand/);
+  assert.match(source, /codeBlock\.collapse/);
   assert.match(source, /aria-expanded/);
   assert.match(source, /ChevronDown|ChevronUp/);
 });
 
+test('collapsible code blocks render visible line numbers', async () => {
+  const source = await loadSourceFile('article/CollapsibleCodeBlock.tsx');
+
+  assert.match(source, /lineNumbers/);
+  assert.match(source, /grid-cols-\[3\.5rem_minmax\(0,1fr\)\]/);
+  assert.match(source, /text-\[11px\]/);
+});

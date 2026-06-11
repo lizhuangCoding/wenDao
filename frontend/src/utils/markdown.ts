@@ -51,6 +51,58 @@ export const markdownToPlainText = (content: string): string => {
     .trim();
 };
 
+const countProseUnits = (content: string): number => {
+  const normalized = markdownToPlainText(content);
+  if (!normalized) return 0;
+
+  const chineseCharacters = normalized.match(/[\u4e00-\u9fff]/g)?.length ?? 0;
+  const englishWords = normalized.match(/[A-Za-z0-9]+(?:'[A-Za-z0-9]+)?/g)?.length ?? 0;
+
+  return (chineseCharacters / 350) + (englishWords / 220);
+};
+
+const countCodeUnits = (code: string): number => {
+  const normalized = code.trimEnd();
+  if (!normalized) return 0;
+
+  const lines = normalized.split(/\r?\n/).length;
+  const characters = normalized.replace(/\s+/g, '').length;
+
+  return Math.max(lines / 4, characters / 120);
+};
+
+const stripCodeBlocks = (content: string): string => {
+  return content
+    .replace(/```[^\n]*\n[\s\S]*?```/g, '\n')
+    .replace(/~~~[^\n]*\n[\s\S]*?~~~/g, '\n');
+};
+
+const extractCodeBlocks = (content: string): string[] => {
+  const blocks: string[] = [];
+
+  content.replace(/```[^\n]*\n([\s\S]*?)```/g, (_, code: string) => {
+    blocks.push(code);
+    return '\n';
+  });
+
+  content.replace(/~~~[^\n]*\n([\s\S]*?)~~~/g, (_, code: string) => {
+    blocks.push(code);
+    return '\n';
+  });
+
+  return blocks;
+};
+
+export const estimateReadingTime = (content: string): number => {
+  if (!content?.trim()) return 1;
+
+  const proseUnits = countProseUnits(stripCodeBlocks(content));
+  const codeUnits = extractCodeBlocks(content).reduce((total, block) => total + countCodeUnits(block), 0);
+  const totalMinutes = proseUnits + codeUnits;
+
+  return Math.max(1, Math.ceil(totalMinutes));
+};
+
 /**
  * 稳定的 Slug 生成器
  * 注意：由于 extractHeadings 和 ReactMarkdown 渲染是分开的，
