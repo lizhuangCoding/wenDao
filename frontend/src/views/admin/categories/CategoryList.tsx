@@ -178,7 +178,7 @@ export const CategoryList = () => {
         >
               <thead>
             <DataTableHeadRow>
-              <DataTableHeaderCell>
+              <DataTableHeaderCell width="select">
                     <input
                       type="checkbox"
                       checked={allCurrentPageSelected}
@@ -187,12 +187,12 @@ export const CategoryList = () => {
                       aria-label={t('admin.selectCurrentPageCategories')}
                     />
               </DataTableHeaderCell>
-                <DataTableHeaderCell>{t('admin.name')}</DataTableHeaderCell>
-                <DataTableHeaderCell>{t('admin.slug')}</DataTableHeaderCell>
-                <DataTableHeaderCell>{t('admin.sortOrder')}</DataTableHeaderCell>
-                <DataTableHeaderCell>{t('admin.articleCount')}</DataTableHeaderCell>
-                <DataTableHeaderCell>{t('admin.createdAt')}</DataTableHeaderCell>
-                <DataTableHeaderCell align="right">{t('admin.actions')}</DataTableHeaderCell>
+                <DataTableHeaderCell width="wide">{t('admin.name')}</DataTableHeaderCell>
+                <DataTableHeaderCell width="medium">{t('admin.slug')}</DataTableHeaderCell>
+                <DataTableHeaderCell width="compact">{t('admin.sortOrder')}</DataTableHeaderCell>
+                <DataTableHeaderCell width="compact">{t('admin.articleCount')}</DataTableHeaderCell>
+                <DataTableHeaderCell width="medium">{t('admin.createdAt')}</DataTableHeaderCell>
+                <DataTableHeaderCell width="actions" align="right">{t('admin.actions')}</DataTableHeaderCell>
             </DataTableHeadRow>
               </thead>
           <DataTableBody>
@@ -200,7 +200,7 @@ export const CategoryList = () => {
               <DataTableRow
                     key={category.id}
                   >
-                <DataTableCell>
+                <DataTableCell width="select" nowrap>
                       <input
                         type="checkbox"
                         checked={selectedIds.includes(category.id)}
@@ -209,13 +209,15 @@ export const CategoryList = () => {
                         aria-label={t('admin.selectCategory', { name: category.name })}
                       />
                 </DataTableCell>
-                <DataTableCell className="font-medium text-neutral-800 dark:text-neutral-200">{category.name}</DataTableCell>
-                <DataTableCell>{category.slug}</DataTableCell>
-                <DataTableCell className="tabular-nums text-neutral-500 dark:text-neutral-400">{category.sort_order}</DataTableCell>
-                <DataTableCell>{category.article_count}</DataTableCell>
-                <DataTableCell>{formatDate(category.created_at)}</DataTableCell>
-                <DataTableCell align="right">
-                      <div className="flex items-center justify-end gap-2">
+                <DataTableCell truncate className="font-medium text-neutral-800 dark:text-neutral-200" title={category.name}>
+                  {category.name}
+                </DataTableCell>
+                <DataTableCell truncate title={category.slug}>{category.slug}</DataTableCell>
+                <DataTableCell nowrap className="tabular-nums text-neutral-500 dark:text-neutral-400">{category.sort_order}</DataTableCell>
+                <DataTableCell nowrap>{category.article_count}</DataTableCell>
+                <DataTableCell nowrap>{formatDate(category.created_at)}</DataTableCell>
+                <DataTableCell align="right" nowrap>
+                      <div className="inline-flex items-center justify-end gap-2">
                     <Button
                       variant="ghost"
                       size="sm"

@@ -188,7 +188,7 @@ export const KnowledgeDocumentList = () => {
         >
               <thead>
             <DataTableHeadRow>
-              <DataTableHeaderCell>
+              <DataTableHeaderCell width="select">
                     <input
                       type="checkbox"
                       checked={allCurrentPageSelected}
@@ -197,10 +197,10 @@ export const KnowledgeDocumentList = () => {
                       aria-label={t('knowledgeDocument.selectCurrentPage')}
                     />
               </DataTableHeaderCell>
-              <DataTableHeaderCell>{t('admin.title')}</DataTableHeaderCell>
-              <DataTableHeaderCell>{t('admin.status')}</DataTableHeaderCell>
-              <DataTableHeaderCell>{t('knowledgeDocument.createdAt')}</DataTableHeaderCell>
-              <DataTableHeaderCell align="right">{t('knowledgeDocument.actionView')}</DataTableHeaderCell>
+              <DataTableHeaderCell width="wide">{t('admin.title')}</DataTableHeaderCell>
+              <DataTableHeaderCell width="medium">{t('admin.status')}</DataTableHeaderCell>
+              <DataTableHeaderCell width="medium">{t('knowledgeDocument.createdAt')}</DataTableHeaderCell>
+              <DataTableHeaderCell width="actions" align="right">{t('knowledgeDocument.actionView')}</DataTableHeaderCell>
             </DataTableHeadRow>
               </thead>
           <DataTableBody>
@@ -208,7 +208,7 @@ export const KnowledgeDocumentList = () => {
               const statusMeta = getKnowledgeDocumentStatusMeta(doc.status);
               return (
                 <DataTableRow key={doc.id}>
-                  <DataTableCell>
+                  <DataTableCell width="select" nowrap>
                       <input
                         type="checkbox"
                         checked={selectedIds.includes(doc.id)}
@@ -217,8 +217,10 @@ export const KnowledgeDocumentList = () => {
                         aria-label={t('knowledgeDocument.selectDocument', { title: doc.title })}
                       />
                   </DataTableCell>
-                  <DataTableCell className="font-medium text-neutral-800 dark:text-neutral-200">{doc.title}</DataTableCell>
-                  <DataTableCell>
+                  <DataTableCell truncate className="font-medium text-neutral-800 dark:text-neutral-200" title={doc.title}>
+                    {doc.title}
+                  </DataTableCell>
+                  <DataTableCell nowrap>
                       <div className="flex flex-col gap-1">
                       <StatusBadge variant={statusMeta.variant}>{statusMeta.label}</StatusBadge>
                       {doc.article_id && (
@@ -228,10 +230,10 @@ export const KnowledgeDocumentList = () => {
                       )}
                       </div>
                   </DataTableCell>
-                  <DataTableCell>
+                  <DataTableCell nowrap>
                       {new Date(doc.created_at).toLocaleString()}
                   </DataTableCell>
-                  <DataTableCell align="right">
+                  <DataTableCell align="right" nowrap>
                     <Link
                       to={`/admin/knowledge-documents/${doc.id}`}
                       className={getButtonClassName({

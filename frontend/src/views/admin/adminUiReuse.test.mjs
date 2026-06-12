@@ -73,3 +73,31 @@ test('admin settings and category management expose configurable site and catego
   assert.match(categories, /sortOrderHint/);
   assert.match(categories, /admin\.sortOrder/);
 });
+
+test('admin data tables protect utility columns from long primary text', async () => {
+  const [dataTable, articles, categories, comments, documents, users] = await Promise.all([
+    readFile(new URL('../../components/common/DataTable.tsx', import.meta.url), 'utf8'),
+    loadAdminSource('articles/ArticleList.tsx'),
+    loadAdminSource('categories/CategoryList.tsx'),
+    loadAdminSource('comments/CommentList.tsx'),
+    loadAdminSource('knowledge-documents/KnowledgeDocumentList.tsx'),
+    loadAdminSource('users/UserManagement.tsx'),
+  ]);
+
+  assert.match(dataTable, /table-fixed/);
+  assert.match(dataTable, /width\?:/);
+  assert.match(dataTable, /nowrap\?:/);
+  assert.match(dataTable, /truncate\?:/);
+
+  for (const source of [articles, categories, comments, documents, users]) {
+    assert.match(source, /width="actions"/);
+  }
+
+  for (const source of [articles, categories, comments, documents]) {
+    assert.match(source, /width="select"/);
+  }
+
+  for (const source of [articles, categories, comments, documents, users]) {
+    assert.match(source, /truncate/);
+  }
+});

@@ -1,6 +1,16 @@
 import type { ComponentProps, ReactNode } from 'react';
 import { cn } from '@/utils';
 
+type DataTableColumnWidth = 'select' | 'compact' | 'medium' | 'wide' | 'actions';
+
+const columnWidthClasses: Record<DataTableColumnWidth, string> = {
+  select: 'w-12 sm:w-14',
+  compact: 'w-24 sm:w-28',
+  medium: 'w-32 sm:w-40',
+  wide: 'w-[38%]',
+  actions: 'w-40 sm:w-48',
+};
+
 interface DataTableProps {
   children: ReactNode;
   className?: string;
@@ -16,7 +26,7 @@ export const DataTable = ({ children, className, emptyState, tableClassName }: D
     )}
   >
     <div className="overflow-x-auto">
-      <table className={cn('w-full min-w-[720px] border-collapse text-left', tableClassName)}>{children}</table>
+      <table className={cn('w-full min-w-[880px] table-fixed border-collapse text-left', tableClassName)}>{children}</table>
     </div>
     {emptyState}
   </div>
@@ -32,18 +42,27 @@ export const DataTableHeadRow = ({ className, ...props }: ComponentProps<'tr'>) 
   />
 );
 
-interface DataTableHeaderCellProps extends ComponentProps<'th'> {
+interface DataTableHeaderCellProps extends Omit<ComponentProps<'th'>, 'width'> {
   align?: 'left' | 'right' | 'center';
+  width?: DataTableColumnWidth;
+  nowrap?: boolean;
+  truncate?: boolean;
 }
 
 export const DataTableHeaderCell = ({
   align = 'left',
   className,
+  width,
+  nowrap = true,
+  truncate = false,
   ...props
 }: DataTableHeaderCellProps) => (
   <th
     className={cn(
-      'px-4 py-3 sm:px-6 sm:py-4 text-sm font-semibold text-neutral-600 dark:text-neutral-400',
+      'px-4 py-3 text-sm font-semibold text-neutral-600 dark:text-neutral-400 sm:px-6 sm:py-4',
+      width ? columnWidthClasses[width] : '',
+      nowrap ? 'whitespace-nowrap' : '',
+      truncate ? 'overflow-hidden text-ellipsis' : '',
       align === 'right' ? 'text-right' : '',
       align === 'center' ? 'text-center' : '',
       className
@@ -63,14 +82,27 @@ export const DataTableRow = ({ className, ...props }: ComponentProps<'tr'>) => (
   />
 );
 
-interface DataTableCellProps extends ComponentProps<'td'> {
+interface DataTableCellProps extends Omit<ComponentProps<'td'>, 'width'> {
   align?: 'left' | 'right' | 'center';
+  width?: DataTableColumnWidth;
+  nowrap?: boolean;
+  truncate?: boolean;
 }
 
-export const DataTableCell = ({ align = 'left', className, ...props }: DataTableCellProps) => (
+export const DataTableCell = ({
+  align = 'left',
+  className,
+  width,
+  nowrap = false,
+  truncate = false,
+  ...props
+}: DataTableCellProps) => (
   <td
     className={cn(
-      'px-4 py-3 sm:px-6 sm:py-4 text-sm text-neutral-500 dark:text-neutral-400',
+      'px-4 py-3 text-sm text-neutral-500 dark:text-neutral-400 sm:px-6 sm:py-4',
+      width ? columnWidthClasses[width] : '',
+      nowrap ? 'whitespace-nowrap' : '',
+      truncate ? 'overflow-hidden text-ellipsis whitespace-nowrap' : '',
       align === 'right' ? 'text-right' : '',
       align === 'center' ? 'text-center' : '',
       className

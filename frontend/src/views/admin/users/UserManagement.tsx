@@ -138,30 +138,30 @@ export const UserManagement = () => {
         >
           <thead>
             <DataTableHeadRow>
-              <DataTableHeaderCell>{t('users.userColumn')}</DataTableHeaderCell>
-              <DataTableHeaderCell>{t('users.emailColumn')}</DataTableHeaderCell>
-              <DataTableHeaderCell>{t('users.roleColumn')}</DataTableHeaderCell>
-              <DataTableHeaderCell>{t('users.statusColumn')}</DataTableHeaderCell>
-              <DataTableHeaderCell>{t('users.createdAt')}</DataTableHeaderCell>
-              <DataTableHeaderCell align="right">{t('users.actions')}</DataTableHeaderCell>
+              <DataTableHeaderCell width="wide">{t('users.userColumn')}</DataTableHeaderCell>
+              <DataTableHeaderCell width="medium">{t('users.emailColumn')}</DataTableHeaderCell>
+              <DataTableHeaderCell width="compact">{t('users.roleColumn')}</DataTableHeaderCell>
+              <DataTableHeaderCell width="compact">{t('users.statusColumn')}</DataTableHeaderCell>
+              <DataTableHeaderCell width="medium">{t('users.createdAt')}</DataTableHeaderCell>
+              <DataTableHeaderCell width="actions" align="right">{t('users.actions')}</DataTableHeaderCell>
             </DataTableHeadRow>
           </thead>
           <DataTableBody>
             {users.map((user) => (
               <DataTableRow key={user.id}>
-                <DataTableCell>
-                  <div className="flex items-center gap-3">
+                <DataTableCell className="min-w-0">
+                  <div className="flex min-w-0 items-center gap-3">
                     <img
                       src={user.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.username}`}
                       alt={user.username}
                       className="w-8 h-8 rounded-full shrink-0"
                     />
-                    <span className="font-medium text-neutral-800 dark:text-neutral-200 truncate">
+                    <span className="min-w-0 truncate font-medium text-neutral-800 dark:text-neutral-200" title={user.username}>
                       {user.username}
                     </span>
                   </div>
                 </DataTableCell>
-                <DataTableCell className="text-neutral-600 dark:text-neutral-400 max-w-[200px] truncate">
+                <DataTableCell truncate className="text-neutral-600 dark:text-neutral-400" title={user.email}>
                   {user.email}
                 </DataTableCell>
                 <DataTableCell className="whitespace-nowrap">

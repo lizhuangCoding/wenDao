@@ -199,7 +199,7 @@ export const CommentList = () => {
         >
               <thead>
             <DataTableHeadRow>
-              <DataTableHeaderCell>
+              <DataTableHeaderCell width="select">
                     <input
                       type="checkbox"
                       checked={allCurrentPageSelected}
@@ -208,12 +208,12 @@ export const CommentList = () => {
                       aria-label={t('admin.selectCurrentPageComments')}
                     />
               </DataTableHeaderCell>
-              <DataTableHeaderCell>{t('admin.commentContent')}</DataTableHeaderCell>
-              <DataTableHeaderCell>{t('admin.author')}</DataTableHeaderCell>
-              <DataTableHeaderCell>{t('admin.article')}</DataTableHeaderCell>
-              <DataTableHeaderCell>{t('admin.status')}</DataTableHeaderCell>
-              <DataTableHeaderCell>{t('admin.createdAt')}</DataTableHeaderCell>
-              <DataTableHeaderCell align="right">{t('admin.actions')}</DataTableHeaderCell>
+              <DataTableHeaderCell width="wide">{t('admin.commentContent')}</DataTableHeaderCell>
+              <DataTableHeaderCell width="medium">{t('admin.author')}</DataTableHeaderCell>
+              <DataTableHeaderCell width="medium">{t('admin.article')}</DataTableHeaderCell>
+              <DataTableHeaderCell width="compact">{t('admin.status')}</DataTableHeaderCell>
+              <DataTableHeaderCell width="medium">{t('admin.createdAt')}</DataTableHeaderCell>
+              <DataTableHeaderCell width="actions" align="right">{t('admin.actions')}</DataTableHeaderCell>
             </DataTableHeadRow>
               </thead>
           <DataTableBody>
@@ -221,7 +221,7 @@ export const CommentList = () => {
               <DataTableRow
                     key={comment.id}
                   >
-                <DataTableCell>
+                <DataTableCell width="select" nowrap>
                       <input
                         type="checkbox"
                         checked={selectedIds.includes(comment.id)}
@@ -230,26 +230,28 @@ export const CommentList = () => {
                         aria-label={t('admin.selectComment', { id: comment.id })}
                       />
                 </DataTableCell>
-                <DataTableCell>
-                      <div className="max-w-md line-clamp-2 text-sm text-neutral-700 dark:text-neutral-300">
+                <DataTableCell className="min-w-0">
+                      <div className="line-clamp-2 text-sm text-neutral-700 dark:text-neutral-300" title={comment.content}>
                         {comment.content}
                       </div>
                 </DataTableCell>
-                <DataTableCell>
+                <DataTableCell truncate title={comment.user?.username || '-'}>
                       {comment.user?.username || '-'}
                 </DataTableCell>
-                <DataTableCell>
-                      <div className="max-w-xs truncate">{comment.article?.title || '-'}</div>
+                <DataTableCell className="min-w-0">
+                      <div className="truncate" title={comment.article?.title || '-'}>
+                        {comment.article?.title || '-'}
+                      </div>
                 </DataTableCell>
-                <DataTableCell>
+                <DataTableCell nowrap>
                   <StatusBadge variant={comment.status === 'normal' ? 'success' : 'danger'}>
                         {comment.status === 'normal' ? t('admin.normal') : t('admin.deleted')}
                   </StatusBadge>
                 </DataTableCell>
-                <DataTableCell>
+                <DataTableCell nowrap>
                       {formatDate(comment.created_at)}
                 </DataTableCell>
-                <DataTableCell align="right">
+                <DataTableCell align="right" nowrap>
                       {comment.status === 'normal' ? (
                     <Button
                       variant="ghost"

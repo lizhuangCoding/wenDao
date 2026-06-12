@@ -277,7 +277,7 @@ export const ArticleList = () => {
         >
           <thead>
             <DataTableHeadRow>
-              <DataTableHeaderCell>
+              <DataTableHeaderCell width="select">
                     <input
                       type="checkbox"
                       checked={allCurrentPageSelected}
@@ -286,11 +286,11 @@ export const ArticleList = () => {
                       aria-label={t('admin.selectCurrentPageArticles')}
                     />
               </DataTableHeaderCell>
-              <DataTableHeaderCell>{t('admin.title')}</DataTableHeaderCell>
-              <DataTableHeaderCell>{t('article.pinned')}</DataTableHeaderCell>
-              <DataTableHeaderCell>{t('admin.status')}</DataTableHeaderCell>
-              <DataTableHeaderCell>{t('admin.createdAt')}</DataTableHeaderCell>
-              <DataTableHeaderCell align="right">{t('admin.actions')}</DataTableHeaderCell>
+              <DataTableHeaderCell width="wide">{t('admin.title')}</DataTableHeaderCell>
+              <DataTableHeaderCell width="compact" align="center">{t('article.pinned')}</DataTableHeaderCell>
+              <DataTableHeaderCell width="compact">{t('admin.status')}</DataTableHeaderCell>
+              <DataTableHeaderCell width="medium">{t('admin.createdAt')}</DataTableHeaderCell>
+              <DataTableHeaderCell width="actions" align="right">{t('admin.actions')}</DataTableHeaderCell>
             </DataTableHeadRow>
           </thead>
           <DataTableBody>
@@ -298,7 +298,7 @@ export const ArticleList = () => {
               <DataTableRow
                     key={article.id}
                   >
-                <DataTableCell>
+                <DataTableCell width="select" nowrap>
                       <input
                         type="checkbox"
                         checked={selectedIds.includes(article.id)}
@@ -307,27 +307,31 @@ export const ArticleList = () => {
                         aria-label={t('admin.selectArticle', { title: article.title })}
                       />
                 </DataTableCell>
-                <DataTableCell>
-                      <div className="font-medium text-neutral-800 dark:text-neutral-200">{article.title}</div>
-                      <div className="mt-1 text-xs text-neutral-400 dark:text-neutral-500">{article.category.name}</div>
+                <DataTableCell className="min-w-0">
+                      <div className="truncate font-medium text-neutral-800 dark:text-neutral-200" title={article.title}>
+                        {article.title}
+                      </div>
+                      <div className="mt-1 truncate text-xs text-neutral-400 dark:text-neutral-500" title={article.category.name}>
+                        {article.category.name}
+                      </div>
                 </DataTableCell>
-                <DataTableCell>
+                <DataTableCell align="center" nowrap>
                   <ToggleSwitch
                     checked={article.is_top}
                         onClick={() => topMutation.mutate(article.id)}
                         aria-label={t('article.pinned')}
                   />
                 </DataTableCell>
-                <DataTableCell>
+                <DataTableCell nowrap>
                   <StatusBadge variant={article.status === 'published' ? 'success' : 'warning'}>
                         {article.status === 'published' ? t('admin.published') : t('admin.draft')}
                   </StatusBadge>
                 </DataTableCell>
-                <DataTableCell>
+                <DataTableCell nowrap>
                       {formatDate(article.created_at)}
                 </DataTableCell>
-                <DataTableCell align="right">
-                      <div className="flex items-center justify-end gap-2">
+                <DataTableCell align="right" nowrap>
+                      <div className="inline-flex items-center justify-end gap-2">
                     <Button
                       variant="ghost"
                       size="sm"
