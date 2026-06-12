@@ -11,6 +11,7 @@ import {
 import { ColorPicker } from 'tdesign-react';
 import {
   Bold,
+  ChevronDown,
   Code,
   Eye,
   Heading2,
@@ -28,9 +29,11 @@ import {
   Pilcrow,
   Quote,
   SplitSquareHorizontal,
+  Sparkles,
   type LucideIcon,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import type { AIWritingAction } from '@/api/chat';
 import {
   DEFAULT_TEXT_COLOR,
   applyMarkdownAction,
@@ -59,6 +62,9 @@ interface MarkdownWritingStudioProps {
   onContentChange: (content: string) => void;
   textareaRef: RefObject<HTMLTextAreaElement>;
   onPaste: (event: ClipboardEvent<HTMLTextAreaElement>) => void;
+  onSelect?: () => void;
+  onKeyUp?: () => void;
+  onMouseUp?: () => void;
   onImageUploadClick: () => void;
   allowImageUpload?: boolean;
   helperText?: string;
@@ -68,6 +74,20 @@ interface MarkdownWritingStudioProps {
   isAutoSaving: boolean;
   isImmersive: boolean;
   onImmersiveChange: (isImmersive: boolean) => void;
+  aiSummaryPanel?: {
+    isGenerating: boolean;
+    result: string;
+  } | null;
+  aiWritingPanel?: {
+    action: AIWritingAction;
+    isGenerating: boolean;
+    result: string;
+    suggestions: string[];
+  } | null;
+  onGenerateSummary?: () => void;
+  onApplySummary?: () => void;
+  onGenerateWritingAction?: (action: AIWritingAction) => void;
+  onApplyWritingResult?: (result: string) => void;
 }
 
 const markdownToolbarActions: Array<{
@@ -374,6 +394,9 @@ export const MarkdownWritingStudio = ({
   onContentChange,
   textareaRef,
   onPaste,
+  onSelect,
+  onKeyUp,
+  onMouseUp,
   onImageUploadClick,
   allowImageUpload = true,
   helperText,
@@ -383,10 +406,17 @@ export const MarkdownWritingStudio = ({
   isAutoSaving,
   isImmersive,
   onImmersiveChange,
+  aiSummaryPanel = null,
+  aiWritingPanel = null,
+  onGenerateSummary = () => {},
+  onApplySummary = () => {},
+  onGenerateWritingAction = () => {},
+  onApplyWritingResult = () => {},
 }: MarkdownWritingStudioProps) => {
   const { t } = useTranslation();
   const [editorMode, setEditorMode] = useState<EditorMode>('split');
   const [selectedTextColor, setSelectedTextColor] = useState(DEFAULT_TEXT_COLOR);
+  const [isAIPanelOpen, setIsAIPanelOpen] = useState(false);
   const previewScrollRef = useRef<HTMLDivElement>(null);
   const editorScrollMirrorRef = useRef<HTMLDivElement>(null);
   const scrollSyncFrameRef = useRef<number>();
@@ -640,6 +670,25 @@ export const MarkdownWritingStudio = ({
             </button>
           )}
 
+          <button
+            type="button"
+            aria-label={t('articleEditor.aiAssistant')}
+            onClick={() => setIsAIPanelOpen((prev) => !prev)}
+            className={`group relative inline-flex h-9 items-center gap-2 rounded-xl px-3 text-xs font-semibold transition-colors ${
+              isAIPanelOpen || aiSummaryPanel || aiWritingPanel
+                ? 'bg-amber-50 text-amber-700 hover:bg-amber-100 dark:bg-amber-500/10 dark:text-amber-200 dark:hover:bg-amber-500/15'
+                : 'text-neutral-500 hover:bg-white hover:text-neutral-900 focus-visible:bg-white focus-visible:text-neutral-900 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-100 dark:focus-visible:bg-neutral-800 dark:focus-visible:text-neutral-100'
+            }`}
+          >
+            <Sparkles className="h-4 w-4" aria-hidden="true" />
+            AI
+            <ChevronDown
+              className={`h-3.5 w-3.5 transition-transform ${isAIPanelOpen ? 'rotate-180' : ''}`}
+              aria-hidden="true"
+            />
+            <span className={tooltipClassName}>{t('articleEditor.aiAssistant')}</span>
+          </button>
+
           <div className="ml-auto flex flex-wrap items-center gap-3 text-[11px] font-medium text-neutral-400 dark:text-neutral-500">
             <span>{contentStats.characters} {t('articleEditor.characters')}</span>
             <span>{contentStats.lines} {t('articleEditor.lines')}</span>
@@ -649,6 +698,130 @@ export const MarkdownWritingStudio = ({
             </span>
           </div>
         </div>
+
+        {isAIPanelOpen && (
+          <section className="mb-4 rounded-2xl border border-neutral-200 bg-white shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-neutral-100 px-4 py-3 dark:border-neutral-800">
+              <div>
+                <div className="inline-flex items-center gap-2 text-sm font-semibold text-neutral-700 dark:text-neutral-200">
+                  <Sparkles className="h-4 w-4 text-amber-500" aria-hidden="true" />
+                  {t('articleEditor.aiAssistant')}
+                </div>
+                <div className="mt-1 text-[11px] text-neutral-400 dark:text-neutral-500">
+                  {t('articleEditor.aiWritingResultHint')}
+                </div>
+              </div>
+            </div>
+            <div className="space-y-4 p-4">
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={onGenerateSummary}
+                  disabled={Boolean(aiSummaryPanel?.isGenerating)}
+                  className="inline-flex items-center gap-1 rounded-full bg-white px-2.5 py-1.5 text-[11px] font-semibold text-amber-700 shadow-sm transition-colors hover:bg-amber-50 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-neutral-900 dark:text-amber-200 dark:hover:bg-neutral-800"
+                >
+                  {aiSummaryPanel?.isGenerating ? (
+                    <>
+                      <svg className="h-3 w-3 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      {t('articleEditor.summaryGenerating')}
+                    </>
+                  ) : (
+                    <>
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                      </svg>
+                      {t('articleEditor.summaryGenerate')}
+                    </>
+                  )}
+                </button>
+                {[
+                  { action: 'polish' as const, labelKey: 'articleEditor.aiPolish' },
+                  { action: 'expand' as const, labelKey: 'articleEditor.aiExpand' },
+                  { action: 'shorten' as const, labelKey: 'articleEditor.aiShorten' },
+                  { action: 'seo-title' as const, labelKey: 'articleEditor.aiSEOTitle' },
+                ].map((item) => {
+                  const isActive = aiWritingPanel?.isGenerating && aiWritingPanel.action === item.action;
+                  return (
+                    <button
+                      key={item.action}
+                      type="button"
+                      onClick={() => onGenerateWritingAction(item.action)}
+                      disabled={Boolean(aiWritingPanel?.isGenerating)}
+                      className="inline-flex items-center gap-1 rounded-full bg-white px-2.5 py-1.5 text-[11px] font-semibold text-amber-700 shadow-sm transition-colors hover:bg-amber-50 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-neutral-900 dark:text-amber-200 dark:hover:bg-neutral-800"
+                    >
+                      {isActive && <span className="h-2 w-2 animate-pulse rounded-full bg-amber-500" />}
+                      {t(item.labelKey)}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {(aiSummaryPanel || aiWritingPanel) && (
+                <div className="rounded-xl bg-neutral-50 p-4 shadow-sm dark:bg-neutral-950">
+                  {aiSummaryPanel ? (
+                    aiSummaryPanel.isGenerating ? (
+                      <div className="flex min-h-20 items-center gap-3 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-700 dark:bg-amber-500/10 dark:text-amber-200">
+                        <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-amber-500" />
+                        {t('articleEditor.summaryGenerating')}
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        <div className="max-h-72 overflow-y-auto whitespace-pre-wrap rounded-xl bg-white px-3 py-2.5 text-sm leading-7 text-neutral-700 dark:bg-neutral-950 dark:text-neutral-200">
+                          {aiSummaryPanel.result}
+                        </div>
+                        <div className="flex justify-end">
+                          <button
+                            type="button"
+                            onClick={onApplySummary}
+                            className="btn btn-primary"
+                          >
+                            {t('articleEditor.aiWritingApply')}
+                          </button>
+                        </div>
+                      </div>
+                    )
+                  ) : aiWritingPanel?.isGenerating ? (
+                    <div className="flex min-h-20 items-center gap-3 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-700 dark:bg-amber-500/10 dark:text-amber-200">
+                      <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-amber-500" />
+                      {t('articleEditor.aiWritingGenerating')}
+                    </div>
+                  ) : aiWritingPanel?.action === 'seo-title' && aiWritingPanel.suggestions.length > 0 ? (
+                    <div className="space-y-2">
+                      {aiWritingPanel.suggestions.map((suggestion) => (
+                        <button
+                          key={suggestion}
+                          type="button"
+                          onClick={() => onApplyWritingResult(suggestion)}
+                          className="block w-full rounded-xl border border-neutral-100 bg-white px-3 py-2.5 text-left text-sm font-semibold text-neutral-700 transition-colors hover:border-amber-200 hover:bg-amber-50 dark:border-neutral-800 dark:bg-neutral-950 dark:text-neutral-100 dark:hover:border-amber-500/30 dark:hover:bg-amber-500/10"
+                        >
+                          {suggestion}
+                        </button>
+                      ))}
+                    </div>
+                  ) : aiWritingPanel ? (
+                    <div className="space-y-3">
+                      <div className="max-h-72 overflow-y-auto whitespace-pre-wrap rounded-xl bg-white px-3 py-2.5 text-sm leading-7 text-neutral-700 dark:bg-neutral-950 dark:text-neutral-200">
+                        {aiWritingPanel.result}
+                      </div>
+                      <div className="flex justify-end">
+                        <button
+                          type="button"
+                          onClick={() => onApplyWritingResult(aiWritingPanel.result)}
+                          className="btn btn-primary"
+                        >
+                          {t('articleEditor.aiWritingApply')}
+                        </button>
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              )}
+            </div>
+          </section>
+        )}
 
         <div className={panelGridClassName}>
           {editorMode !== 'preview' && (
@@ -682,6 +855,9 @@ export const MarkdownWritingStudio = ({
                 onChange={(event) => onContentChange(event.target.value)}
                 onScroll={handleEditorScroll}
                 onPaste={onPaste}
+                onSelect={onSelect}
+                onKeyUp={onKeyUp}
+                onMouseUp={onMouseUp}
                 placeholder={resolvedPlaceholder}
               />
             </section>

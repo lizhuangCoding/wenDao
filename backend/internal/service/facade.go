@@ -48,6 +48,9 @@ type KnowledgeDocumentService = knowledgesvc.KnowledgeDocumentService
 type KnowledgeSourceInput = knowledgesvc.KnowledgeSourceInput
 type CreateKnowledgeDocumentInput = knowledgesvc.CreateKnowledgeDocumentInput
 type AIService = aisvc.AIService
+type WritingAction = aisvc.WritingAction
+type WritingRequest = aisvc.WritingRequest
+type WritingResult = aisvc.WritingResult
 type ArticleService = articlesvc.ArticleService
 type CommentService = commentsvc.CommentService
 type CommentServiceOption = commentsvc.CommentServiceOption
@@ -69,6 +72,8 @@ type Journalist = chatsvc.Journalist
 type ThinkTankSynthesizer = chatsvc.ThinkTankSynthesizer
 
 var ErrAIDisabled = aisvc.ErrAIDisabled
+var ErrUnsupportedWritingAction = aisvc.ErrUnsupportedWritingAction
+var ErrWritingContentEmpty = aisvc.ErrWritingContentEmpty
 var ErrVerificationCodeInvalid = authsvc.ErrVerificationCodeInvalid
 var ErrVerificationCodeTooFrequent = authsvc.ErrVerificationCodeTooFrequent
 var ErrVerificationUnavailable = authsvc.ErrVerificationUnavailable
@@ -77,6 +82,13 @@ var ErrVerificationEmailNotConfigured = authsvc.ErrVerificationEmailNotConfigure
 const (
 	PurposeRegister      = authsvc.PurposeRegister
 	PurposePasswordReset = authsvc.PurposePasswordReset
+)
+
+const (
+	WritingActionPolish   = aisvc.WritingActionPolish
+	WritingActionExpand   = aisvc.WritingActionExpand
+	WritingActionShorten  = aisvc.WritingActionShorten
+	WritingActionSEOTitle = aisvc.WritingActionSEOTitle
 )
 
 func NewOAuthService(cfg *config.Config) OAuthService { return authsvc.NewOAuthService(cfg) }

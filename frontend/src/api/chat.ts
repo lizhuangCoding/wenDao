@@ -26,6 +26,20 @@ type ChatStreamHandlers = {
   onError?: (payload: { error?: string; message?: string }) => void;
 };
 
+export type AIWritingAction = 'polish' | 'expand' | 'shorten' | 'seo-title';
+
+export interface AIWritingRequest {
+  action: AIWritingAction;
+  content: string;
+  title?: string;
+  summary?: string;
+}
+
+export interface AIWritingResponse {
+  result: string;
+  suggestions?: string[];
+}
+
 async function readSSEStream(response: Response, handlers: ChatStreamHandlers) {
   const reader = response.body?.getReader();
   if (!reader) {
@@ -136,6 +150,10 @@ export const chatApi = {
 
   generateSummary: (content: string) => {
     return request.post<{ summary: string }>('/ai/summary', { content });
+  },
+
+  generateWriting: (data: AIWritingRequest) => {
+    return request.post<AIWritingResponse>('/ai/writing', data);
   },
 
   getModels: () => {

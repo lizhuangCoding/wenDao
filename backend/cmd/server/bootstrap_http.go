@@ -227,6 +227,12 @@ func registerRoutes(
 				Window: time.Minute,
 			}), aiHandler.ResumeChatStream)
 			ai.POST("/summary", middleware.AdminRequired(cfg.JWT.Secret, rdb), aiHandler.GenerateSummary)
+			ai.POST("/writing", middleware.AdminRequired(cfg.JWT.Secret, rdb), middleware.RateLimit(rdb, middleware.RateLimitConfig{
+				Name:   "ai-writing",
+				Type:   middleware.UserLimit,
+				Limit:  cfg.RateLimit.AIChat,
+				Window: time.Minute,
+			}), aiHandler.GenerateWriting)
 		}
 
 		conversations := api.Group("/chat/conversations")

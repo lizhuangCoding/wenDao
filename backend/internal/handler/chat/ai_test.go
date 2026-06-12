@@ -57,3 +57,35 @@ func TestAIHandlerGenerateSummary_ReturnsServiceUnavailableWhenAIDisabled(t *tes
 		t.Fatalf("expected 503, got %d with body %s", w.Code, w.Body.String())
 	}
 }
+
+func TestAIHandlerGenerateWriting_ReturnsServiceUnavailableWhenAIDisabled(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	h := newTestAIHandler(service.NewDisabledAIService("writing backend unavailable"))
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest(http.MethodPost, "/api/ai/writing", strings.NewReader(`{"action":"polish","content":"正文"}`))
+	c.Request.Header.Set("Content-Type", "application/json")
+
+	h.GenerateWriting(c)
+
+	if w.Code != http.StatusServiceUnavailable {
+		t.Fatalf("expected 503, got %d with body %s", w.Code, w.Body.String())
+	}
+}
+
+func TestAIHandlerGenerateWriting_ReturnsInvalidParamsForUnsupportedAction(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	h := newTestAIHandler(&stubAIService{writingErr: service.ErrUnsupportedWritingAction})
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest(http.MethodPost, "/api/ai/writing", strings.NewReader(`{"action":"translate","content":"正文"}`))
+	c.Request.Header.Set("Content-Type", "application/json")
+
+	h.GenerateWriting(c)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d with body %s", w.Code, w.Body.String())
+	}
+}

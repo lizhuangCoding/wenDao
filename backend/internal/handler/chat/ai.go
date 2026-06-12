@@ -156,6 +156,20 @@ type SummaryResponse struct {
 	Summary string `json:"summary"`
 }
 
+// WritingRequest AI 写作辅助请求
+type WritingRequest struct {
+	Action  service.WritingAction `json:"action" binding:"required"`
+	Content string                `json:"content" binding:"required"`
+	Title   string                `json:"title"`
+	Summary string                `json:"summary"`
+}
+
+// WritingResponse AI 写作辅助响应
+type WritingResponse struct {
+	Result      string   `json:"result"`
+	Suggestions []string `json:"suggestions,omitempty"`
+}
+
 // GenerateSummary 生成文章摘要
 func (h *AIHandler) GenerateSummary(c *gin.Context) {
 	var req SummaryRequest
@@ -175,6 +189,36 @@ func (h *AIHandler) GenerateSummary(c *gin.Context) {
 	}
 
 	response.Success(c, SummaryResponse{Summary: summary})
+}
+
+// GenerateWriting 生成 Markdown 写作辅助内容
+func (h *AIHandler) GenerateWriting(c *gin.Context) {
+	var req WritingRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.InvalidParams(c, "写作内容不能为空")
+		return
+	}
+
+	result, err := h.aiService.GenerateWriting(c.Request.Context(), service.WritingRequest{
+		Action:  req.Action,
+		Content: req.Content,
+		Title:   req.Title,
+		Summary: req.Summary,
+	})
+	if err != nil {
+		if errors.Is(err, service.ErrAIDisabled) {
+			response.ServiceUnavailable(c, "AI 服务暂时不可用，请稍后再试")
+			return
+		}
+		if errors.Is(err, service.ErrUnsupportedWritingAction) || errors.Is(err, service.ErrWritingContentEmpty) {
+			response.InvalidParams(c, "写作类型或内容无效")
+			return
+		}
+		response.InternalError(c, "生成写作建议失败，请稍后再试")
+		return
+	}
+
+	response.Success(c, WritingResponse{Result: result.Result, Suggestions: result.Suggestions})
 }
 
 // ChatStream 处理 AI 流式对话请求

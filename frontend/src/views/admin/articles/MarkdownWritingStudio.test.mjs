@@ -31,6 +31,25 @@ test('MarkdownWritingStudio owns toolbar color controls and immersive toggle', a
   assert.match(source, /onImmersiveChange/);
 });
 
+test('MarkdownWritingStudio owns the collapsible AI toolbar panel', async () => {
+  const source = await loadWritingStudio();
+
+  assert.match(source, /Sparkles/);
+  assert.match(source, /ChevronDown/);
+  assert.match(source, /isAIPanelOpen/);
+  assert.match(source, /articleEditor\.aiAssistant/);
+  assert.match(source, /articleEditor\.summaryGenerate/);
+  assert.match(source, /articleEditor\.aiPolish/);
+  assert.match(source, /articleEditor\.aiExpand/);
+  assert.match(source, /articleEditor\.aiShorten/);
+  assert.match(source, /articleEditor\.aiSEOTitle/);
+  assert.match(source, /articleEditor\.aiWritingResultHint/);
+  assert.match(source, /onGenerateSummary/);
+  assert.match(source, /onApplySummary/);
+  assert.match(source, /onGenerateWritingAction/);
+  assert.match(source, /onApplyWritingResult/);
+});
+
 test('MarkdownWritingStudio exposes richer block formatting actions', async () => {
   const source = await loadWritingStudio();
 

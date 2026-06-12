@@ -24,6 +24,8 @@ type AIService interface {
 	ResumeChatStream(ctx context.Context, conversationID int64, runID int64, userID *int64) (<-chan chatcore.StreamEvent, <-chan error)
 	// GenerateSummary 生成文章摘要
 	GenerateSummary(ctx context.Context, content string) (string, error)
+	// GenerateWriting 生成 Markdown 写作辅助内容
+	GenerateWriting(ctx context.Context, req WritingRequest) (WritingResult, error)
 }
 
 // aiService AI 服务实现
@@ -142,6 +144,10 @@ func (s *disabledAIService) ResumeChatStream(ctx context.Context, conversationID
 
 func (s *disabledAIService) GenerateSummary(ctx context.Context, content string) (string, error) {
 	return "", s.err()
+}
+
+func (s *disabledAIService) GenerateWriting(ctx context.Context, req WritingRequest) (WritingResult, error) {
+	return WritingResult{}, s.err()
 }
 
 func (s *disabledAIService) err() error {
