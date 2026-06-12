@@ -120,7 +120,20 @@ func (o *thinkTankOrchestrator) streamManualFlow(
 		answer = appendAcceptanceLimitations(answer, review)
 	}
 
-	answer = sanitizeFinalAnswerForUser(answer)
+	answer, err = s.finalizeAnswerFromEvidence(
+		ctx,
+		answer,
+		question,
+		[]string{localResult.Summary},
+		journalistSummaryNotes(webResult),
+		localResult.Sources,
+		webSources(webResult),
+	)
+	if err != nil {
+		s.runs.logStage(conv, userID, "failed", "最终回答清洗后没有可展示内容", err.Error())
+		errCh <- err
+		return
+	}
 	o.persistFinalAnswer(conv, derefUserID(userID), question, answer, decision, history, runID)
 	for _, chunk := range splitStreamChunks(answer) {
 		o.emitChunk(eventCh, conv, runID, chunk, sources)

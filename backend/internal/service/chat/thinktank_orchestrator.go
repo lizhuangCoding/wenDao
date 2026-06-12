@@ -166,9 +166,12 @@ func (o *thinkTankOrchestrator) chat(ctx context.Context, question string, conve
 					}
 				}
 			}
-			finalAnswer = sanitizeFinalAnswerForUser(finalAnswer)
-			o.persistFinalAnswer(conv, derefUserID(userID), effectiveQuestion, finalAnswer, decision, history, 0)
-			return &ThinkTankChatResponse{Message: finalAnswer, Stage: "completed"}, nil
+			finalAnswer, err = s.finalizeAnswerFromEvidence(ctx, finalAnswer, effectiveQuestion, nil, nil, nil, nil)
+			if err == nil {
+				o.persistFinalAnswer(conv, derefUserID(userID), effectiveQuestion, finalAnswer, decision, history, 0)
+				return &ThinkTankChatResponse{Message: finalAnswer, Stage: "completed"}, nil
+			}
+			s.runs.logStage(conv, userID, "adk_answer_warning", "ADK 回答没有可展示内容，降级到手动编排流程", err.Error())
 		}
 	}
 
@@ -219,7 +222,18 @@ func (o *thinkTankOrchestrator) chat(ctx context.Context, question string, conve
 		}
 	}
 
-	answer = sanitizeFinalAnswerForUser(answer)
+	answer, err = s.finalizeAnswerFromEvidence(
+		ctx,
+		answer,
+		effectiveQuestion,
+		[]string{localResult.Summary},
+		journalistSummaryNotes(webResult),
+		localResult.Sources,
+		webSources(webResult),
+	)
+	if err != nil {
+		return nil, err
+	}
 	o.persistFinalAnswer(conv, derefUserID(userID), effectiveQuestion, answer, decision, history, 0)
 	return &ThinkTankChatResponse{Message: answer, Sources: sources, Stage: "completed"}, nil
 }
@@ -319,7 +333,12 @@ func (o *thinkTankOrchestrator) chatStream(ctx context.Context, question string,
 					}
 				}
 			}
-			answer = sanitizeFinalAnswerForUser(answer)
+			answer, err = s.finalizeAnswerFromEvidence(runCtx, answer, effectiveQuestion, nil, nil, nil, nil)
+			if err != nil {
+				s.runs.logStage(conv, userID, "adk_answer_warning", "ADK 回答没有可展示内容，降级到手动编排流程", err.Error())
+				o.streamManualFlow(runCtx, eventCh, errCh, conv, history, effectiveQuestion, userID, queryForAgents, decision, runID, clarifierDecision)
+				return
+			}
 			o.persistFinalAnswer(conv, derefUserID(userID), effectiveQuestion, answer, decision, history, runID)
 			o.emitChunk(eventCh, conv, runID, answer, nil)
 			o.emitDone(eventCh, conv, runID, "completed", "回答已生成")
@@ -762,7 +781,16 @@ func (o *thinkTankOrchestrator) streamADKFlow(
 	} else if shouldRevise {
 		fullAnswer = appendAcceptanceLimitations(fullAnswer, review)
 	}
-	fullAnswer = sanitizeFinalAnswerForUser(fullAnswer)
+	fullAnswer, err := s.finalizeAnswerFromEvidence(ctx, fullAnswer, question, adkLocalNotes, adkWebNotes, adkArticleSources, adkWebSources)
+	if err != nil {
+		if currentStep != nil {
+			currentStep.fail("最终回答清洗后没有可展示内容。")
+			o.emitStep(eventCh, conv, runID, currentStep.snapshot())
+		}
+		s.runs.logStage(conv, userID, "failed", "最终回答清洗后没有可展示内容", err.Error())
+		errCh <- err
+		return err
+	}
 	o.persistFinalAnswer(conv, derefUserID(userID), question, fullAnswer, decision, history, runID)
 	s.runs.logStage(conv, userID, "completed", "ThinkTank 计划执行流程完成", fmt.Sprintf("答案长度: %d，答案内容：%v", len(fullAnswer), fullAnswer))
 	o.emitChunk(eventCh, conv, runID, fullAnswer, collectSourceRefTitles(adkArticleSources, adkWebSources))

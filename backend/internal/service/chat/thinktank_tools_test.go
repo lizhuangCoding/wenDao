@@ -106,6 +106,24 @@ func TestToolFailureHints_DoNotCarryFinalAnswerHardDenials(t *testing.T) {
 	}
 }
 
+func TestWebFetchInvalidURLHintDoesNotAskUserForToolInput(t *testing.T) {
+	webFetchBase, err := newWebFetchTool(ResearchConfig{TimeoutSeconds: 1})
+	webFetchTool := mustInvokableTool(t, webFetchBase, err)
+
+	result, err := webFetchTool.InvokableRun(context.Background(), `{"urls":["这里需要从WebSearch结果中获取相关新闻链接，但当前信息中未给出具体链接，请提供WebSearch得到的相关新闻链接"]}`)
+	if err != nil {
+		t.Fatalf("WebFetch should encode invalid URL as tool output, got %v", err)
+	}
+	for _, forbidden := range []string{"请提供", "提供有效 URL", "提供有效URL"} {
+		if strings.Contains(result, forbidden) {
+			t.Fatalf("WebFetch invalid URL hint must not ask the user for tool input %q: %s", forbidden, result)
+		}
+	}
+	if !strings.Contains(result, "继续") || !strings.Contains(result, "已有证据") {
+		t.Fatalf("expected invalid URL hint to tell the model to continue from existing evidence, got %s", result)
+	}
+}
+
 func mustInvokableTool(t *testing.T, baseTool tool.BaseTool, err error) tool.InvokableTool {
 	t.Helper()
 	if err != nil {

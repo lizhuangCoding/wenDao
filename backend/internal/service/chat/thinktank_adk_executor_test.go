@@ -152,7 +152,7 @@ func TestWebFetchToolRejectsNonHTTPURLWithoutNetworkAttempt(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected invalid URL to be returned as tool output, got error %v", err)
 	}
-	if !strings.Contains(output, "有效的 http(s) URL") || !strings.Contains(output, "不是 URL") {
+	if !strings.Contains(output, "有效的 http(s) URL") || !strings.Contains(output, "继续") || !strings.Contains(output, "已有证据") {
 		t.Fatalf("expected invalid URL guidance, got %q", output)
 	}
 }
@@ -253,6 +253,21 @@ func TestExtractPlanExecuteFinalResponse_RejectsRuntimeFailureOnlyResponse(t *te
 	}
 }
 
+func TestExtractPlanExecuteFinalResponse_RejectsToolInputRequestToUser(t *testing.T) {
+	_, ok := extractPlanExecuteFinalResponse(`{"response":"请提供 WebSearch 得到的相关新闻链接，我将获取这些网页的详细内容。"}`)
+	if ok {
+		t.Fatalf("expected tool input request to be rejected as non-final")
+	}
+}
+
+func TestExtractPlanExecuteFinalResponse_RejectsResearchProcessOnlyAnswer(t *testing.T) {
+	response := "已为你调研到马斯克的基本信息，包括出生时间、地点、国籍、职业、所涉企业以及资产估值等内容，同时还有多篇相关网页链接可用于进一步深入了解他。后续可根据你的具体需求，对这些信息进行详细整理和分析。至此，调研马斯克的目标已完成。在执行过程中，通过先检索本地知识库，再使用搜索引擎的方式，成功获取到了所需的信息，这种多渠道查询的方式有助于更全面地收集资料。"
+	_, ok := extractPlanExecuteFinalResponse(fmt.Sprintf(`{"response":%q}`, response))
+	if ok {
+		t.Fatalf("expected research process-only answer to be rejected as non-final")
+	}
+}
+
 func TestExtractPlanExecuteFinalResponse_IgnoresPlanPayload(t *testing.T) {
 	_, ok := extractPlanExecuteFinalResponse(`{"steps":["继续搜索资源","制定学习计划"]}`)
 	if ok {
@@ -322,9 +337,72 @@ func TestComposeADKFallbackAnswer_UsesCollectedEvidence(t *testing.T) {
 	}
 }
 
+func TestComposeADKFallbackAnswer_DoesNotReturnReferencesOnly(t *testing.T) {
+	svc := &thinkTankService{}
+
+	answer, err := svc.composeADKFallbackAnswer(
+		context.Background(),
+		"帮我调研一下马斯克",
+		nil,
+		nil,
+		nil,
+		[]SourceRef{{Kind: "web", Title: "埃隆·马斯克 - 维基百科", URL: "https://zh.wikipedia.org/wiki/Elon_Musk"}},
+	)
+	if err != nil {
+		t.Fatalf("expected fallback answer from source references, got error %v", err)
+	}
+	if strings.HasPrefix(strings.TrimSpace(answer), "参考外部文章") {
+		t.Fatalf("fallback answer must include user-facing body before references, got %q", answer)
+	}
+	for _, want := range []string{"当前可用资料", "埃隆·马斯克 - 维基百科", "参考外部文章"} {
+		if !strings.Contains(answer, want) {
+			t.Fatalf("expected fallback answer to contain %q, got %q", want, answer)
+		}
+	}
+}
+
+func TestFinalizeAnswerFromEvidence_ReplacesProcessOnlyAnswerWithEvidence(t *testing.T) {
+	svc := &thinkTankService{}
+	processOnly := "已为你调研到马斯克的基本信息，包括出生时间、地点、国籍、职业、所涉企业以及资产估值等内容。至此，调研马斯克的目标已完成。在执行过程中，通过先检索本地知识库，再使用搜索引擎的方式，成功获取到了所需的信息。"
+
+	answer, err := svc.finalizeAnswerFromEvidence(
+		context.Background(),
+		processOnly,
+		"帮我调研一下马斯克",
+		nil,
+		[]string{"埃隆·里夫·马斯克，1971年6月28日出生于南非比勒陀利亚。Elon Musk is known for leadership of Tesla and SpaceX."},
+		nil,
+		[]SourceRef{{Kind: "web", Title: "埃隆·马斯克 - 维基百科", URL: "https://zh.wikipedia.org/wiki/Elon_Musk"}},
+	)
+	if err != nil {
+		t.Fatalf("expected evidence fallback, got error %v", err)
+	}
+	for _, forbidden := range []string{"目标已完成", "执行过程中", "先检索本地知识库"} {
+		if strings.Contains(answer, forbidden) {
+			t.Fatalf("expected process-only text %q to be removed, got %q", forbidden, answer)
+		}
+	}
+	for _, want := range []string{"1971年6月28日", "Tesla and SpaceX", "参考外部文章"} {
+		if !strings.Contains(answer, want) {
+			t.Fatalf("expected evidence-backed answer to contain %q, got %q", want, answer)
+		}
+	}
+}
+
 func TestAppendNonEmptyNote_SkipsRawHTML(t *testing.T) {
 	notes := appendNonEmptyNote(nil, "<!doctype html><html><script>alert(1)</script></html>")
 	if len(notes) != 0 {
 		t.Fatalf("expected raw HTML note to be skipped, got %#v", notes)
+	}
+}
+
+func TestSummarizeWebSearchResult_IncludesAnswerBoxAndKnowledgeGraph(t *testing.T) {
+	content := `{"answerBox":{"title":"埃隆·马斯克_百度百科","snippet":"埃隆·里夫·马斯克，1971年6月28日出生于南非比勒陀利亚。"},"knowledgeGraph":{"title":"Elon Musk","description":"Elon Reeve Musk is known for leadership of Tesla and SpaceX.","attributes":{"Born":"June 28, 1971, Pretoria, South Africa","Net worth":"782 billion USD (2026)"}},"organic":[{"title":"埃隆·马斯克 - 维基百科","link":"https://zh.wikipedia.org/wiki/Elon_Musk","snippet":"他是 SpaceX 的创始人。"}]}`
+
+	got := summarizeWebSearchResult(content)
+	for _, want := range []string{"埃隆·里夫·马斯克", "Tesla and SpaceX", "Born: June 28, 1971", "Net worth: 782 billion USD"} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("expected web search summary to include %q, got %q", want, got)
+		}
 	}
 }

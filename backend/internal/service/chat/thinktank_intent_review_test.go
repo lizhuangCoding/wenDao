@@ -508,6 +508,26 @@ func TestSanitizeFinalAnswer_KeepsNormalToolAndScrapingContent(t *testing.T) {
 	}
 }
 
+func TestSanitizeFinalAnswer_RemovesToolInputRequestButKeepsFacts(t *testing.T) {
+	answer := strings.Join([]string{
+		"马斯克调研报告",
+		"",
+		"马斯克是 SpaceX 与 xAI 的创办者，也是特斯拉的核心领导者。",
+		"",
+		"请提供 WebSearch 得到的相关新闻链接，我将获取这些网页的详细内容。",
+	}, "\n")
+
+	got := sanitizeFinalAnswerForUser(answer)
+	if strings.Contains(got, "请提供") || strings.Contains(got, "WebSearch") || strings.Contains(got, "获取这些网页") {
+		t.Fatalf("expected tool input request to be removed, got %q", got)
+	}
+	for _, want := range []string{"马斯克调研报告", "SpaceX", "特斯拉"} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("expected factual content %q to remain, got %q", want, got)
+		}
+	}
+}
+
 func TestSanitizeFinalAnswer_RemovesProcessSummaryParagraphsButKeepsReferences(t *testing.T) {
 	answer := strings.Join([]string{
 		"李小龙调研报告",

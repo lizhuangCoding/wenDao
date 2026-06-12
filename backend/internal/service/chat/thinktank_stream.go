@@ -161,6 +161,14 @@ func extractWebSearchSources(content string) []SourceRef {
 		return nil
 	}
 	var payload struct {
+		AnswerBox struct {
+			Title string `json:"title"`
+			Link  string `json:"link"`
+		} `json:"answerBox"`
+		KnowledgeGraph struct {
+			Title           string `json:"title"`
+			DescriptionLink string `json:"descriptionLink"`
+		} `json:"knowledgeGraph"`
 		Organic []struct {
 			Title string `json:"title"`
 			Link  string `json:"link"`
@@ -174,6 +182,12 @@ func extractWebSearchSources(content string) []SourceRef {
 		return nil
 	}
 	result := make([]SourceRef, 0, len(payload.Organic)+len(payload.Items))
+	if strings.TrimSpace(payload.AnswerBox.Title) != "" && strings.TrimSpace(payload.AnswerBox.Link) != "" {
+		result = append(result, SourceRef{Kind: "web", Title: payload.AnswerBox.Title, URL: payload.AnswerBox.Link})
+	}
+	if strings.TrimSpace(payload.KnowledgeGraph.Title) != "" && strings.TrimSpace(payload.KnowledgeGraph.DescriptionLink) != "" {
+		result = append(result, SourceRef{Kind: "web", Title: payload.KnowledgeGraph.Title, URL: payload.KnowledgeGraph.DescriptionLink})
+	}
 	for _, item := range payload.Organic {
 		if strings.TrimSpace(item.Title) == "" || strings.TrimSpace(item.Link) == "" {
 			continue
@@ -195,6 +209,16 @@ func summarizeWebSearchResult(content string) string {
 		return ""
 	}
 	var payload struct {
+		AnswerBox struct {
+			Title   string `json:"title"`
+			Link    string `json:"link"`
+			Snippet string `json:"snippet"`
+		} `json:"answerBox"`
+		KnowledgeGraph struct {
+			Title       string            `json:"title"`
+			Description string            `json:"description"`
+			Attributes  map[string]string `json:"attributes"`
+		} `json:"knowledgeGraph"`
 		Organic []struct {
 			Title   string `json:"title"`
 			Link    string `json:"link"`
@@ -204,7 +228,35 @@ func summarizeWebSearchResult(content string) string {
 	if err := json.Unmarshal([]byte(content), &payload); err != nil {
 		return ""
 	}
-	lines := make([]string, 0, 5)
+	lines := make([]string, 0, 8)
+	appendLine := func(line string) {
+		line = strings.TrimSpace(line)
+		if line == "" || len(lines) >= 8 {
+			return
+		}
+		lines = append(lines, line)
+	}
+	if snippet := strings.TrimSpace(payload.AnswerBox.Snippet); snippet != "" {
+		line := strings.TrimSpace(payload.AnswerBox.Title)
+		if line != "" {
+			line += "："
+		}
+		line += snippet
+		if link := strings.TrimSpace(payload.AnswerBox.Link); link != "" {
+			line += " (" + link + ")"
+		}
+		appendLine(line)
+	}
+	if title := strings.TrimSpace(payload.KnowledgeGraph.Title); title != "" {
+		if description := strings.TrimSpace(payload.KnowledgeGraph.Description); description != "" {
+			appendLine(title + "：" + description)
+		}
+	}
+	for _, key := range []string{"Born", "Net worth", "Occupation", "Known for", "Education"} {
+		if value := strings.TrimSpace(payload.KnowledgeGraph.Attributes[key]); value != "" {
+			appendLine(key + ": " + value)
+		}
+	}
 	for _, item := range payload.Organic {
 		title := strings.TrimSpace(item.Title)
 		if title == "" {
@@ -217,8 +269,8 @@ func summarizeWebSearchResult(content string) string {
 		if link := strings.TrimSpace(item.Link); link != "" {
 			line += " (" + link + ")"
 		}
-		lines = append(lines, line)
-		if len(lines) >= 5 {
+		appendLine(line)
+		if len(lines) >= 8 {
 			break
 		}
 	}

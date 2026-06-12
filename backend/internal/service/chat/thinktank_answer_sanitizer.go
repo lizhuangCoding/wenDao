@@ -31,6 +31,9 @@ func sanitizeFinalAnswerForUser(answer string) string {
 		if containsDocWriterMetadata(paragraph) {
 			continue
 		}
+		if containsToolInputRequestToUser(paragraph) {
+			continue
+		}
 		paragraph = removeRuntimeFailureLines(paragraph)
 		if strings.TrimSpace(paragraph) != "" {
 			cleaned = append(cleaned, strings.TrimSpace(paragraph))
@@ -65,7 +68,7 @@ func removeRuntimeFailureLines(paragraph string) string {
 	lines := strings.Split(paragraph, "\n")
 	kept := make([]string, 0, len(lines))
 	for _, line := range lines {
-		if isReferenceLine(line) || (!containsRuntimeFailureDetail(line) && !containsAnswerProcessSummary(line) && !containsDocWriterMetadata(line)) {
+		if isReferenceLine(line) || (!containsRuntimeFailureDetail(line) && !containsAnswerProcessSummary(line) && !containsDocWriterMetadata(line) && !containsToolInputRequestToUser(line)) {
 			kept = append(kept, line)
 		}
 	}
@@ -151,6 +154,9 @@ func containsRuntimeFailureDetail(text string) bool {
 		"超时",
 		"无法访问",
 		"不可用页面",
+		"本站没有覆盖",
+		"本站没有提供",
+		"无法根据文章片段回答",
 	}
 	for _, marker := range markers {
 		if strings.Contains(normalized, marker) {
@@ -210,6 +216,14 @@ func containsAnswerProcessSummary(text string) bool {
 	}) {
 		return true
 	}
+	if containsAny(normalized, []string{"已为你调研到", "已为你搜索到", "已为你找到", "调研到"}) &&
+		containsAny(normalized, []string{"后续可根据", "目标已完成", "执行过程中", "多渠道查询", "相关网页链接"}) {
+		return true
+	}
+	if containsAny(normalized, []string{"目标已完成", "执行过程中"}) &&
+		containsAny(normalized, []string{"检索本地知识库", "搜索引擎", "多渠道查询", "成功获取到了所需的信息"}) {
+		return true
+	}
 	return false
 }
 
@@ -235,6 +249,26 @@ func containsDocWriterMetadata(text string) bool {
 	}
 	if strings.Contains(normalized, "id=") &&
 		containsAny(normalized, []string{"文档", "草稿", "draft", "doc"}) {
+		return true
+	}
+	return false
+}
+
+func containsToolInputRequestToUser(text string) bool {
+	normalized := strings.ToLower(strings.TrimSpace(text))
+	if normalized == "" {
+		return false
+	}
+	if containsAny(normalized, []string{"websearch", "webfetch", "localsearch"}) &&
+		containsAny(normalized, []string{"请提供", "提供", "链接", "url", "网页"}) {
+		return true
+	}
+	if containsAny(normalized, []string{"我将获取这些网页", "将获取这些网页", "获取这些网页的详细内容"}) {
+		return true
+	}
+	if containsAny(normalized, []string{"请提供"}) &&
+		containsAny(normalized, []string{"相关新闻链接", "网页链接", "具体链接"}) &&
+		containsAny(normalized, []string{"获取", "抓取", "详细内容"}) {
 		return true
 	}
 	return false

@@ -227,9 +227,9 @@ func newWebFetchTool(cfg ResearchConfig) (tool.BaseTool, error) {
 			}
 			candidates := selectWebFetchCandidates(ctx, requested, maxWebFetchCandidatesPerCall)
 			if len(candidates) == 0 {
-				msg := "WebFetch 需要有效的 http(s) URL；当前输入不是 URL。请改用 WebSearch 或 LocalSearch 的结果摘要，或提供有效 URL。"
+				msg := "WebFetch 跳过：当前输入不含有效的 http(s) URL。继续使用已获得的 WebSearch、LocalSearch 摘要或已抓取内容回答。"
 				logToolStage(ctx, "tool_web_fetch_error", "网页抓取参数不是有效 URL", map[string]any{"url": input.URL, "urls": input.URLs})
-				return encodeToolFailure(msg, "可改用搜索摘要或已有证据继续。"), nil
+				return encodeToolFailure(msg, "继续基于已有证据完成回答。"), nil
 			}
 
 			client := &http.Client{

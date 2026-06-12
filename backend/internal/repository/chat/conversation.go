@@ -29,7 +29,14 @@ func NewConversationRepository(db *gorm.DB) ConversationRepository {
 
 // Create 创建对话
 func (r *conversationRepository) Create(conv *model.Conversation) error {
-	return r.db.Create(conv).Error
+	return r.createQuery(conv).Error
+}
+
+func (r *conversationRepository) createQuery(conv *model.Conversation) *gorm.DB {
+	if conv != nil && conv.ShareToken == "" {
+		return r.db.Omit("share_token").Create(conv)
+	}
+	return r.db.Create(conv)
 }
 
 // GetByID 根据 ID 查询对话（预加载用户信息）
@@ -53,7 +60,14 @@ func (r *conversationRepository) GetByUserID(userID int64) ([]model.Conversation
 
 // Update 更新对话
 func (r *conversationRepository) Update(conv *model.Conversation) error {
-	return r.db.Save(conv).Error
+	return r.updateQuery(conv).Error
+}
+
+func (r *conversationRepository) updateQuery(conv *model.Conversation) *gorm.DB {
+	if conv != nil && conv.ShareToken == "" {
+		return r.db.Omit("share_token").Save(conv)
+	}
+	return r.db.Save(conv)
 }
 
 // GetByShareToken 根据分享令牌查询对话
@@ -68,11 +82,19 @@ func (r *conversationRepository) GetByShareToken(token string) (*model.Conversat
 
 // UpdateShare 更新分享状态
 func (r *conversationRepository) UpdateShare(id int64, share bool, token string) error {
+	return r.updateShareQuery(id, share, token).Error
+}
+
+func (r *conversationRepository) updateShareQuery(id int64, share bool, token string) *gorm.DB {
+	shareToken := any(token)
+	if !share {
+		shareToken = nil
+	}
 	return r.db.Model(&model.Conversation{}).Where("id = ?", id).
-		Updates(map[string]interface{}{
+		Updates(map[string]any{
 			"is_shared":   share,
-			"share_token": token,
-		}).Error
+			"share_token": shareToken,
+		})
 }
 
 // Delete 删除对话

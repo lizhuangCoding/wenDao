@@ -89,7 +89,15 @@ func (m *thinkTankConversationManager) updateMetadataWithWarning(conv *model.Con
 	if conv.Title == "" || conv.Title == "New Conversation" || conv.Title == "新会话" || conv.Title == "New Chat" {
 		conv.Title = buildConversationTitle(question)
 	}
-	_ = m.convRepo.Update(conv)
+	if err := m.convRepo.Update(conv); err != nil && m.logger != nil {
+		m.logger.LogError(AILogEntry{
+			ConversationID: conv.ID,
+			UserID:         conv.UserID,
+			Stage:          "persistence",
+			Message:        "Failed to update conversation metadata",
+			Detail:         err.Error(),
+		})
+	}
 }
 
 func (m *thinkTankConversationManager) persistAssistantTurn(conv *model.Conversation, question string, answer string, runID int64) {

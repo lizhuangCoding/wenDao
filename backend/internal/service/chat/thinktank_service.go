@@ -173,7 +173,31 @@ func (s *thinkTankService) collectADKRunnerAnswer(ctx context.Context, question 
 	if strings.TrimSpace(finalAnswer) == "" {
 		return s.composeADKFallbackAnswer(ctx, question, localNotes, webNotes, articleSources, webSources)
 	}
-	return finalAnswer, nil
+	return s.finalizeAnswerFromEvidence(ctx, finalAnswer, question, localNotes, webNotes, articleSources, webSources)
+}
+
+func (s *thinkTankService) finalizeAnswerFromEvidence(
+	ctx context.Context,
+	answer string,
+	question string,
+	localNotes []string,
+	webNotes []string,
+	articleSources []SourceRef,
+	webSources []SourceRef,
+) (string, error) {
+	finalAnswer := sanitizeFinalAnswerForUser(answer)
+	if strings.TrimSpace(finalAnswer) != "" {
+		return finalAnswer, nil
+	}
+	fallbackAnswer, err := s.composeADKFallbackAnswer(ctx, question, localNotes, webNotes, articleSources, webSources)
+	if err != nil {
+		return "", err
+	}
+	fallbackAnswer = sanitizeFinalAnswerForUser(fallbackAnswer)
+	if strings.TrimSpace(fallbackAnswer) == "" {
+		return "", fmt.Errorf("no user-facing answer available after sanitization")
+	}
+	return fallbackAnswer, nil
 }
 
 func (s *thinkTankService) composeADKFallbackAnswer(
@@ -213,5 +237,35 @@ func (s *thinkTankService) composeADKFallbackAnswer(
 	if webSummary != "" {
 		parts = append(parts, webSummary)
 	}
+	if len(parts) == 0 {
+		parts = append(parts, buildSourceOnlyFallbackSummary(articleSources, webSources))
+	}
 	return appendGroupedReferences(sanitizeFinalAnswerForUser(strings.Join(parts, "\n\n")), articleSources, webSources), nil
+}
+
+func buildSourceOnlyFallbackSummary(articleSources []SourceRef, webSources []SourceRef) string {
+	sources := append([]SourceRef{}, articleSources...)
+	sources = append(sources, webSources...)
+	names := make([]string, 0, len(sources))
+	for _, source := range sources {
+		title := strings.TrimSpace(source.Title)
+		if title == "" {
+			continue
+		}
+		names = append(names, title)
+		if len(names) >= 3 {
+			break
+		}
+	}
+	if len(names) == 0 {
+		return "当前可用资料只提供了来源线索，暂时缺少可直接展开的摘要内容。你可以先查看文末参考来源。"
+	}
+	return fmt.Sprintf("当前可用资料主要来自：%s。由于本轮没有获得足够可直接展开的摘要内容，下面先列出可核查来源，避免编造未验证细节。", strings.Join(names, "、"))
+}
+
+func journalistSummaryNotes(result *JournalistResult) []string {
+	if result == nil || strings.TrimSpace(result.Summary) == "" {
+		return nil
+	}
+	return []string{result.Summary}
 }
