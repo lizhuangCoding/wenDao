@@ -6,6 +6,7 @@ import { Layout, Loading, Pagination, EmptyState, ErrorState } from '@/component
 import { ArticleCard } from '@/components/article';
 import { ArticlePlanetHero } from '@/components/home';
 import { motion, AnimatePresence } from 'framer-motion';
+import type { ArticlePlanetTimeMode } from '@/components/home/articlePlanetTime';
 
 export const Home = () => {
   const { t } = useTranslation();
@@ -13,6 +14,7 @@ export const Home = () => {
   const [selectedCategory, setSelectedCategory] = useState<number>();
   const [searchKeyword, setSearchKeyword] = useState('');
   const [inputValue, setInputValue] = useState('');
+  const [planetTimeMode, setPlanetTimeMode] = useState<ArticlePlanetTimeMode>('all');
 
   // 获取网站标语
   const { data: siteData } = useQuery({
@@ -71,11 +73,13 @@ export const Home = () => {
         inputValue={inputValue}
         isError={isOrbitError}
         isLoading={isOrbitLoading}
+        timeMode={planetTimeMode}
         selectedCategory={selectedCategory}
         slogan={siteData?.slogan}
         onCategoryChange={handleCategoryChange}
         onSearch={handleSearch}
         onSearchInputChange={setInputValue}
+        onTimeModeChange={setPlanetTimeMode}
       />
 
       <div className="max-w-display mx-auto px-5 sm:px-10 lg:px-12 py-16 sm:py-24">

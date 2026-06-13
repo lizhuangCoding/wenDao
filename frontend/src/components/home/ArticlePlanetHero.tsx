@@ -5,6 +5,11 @@ import { useTranslation } from 'react-i18next';
 import { Loading } from '@/components/common';
 import type { ArticleOrbitItem, Category } from '@/types';
 import { ArticlePlanetOverlay } from './ArticlePlanetOverlay';
+import {
+  filterArticlesByPlanetTime,
+  getArticlePlanetYears,
+  type ArticlePlanetTimeMode,
+} from './articlePlanetTime';
 
 const ArticlePlanetScene = lazy(() =>
   import('./ArticlePlanetScene').then((module) => ({ default: module.ArticlePlanetScene }))
@@ -65,9 +70,11 @@ interface ArticlePlanetHeroProps {
   isLoading: boolean;
   selectedCategory?: number;
   slogan?: string;
+  timeMode: ArticlePlanetTimeMode;
   onCategoryChange: (categoryId?: number) => void;
   onSearch: (event: FormEvent) => void;
   onSearchInputChange: (value: string) => void;
+  onTimeModeChange: (mode: ArticlePlanetTimeMode) => void;
 }
 
 export const ArticlePlanetHero = ({
@@ -78,24 +85,31 @@ export const ArticlePlanetHero = ({
   isLoading,
   selectedCategory,
   slogan,
+  timeMode,
   onCategoryChange,
   onSearch,
   onSearchInputChange,
+  onTimeModeChange,
 }: ArticlePlanetHeroProps) => {
   const navigate = useNavigate();
   const { t } = useTranslation();
   const [activeArticleId, setActiveArticleId] = useState<number>();
   const [isActiveArticleCardVisible, setIsActiveArticleCardVisible] = useState(true);
+  const planetYears = useMemo(() => getArticlePlanetYears(articles), [articles]);
+  const visibleArticles = useMemo(
+    () => filterArticlesByPlanetTime(articles, timeMode),
+    [articles, timeMode]
+  );
   const activeArticle = useMemo(
-    () => articles.find((article) => article.id === activeArticleId) ?? articles[0],
-    [activeArticleId, articles]
+    () => visibleArticles.find((article) => article.id === activeArticleId) ?? visibleArticles[0],
+    [activeArticleId, visibleArticles]
   );
   const activeCollectionArticles = useMemo(() => {
     if (!activeArticle?.collection) return [];
-    return articles
+    return visibleArticles
       .filter((article) => article.collection?.id === activeArticle.collection?.id)
       .sort((a, b) => (a.collection?.position ?? 0) - (b.collection?.position ?? 0) || a.id - b.id);
-  }, [activeArticle, articles]);
+  }, [activeArticle, visibleArticles]);
 
   const focusArticle = (article: ArticleOrbitItem) => {
     setActiveArticleId(article.id);
@@ -115,12 +129,12 @@ export const ArticlePlanetHero = ({
         <div className="absolute inset-0 flex items-center justify-center">
           <Loading />
         </div>
-      ) : isError || articles.length === 0 ? (
+      ) : isError || visibleArticles.length === 0 ? (
         <ArticlePlanetSceneFallback message={isError ? t('articlePlanet.loadFailed') : t('articlePlanet.noArticles')} />
       ) : (
         <SceneErrorBoundary
           fallbackMessage={t('articlePlanet.renderFailed')}
-          resetKey={`${articles.length}-${selectedCategory ?? 'all'}`}
+          resetKey={`${visibleArticles.length}-${selectedCategory ?? 'all'}-${timeMode}`}
         >
           <Suspense
             fallback={
@@ -132,7 +146,7 @@ export const ArticlePlanetHero = ({
             <div className="absolute inset-0 z-[1]">
               <ArticlePlanetScene
                 activeArticleId={activeArticle?.id}
-                articles={articles}
+                articles={visibleArticles}
                 onArticleFocus={focusArticle}
                 onArticleOpen={openArticle}
               />
@@ -146,12 +160,17 @@ export const ArticlePlanetHero = ({
         categories={categories}
         inputValue={inputValue}
         isActiveArticleCardVisible={isActiveArticleCardVisible}
+        planetYears={planetYears}
         selectedCategory={selectedCategory}
         slogan={slogan}
+        timeMode={timeMode}
+        visibleArticleCount={visibleArticles.length}
+        totalArticleCount={articles.length}
         onActiveArticleClose={() => setIsActiveArticleCardVisible(false)}
         onCategoryChange={onCategoryChange}
         onSearch={onSearch}
         onSearchInputChange={onSearchInputChange}
+        onTimeModeChange={onTimeModeChange}
       />
       <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 h-24 bg-gradient-to-t from-white to-transparent dark:from-neutral-900" />
     </section>

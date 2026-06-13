@@ -161,6 +161,7 @@ export interface ArticleOrbitItem {
   category?: ArticleOrbitCategory;
   collection?: ArticleOrbitCollection;
   created_at: string;
+  published_at: string;
 }
 
 export interface ArticleOrbitResponse {

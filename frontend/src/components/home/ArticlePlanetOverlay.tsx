@@ -3,6 +3,7 @@ import { ArrowRight, Search, Sparkles, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import type { ArticleOrbitItem, Category } from '@/types';
+import { getArticlePlanetTimeLabel, type ArticlePlanetTimeMode } from './articlePlanetTime';
 
 interface ArticlePlanetOverlayProps {
   activeArticle?: ArticleOrbitItem;
@@ -10,12 +11,17 @@ interface ArticlePlanetOverlayProps {
   categories?: Category[];
   inputValue: string;
   isActiveArticleCardVisible: boolean;
+  planetYears: number[];
   selectedCategory?: number;
   slogan?: string;
+  timeMode: ArticlePlanetTimeMode;
+  totalArticleCount: number;
+  visibleArticleCount: number;
   onActiveArticleClose: () => void;
   onCategoryChange: (categoryId?: number) => void;
   onSearch: (event: FormEvent) => void;
   onSearchInputChange: (value: string) => void;
+  onTimeModeChange: (mode: ArticlePlanetTimeMode) => void;
 }
 
 export const ArticlePlanetOverlay = ({
@@ -24,12 +30,17 @@ export const ArticlePlanetOverlay = ({
   categories,
   inputValue,
   isActiveArticleCardVisible,
+  planetYears,
   selectedCategory,
   slogan,
+  timeMode,
+  totalArticleCount,
+  visibleArticleCount,
   onActiveArticleClose,
   onCategoryChange,
   onSearch,
   onSearchInputChange,
+  onTimeModeChange,
 }: ArticlePlanetOverlayProps) => {
   const { t } = useTranslation();
 
@@ -92,6 +103,45 @@ export const ArticlePlanetOverlay = ({
               </button>
             ))}
           </div>
+          {planetYears.length > 1 && (
+            <div className="pointer-events-none mt-4 max-w-2xl">
+              <div className="mb-2 flex items-center gap-3 text-[10px] font-black uppercase tracking-[0.22em] text-white/45">
+                <span>时间机器</span>
+                <span className="h-px w-8 bg-white/15" />
+                <span>{getArticlePlanetTimeLabel(timeMode)}</span>
+                <span>{visibleArticleCount}/{totalArticleCount} 篇</span>
+              </div>
+              <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+                <button
+                  type="button"
+                  onClick={() => onTimeModeChange('all')}
+                  aria-pressed={timeMode === 'all'}
+                  className={`pointer-events-auto shrink-0 border px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.18em] transition-colors ${
+                    timeMode === 'all'
+                      ? 'border-sky-200 bg-sky-200 text-neutral-950'
+                      : 'border-white/15 bg-white/5 text-white/60 hover:border-white/35 hover:text-white'
+                  }`}
+                >
+                  全部
+                </button>
+                {planetYears.map((year) => (
+                  <button
+                    key={year}
+                    type="button"
+                    onClick={() => onTimeModeChange(year)}
+                    aria-pressed={timeMode === year}
+                    className={`pointer-events-auto shrink-0 border px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.18em] transition-colors ${
+                      timeMode === year
+                        ? 'border-sky-200 bg-sky-200 text-neutral-950'
+                        : 'border-white/15 bg-white/5 text-white/60 hover:border-white/35 hover:text-white'
+                    }`}
+                  >
+                    {year}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           {activeArticle && (
             <Link
               to={`/article/${activeArticle.slug}`}

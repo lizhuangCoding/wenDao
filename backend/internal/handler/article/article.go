@@ -136,9 +136,14 @@ type ArticleOrbitItem struct {
 	Category     *ArticleOrbitCategory   `json:"category,omitempty"`
 	Collection   *ArticleOrbitCollection `json:"collection,omitempty"`
 	CreatedAt    string                  `json:"created_at"`
+	PublishedAt  string                  `json:"published_at"`
 }
 
 func toArticleOrbitItem(article *model.Article) ArticleOrbitItem {
+	publishedAt := article.CreatedAt
+	if article.PublishedAt != nil {
+		publishedAt = *article.PublishedAt
+	}
 	item := ArticleOrbitItem{
 		ID:           article.ID,
 		Title:        article.Title,
@@ -150,6 +155,7 @@ func toArticleOrbitItem(article *model.Article) ArticleOrbitItem {
 		IsTop:        article.IsTop,
 		SourceType:   article.SourceType,
 		CreatedAt:    article.CreatedAt.Format(time.RFC3339),
+		PublishedAt:  publishedAt.Format(time.RFC3339),
 	}
 	if article.Category != nil {
 		item.Category = &ArticleOrbitCategory{

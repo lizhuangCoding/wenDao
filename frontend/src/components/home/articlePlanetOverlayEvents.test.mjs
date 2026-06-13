@@ -34,3 +34,13 @@ test('desktop article summary card exposes the active collection reading path', 
   assert.match(source, /activeArticle\.collection\.name/);
   assert.match(source, /activeCollectionArticles\.slice\(0, 5\)\.map/);
 });
+
+test('article planet overlay exposes time machine controls', async () => {
+  const source = await readOverlaySource();
+
+  assert.match(source, /planetYears/);
+  assert.match(source, /时间机器/);
+  assert.match(source, /onTimeModeChange\('all'\)/);
+  assert.match(source, /onTimeModeChange\(year\)/);
+  assert.match(source, /visibleArticleCount/);
+});

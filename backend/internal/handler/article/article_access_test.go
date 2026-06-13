@@ -304,6 +304,7 @@ func TestArticleHandlerUpdate_DraftsPublishedArticleWhenScheduling(t *testing.T)
 func TestArticleHandlerListOrbitArticles_ReturnsLightweightArticleNodes(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	createdAt := time.Date(2026, 5, 24, 12, 0, 0, 0, time.UTC)
+	publishedAt := time.Date(2026, 6, 1, 9, 30, 0, 0, time.UTC)
 	coverImage := "/uploads/cover.png"
 	articleSvc := &stubArticleService{
 		orbitArticles: []*model.Article{
@@ -320,6 +321,7 @@ func TestArticleHandlerListOrbitArticles_ReturnsLightweightArticleNodes(t *testi
 				CommentCount: 5,
 				IsTop:        true,
 				CreatedAt:    createdAt,
+				PublishedAt:  &publishedAt,
 				Category: &model.Category{
 					ID:   3,
 					Name: "AI",
@@ -358,6 +360,9 @@ func TestArticleHandlerListOrbitArticles_ReturnsLightweightArticleNodes(t *testi
 	item := items[0].(map[string]any)
 	if item["title"] != "3D 星球" || item["slug"] != "planet" {
 		t.Fatalf("expected article identity fields, got %#v", item)
+	}
+	if item["published_at"] != publishedAt.Format(time.RFC3339) {
+		t.Fatalf("expected orbit response to expose published_at, got %#v", item["published_at"])
 	}
 	if _, ok := item["content"]; ok {
 		t.Fatalf("expected orbit response to omit content, got %#v", item)
