@@ -18,6 +18,7 @@ import (
 
 type UserRepository = userrepo.UserRepository
 type ArticleRepository = articlerepo.ArticleRepository
+type ArticleSemanticProfileRepository = articlerepo.ArticleSemanticProfileRepository
 type ArticleFilter = articlerepo.ArticleFilter
 type CategoryRepository = categoryrepo.CategoryRepository
 type CategoryFilter = categoryrepo.CategoryFilter
@@ -40,6 +41,9 @@ type StatRepository = statrepo.StatRepository
 
 func NewUserRepository(db *gorm.DB) UserRepository       { return userrepo.NewUserRepository(db) }
 func NewArticleRepository(db *gorm.DB) ArticleRepository { return articlerepo.NewArticleRepository(db) }
+func NewArticleSemanticProfileRepository(db *gorm.DB) ArticleSemanticProfileRepository {
+	return articlerepo.NewArticleSemanticProfileRepository(db)
+}
 func NewCategoryRepository(db *gorm.DB) CategoryRepository {
 	return categoryrepo.NewCategoryRepository(db)
 }

@@ -47,6 +47,7 @@ type ArticleService interface {
 // articleService 文章服务实现
 type articleService struct {
 	articleRepo   repository.ArticleRepository
+	semanticRepo  repository.ArticleSemanticProfileRepository
 	categoryRepo  repository.CategoryRepository
 	cache         articleCacheStore
 	vectorService VectorService
@@ -61,9 +62,15 @@ func NewArticleService(
 	rdb *redis.Client,
 	vectorService VectorService,
 	logger *zap.Logger,
+	semanticRepos ...repository.ArticleSemanticProfileRepository,
 ) ArticleService {
+	var semanticRepo repository.ArticleSemanticProfileRepository
+	if len(semanticRepos) > 0 {
+		semanticRepo = semanticRepos[0]
+	}
 	return &articleService{
 		articleRepo:   articleRepo,
+		semanticRepo:  semanticRepo,
 		categoryRepo:  categoryRepo,
 		cache:         newRedisArticleCacheStore(rdb),
 		vectorService: vectorService,
@@ -77,9 +84,15 @@ func newArticleServiceWithCacheStore(
 	cache articleCacheStore,
 	vectorService VectorService,
 	logger *zap.Logger,
+	semanticRepos ...repository.ArticleSemanticProfileRepository,
 ) *articleService {
+	var semanticRepo repository.ArticleSemanticProfileRepository
+	if len(semanticRepos) > 0 {
+		semanticRepo = semanticRepos[0]
+	}
 	return &articleService{
 		articleRepo:   articleRepo,
+		semanticRepo:  semanticRepo,
 		categoryRepo:  categoryRepo,
 		cache:         cache,
 		vectorService: vectorService,

@@ -30,6 +30,7 @@ func autoMigrateModels() []any {
 		&model.Category{},
 		&model.Collection{},
 		&model.Article{},
+		&model.ArticleSemanticProfile{},
 		&model.ArticleCollection{},
 		&model.ArticleInteraction{},
 		&model.Comment{},

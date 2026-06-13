@@ -31,6 +31,7 @@ type infrastructure struct {
 type repositories struct {
 	user                    repository.UserRepository
 	article                 repository.ArticleRepository
+	articleSemanticProfile  repository.ArticleSemanticProfileRepository
 	category                repository.CategoryRepository
 	collection              repository.CollectionRepository
 	comment                 repository.CommentRepository
@@ -87,6 +88,7 @@ func initRepositories(db *gorm.DB) *repositories {
 	return &repositories{
 		user:                    repository.NewUserRepository(db),
 		article:                 repository.NewArticleRepository(db),
+		articleSemanticProfile:  repository.NewArticleSemanticProfileRepository(db),
 		category:                repository.NewCategoryRepository(db),
 		collection:              repository.NewCollectionRepository(db),
 		comment:                 repository.NewCommentRepository(db),

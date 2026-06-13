@@ -82,6 +82,22 @@ test('buildArticlePlanetLayout handles empty article lists', async () => {
   assert.deepEqual(buildArticlePlanetLayout([]), []);
 });
 
+test('buildArticlePlanetLayout uses semantic coordinates when available', async () => {
+  const { buildArticlePlanetLayout } = await loadLayout();
+
+  const [node] = buildArticlePlanetLayout([
+    makeArticle({
+      id: 1,
+      slug: 'semantic',
+      semantic_position: { x: 0, y: 0, z: 1 },
+    }),
+  ]);
+
+  assert.ok(Math.abs(node.position[0]) < 0.000001);
+  assert.ok(Math.abs(node.position[1]) < 0.000001);
+  assert.ok(node.position[2] > 2.5);
+});
+
 test('buildArticlePlanetLayout assigns layered gem visual profile to every node', async () => {
   const { buildArticlePlanetLayout } = await loadLayout();
 
@@ -139,6 +155,32 @@ test('buildArticlePlanetConnections links collection articles by collection posi
   );
   assert.ok(collectionConnections.every((connection) => connection.isActive));
   assert.ok(collectionConnections.every((connection) => connection.opacity > 0.8));
+});
+
+test('buildArticlePlanetConnections links semantic neighbors once', async () => {
+  const { buildArticlePlanetLayout, buildArticlePlanetConnections } = await loadLayout();
+  const nodes = buildArticlePlanetLayout([
+    makeArticle({
+      id: 1,
+      slug: 'a',
+      semantic_position: { x: 1, y: 0, z: 0 },
+      semantic_neighbors: [{ article_id: 2, score: 0.91 }],
+    }),
+    makeArticle({
+      id: 2,
+      slug: 'b',
+      semantic_position: { x: 0.9, y: 0.1, z: 0 },
+      semantic_neighbors: [{ article_id: 1, score: 0.91 }],
+    }),
+  ]);
+
+  const connections = buildArticlePlanetConnections(nodes, 1);
+  const semanticConnections = connections.filter((connection) => connection.strength === 'semantic');
+
+  assert.equal(semanticConnections.length, 1);
+  assert.equal(semanticConnections[0].key, 'semantic-1-2');
+  assert.equal(semanticConnections[0].isActive, true);
+  assert.ok(semanticConnections[0].opacity > 0.5);
 });
 
 test('buildArticlePlanetConnections adds limited weak category context', async () => {

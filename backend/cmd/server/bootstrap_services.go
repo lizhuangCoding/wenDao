@@ -48,8 +48,8 @@ func initServices(cfg *config.Config, logger *zap.Logger, repos *repositories, i
 		var vectorService service.VectorService
 		var librarian service.Librarian
 		if aiCore.vectorStore != nil && aiCore.embedder != nil {
-			vectorService = service.NewVectorService(aiCore.vectorStore, aiCore.embedder, logger)
-			if err := syncPublishedArticleVectors(repos.article, vectorService, logger); err != nil {
+			vectorService = service.NewVectorService(aiCore.vectorStore, aiCore.embedder, logger, repos.articleSemanticProfile)
+			if err := syncPublishedArticleVectors(repos.article, repos.articleSemanticProfile, vectorService, logger); err != nil {
 				logger.Warn("Published article vector sync skipped, continuing in degraded mode", zap.Error(err))
 			}
 			retriever := eino.NewRedisRetriever(aiCore.vectorStore, aiCore.embedder, cfg.AI.TopK)
@@ -116,7 +116,7 @@ func initServices(cfg *config.Config, logger *zap.Logger, repos *repositories, i
 			vector:            vectorService,
 			knowledgeDocument: knowledgeDocumentService,
 			ai:                aiService,
-			article:           service.NewArticleService(repos.article, repos.category, infra.rdb, vectorService, logger),
+			article:           service.NewArticleService(repos.article, repos.category, infra.rdb, vectorService, logger, repos.articleSemanticProfile),
 			comment:           service.NewCommentService(repos.comment, repos.article, service.WithReplyNotificationSender(commentReplyEmailSender), service.WithCommentNotificationService(notifSvc), service.WithCommentUserRepository(repos.user), service.WithArticleCacheInvalidation(infra.rdb)),
 			upload:            service.NewUploadService(repos.upload, cfg),
 			stat:              service.NewStatService(repos.stat, infra.rdb),
@@ -134,7 +134,7 @@ func initServices(cfg *config.Config, logger *zap.Logger, repos *repositories, i
 		vector:            nil,
 		knowledgeDocument: knowledgeDocumentService,
 		ai:                aiService,
-		article:           service.NewArticleService(repos.article, repos.category, infra.rdb, nil, logger),
+		article:           service.NewArticleService(repos.article, repos.category, infra.rdb, nil, logger, repos.articleSemanticProfile),
 		comment:           service.NewCommentService(repos.comment, repos.article, service.WithReplyNotificationSender(commentReplyEmailSender), service.WithCommentNotificationService(notifSvc), service.WithCommentUserRepository(repos.user), service.WithArticleCacheInvalidation(infra.rdb)),
 		upload:            service.NewUploadService(repos.upload, cfg),
 		stat:              service.NewStatService(repos.stat, infra.rdb),
@@ -155,7 +155,7 @@ func logVerificationEmailConfig(cfg *config.Config, logger *zap.Logger) {
 	)
 }
 
-func syncPublishedArticleVectors(articleRepo repository.ArticleRepository, vectorService service.VectorService, logger *zap.Logger) error {
+func syncPublishedArticleVectors(articleRepo repository.ArticleRepository, semanticRepo repository.ArticleSemanticProfileRepository, vectorService service.VectorService, logger *zap.Logger) error {
 	if articleRepo == nil || vectorService == nil || logger == nil {
 		return nil
 	}
@@ -206,5 +206,68 @@ func syncPublishedArticleVectors(articleRepo repository.ArticleRepository, vecto
 	}
 
 	logger.Info("Published article vector sync completed", zap.Int("article_count", totalSynced))
+	if semanticRepo != nil {
+		if err := syncPublishedArticlesMissingSemanticProfiles(articleRepo, semanticRepo, vectorService, logger); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func syncPublishedArticlesMissingSemanticProfiles(articleRepo repository.ArticleRepository, semanticRepo repository.ArticleSemanticProfileRepository, vectorService service.VectorService, logger *zap.Logger) error {
+	const pageSize = 100
+	page := 1
+	totalSynced := 0
+
+	for {
+		articles, _, err := articleRepo.List(repository.ArticleFilter{
+			Status:         "published",
+			IncludeContent: true,
+			Page:           page,
+			PageSize:       pageSize,
+		})
+		if err != nil {
+			return fmt.Errorf("failed to list published articles for semantic profile sync: %w", err)
+		}
+		if len(articles) == 0 {
+			break
+		}
+
+		articleIDs := make([]int64, 0, len(articles))
+		for _, article := range articles {
+			if article != nil {
+				articleIDs = append(articleIDs, article.ID)
+			}
+		}
+		profilesByArticleID, err := semanticRepo.ListByArticleIDs(articleIDs)
+		if err != nil {
+			return fmt.Errorf("failed to list article semantic profiles: %w", err)
+		}
+
+		for _, article := range articles {
+			if article == nil {
+				continue
+			}
+			if _, exists := profilesByArticleID[article.ID]; exists {
+				continue
+			}
+			if err := vectorService.VectorizeArticle(article.ID, article.Title, article.Content, article.Slug); err != nil {
+				if statusErr := articleRepo.UpdateAIIndexStatus(article.ID, "failed"); statusErr != nil {
+					logger.Warn("Failed to mark article semantic profile sync as failed",
+						zap.Int64("article_id", article.ID),
+						zap.Error(statusErr))
+				}
+				return fmt.Errorf("failed to sync article %d semantic profile: %w", article.ID, err)
+			}
+			if err := articleRepo.UpdateAIIndexStatus(article.ID, "success"); err != nil {
+				return fmt.Errorf("failed to mark article %d semantic profile sync as success: %w", article.ID, err)
+			}
+			totalSynced++
+		}
+
+		page++
+	}
+
+	logger.Info("Published article semantic profile sync completed", zap.Int("article_count", totalSynced))
 	return nil
 }

@@ -117,6 +117,32 @@ func (s *vectorSyncServiceStub) VectorizeKnowledgeDocument(documentID int64, tit
 }
 func (s *vectorSyncServiceStub) DeleteKnowledgeDocumentVector(documentID int64) error { return nil }
 
+type vectorSyncSemanticRepoStub struct {
+	profilesByArticleID map[int64]*model.ArticleSemanticProfile
+}
+
+func (r *vectorSyncSemanticRepoStub) Upsert(profile *model.ArticleSemanticProfile) error {
+	return nil
+}
+
+func (r *vectorSyncSemanticRepoStub) DeleteByArticleID(articleID int64) error {
+	return nil
+}
+
+func (r *vectorSyncSemanticRepoStub) ListByArticleIDs(articleIDs []int64) (map[int64]*model.ArticleSemanticProfile, error) {
+	profiles := make(map[int64]*model.ArticleSemanticProfile, len(articleIDs))
+	for _, articleID := range articleIDs {
+		if profile := r.profilesByArticleID[articleID]; profile != nil {
+			profiles[articleID] = profile
+		}
+	}
+	return profiles, nil
+}
+
+func (r *vectorSyncSemanticRepoStub) ListAll() ([]*model.ArticleSemanticProfile, error) {
+	return nil, nil
+}
+
 func TestSyncPublishedArticleVectors_OnlyProcessesPendingOrFailedPublishedArticles(t *testing.T) {
 	repo := &vectorSyncArticleRepoStub{articles: []*model.Article{
 		{ID: 1, Status: "published", AIIndexStatus: "pending", Title: "pending", Content: "content", Slug: "pending"},
@@ -126,7 +152,7 @@ func TestSyncPublishedArticleVectors_OnlyProcessesPendingOrFailedPublishedArticl
 	}}
 	vectorSvc := &vectorSyncServiceStub{}
 
-	if err := syncPublishedArticleVectors(repo, vectorSvc, zap.NewNop()); err != nil {
+	if err := syncPublishedArticleVectors(repo, nil, vectorSvc, zap.NewNop()); err != nil {
 		t.Fatalf("expected vector sync success, got %v", err)
 	}
 
@@ -160,7 +186,7 @@ func TestSyncPublishedArticleVectors_DoesNotSkipCandidatesWhenStatusChanges(t *t
 	repo := &vectorSyncArticleRepoStub{articles: articles}
 	vectorSvc := &vectorSyncServiceStub{}
 
-	if err := syncPublishedArticleVectors(repo, vectorSvc, zap.NewNop()); err != nil {
+	if err := syncPublishedArticleVectors(repo, nil, vectorSvc, zap.NewNop()); err != nil {
 		t.Fatalf("expected vector sync success, got %v", err)
 	}
 
@@ -171,6 +197,26 @@ func TestSyncPublishedArticleVectors_DoesNotSkipCandidatesWhenStatusChanges(t *t
 		if article.AIIndexStatus != "success" {
 			t.Fatalf("expected article %d status success after sync, got %q", article.ID, article.AIIndexStatus)
 		}
+	}
+}
+
+func TestSyncPublishedArticlesMissingSemanticProfiles_ProcessesPublishedArticlesWithoutProfiles(t *testing.T) {
+	repo := &vectorSyncArticleRepoStub{articles: []*model.Article{
+		{ID: 1, Status: "published", AIIndexStatus: "success", Title: "missing profile", Content: "content", Slug: "missing"},
+		{ID: 2, Status: "published", AIIndexStatus: "success", Title: "has profile", Content: "content", Slug: "has"},
+		{ID: 3, Status: "draft", AIIndexStatus: "success", Title: "draft", Content: "content", Slug: "draft"},
+	}}
+	semanticRepo := &vectorSyncSemanticRepoStub{profilesByArticleID: map[int64]*model.ArticleSemanticProfile{
+		2: {ArticleID: 2},
+	}}
+	vectorSvc := &vectorSyncServiceStub{}
+
+	if err := syncPublishedArticlesMissingSemanticProfiles(repo, semanticRepo, vectorSvc, zap.NewNop()); err != nil {
+		t.Fatalf("expected semantic profile sync success, got %v", err)
+	}
+
+	if got, want := vectorSvc.vectorized, []int64{1}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("expected only published articles missing profiles to be vectorized, got %#v want %#v", got, want)
 	}
 }
 

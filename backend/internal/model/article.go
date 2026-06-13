@@ -42,6 +42,7 @@ type Article struct {
 
 	CollectionMembership *ArticleCollectionMembership `gorm:"-" json:"collection_membership,omitempty"`
 	CollectionNavigation *ArticleCollectionNavigation `gorm:"-" json:"collection_navigation,omitempty"`
+	SemanticProfile      *ArticleSemanticProfile      `gorm:"-" json:"semantic_profile,omitempty"`
 }
 
 // TableName 指定表名

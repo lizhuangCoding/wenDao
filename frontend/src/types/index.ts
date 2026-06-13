@@ -148,6 +148,17 @@ export interface ArticleOrbitCollection {
   position: number;
 }
 
+export interface ArticleOrbitSemanticPosition {
+  x: number;
+  y: number;
+  z: number;
+}
+
+export interface ArticleOrbitSemanticNeighbor {
+  article_id: number;
+  score: number;
+}
+
 export interface ArticleOrbitItem {
   id: number;
   title: string;
@@ -160,6 +171,8 @@ export interface ArticleOrbitItem {
   source_type: 'manual' | 'knowledge_document';
   category?: ArticleOrbitCategory;
   collection?: ArticleOrbitCollection;
+  semantic_position?: ArticleOrbitSemanticPosition;
+  semantic_neighbors?: ArticleOrbitSemanticNeighbor[];
   created_at: string;
   published_at: string;
 }

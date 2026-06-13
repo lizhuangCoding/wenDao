@@ -1,7 +1,11 @@
 package ai
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
+	"hash/fnv"
+	"math"
 	"strings"
 
 	"go.uber.org/zap"
@@ -19,6 +23,11 @@ type VectorService interface {
 	DeleteKnowledgeDocumentVector(documentID int64) error
 }
 
+type ArticleSemanticProfileRepository interface {
+	Upsert(profile *model.ArticleSemanticProfile) error
+	DeleteByArticleID(articleID int64) error
+}
+
 // ArticleChunk 文章片段
 type ArticleChunk struct {
 	ArticleID int64
@@ -28,17 +37,28 @@ type ArticleChunk struct {
 }
 
 type vectorService struct {
-	vectorStore eino.RedisVectorStore
-	embedder    eino.Embedder
-	logger      *zap.Logger
+	vectorStore         eino.RedisVectorStore
+	embedder            eino.Embedder
+	semanticProfileRepo ArticleSemanticProfileRepository
+	logger              *zap.Logger
 }
 
 func NewVectorService(
 	vectorStore eino.RedisVectorStore,
 	embedder eino.Embedder,
 	logger *zap.Logger,
+	semanticProfileRepos ...ArticleSemanticProfileRepository,
 ) VectorService {
-	return &vectorService{vectorStore: vectorStore, embedder: embedder, logger: logger}
+	var semanticProfileRepo ArticleSemanticProfileRepository
+	if len(semanticProfileRepos) > 0 {
+		semanticProfileRepo = semanticProfileRepos[0]
+	}
+	return &vectorService{
+		vectorStore:         vectorStore,
+		embedder:            embedder,
+		semanticProfileRepo: semanticProfileRepo,
+		logger:              logger,
+	}
 }
 
 func (s *vectorService) VectorizeArticle(articleID int64, title, content, slug string) error {
@@ -77,6 +97,9 @@ func (s *vectorService) VectorizeArticle(articleID int64, title, content, slug s
 	}
 	if err := s.vectorStore.UpsertBatch(vectorItems); err != nil {
 		return fmt.Errorf("failed to store vectors: %w", err)
+	}
+	if err := s.upsertArticleSemanticProfile(articleID, title, content, embeddings); err != nil {
+		return fmt.Errorf("failed to store article semantic profile: %w", err)
 	}
 	return nil
 }
@@ -119,6 +142,11 @@ func (s *vectorService) DeleteArticleVector(articleID int64) error {
 	pattern := fmt.Sprintf("vec:article:%d:chunk:*", articleID)
 	if err := s.vectorStore.Delete(pattern); err != nil {
 		return fmt.Errorf("failed to delete vectors: %w", err)
+	}
+	if s.semanticProfileRepo != nil {
+		if err := s.semanticProfileRepo.DeleteByArticleID(articleID); err != nil {
+			return fmt.Errorf("failed to delete article semantic profile: %w", err)
+		}
 	}
 	return nil
 }
@@ -228,4 +256,102 @@ func (s *vectorService) chunkArticle(title, content string) []string {
 		chunks = append(chunks, currentChunk.String())
 	}
 	return chunks
+}
+
+func (s *vectorService) upsertArticleSemanticProfile(articleID int64, title, content string, embeddings [][]float32) error {
+	if s.semanticProfileRepo == nil {
+		return nil
+	}
+	articleVector := averageNormalizedVectors(embeddings)
+	if len(articleVector) == 0 {
+		return nil
+	}
+	x, y, z := projectSemanticVector(articleVector)
+	profile := &model.ArticleSemanticProfile{
+		ArticleID:    articleID,
+		ContentHash:  articleSemanticContentHash(title, content),
+		MapX:         x,
+		MapY:         y,
+		MapZ:         z,
+		NeighborJSON: "[]",
+	}
+	if err := profile.SetEmbedding(articleVector); err != nil {
+		return err
+	}
+	return s.semanticProfileRepo.Upsert(profile)
+}
+
+func averageNormalizedVectors(vectors [][]float32) []float32 {
+	var sum []float64
+	count := 0
+	for _, vector := range vectors {
+		normalized := normalizeFloat32Vector(vector)
+		if len(normalized) == 0 {
+			continue
+		}
+		if len(sum) == 0 {
+			sum = make([]float64, len(normalized))
+		}
+		if len(normalized) != len(sum) {
+			continue
+		}
+		for index, value := range normalized {
+			sum[index] += float64(value)
+		}
+		count++
+	}
+	if count == 0 {
+		return nil
+	}
+	average := make([]float32, len(sum))
+	for index, value := range sum {
+		average[index] = float32(value / float64(count))
+	}
+	return normalizeFloat32Vector(average)
+}
+
+func normalizeFloat32Vector(vector []float32) []float32 {
+	if len(vector) == 0 {
+		return nil
+	}
+	var norm float64
+	for _, value := range vector {
+		norm += float64(value) * float64(value)
+	}
+	if norm == 0 {
+		return nil
+	}
+	scale := math.Sqrt(norm)
+	normalized := make([]float32, len(vector))
+	for index, value := range vector {
+		normalized[index] = float32(float64(value) / scale)
+	}
+	return normalized
+}
+
+func projectSemanticVector(vector []float32) (float64, float64, float64) {
+	axes := [3]float64{}
+	for index, value := range vector {
+		v := float64(value)
+		axes[0] += v * semanticProjectionWeight(index, 0)
+		axes[1] += v * semanticProjectionWeight(index, 1)
+		axes[2] += v * semanticProjectionWeight(index, 2)
+	}
+	norm := math.Sqrt(axes[0]*axes[0] + axes[1]*axes[1] + axes[2]*axes[2])
+	if norm == 0 {
+		return 1, 0, 0
+	}
+	return axes[0] / norm, axes[1] / norm, axes[2] / norm
+}
+
+func semanticProjectionWeight(index int, axis int) float64 {
+	hash := fnv.New64a()
+	_, _ = hash.Write([]byte(fmt.Sprintf("article-semantic-map:%d:%d", axis, index)))
+	bucket := int64(hash.Sum64() % 2000001)
+	return float64(bucket-1000000) / 1000000
+}
+
+func articleSemanticContentHash(title, content string) string {
+	sum := sha256.Sum256([]byte(title + "\n\n" + content))
+	return hex.EncodeToString(sum[:])
 }

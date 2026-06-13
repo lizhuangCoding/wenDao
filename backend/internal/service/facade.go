@@ -47,6 +47,7 @@ type CollectionService = collectionsvc.CollectionService
 type SettingService = settingsvc.SettingService
 type VectorService = aisvc.VectorService
 type ArticleChunk = aisvc.ArticleChunk
+type ArticleSemanticProfileRepository = aisvc.ArticleSemanticProfileRepository
 type KnowledgeDocumentService = knowledgesvc.KnowledgeDocumentService
 type KnowledgeSourceInput = knowledgesvc.KnowledgeSourceInput
 type CreateKnowledgeDocumentInput = knowledgesvc.CreateKnowledgeDocumentInput
@@ -113,8 +114,8 @@ func NewCollectionService(repo collectionrepo.CollectionRepository, articleRepo 
 func NewSettingService(repo settingrepo.SettingRepository) SettingService {
 	return settingsvc.NewSettingService(repo)
 }
-func NewVectorService(store eino.RedisVectorStore, embedder eino.Embedder, logger *zap.Logger) VectorService {
-	return aisvc.NewVectorService(store, embedder, logger)
+func NewVectorService(store eino.RedisVectorStore, embedder eino.Embedder, logger *zap.Logger, profileRepos ...ArticleSemanticProfileRepository) VectorService {
+	return aisvc.NewVectorService(store, embedder, logger, profileRepos...)
 }
 func NewKnowledgeDocumentService(docRepo knowledgerepo.KnowledgeDocumentRepository, srcRepo knowledgerepo.KnowledgeDocumentSourceRepository, vector VectorService, articleRepo articlerepo.ArticleRepository, categoryRepo categoryrepo.CategoryRepository, logger *zap.Logger) KnowledgeDocumentService {
 	return knowledgesvc.NewKnowledgeDocumentService(docRepo, srcRepo, vector, articleRepo, categoryRepo, logger)
@@ -123,8 +124,8 @@ func NewDisabledAIService(reason string) AIService { return aisvc.NewDisabledAIS
 func NewAIService(llm eino.LLMClient, thinkTank ThinkTankService, logger *zap.Logger) AIService {
 	return aisvc.NewAIService(llm, thinkTank, logger)
 }
-func NewArticleService(articleRepo articlerepo.ArticleRepository, categoryRepo categoryrepo.CategoryRepository, rdb *redis.Client, vector VectorService, logger *zap.Logger) ArticleService {
-	return articlesvc.NewArticleService(articleRepo, categoryRepo, rdb, vector, logger)
+func NewArticleService(articleRepo articlerepo.ArticleRepository, categoryRepo categoryrepo.CategoryRepository, rdb *redis.Client, vector VectorService, logger *zap.Logger, semanticRepos ...articlerepo.ArticleSemanticProfileRepository) ArticleService {
+	return articlesvc.NewArticleService(articleRepo, categoryRepo, rdb, vector, logger, semanticRepos...)
 }
 func NewCommentService(commentRepo commentrepo.CommentRepository, articleRepo articlerepo.ArticleRepository, options ...CommentServiceOption) CommentService {
 	return commentsvc.NewCommentService(commentRepo, articleRepo, options...)

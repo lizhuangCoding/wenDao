@@ -306,6 +306,15 @@ func TestArticleHandlerListOrbitArticles_ReturnsLightweightArticleNodes(t *testi
 	createdAt := time.Date(2026, 5, 24, 12, 0, 0, 0, time.UTC)
 	publishedAt := time.Date(2026, 6, 1, 9, 30, 0, 0, time.UTC)
 	coverImage := "/uploads/cover.png"
+	semanticProfile := &model.ArticleSemanticProfile{
+		ArticleID: 7,
+		MapX:      0.2,
+		MapY:      0.3,
+		MapZ:      0.9,
+	}
+	if err := semanticProfile.SetNeighbors([]model.ArticleSemanticNeighbor{{ArticleID: 9, Score: 0.82}}); err != nil {
+		t.Fatalf("failed to prepare semantic neighbors: %v", err)
+	}
 	articleSvc := &stubArticleService{
 		orbitArticles: []*model.Article{
 			{
@@ -333,6 +342,7 @@ func TestArticleHandlerListOrbitArticles_ReturnsLightweightArticleNodes(t *testi
 					Slug:         "knowledge-planet",
 					Position:     2,
 				},
+				SemanticProfile: semanticProfile,
 			},
 		},
 	}
@@ -374,6 +384,15 @@ func TestArticleHandlerListOrbitArticles_ReturnsLightweightArticleNodes(t *testi
 	collection := item["collection"].(map[string]any)
 	if collection["name"] != "知识星球" || collection["slug"] != "knowledge-planet" || collection["position"].(float64) != 2 {
 		t.Fatalf("expected collection summary, got %#v", collection)
+	}
+	semanticPosition := item["semantic_position"].(map[string]any)
+	if semanticPosition["x"].(float64) != 0.2 || semanticPosition["y"].(float64) != 0.3 || semanticPosition["z"].(float64) != 0.9 {
+		t.Fatalf("expected semantic position, got %#v", semanticPosition)
+	}
+	semanticNeighbors := item["semantic_neighbors"].([]any)
+	semanticNeighbor := semanticNeighbors[0].(map[string]any)
+	if semanticNeighbor["article_id"].(float64) != 9 || semanticNeighbor["score"].(float64) != 0.82 {
+		t.Fatalf("expected semantic neighbor summary, got %#v", semanticNeighbor)
 	}
 }
 

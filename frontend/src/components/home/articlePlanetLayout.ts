@@ -77,7 +77,7 @@ export interface ArticlePlanetConnection {
   isActive: boolean;
   key: string;
   opacity: number;
-  strength: 'collection' | 'category';
+  strength: 'collection' | 'category' | 'semantic';
   to: [number, number, number];
 }
 
@@ -160,6 +160,7 @@ export const buildArticlePlanetLayout = (
     const radius = sphereRadius + categoryOffset;
     const weight = calculateArticlePlanetWeight(article);
     const visual = buildArticlePlanetVisual(weight, article.category?.id);
+    const semanticPosition = getArticleSemanticPlanetPosition(article, radius);
 
     return {
       article,
@@ -167,7 +168,7 @@ export const buildArticlePlanetLayout = (
       emissiveIntensity: 0.55 + weight * 0.28,
       index,
       key: `${article.id}-${article.slug}`,
-      position: [
+      position: semanticPosition ?? [
         Math.cos(theta) * radial * radius,
         y * radius,
         Math.sin(theta) * radial * radius,
@@ -177,6 +178,25 @@ export const buildArticlePlanetLayout = (
       weight,
     };
   });
+};
+
+const getArticleSemanticPlanetPosition = (
+  article: ArticleOrbitItem,
+  radius: number
+): [number, number, number] | undefined => {
+  const position = article.semantic_position;
+  if (!position) {
+    return undefined;
+  }
+  const length = Math.sqrt(position.x ** 2 + position.y ** 2 + position.z ** 2);
+  if (!Number.isFinite(length) || length === 0) {
+    return undefined;
+  }
+  return [
+    (position.x / length) * radius,
+    (position.y / length) * radius,
+    (position.z / length) * radius,
+  ];
 };
 
 const sortByCollectionOrder = (a: ArticlePlanetNodeLayout, b: ArticlePlanetNodeLayout) => {
@@ -216,6 +236,31 @@ export const buildArticlePlanetConnections = (
 ): ArticlePlanetConnection[] => {
   const active = activeContext(nodes, activeArticleId);
   const connections: ArticlePlanetConnection[] = [];
+  const nodesByArticleId = new Map(nodes.map((node) => [node.article.id, node]));
+  const semanticConnectionKeys = new Set<string>();
+
+  for (const node of nodes) {
+    for (const neighbor of node.article.semantic_neighbors ?? []) {
+      const target = nodesByArticleId.get(neighbor.article_id);
+      if (!target || target.article.id === node.article.id) continue;
+      const low = Math.min(node.article.id, target.article.id);
+      const high = Math.max(node.article.id, target.article.id);
+      const key = `semantic-${low}-${high}`;
+      if (semanticConnectionKeys.has(key)) continue;
+      semanticConnectionKeys.add(key);
+      const score = clamp(neighbor.score, 0, 1);
+      const isActive = activeArticleId === node.article.id || activeArticleId === target.article.id;
+      connections.push({
+        color: isActive ? '#f0fdfa' : '#5eead4',
+        from: node.position,
+        isActive,
+        key,
+        opacity: isActive ? 0.52 : 0.18 + score * 0.22,
+        strength: 'semantic',
+        to: target.position,
+      });
+    }
+  }
 
   for (const [collectionId, group] of groupNodes(nodes, (node) =>
     node.article.collection ? String(node.article.collection.id) : undefined
