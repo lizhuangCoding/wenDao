@@ -103,7 +103,7 @@ export const ArticlePlanetOverlay = ({
               </button>
             ))}
           </div>
-          {planetYears.length > 1 && (
+          {planetYears.length > 0 && (
             <div className="pointer-events-none mt-4 max-w-2xl">
               <div className="mb-2 flex items-center gap-3 text-[10px] font-black uppercase tracking-[0.22em] text-white/45">
                 <span>时间机器</span>

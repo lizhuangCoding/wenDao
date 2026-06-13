@@ -39,6 +39,8 @@ test('article planet overlay exposes time machine controls', async () => {
   const source = await readOverlaySource();
 
   assert.match(source, /planetYears/);
+  assert.match(source, /planetYears\.length > 0/);
+  assert.doesNotMatch(source, /planetYears\.length > 1/);
   assert.match(source, /时间机器/);
   assert.match(source, /onTimeModeChange\('all'\)/);
   assert.match(source, /onTimeModeChange\(year\)/);
