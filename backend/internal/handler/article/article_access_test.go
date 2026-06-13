@@ -325,6 +325,12 @@ func TestArticleHandlerListOrbitArticles_ReturnsLightweightArticleNodes(t *testi
 					Name: "AI",
 					Slug: "ai",
 				},
+				CollectionMembership: &model.ArticleCollectionMembership{
+					CollectionID: 11,
+					Name:         "知识星球",
+					Slug:         "knowledge-planet",
+					Position:     2,
+				},
 			},
 		},
 	}
@@ -359,6 +365,10 @@ func TestArticleHandlerListOrbitArticles_ReturnsLightweightArticleNodes(t *testi
 	category := item["category"].(map[string]any)
 	if category["name"] != "AI" || category["slug"] != "ai" {
 		t.Fatalf("expected category summary, got %#v", category)
+	}
+	collection := item["collection"].(map[string]any)
+	if collection["name"] != "知识星球" || collection["slug"] != "knowledge-planet" || collection["position"].(float64) != 2 {
+		t.Fatalf("expected collection summary, got %#v", collection)
 	}
 }
 

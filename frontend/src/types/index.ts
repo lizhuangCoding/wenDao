@@ -141,6 +141,13 @@ export interface ArticleOrbitCategory {
   slug: string;
 }
 
+export interface ArticleOrbitCollection {
+  id: number;
+  name: string;
+  slug: string;
+  position: number;
+}
+
 export interface ArticleOrbitItem {
   id: number;
   title: string;
@@ -152,6 +159,7 @@ export interface ArticleOrbitItem {
   is_top: boolean;
   source_type: 'manual' | 'knowledge_document';
   category?: ArticleOrbitCategory;
+  collection?: ArticleOrbitCollection;
   created_at: string;
 }
 

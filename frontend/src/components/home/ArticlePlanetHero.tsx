@@ -90,6 +90,12 @@ export const ArticlePlanetHero = ({
     () => articles.find((article) => article.id === activeArticleId) ?? articles[0],
     [activeArticleId, articles]
   );
+  const activeCollectionArticles = useMemo(() => {
+    if (!activeArticle?.collection) return [];
+    return articles
+      .filter((article) => article.collection?.id === activeArticle.collection?.id)
+      .sort((a, b) => (a.collection?.position ?? 0) - (b.collection?.position ?? 0) || a.id - b.id);
+  }, [activeArticle, articles]);
 
   const focusArticle = (article: ArticleOrbitItem) => {
     setActiveArticleId(article.id);
@@ -136,6 +142,7 @@ export const ArticlePlanetHero = ({
       )}
       <ArticlePlanetOverlay
         activeArticle={activeArticle}
+        activeCollectionArticles={activeCollectionArticles}
         categories={categories}
         inputValue={inputValue}
         isActiveArticleCardVisible={isActiveArticleCardVisible}

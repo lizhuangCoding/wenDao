@@ -4,7 +4,11 @@ import { AdditiveBlending, BackSide, type Group } from 'three';
 import { OrbitControls as ThreeOrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import type { ArticleOrbitItem } from '@/types';
 import { ArticlePlanetNode } from './ArticlePlanetNode';
-import { buildArticlePlanetLayout } from './articlePlanetLayout';
+import {
+  buildArticlePlanetConnections,
+  buildArticlePlanetLayout,
+  type ArticlePlanetConnection,
+} from './articlePlanetLayout';
 
 interface ArticlePlanetSceneProps {
   activeArticleId?: number;
@@ -136,6 +140,36 @@ const PlanetBody = () => (
   </group>
 );
 
+const ArticlePlanetConnectionLine = ({ connection }: { connection: ArticlePlanetConnection }) => {
+  const positions = useMemo(
+    () =>
+      new Float32Array([
+        connection.from[0],
+        connection.from[1],
+        connection.from[2],
+        connection.to[0],
+        connection.to[1],
+        connection.to[2],
+      ]),
+    [connection]
+  );
+
+  return (
+    <line>
+      <bufferGeometry>
+        <bufferAttribute attach="attributes-position" args={[positions, 3]} />
+      </bufferGeometry>
+      <lineBasicMaterial
+        blending={AdditiveBlending}
+        color={connection.color}
+        depthWrite={false}
+        opacity={connection.opacity}
+        transparent
+      />
+    </line>
+  );
+};
+
 const SceneControls = () => {
   const { camera, gl } = useThree();
   const controlsRef = useRef<ThreeOrbitControls | null>(null);
@@ -177,6 +211,10 @@ const ArticlePlanetCluster = ({
   const basePosition: [number, number, number] = isCompact ? [0.16, 1.1, 0] : [1.52, -0.02, 0];
   const driftAmplitude = isCompact ? PLANET_MOBILE_DRIFT_AMPLITUDE : PLANET_DESKTOP_DRIFT_AMPLITUDE;
   const scale = isCompact ? 0.58 : 0.76;
+  const connections = useMemo(
+    () => buildArticlePlanetConnections(nodes, activeArticleId),
+    [activeArticleId, nodes]
+  );
 
   useFrame(({ clock }, delta) => {
     if (clusterRef.current) {
@@ -192,6 +230,9 @@ const ArticlePlanetCluster = ({
     <group ref={clusterRef} position={basePosition} rotation={CLUSTER_BASE_ROTATION} scale={scale}>
       <group ref={spinRef}>
         <PlanetBody />
+        {connections.map((connection) => (
+          <ArticlePlanetConnectionLine key={connection.key} connection={connection} />
+        ))}
         {nodes.map((node) => (
           <ArticlePlanetNode
             key={node.key}

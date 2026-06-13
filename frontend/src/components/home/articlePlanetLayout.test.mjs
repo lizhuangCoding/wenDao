@@ -120,3 +120,43 @@ test('buildArticlePlanetLayout keeps premium article planets compact and materia
     assert.ok(node.visual.shellOpacity <= 0.28);
   }
 });
+
+test('buildArticlePlanetConnections links collection articles by collection position', async () => {
+  const { buildArticlePlanetLayout, buildArticlePlanetConnections } = await loadLayout();
+  const nodes = buildArticlePlanetLayout([
+    makeArticle({ id: 1, slug: 'third', collection: { id: 9, name: '系列', slug: 'series', position: 3 } }),
+    makeArticle({ id: 2, slug: 'first', collection: { id: 9, name: '系列', slug: 'series', position: 1 } }),
+    makeArticle({ id: 3, slug: 'second', collection: { id: 9, name: '系列', slug: 'series', position: 2 } }),
+  ]);
+
+  const connections = buildArticlePlanetConnections(nodes, 2);
+  const collectionConnections = connections.filter((connection) => connection.strength === 'collection');
+
+  assert.equal(collectionConnections.length, 2);
+  assert.deepEqual(
+    collectionConnections.map((connection) => connection.key),
+    ['collection-9-2-3', 'collection-9-3-1']
+  );
+  assert.ok(collectionConnections.every((connection) => connection.isActive));
+  assert.ok(collectionConnections.every((connection) => connection.opacity > 0.8));
+});
+
+test('buildArticlePlanetConnections adds limited weak category context', async () => {
+  const { buildArticlePlanetLayout, buildArticlePlanetConnections } = await loadLayout();
+  const nodes = buildArticlePlanetLayout([
+    makeArticle({ id: 1, slug: 'a', category: { id: 4, name: 'Design', slug: 'design' } }),
+    makeArticle({ id: 2, slug: 'b', category: { id: 4, name: 'Design', slug: 'design' } }),
+    makeArticle({ id: 3, slug: 'c', category: { id: 4, name: 'Design', slug: 'design' } }),
+    makeArticle({ id: 4, slug: 'd', category: { id: 5, name: 'Go', slug: 'go' } }),
+  ]);
+
+  const connections = buildArticlePlanetConnections(nodes, 1);
+  const categoryConnections = connections.filter((connection) => connection.strength === 'category');
+
+  assert.equal(categoryConnections.length, 2);
+  assert.deepEqual(
+    categoryConnections.map((connection) => connection.key),
+    ['category-4-1-2', 'category-4-2-3']
+  );
+  assert.ok(categoryConnections.every((connection) => connection.opacity > 0.3));
+});

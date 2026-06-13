@@ -6,6 +6,7 @@ import type { ArticleOrbitItem, Category } from '@/types';
 
 interface ArticlePlanetOverlayProps {
   activeArticle?: ArticleOrbitItem;
+  activeCollectionArticles?: ArticleOrbitItem[];
   categories?: Category[];
   inputValue: string;
   isActiveArticleCardVisible: boolean;
@@ -19,6 +20,7 @@ interface ArticlePlanetOverlayProps {
 
 export const ArticlePlanetOverlay = ({
   activeArticle,
+  activeCollectionArticles = [],
   categories,
   inputValue,
   isActiveArticleCardVisible,
@@ -144,6 +146,44 @@ export const ArticlePlanetOverlay = ({
                 <span>{activeArticle.comment_count} {t('article.comments')}</span>
               </div>
             </Link>
+            {activeArticle.collection && activeCollectionArticles.length > 1 && (
+              <div className="mt-5 border-t border-white/10 pt-4">
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-[0.24em] text-primary-300">
+                      星座路径
+                    </p>
+                    <p className="mt-1 truncate text-sm font-bold text-white/85">
+                      {activeArticle.collection.name}
+                    </p>
+                  </div>
+                  <span className="shrink-0 text-[10px] font-bold uppercase tracking-widest text-white/40">
+                    {activeCollectionArticles.length} 篇
+                  </span>
+                </div>
+                <div className="space-y-2">
+                  {activeCollectionArticles.slice(0, 5).map((article) => {
+                    const isCurrent = article.id === activeArticle.id;
+                    return (
+                      <Link
+                        key={article.id}
+                        to={`/article/${article.slug}`}
+                        className={`flex items-center gap-3 border px-3 py-2 text-xs font-bold transition-colors ${
+                          isCurrent
+                            ? 'border-primary-300/60 bg-primary-300/15 text-primary-100'
+                            : 'border-white/10 bg-white/[0.03] text-white/58 hover:border-primary-300/40 hover:text-white'
+                        }`}
+                      >
+                        <span className="w-5 shrink-0 text-right tabular-nums text-white/35">
+                          {article.collection?.position ?? 0}
+                        </span>
+                        <span className="min-w-0 flex-1 truncate">{article.title}</span>
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>

@@ -35,3 +35,12 @@ test('article planet keeps a slow horizontal drift animation', async () => {
     /clusterRef\.current\.position\.x =[\s\S]*basePosition\[0\] \+ Math\.sin\(clock\.elapsedTime \* PLANET_DRIFT_SPEED\) \* driftAmplitude/
   );
 });
+
+test('article planet renders constellation connection lines from layout relationships', async () => {
+  const sceneSource = await readProjectFile('src/components/home/ArticlePlanetScene.tsx');
+
+  assert.match(sceneSource, /buildArticlePlanetConnections/);
+  assert.match(sceneSource, /ArticlePlanetConnectionLine/);
+  assert.match(sceneSource, /<lineBasicMaterial/);
+  assert.match(sceneSource, /connections\.map/);
+});

@@ -23,5 +23,14 @@ test('desktop article summary card exposes a close button', async () => {
 
   assert.match(source, /isActiveArticleCardVisible/);
   assert.match(source, /onActiveArticleClose/);
-  assert.match(source, /aria-label="关闭文章卡片"/);
+  assert.match(source, /aria-label=\{t\('common\.close'\)\}/);
+});
+
+test('desktop article summary card exposes the active collection reading path', async () => {
+  const source = await readOverlaySource();
+
+  assert.match(source, /activeCollectionArticles/);
+  assert.match(source, /星座路径/);
+  assert.match(source, /activeArticle\.collection\.name/);
+  assert.match(source, /activeCollectionArticles\.slice\(0, 5\)\.map/);
 });

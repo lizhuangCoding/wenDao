@@ -116,18 +116,26 @@ type ArticleOrbitCategory struct {
 	Slug string `json:"slug"`
 }
 
+type ArticleOrbitCollection struct {
+	ID       int64  `json:"id"`
+	Name     string `json:"name"`
+	Slug     string `json:"slug"`
+	Position int    `json:"position"`
+}
+
 type ArticleOrbitItem struct {
-	ID           int64                 `json:"id"`
-	Title        string                `json:"title"`
-	Slug         string                `json:"slug"`
-	Summary      string                `json:"summary"`
-	CoverImage   *string               `json:"cover_image,omitempty"`
-	ViewCount    int                   `json:"view_count"`
-	CommentCount int                   `json:"comment_count"`
-	IsTop        bool                  `json:"is_top"`
-	SourceType   string                `json:"source_type"`
-	Category     *ArticleOrbitCategory `json:"category,omitempty"`
-	CreatedAt    string                `json:"created_at"`
+	ID           int64                   `json:"id"`
+	Title        string                  `json:"title"`
+	Slug         string                  `json:"slug"`
+	Summary      string                  `json:"summary"`
+	CoverImage   *string                 `json:"cover_image,omitempty"`
+	ViewCount    int                     `json:"view_count"`
+	CommentCount int                     `json:"comment_count"`
+	IsTop        bool                    `json:"is_top"`
+	SourceType   string                  `json:"source_type"`
+	Category     *ArticleOrbitCategory   `json:"category,omitempty"`
+	Collection   *ArticleOrbitCollection `json:"collection,omitempty"`
+	CreatedAt    string                  `json:"created_at"`
 }
 
 func toArticleOrbitItem(article *model.Article) ArticleOrbitItem {
@@ -148,6 +156,14 @@ func toArticleOrbitItem(article *model.Article) ArticleOrbitItem {
 			ID:   article.Category.ID,
 			Name: article.Category.Name,
 			Slug: article.Category.Slug,
+		}
+	}
+	if article.CollectionMembership != nil {
+		item.Collection = &ArticleOrbitCollection{
+			ID:       article.CollectionMembership.CollectionID,
+			Name:     article.CollectionMembership.Name,
+			Slug:     article.CollectionMembership.Slug,
+			Position: article.CollectionMembership.Position,
 		}
 	}
 	return item
@@ -385,6 +401,12 @@ func (h *ArticleHandler) ListOrbitArticles(c *gin.Context) {
 	for _, article := range articles {
 		if article == nil {
 			continue
+		}
+		if h.collectionService != nil {
+			if err := h.collectionService.HydrateArticleCollectionData(article, false); err != nil {
+				response.InternalErrorWithErr(c, "Failed to get article collection data", err)
+				return
+			}
 		}
 		items = append(items, toArticleOrbitItem(article))
 	}
