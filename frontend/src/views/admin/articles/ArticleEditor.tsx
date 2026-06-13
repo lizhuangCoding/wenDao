@@ -13,7 +13,7 @@ import { DatePicker, Select } from 'tdesign-react';
 import type { DatePickerProps } from 'tdesign-react';
 import { CalendarClock } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { articleApi, categoryApi, uploadApi, chatApi } from '@/api';
+import { articleApi, categoryApi, collectionApi, uploadApi, chatApi } from '@/api';
 import type { AIWritingAction } from '@/api/chat';
 import { Loading, ErrorState } from '@/components/common';
 import { useUIStore } from '@/store';
@@ -79,6 +79,8 @@ export const ArticleEditor = () => {
     category_id: undefined as number | undefined,
     status: 'draft' as 'draft' | 'published',
     scheduled_publish_at: '',
+    collection_id: undefined as number | undefined,
+    collection_position: 0,
   });
   const primaryActionLabel = getArticlePrimaryActionLabel({
     isEdit,
@@ -98,6 +100,16 @@ export const ArticleEditor = () => {
   const { data: categories, isError: isCategoriesError, error: categoriesError, refetch: refetchCategories } = useQuery({
     queryKey: ['categories'],
     queryFn: categoryApi.getCategories,
+  });
+
+  const {
+    data: collections,
+    isError: isCollectionsError,
+    error: collectionsError,
+    refetch: refetchCollections,
+  } = useQuery({
+    queryKey: ['collections'],
+    queryFn: collectionApi.getCollections,
   });
 
   const { data: article, isLoading: isArticleLoading, isError: isArticleError, error: articleError, refetch: refetchArticle } = useQuery({
@@ -131,6 +143,8 @@ export const ArticleEditor = () => {
         category_id: article.category_id,
         status: article.status,
         scheduled_publish_at: article.scheduled_publish_at || '',
+        collection_id: article.collection_membership?.collection_id,
+        collection_position: article.collection_membership?.position ?? 0,
       });
       lastSavedDataRef.current = { title: article.title, content: article.content, summary: article.summary };
     }
@@ -148,6 +162,8 @@ export const ArticleEditor = () => {
       category_id: formData.category_id,
       cover_image: formData.cover_image,
       scheduled_publish_at: formData.scheduled_publish_at,
+      collection_id: formData.collection_id,
+      collection_position: formData.collection_position,
     };
     localStorage.setItem(draftKey, JSON.stringify(backupData));
   }, [formData, draftKey, t]);
@@ -430,6 +446,17 @@ export const ArticleEditor = () => {
     );
   }
 
+  if (isCollectionsError) {
+    return (
+      <div className="max-w-6xl mx-auto pb-12">
+        <ErrorState
+          message={(collectionsError as any)?.message || '合集列表加载失败'}
+          onRetry={() => refetchCollections()}
+        />
+      </div>
+    );
+  }
+
   return (
     <div
       className={`${isWritingFocused ? 'max-w-display' : 'max-w-6xl'} mx-auto pb-12 transition-[max-width] duration-300`}
@@ -527,6 +554,45 @@ export const ArticleEditor = () => {
                   <Select.Option value="draft" label={t('articleEditor.statusDraft')} />
                   <Select.Option value="published" label={t('articleEditor.statusPublished')} />
                 </Select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_160px]">
+              <div>
+                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">所属合集</label>
+                <Select
+                  value={formData.collection_id || undefined}
+                  onChange={(value) =>
+                    setFormData({
+                      ...formData,
+                      collection_id: value ? (value as number) : undefined,
+                    })
+                  }
+                  clearable
+                  placeholder="不加入合集"
+                  style={{ width: '100%' }}
+                >
+                  {collections?.map((collection) => (
+                    <Select.Option key={collection.id} value={collection.id} label={collection.name} />
+                  ))}
+                </Select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">合集排序</label>
+                <input
+                  type="number"
+                  min={0}
+                  step={1}
+                  className="input w-full"
+                  value={formData.collection_position}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      collection_position: Number(e.target.value),
+                    })
+                  }
+                  disabled={!formData.collection_id}
+                />
               </div>
             </div>
 

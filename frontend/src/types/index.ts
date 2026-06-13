@@ -71,10 +71,49 @@ export interface Article {
   author_id: number;
   author: User;
   tags?: string[];
+  collection_id?: number;
+  collection_position?: number;
+  collection_membership?: ArticleCollectionMembership;
+  collection_navigation?: ArticleCollectionNavigation;
   published_at?: string;
   scheduled_publish_at?: string;
   created_at: string;
   updated_at: string;
+}
+
+export interface Collection {
+  id: number;
+  name: string;
+  slug: string;
+  description?: string;
+  article_count: number;
+  sort_order: number;
+  status: 'active' | 'hidden';
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ArticleCollectionMembership {
+  collection_id: number;
+  name: string;
+  slug: string;
+  position: number;
+}
+
+export interface CollectionNavigationArticle {
+  id: number;
+  title: string;
+  slug: string;
+}
+
+export interface ArticleCollectionNavigation {
+  collection_id: number;
+  collection_name: string;
+  collection_slug: string;
+  position: number;
+  total: number;
+  previous?: CollectionNavigationArticle;
+  next?: CollectionNavigationArticle;
 }
 
 export interface ArticleListItem {
@@ -135,6 +174,8 @@ export interface CreateArticleRequest {
   status: 'draft' | 'published';
   tags?: string[];
   scheduled_publish_at?: string;
+  collection_id?: number;
+  collection_position?: number;
 }
 
 // 分类相关类型

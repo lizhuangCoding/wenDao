@@ -18,6 +18,7 @@ type appHandlers struct {
 	user              *handler.UserHandler
 	auth              *handler.AuthHandler
 	category          *handler.CategoryHandler
+	collection        *handler.CollectionHandler
 	article           *handler.ArticleHandler
 	comment           *handler.CommentHandler
 	upload            *handler.UploadHandler
@@ -38,7 +39,8 @@ func initHandlers(cfg *config.Config, repos *repositories, services *appServices
 		user:              handler.NewUserHandler(services.user, services.upload, services.oauth, services.verification, cfg),
 		auth:              handler.NewAuthHandler(services.user, cfg, rdb),
 		category:          handler.NewCategoryHandler(services.category),
-		article:           handler.NewArticleHandler(services.article, services.stat, services.setting),
+		collection:        handler.NewCollectionHandler(services.collection),
+		article:           handler.NewArticleHandler(services.article, services.stat, services.setting, services.collection),
 		comment:           handler.NewCommentHandler(services.comment, services.stat),
 		upload:            handler.NewUploadHandler(services.upload),
 		ai:                handler.NewAIHandler(services.ai, cfg),
@@ -67,6 +69,7 @@ func buildRouter(cfg *config.Config, logger *zap.Logger, rdb *redis.Client, hand
 		handlers.user,
 		handlers.auth,
 		handlers.category,
+		handlers.collection,
 		handlers.article,
 		handlers.comment,
 		handlers.upload,
@@ -99,6 +102,7 @@ func registerRoutes(
 	userHandler *handler.UserHandler,
 	authHandler *handler.AuthHandler,
 	categoryHandler *handler.CategoryHandler,
+	collectionHandler *handler.CollectionHandler,
 	articleHandler *handler.ArticleHandler,
 	commentHandler *handler.CommentHandler,
 	uploadHandler *handler.UploadHandler,
@@ -164,6 +168,7 @@ func registerRoutes(
 		api.GET("/articles/:id", articleHandler.GetByID)
 		api.GET("/articles/slug/:slug", articleHandler.GetBySlug)
 		api.GET("/categories", categoryHandler.List)
+		api.GET("/collections", collectionHandler.List)
 		api.GET("/categories/:id/articles", articleHandler.List)
 		api.GET("/comments/article/:id", commentHandler.GetByArticleID)
 		commentVotes := api.Group("")
@@ -281,6 +286,14 @@ func registerRoutes(
 				categories.POST("", categoryHandler.Create)
 				categories.PUT("/:id", categoryHandler.Update)
 				categories.DELETE("/:id", categoryHandler.Delete)
+			}
+			collections := admin.Group("/collections")
+			{
+				collections.GET("", collectionHandler.AdminList)
+				collections.POST("/batch-delete", collectionHandler.BatchDelete)
+				collections.POST("", collectionHandler.Create)
+				collections.PUT("/:id", collectionHandler.Update)
+				collections.DELETE("/:id", collectionHandler.Delete)
 			}
 			comments := admin.Group("/comments")
 			{

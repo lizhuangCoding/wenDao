@@ -14,17 +14,23 @@ import (
 
 // ArticleHandler 文章处理器
 type ArticleHandler struct {
-	articleService service.ArticleService
-	statService    *service.StatService
-	settingService service.SettingService
+	articleService    service.ArticleService
+	collectionService service.CollectionService
+	statService       *service.StatService
+	settingService    service.SettingService
 }
 
 // NewArticleHandler 创建文章处理器实例
-func NewArticleHandler(articleService service.ArticleService, statService *service.StatService, settingService service.SettingService) *ArticleHandler {
+func NewArticleHandler(articleService service.ArticleService, statService *service.StatService, settingService service.SettingService, collectionServices ...service.CollectionService) *ArticleHandler {
+	var collectionService service.CollectionService
+	if len(collectionServices) > 0 {
+		collectionService = collectionServices[0]
+	}
 	return &ArticleHandler{
-		articleService: articleService,
-		statService:    statService,
-		settingService: settingService,
+		articleService:    articleService,
+		collectionService: collectionService,
+		statService:       statService,
+		settingService:    settingService,
 	}
 }
 
@@ -84,6 +90,8 @@ type CreateArticleRequest struct {
 	CoverImage         *string `json:"cover_image"`
 	Status             string  `json:"status" binding:"required,oneof=draft published"`
 	ScheduledPublishAt *string `json:"scheduled_publish_at"`
+	CollectionID       *int64  `json:"collection_id"`
+	CollectionPosition int     `json:"collection_position"`
 }
 
 // UpdateArticleRequest 更新文章请求
@@ -94,6 +102,8 @@ type UpdateArticleRequest struct {
 	CategoryID         int64   `json:"category_id" binding:"required"`
 	CoverImage         *string `json:"cover_image"`
 	ScheduledPublishAt *string `json:"scheduled_publish_at"`
+	CollectionID       *int64  `json:"collection_id"`
+	CollectionPosition int     `json:"collection_position"`
 }
 
 type BatchDeleteArticleRequest struct {
@@ -168,6 +178,39 @@ func parseScheduledPublishAt(value *string) (*time.Time, bool, string) {
 	return &scheduledTime, true, ""
 }
 
+func (h *ArticleHandler) hydrateArticleCollection(c *gin.Context, article *model.Article) bool {
+	if h.collectionService == nil || article == nil {
+		return true
+	}
+	includeNavigation := article.Status == "published" && !isAdminRequest(c)
+	if err := h.collectionService.HydrateArticleCollectionData(article, includeNavigation); err != nil {
+		response.InternalErrorWithErr(c, "Failed to get article collection data", err)
+		return false
+	}
+	return true
+}
+
+func (h *ArticleHandler) setArticleCollectionPlacement(c *gin.Context, articleID int64, collectionID *int64, position int) bool {
+	if h.collectionService == nil {
+		return true
+	}
+	if collectionID != nil && *collectionID <= 0 {
+		collectionID = nil
+	}
+	if err := h.collectionService.SetPrimaryArticlePlacement(articleID, collectionID, position); err != nil {
+		switch err.Error() {
+		case "article not found":
+			response.NotFound(c, "Article not found")
+		case "collection not found":
+			response.NotFound(c, "Collection not found")
+		default:
+			response.InternalErrorWithErr(c, "Failed to set article collection", err)
+		}
+		return false
+	}
+	return true
+}
+
 // Create 创建文章（管理员）
 func (h *ArticleHandler) Create(c *gin.Context) {
 	var req CreateArticleRequest
@@ -215,6 +258,13 @@ func (h *ArticleHandler) Create(c *gin.Context) {
 		}
 	}
 
+	if !h.setArticleCollectionPlacement(c, article.ID, req.CollectionID, req.CollectionPosition) {
+		return
+	}
+	if !h.hydrateArticleCollection(c, article) {
+		return
+	}
+
 	response.Success(c, article)
 }
 
@@ -244,6 +294,10 @@ func (h *ArticleHandler) GetByID(c *gin.Context) {
 
 	if article.Status == "published" && !isAdminRequest(c) {
 		_ = h.articleService.IncrViewCount(article.ID)
+	}
+
+	if !h.hydrateArticleCollection(c, article) {
+		return
 	}
 
 	response.Success(c, article)
@@ -276,6 +330,10 @@ func (h *ArticleHandler) GetBySlug(c *gin.Context) {
 			_ = h.statService.RecordPV()
 			_ = h.statService.RecordUV(clientIP)
 		}(ip)
+	}
+
+	if !h.hydrateArticleCollection(c, article) {
+		return
 	}
 
 	response.Success(c, article)
@@ -455,6 +513,13 @@ func (h *ArticleHandler) Update(c *gin.Context) {
 		if scheduledAt != nil {
 			article.Status = "draft"
 		}
+	}
+
+	if !h.setArticleCollectionPlacement(c, article.ID, req.CollectionID, req.CollectionPosition) {
+		return
+	}
+	if !h.hydrateArticleCollection(c, article) {
+		return
 	}
 
 	response.Success(c, article)

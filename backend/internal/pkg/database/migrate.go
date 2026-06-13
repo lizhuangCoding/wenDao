@@ -28,7 +28,9 @@ func autoMigrateModels() []any {
 	return []any{
 		&model.User{},
 		&model.Category{},
+		&model.Collection{},
 		&model.Article{},
+		&model.ArticleCollection{},
 		&model.ArticleInteraction{},
 		&model.Comment{},
 		&model.Upload{},

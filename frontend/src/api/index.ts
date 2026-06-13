@@ -2,6 +2,7 @@
 export * from './auth';
 export * from './article';
 export * from './category';
+export * from './collection';
 export * from './comment';
 export * from './chat';
 export * from './knowledgeDocument';

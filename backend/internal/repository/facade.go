@@ -6,6 +6,7 @@ import (
 	articlerepo "wenDao/internal/repository/article"
 	categoryrepo "wenDao/internal/repository/category"
 	chatrepo "wenDao/internal/repository/chat"
+	collectionrepo "wenDao/internal/repository/collection"
 	commentrepo "wenDao/internal/repository/comment"
 	knowledgerepo "wenDao/internal/repository/knowledge"
 	notifrepo "wenDao/internal/repository/notification"
@@ -20,6 +21,8 @@ type ArticleRepository = articlerepo.ArticleRepository
 type ArticleFilter = articlerepo.ArticleFilter
 type CategoryRepository = categoryrepo.CategoryRepository
 type CategoryFilter = categoryrepo.CategoryFilter
+type CollectionRepository = collectionrepo.CollectionRepository
+type CollectionFilter = collectionrepo.CollectionFilter
 type CommentRepository = commentrepo.CommentRepository
 type CommentFilter = commentrepo.CommentFilter
 type ChatMessageRepository = chatrepo.ChatMessageRepository
@@ -39,6 +42,9 @@ func NewUserRepository(db *gorm.DB) UserRepository       { return userrepo.NewUs
 func NewArticleRepository(db *gorm.DB) ArticleRepository { return articlerepo.NewArticleRepository(db) }
 func NewCategoryRepository(db *gorm.DB) CategoryRepository {
 	return categoryrepo.NewCategoryRepository(db)
+}
+func NewCollectionRepository(db *gorm.DB) CollectionRepository {
+	return collectionrepo.NewCollectionRepository(db)
 }
 func NewCommentRepository(db *gorm.DB) CommentRepository { return commentrepo.NewCommentRepository(db) }
 func NewChatMessageRepository(db *gorm.DB) ChatMessageRepository {

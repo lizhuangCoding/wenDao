@@ -32,6 +32,7 @@ type repositories struct {
 	user                    repository.UserRepository
 	article                 repository.ArticleRepository
 	category                repository.CategoryRepository
+	collection              repository.CollectionRepository
 	comment                 repository.CommentRepository
 	chatMessage             repository.ChatMessageRepository
 	conversation            repository.ConversationRepository
@@ -87,6 +88,7 @@ func initRepositories(db *gorm.DB) *repositories {
 		user:                    repository.NewUserRepository(db),
 		article:                 repository.NewArticleRepository(db),
 		category:                repository.NewCategoryRepository(db),
+		collection:              repository.NewCollectionRepository(db),
 		comment:                 repository.NewCommentRepository(db),
 		chatMessage:             repository.NewChatMessageRepository(db),
 		conversation:            repository.NewConversationRepository(db),

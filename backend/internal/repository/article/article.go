@@ -180,6 +180,10 @@ func (r *articleRepository) Update(article *model.Article) error {
 // Delete 删除文章
 func (r *articleRepository) Delete(id int64) error {
 	return r.db.Transaction(func(tx *gorm.DB) error {
+		var collectionPlacements []model.ArticleCollection
+		if err := tx.Where("article_id = ?", id).Find(&collectionPlacements).Error; err != nil {
+			return err
+		}
 		if err := tx.Where("article_id = ? AND parent_id IS NOT NULL", id).Delete(&model.Comment{}).Error; err != nil {
 			return err
 		}
@@ -191,6 +195,15 @@ func (r *articleRepository) Delete(id int64) error {
 		}
 		if err := tx.Where("article_id = ?", id).Delete(&model.ArticleInteraction{}).Error; err != nil {
 			return err
+		}
+		if err := tx.Where("article_id = ?", id).Delete(&model.ArticleCollection{}).Error; err != nil {
+			return err
+		}
+		for _, placement := range collectionPlacements {
+			if err := tx.Model(&model.Collection{}).Where("id = ?", placement.CollectionID).
+				UpdateColumn("article_count", gorm.Expr("CASE WHEN article_count > ? THEN article_count - ? ELSE 0 END", 0, 1)).Error; err != nil {
+				return err
+			}
 		}
 		if err := tx.Model(&model.KnowledgeDocument{}).Where("article_id = ?", id).Update("article_id", nil).Error; err != nil {
 			return err

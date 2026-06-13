@@ -12,6 +12,7 @@ import (
 	articlerepo "wenDao/internal/repository/article"
 	categoryrepo "wenDao/internal/repository/category"
 	chatrepo "wenDao/internal/repository/chat"
+	collectionrepo "wenDao/internal/repository/collection"
 	commentrepo "wenDao/internal/repository/comment"
 	knowledgerepo "wenDao/internal/repository/knowledge"
 	notifrepo "wenDao/internal/repository/notification"
@@ -25,6 +26,7 @@ import (
 	categorysvc "wenDao/internal/service/category"
 	chatsvc "wenDao/internal/service/chat"
 	chatcore "wenDao/internal/service/chatcore"
+	collectionsvc "wenDao/internal/service/collection"
 	commentsvc "wenDao/internal/service/comment"
 	knowledgesvc "wenDao/internal/service/knowledge"
 	notifsvc "wenDao/internal/service/notification"
@@ -41,6 +43,7 @@ type VerificationPurpose = authsvc.VerificationPurpose
 type VerificationEmailSender = authsvc.VerificationEmailSender
 type UserService = usersvc.UserService
 type CategoryService = categorysvc.CategoryService
+type CollectionService = collectionsvc.CollectionService
 type SettingService = settingsvc.SettingService
 type VectorService = aisvc.VectorService
 type ArticleChunk = aisvc.ArticleChunk
@@ -103,6 +106,9 @@ func NewUserService(repo userrepo.UserRepository, oauth OAuthService, cfg *confi
 }
 func NewCategoryService(repo categoryrepo.CategoryRepository) CategoryService {
 	return categorysvc.NewCategoryService(repo)
+}
+func NewCollectionService(repo collectionrepo.CollectionRepository, articleRepo articlerepo.ArticleRepository) CollectionService {
+	return collectionsvc.NewCollectionService(repo, articleRepo)
 }
 func NewSettingService(repo settingrepo.SettingRepository) SettingService {
 	return settingsvc.NewSettingService(repo)

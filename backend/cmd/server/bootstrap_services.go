@@ -17,6 +17,7 @@ type appServices struct {
 	verification      service.VerificationService
 	user              service.UserService
 	category          service.CategoryService
+	collection        service.CollectionService
 	setting           service.SettingService
 	vector            service.VectorService
 	knowledgeDocument service.KnowledgeDocumentService
@@ -37,6 +38,7 @@ func initServices(cfg *config.Config, logger *zap.Logger, repos *repositories, i
 	commentReplyEmailSender := service.NewSMTPCommentReplyEmailSender(cfg.Email, cfg.Site.URL)
 	notifSvc := service.NewNotificationService(repos.notification)
 	categoryService := service.NewCategoryService(repos.category)
+	collectionService := service.NewCollectionService(repos.collection, repos.article)
 	settingService := service.NewSettingService(repos.setting)
 	knowledgeDocumentService := service.NewKnowledgeDocumentService(repos.knowledgeDocument, repos.knowledgeDocumentSource, nil, repos.article, repos.category, logger)
 	aiService := service.NewDisabledAIService("AI initialization failed")
@@ -109,6 +111,7 @@ func initServices(cfg *config.Config, logger *zap.Logger, repos *repositories, i
 			verification:      verificationService,
 			user:              userService,
 			category:          categoryService,
+			collection:        collectionService,
 			setting:           settingService,
 			vector:            vectorService,
 			knowledgeDocument: knowledgeDocumentService,
@@ -126,6 +129,7 @@ func initServices(cfg *config.Config, logger *zap.Logger, repos *repositories, i
 		verification:      verificationService,
 		user:              userService,
 		category:          categoryService,
+		collection:        collectionService,
 		setting:           settingService,
 		vector:            nil,
 		knowledgeDocument: knowledgeDocumentService,

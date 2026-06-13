@@ -30,3 +30,18 @@ test('article detail keeps table of contents in a sticky sidebar outside motion 
   assert.match(source, /<TableOfContents headings=\{headings\} \/>/);
   assert.doesNotMatch(source, /motion\.article[\s\S]*<TableOfContents/);
 });
+
+test('article detail does not render the sidebar publisher panel', async () => {
+  const source = await loadSourceFile('pages/ArticleDetail.tsx');
+
+  assert.doesNotMatch(source, /article\.sharedBy/);
+  assert.doesNotMatch(source, /article\.contributor/);
+  assert.doesNotMatch(source, /dicebear\.com\/7\.x\/avataaars/);
+});
+
+test('article detail resets window scroll when navigating between article slugs', async () => {
+  const source = await loadSourceFile('pages/ArticleDetail.tsx');
+
+  assert.match(source, /window\.scrollTo\(\{\s*top:\s*0,\s*left:\s*0,\s*behavior:\s*'auto'\s*\}\)/);
+  assert.match(source, /\}, \[slug\]\)/);
+});

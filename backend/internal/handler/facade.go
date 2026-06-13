@@ -8,6 +8,7 @@ import (
 	authhandler "wenDao/internal/handler/auth"
 	categoryhandler "wenDao/internal/handler/category"
 	chathandler "wenDao/internal/handler/chat"
+	collectionhandler "wenDao/internal/handler/collection"
 	commenthandler "wenDao/internal/handler/comment"
 	knowledgehandler "wenDao/internal/handler/knowledge"
 	notifhandler "wenDao/internal/handler/notification"
@@ -22,6 +23,7 @@ import (
 type UserHandler = userhandler.UserHandler
 type AuthHandler = authhandler.AuthHandler
 type CategoryHandler = categoryhandler.CategoryHandler
+type CollectionHandler = collectionhandler.CollectionHandler
 type ArticleHandler = articlehandler.ArticleHandler
 type CommentHandler = commenthandler.CommentHandler
 type UploadHandler = uploadhandler.UploadHandler
@@ -41,8 +43,11 @@ func NewAuthHandler(userSvc service.UserService, cfg *config.Config, rdb *redis.
 func NewCategoryHandler(categorySvc service.CategoryService) *CategoryHandler {
 	return categoryhandler.NewCategoryHandler(categorySvc)
 }
-func NewArticleHandler(articleSvc service.ArticleService, statSvc *service.StatService, settingSvc service.SettingService) *ArticleHandler {
-	return articlehandler.NewArticleHandler(articleSvc, statSvc, settingSvc)
+func NewCollectionHandler(collectionSvc service.CollectionService) *CollectionHandler {
+	return collectionhandler.NewCollectionHandler(collectionSvc)
+}
+func NewArticleHandler(articleSvc service.ArticleService, statSvc *service.StatService, settingSvc service.SettingService, collectionSvc ...service.CollectionService) *ArticleHandler {
+	return articlehandler.NewArticleHandler(articleSvc, statSvc, settingSvc, collectionSvc...)
 }
 func NewCommentHandler(commentSvc service.CommentService, statSvc *service.StatService) *CommentHandler {
 	return commenthandler.NewCommentHandler(commentSvc, statSvc)
@@ -50,7 +55,9 @@ func NewCommentHandler(commentSvc service.CommentService, statSvc *service.StatS
 func NewUploadHandler(uploadSvc service.UploadService) *UploadHandler {
 	return uploadhandler.NewUploadHandler(uploadSvc)
 }
-func NewAIHandler(aiSvc service.AIService, cfg *config.Config) *AIHandler { return chathandler.NewAIHandler(aiSvc, cfg) }
+func NewAIHandler(aiSvc service.AIService, cfg *config.Config) *AIHandler {
+	return chathandler.NewAIHandler(aiSvc, cfg)
+}
 func NewSiteHandler(cfg *config.Config, articleSvc service.ArticleService, settingSvc service.SettingService) *SiteHandler {
 	return sitehandler.NewSiteHandler(cfg, articleSvc, settingSvc)
 }

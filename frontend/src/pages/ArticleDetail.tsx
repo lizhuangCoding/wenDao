@@ -1,7 +1,7 @@
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { Bookmark, Heart } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Bookmark, Heart } from 'lucide-react';
 import { articleApi } from '@/api';
 import { Layout, ErrorState } from '@/components/common';
 import { ArticleContent, ArticleDetailSkeleton, TableOfContents } from '@/components/article';
@@ -11,7 +11,7 @@ import { formatDate } from '@/utils';
 import { toAbsoluteSeoUrl } from '@/utils/seo';
 import { useAuth } from '@/hooks';
 import { useUIStore } from '@/store';
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Helmet } from 'react-helmet-async';
 import type { Article, ArticleInteractionState } from '@/types';
@@ -31,6 +31,10 @@ export const ArticleDetail = () => {
     queryFn: () => articleApi.getArticleBySlug(slug!),
     enabled: !!slug,
   });
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+  }, [slug]);
 
   const interactionQuery = useQuery({
     queryKey: ['article-interaction', article?.id],
@@ -202,24 +206,6 @@ export const ArticleDetail = () => {
         <div className="flex flex-col lg:flex-row justify-center gap-16">
           <aside className="hidden lg:fixed lg:left-[max(1.5rem,calc((100vw-1400px)/2+3rem))] lg:top-32 lg:z-20 lg:block lg:w-64 lg:max-h-[calc(100vh-8rem)] lg:overflow-y-auto lg:scrollbar-hide">
             <TableOfContents headings={headings} />
-
-            <div className="mt-12 pt-12 border-t border-neutral-100 dark:border-neutral-800">
-              <h4 className="text-[10px] font-black tracking-[0.2em] text-neutral-400 dark:text-neutral-500 uppercase mb-6">{t('article.sharedBy')}</h4>
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full overflow-hidden border border-neutral-200 dark:border-neutral-700 shadow-sm">
-                  <img
-                    src={article.author.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${article.author.username}`}
-                    alt={article.author.username}
-                    loading="lazy"
-                    decoding="async"
-                  />
-                </div>
-                <div>
-                  <p className="text-sm font-bold text-neutral-900 dark:text-neutral-100">{article.author.username}</p>
-                  <p className="text-[10px] text-neutral-400 dark:text-neutral-500 font-bold uppercase tracking-tighter">{t('article.contributor')}</p>
-                </div>
-              </div>
-            </div>
           </aside>
 
           <div className="hidden lg:block w-64 shrink-0" aria-hidden="true" />
@@ -313,6 +299,60 @@ export const ArticleDetail = () => {
                 <span>{interactionState.favorited ? t('article.favorited') : t('article.favorite')}</span>
               </button>
             </div>
+
+            {article.collection_navigation && (
+              <nav className="mt-12 rounded-xl border border-neutral-100 bg-white p-5 shadow-sm dark:border-neutral-800 dark:bg-neutral-900" aria-label="合集导航">
+                <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-neutral-100 pb-4 dark:border-neutral-800">
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-[0.24em] text-primary-600 dark:text-primary-400">Collection</p>
+                    <p className="mt-1 text-sm font-bold text-neutral-900 dark:text-neutral-100">
+                      {article.collection_navigation.collection_name}
+                    </p>
+                  </div>
+                  <span className="rounded-full bg-neutral-100 px-3 py-1 text-xs font-bold text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400">
+                    第 {article.collection_navigation.position} 篇 / 共 {article.collection_navigation.total} 篇
+                  </span>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {article.collection_navigation.previous ? (
+                    <Link
+                      to={`/article/${article.collection_navigation.previous.slug}`}
+                      className="group flex min-h-24 flex-col justify-between rounded-lg border border-neutral-100 p-4 transition-all hover:border-primary-200 hover:bg-primary-50/60 dark:border-neutral-800 dark:hover:border-primary-500/30 dark:hover:bg-primary-500/10"
+                    >
+                      <span className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-[0.18em] text-neutral-400 group-hover:text-primary-600 dark:text-neutral-500 dark:group-hover:text-primary-300">
+                        <ArrowLeft className="h-4 w-4" />
+                        上一篇
+                      </span>
+                      <span className="mt-3 line-clamp-2 text-sm font-bold leading-6 text-neutral-800 dark:text-neutral-200">
+                        {article.collection_navigation.previous.title}
+                      </span>
+                    </Link>
+                  ) : (
+                    <div className="flex min-h-24 items-center rounded-lg border border-dashed border-neutral-100 p-4 text-sm font-medium text-neutral-400 dark:border-neutral-800 dark:text-neutral-600">
+                      已经是合集第一篇
+                    </div>
+                  )}
+                  {article.collection_navigation.next ? (
+                    <Link
+                      to={`/article/${article.collection_navigation.next.slug}`}
+                      className="group flex min-h-24 flex-col justify-between rounded-lg border border-neutral-100 p-4 text-right transition-all hover:border-primary-200 hover:bg-primary-50/60 dark:border-neutral-800 dark:hover:border-primary-500/30 dark:hover:bg-primary-500/10"
+                    >
+                      <span className="inline-flex items-center justify-end gap-2 text-xs font-black uppercase tracking-[0.18em] text-neutral-400 group-hover:text-primary-600 dark:text-neutral-500 dark:group-hover:text-primary-300">
+                        下一篇
+                        <ArrowRight className="h-4 w-4" />
+                      </span>
+                      <span className="mt-3 line-clamp-2 text-sm font-bold leading-6 text-neutral-800 dark:text-neutral-200">
+                        {article.collection_navigation.next.title}
+                      </span>
+                    </Link>
+                  ) : (
+                    <div className="flex min-h-24 items-center justify-end rounded-lg border border-dashed border-neutral-100 p-4 text-right text-sm font-medium text-neutral-400 dark:border-neutral-800 dark:text-neutral-600">
+                      已经是合集最后一篇
+                    </div>
+                  )}
+                </div>
+              </nav>
+            )}
 
             <div className="mt-24 pt-16 border-t border-neutral-100 dark:border-neutral-800">
               <CommentList articleId={article.id} totalCommentCount={article.comment_count} />

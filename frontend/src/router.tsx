@@ -28,6 +28,9 @@ const ArticleEditor = lazy(() =>
 const CategoryList = lazy(() =>
   import('./views/admin/categories/CategoryList').then((module) => ({ default: module.CategoryList }))
 );
+const CollectionList = lazy(() =>
+  import('./views/admin/collections/CollectionList').then((module) => ({ default: module.CollectionList }))
+);
 const CommentList = lazy(() =>
   import('./views/admin/comments/CommentList').then((module) => ({ default: module.CommentList }))
 );
@@ -132,6 +135,7 @@ export const router = createBrowserRouter([
       { path: 'articles/new', element: withSuspense(<ArticleEditor />) },
       { path: 'articles/edit/:id', element: withSuspense(<ArticleEditor />) },
       { path: 'categories', element: withSuspense(<CategoryList />) },
+      { path: 'collections', element: withSuspense(<CollectionList />) },
       { path: 'comments', element: withSuspense(<CommentList />) },
       { path: 'users', element: withSuspense(<UserManagement />) },
       { path: 'knowledge-documents', element: withSuspense(<KnowledgeDocumentList />) },

@@ -33,12 +33,15 @@ type Article struct {
 
 	PublishedAt        *time.Time `gorm:"index:idx_status_published" json:"published_at,omitempty"`
 	ScheduledPublishAt *time.Time `gorm:"index" json:"scheduled_publish_at,omitempty"`
-	CreatedAt   time.Time  `json:"created_at"`
-	UpdatedAt   time.Time  `json:"updated_at"`
+	CreatedAt          time.Time  `json:"created_at"`
+	UpdatedAt          time.Time  `json:"updated_at"`
 
 	// 关联（不存储在数据库）
 	Category *Category `gorm:"foreignKey:CategoryID" json:"category,omitempty"`
 	Author   *User     `gorm:"foreignKey:AuthorID" json:"author,omitempty"`
+
+	CollectionMembership *ArticleCollectionMembership `gorm:"-" json:"collection_membership,omitempty"`
+	CollectionNavigation *ArticleCollectionNavigation `gorm:"-" json:"collection_navigation,omitempty"`
 }
 
 // TableName 指定表名
