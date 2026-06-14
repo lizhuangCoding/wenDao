@@ -10,8 +10,16 @@ test('article detail renders a loading skeleton instead of a full-screen spinner
   const source = await loadSourceFile('pages/ArticleDetail.tsx');
 
   assert.match(source, /ArticleDetailSkeleton/);
+  assert.match(source, /ParticleAtmosphere/);
   assert.match(source, /estimateReadingTime/);
   assert.doesNotMatch(source, /<Loading\s*\/>/);
+});
+
+test('article detail uses a subdued reading particle atmosphere', async () => {
+  const source = await loadSourceFile('pages/ArticleDetail.tsx');
+
+  assert.match(source, /<ParticleAtmosphere count=\{30\} tone="reading" \/>/);
+  assert.match(source, /relative z-10 max-w-display/);
 });
 
 test('article detail displays estimated reading time in the header meta row', async () => {
