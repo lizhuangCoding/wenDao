@@ -163,7 +163,7 @@ export const CursorCometTrail = () => {
     <canvas
       ref={canvasRef}
       aria-hidden="true"
-      className="pointer-events-none fixed inset-0 z-[2]"
+      className="pointer-events-none fixed inset-0 z-[45]"
       data-cursor-comet-trail=""
     />
   );

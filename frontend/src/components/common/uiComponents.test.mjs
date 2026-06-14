@@ -50,6 +50,7 @@ test('common UI primitives centralize professional surface, form, and action sty
   assert.match(comet, /globalCompositeOperation = 'lighter'/);
   assert.match(comet, /MAX_TRAIL_POINTS/);
   assert.match(comet, /data-cursor-comet-trail/);
+  assert.match(comet, /z-\[45\]/);
   assert.doesNotMatch(comet, /Array\.from\(\{ length/);
 
   assert.match(index, /export \* from '.\/Button'/);
