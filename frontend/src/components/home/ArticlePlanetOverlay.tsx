@@ -45,14 +45,14 @@ export const ArticlePlanetOverlay = ({
   const { t } = useTranslation();
 
   return (
-    <div className="pointer-events-none absolute inset-0 z-10 flex flex-col justify-between overflow-y-auto px-5 pb-8 pt-28 sm:justify-end sm:px-10 sm:pb-8 sm:pt-24 lg:px-12 lg:pb-14">
-      <div className="max-w-display mx-auto flex w-full flex-col gap-5 sm:gap-7 lg:flex-row lg:items-end lg:justify-between lg:gap-8">
-        <div className="pointer-events-none max-w-3xl">
+    <div className="pointer-events-none absolute inset-0 z-10 flex flex-col justify-between overflow-y-auto overflow-x-hidden px-5 pb-8 pt-28 sm:justify-end sm:px-10 sm:pb-8 sm:pt-24 lg:px-12 lg:pb-14">
+      <div className="max-w-display mx-auto flex w-full min-w-0 flex-col gap-5 sm:gap-7 lg:flex-row lg:items-end lg:justify-between lg:gap-8">
+        <div className="pointer-events-none min-w-0 max-w-3xl w-full">
           <div className="mb-3 inline-flex items-center gap-3 text-primary-300 sm:mb-5">
             <Sparkles className="h-4 w-4" />
             <span className="text-xs font-black uppercase tracking-[0.28em]">{t('home.heroSub')}</span>
           </div>
-          <h1 className="max-w-4xl text-[2rem] font-black leading-tight text-white drop-shadow-2xl sm:text-5xl sm:leading-[1.05] lg:text-7xl">
+          <h1 className="w-full max-w-[20rem] break-all text-[clamp(1.8rem,8vw,2.25rem)] font-black leading-tight text-white drop-shadow-2xl [overflow-wrap:anywhere] sm:max-w-4xl sm:break-words sm:text-5xl sm:leading-[1.05] lg:text-7xl">
             {slogan || t('articlePlanet.sloganFallback')}
           </h1>
           <form onSubmit={onSearch} className="pointer-events-auto relative mt-5 max-w-xl sm:mt-8">
@@ -73,7 +73,7 @@ export const ArticlePlanetOverlay = ({
           </form>
           <div
             data-testid="article-planet-category-filter"
-            className="pointer-events-none mt-5 flex gap-3 overflow-x-auto pb-1 scrollbar-hide sm:mt-7"
+            className="pointer-events-auto mt-5 flex max-w-full gap-3 overflow-x-auto pb-1 scrollbar-hide sm:mt-7"
           >
             <button
               type="button"
@@ -104,7 +104,7 @@ export const ArticlePlanetOverlay = ({
             ))}
           </div>
           {planetYears.length > 0 && (
-            <div className="pointer-events-none mt-4 max-w-2xl">
+            <div className="pointer-events-auto mt-4 max-w-full sm:max-w-2xl">
               <div className="mb-2 flex items-center gap-3 text-[10px] font-black uppercase tracking-[0.22em] text-white/45">
                 <span>时间机器</span>
                 <span className="h-px w-8 bg-white/15" />
@@ -142,25 +142,11 @@ export const ArticlePlanetOverlay = ({
               </div>
             </div>
           )}
-          {activeArticle && (
-            <Link
-              to={`/article/${activeArticle.slug}`}
-              className="pointer-events-auto mt-4 flex items-center justify-between gap-4 rounded-2xl border border-white/15 bg-neutral-950/65 px-4 py-3 text-left shadow-2xl backdrop-blur-xl transition-colors hover:border-primary-300/70 sm:hidden"
-            >
-              <span className="min-w-0">
-              <span className="block text-[10px] font-black uppercase tracking-[0.22em] text-primary-300">
-                  {activeArticle.category?.name || t('common.default')}
-                </span>
-                <span className="mt-1 block truncate text-sm font-black text-white">{activeArticle.title}</span>
-              </span>
-              <ArrowRight className="h-4 w-4 shrink-0 text-white/70" />
-            </Link>
-          )}
         </div>
 
         {activeArticle && isActiveArticleCardVisible && (
           <div
-            className="pointer-events-auto hidden w-full max-w-md border border-white/15 bg-neutral-950/60 p-4 text-left shadow-2xl backdrop-blur-xl transition-colors hover:border-primary-300/70 sm:block sm:p-5 lg:mb-2"
+            className="pointer-events-auto w-full min-w-0 max-w-md border border-white/15 bg-neutral-950/60 p-4 text-left shadow-2xl backdrop-blur-xl transition-colors hover:border-primary-300/70 sm:p-5 lg:mb-2"
           >
             <div className="mb-3 flex items-center justify-between gap-4">
               <span className="text-[10px] font-black uppercase tracking-[0.24em] text-primary-300">

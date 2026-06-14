@@ -689,7 +689,7 @@ export const MarkdownWritingStudio = ({
             <span className={tooltipClassName}>{t('articleEditor.aiAssistant')}</span>
           </button>
 
-          <div className="ml-auto flex flex-wrap items-center gap-3 text-[11px] font-medium text-neutral-400 dark:text-neutral-500">
+          <div className="flex w-full flex-wrap items-center gap-3 text-[11px] font-medium text-neutral-400 dark:text-neutral-500 sm:ml-auto sm:w-auto">
             <span>{contentStats.characters} {t('articleEditor.characters')}</span>
             <span>{contentStats.lines} {t('articleEditor.lines')}</span>
             <span>{contentStats.words} {t('articleEditor.words')}</span>

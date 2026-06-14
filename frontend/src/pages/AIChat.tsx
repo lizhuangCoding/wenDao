@@ -344,7 +344,7 @@ export const AIChat = () => {
             ? 'rounded-none border-0 shadow-none'
             : 'rounded-2xl sm:rounded-[32px] border border-neutral-100 dark:border-neutral-700 shadow-soft'
         }`}>
-          <header className={`px-4 sm:px-8 lg:px-10 py-4 lg:py-6 border-b border-neutral-100 dark:border-neutral-700 flex items-center justify-between gap-3 bg-white dark:bg-neutral-800 z-10 ${
+          <header className={`px-4 sm:px-8 lg:px-10 py-4 lg:py-6 border-b border-neutral-100 dark:border-neutral-700 flex flex-col items-stretch gap-3 bg-white dark:bg-neutral-800 z-10 sm:flex-row sm:items-center sm:justify-between ${
             isImmersive ? 'rounded-none' : 'rounded-t-2xl sm:rounded-[32px]'
           }`}>
             <div className="flex items-center gap-3 min-w-0">
@@ -360,12 +360,12 @@ export const AIChat = () => {
               </button>
               <div className="min-w-0">
                 {isRenaming && activeChat ? (
-                <div className="flex items-center gap-3">
+                <div className="flex min-w-0 flex-wrap items-center gap-2 sm:gap-3">
                   <input
                     value={draftTitle}
                     onChange={(e) => setDraftTitle(e.target.value)}
                     placeholder={t('chat.renamePlaceholder')}
-                    className="min-w-0 bg-transparent border border-neutral-200 dark:border-neutral-600 rounded-lg px-3 py-2 text-base sm:text-lg font-serif font-black text-neutral-900 dark:text-neutral-100"
+                    className="min-w-0 flex-1 bg-transparent border border-neutral-200 dark:border-neutral-600 rounded-lg px-3 py-2 text-base sm:text-lg font-serif font-black text-neutral-900 dark:text-neutral-100"
                     onKeyDown={async (e) => {
                       if (e.key === 'Enter' && draftTitle.trim()) {
                         await handleRenameSave();
@@ -400,7 +400,7 @@ export const AIChat = () => {
                   </button>
                 </div>
               ) : (
-                <div className="flex items-center gap-3">
+                <div className="flex min-w-0 items-center gap-3">
                   <h2 className="text-lg font-serif font-black text-neutral-900 dark:text-neutral-100 truncate">
                     {activeChat?.title || t('chat.title')}
                   </h2>
@@ -417,7 +417,7 @@ export const AIChat = () => {
                 )}
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex max-w-full items-center gap-2 overflow-x-auto pb-1 sm:justify-end sm:overflow-visible sm:pb-0">
               {activeChat && (
                 <>
                   {/* Export button */}

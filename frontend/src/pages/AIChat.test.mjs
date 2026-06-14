@@ -37,7 +37,7 @@ test('AIChat includes question navigator and multiline composer affordances', as
   assert.match(source, /scrollToQuestion/);
   assert.match(source, /ChatComposer/);
   assert.match(composerSource, /<textarea/);
-  assert.match(composerSource, /Shift/);
+  assert.match(source, /e\.shiftKey/);
   assert.match(source, /scrollToBottom/);
 });
 
@@ -137,7 +137,7 @@ test('AIChat share and export paths use store actions and safe filenames', async
 test('ModelSelector exposes full long model names instead of truncating menu items', async () => {
   const source = await loadChatComponentSource('ModelSelector');
 
-  assert.match(source, /title=\{currentLabel \|\| '默认'\}/);
+  assert.match(source, /title=\{currentLabel \|\| t\('common\.defaultModel'\)\}/);
   assert.match(source, /w-\[min\(92vw,28rem\)\]/);
   assert.match(source, /whitespace-normal/);
   assert.match(source, /break-words/);

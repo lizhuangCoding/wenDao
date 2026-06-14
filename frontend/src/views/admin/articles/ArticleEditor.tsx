@@ -461,15 +461,15 @@ export const ArticleEditor = () => {
     <div
       className={`${isWritingFocused ? 'max-w-display' : 'max-w-6xl'} mx-auto pb-12 transition-[max-width] duration-300`}
     >
-      <div className="flex justify-between items-center mb-6">
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl font-bold text-neutral-700 dark:text-neutral-100">
           {isEdit ? t('articleEditor.editArticle') : t('articleEditor.newArticle')}
         </h1>
-        <div className="space-x-4">
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center sm:gap-4">
           <button
             type="button"
             onClick={() => navigate('/admin/articles')}
-            className="btn btn-secondary"
+            className="btn btn-secondary w-full sm:w-auto"
           >
             {t('articleEditor.cancel')}
           </button>
@@ -491,7 +491,7 @@ export const ArticleEditor = () => {
               saveMutation.mutate(formData);
             }}
             disabled={saveMutation.isPending}
-            className="btn btn-primary"
+            className="btn btn-primary w-full sm:w-auto"
           >
             {saveMutation.isPending ? t('common.saving') : primaryActionLabel}
           </button>
@@ -502,7 +502,7 @@ export const ArticleEditor = () => {
         className={
           isWritingFocused
             ? 'space-y-5'
-            : 'space-y-6 rounded-xl border border-neutral-100 bg-white p-8 shadow-sm dark:border-neutral-800 dark:bg-neutral-900'
+            : 'space-y-6 rounded-xl border border-neutral-100 bg-white p-4 shadow-sm dark:border-neutral-800 dark:bg-neutral-900 sm:p-8'
         }
       >
         <div
@@ -529,7 +529,7 @@ export const ArticleEditor = () => {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6">
               <div>
                 <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">{t('articleEditor.categoryLabel')}</label>
                 <Select

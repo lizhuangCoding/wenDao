@@ -54,21 +54,21 @@ export const Header = () => {
           scrollDirection === 'down' && !isMobileMenuOpen ? '-translate-y-full' : 'translate-y-0'
         )}
       >
-        <div className="max-w-display mx-auto px-6 sm:px-10 lg:px-12">
+        <div className="max-w-display mx-auto px-4 sm:px-10 lg:px-12">
           <div className="flex items-center justify-between h-20">
             {/* Logo */}
             <Link
               to="/"
               onClick={closeMobileMenu}
-              className="group flex items-center gap-2"
+              className="group flex min-w-0 items-center gap-2"
             >
-              <span className="text-3xl font-serif font-black tracking-tighter text-neutral-900 dark:text-neutral-100 group-hover:text-primary-600 transition-colors">
-                问道<span className="text-primary-500 text-4xl">.</span>
+              <span className="truncate text-2xl font-serif font-black tracking-tighter text-neutral-900 transition-colors group-hover:text-primary-600 dark:text-neutral-100 sm:text-3xl">
+                问道<span className="text-3xl text-primary-500 sm:text-4xl">.</span>
               </span>
             </Link>
 
             {/* Navigation */}
-            <nav className="hidden md:flex items-center gap-6">
+            <nav className="hidden lg:flex items-center gap-6">
               <Link
                 to="/"
                 className="text-sm font-medium tracking-wide text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100 transition-colors relative after:absolute after:bottom-[-4px] after:left-0 after:w-0 after:h-[2px] after:bg-primary-500 hover:after:w-full after:transition-all"
@@ -166,7 +166,8 @@ export const Header = () => {
             <button
               type="button"
               onClick={() => setIsMobileMenuOpen((open) => !open)}
-              className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-neutral-200 text-neutral-700 transition-colors hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-800 md:hidden"
+              style={{ left: 'min(calc(100vw - 3.5rem), 20.5rem)' }}
+              className="fixed top-5 z-[60] inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-neutral-200 bg-white/90 text-neutral-800 shadow-sm backdrop-blur transition-colors hover:bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-900/90 dark:text-neutral-100 dark:hover:bg-neutral-800 sm:h-11 sm:w-11 lg:hidden"
               aria-label={isMobileMenuOpen ? t('nav.closeMenu') : t('nav.openMenu')}
               aria-expanded={isMobileMenuOpen}
             >
@@ -177,9 +178,9 @@ export const Header = () => {
       </header>
 
       {isMobileMenuOpen && (
-        <div className="fixed inset-0 z-40 bg-neutral-950/30 backdrop-blur-sm md:hidden" onClick={closeMobileMenu}>
+        <div className="fixed inset-0 z-40 bg-neutral-950/30 backdrop-blur-sm lg:hidden" onClick={closeMobileMenu}>
           <div
-            className="absolute left-4 right-4 top-24 rounded-3xl border border-neutral-100 bg-white p-5 shadow-elevated dark:border-primary-900/20 dark:bg-[#07111a]"
+            className="absolute left-4 right-4 top-24 max-h-[calc(100dvh-7rem)] overflow-y-auto rounded-3xl border border-neutral-100 bg-white p-5 shadow-elevated dark:border-primary-900/20 dark:bg-[#07111a]"
             onClick={(event) => event.stopPropagation()}
           >
             <nav className="space-y-2">
@@ -198,13 +199,22 @@ export const Header = () => {
                 {t('nav.aiAssistant')}
               </Link>
               {isAuthenticated && (
-                <Link
-                  to="/profile"
-                  onClick={closeMobileMenu}
-                  className="block rounded-2xl px-4 py-3 text-sm font-bold text-neutral-700 transition-colors hover:bg-neutral-50 dark:text-neutral-200 dark:hover:bg-neutral-800"
-                >
-                  {user?.username}
-                </Link>
+                <>
+                  <Link
+                    to="/profile"
+                    onClick={closeMobileMenu}
+                    className="block rounded-2xl px-4 py-3 text-sm font-bold text-neutral-700 transition-colors hover:bg-neutral-50 dark:text-neutral-200 dark:hover:bg-neutral-800"
+                  >
+                    {user?.username}
+                  </Link>
+                  <Link
+                    to="/notifications"
+                    onClick={closeMobileMenu}
+                    className="block rounded-2xl px-4 py-3 text-sm font-bold text-neutral-700 transition-colors hover:bg-neutral-50 dark:text-neutral-200 dark:hover:bg-neutral-800"
+                  >
+                    {t('nav.notifications', { defaultValue: '通知' })}
+                  </Link>
+                </>
               )}
               {user?.role === 'admin' && (
                 <Link
