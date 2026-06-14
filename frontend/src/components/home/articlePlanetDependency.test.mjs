@@ -40,7 +40,22 @@ test('article planet renders constellation connection lines from layout relation
   const sceneSource = await readProjectFile('src/components/home/ArticlePlanetScene.tsx');
 
   assert.match(sceneSource, /buildArticlePlanetConnections/);
+  assert.match(sceneSource, /buildArticlePlanetGravityLayout/);
   assert.match(sceneSource, /ArticlePlanetConnectionLine/);
+  assert.match(sceneSource, /GRAVITY_LINE_LERP_SPEED/);
   assert.match(sceneSource, /<lineBasicMaterial/);
   assert.match(sceneSource, /connections\.map/);
+});
+
+test('article planet nodes animate toward gravity targets without replacing the open click action', async () => {
+  const [nodeSource, heroSource] = await Promise.all([
+    readProjectFile('src/components/home/ArticlePlanetNode.tsx'),
+    readProjectFile('src/components/home/ArticlePlanetHero.tsx'),
+  ]);
+
+  assert.match(nodeSource, /groupRef\.current\?\.position\.lerp/);
+  assert.match(nodeSource, /gravityRole === 'related'/);
+  assert.match(nodeSource, /gravityRole === 'dimmed'/);
+  assert.match(heroSource, /activeArticleId=\{activeArticleId\}/);
+  assert.match(heroSource, /onArticleOpen=\{openArticle\}/);
 });

@@ -10,6 +10,7 @@ import {
   getArticlePlanetYears,
   type ArticlePlanetTimeMode,
 } from './articlePlanetTime';
+import { getArticlePlanetGravityRecommendations } from './articlePlanetGravity';
 
 const ArticlePlanetScene = lazy(() =>
   import('./ArticlePlanetScene').then((module) => ({ default: module.ArticlePlanetScene }))
@@ -110,6 +111,10 @@ export const ArticlePlanetHero = ({
       .filter((article) => article.collection?.id === activeArticle.collection?.id)
       .sort((a, b) => (a.collection?.position ?? 0) - (b.collection?.position ?? 0) || a.id - b.id);
   }, [activeArticle, visibleArticles]);
+  const activeGravityRecommendations = useMemo(
+    () => getArticlePlanetGravityRecommendations(visibleArticles, activeArticle),
+    [activeArticle, visibleArticles]
+  );
 
   const focusArticle = (article: ArticleOrbitItem) => {
     setActiveArticleId(article.id);
@@ -145,7 +150,7 @@ export const ArticlePlanetHero = ({
           >
             <div className="absolute inset-0 z-[1]">
               <ArticlePlanetScene
-                activeArticleId={activeArticle?.id}
+                activeArticleId={activeArticleId}
                 articles={visibleArticles}
                 onArticleFocus={focusArticle}
                 onArticleOpen={openArticle}
@@ -157,6 +162,7 @@ export const ArticlePlanetHero = ({
       <ArticlePlanetOverlay
         activeArticle={activeArticle}
         activeCollectionArticles={activeCollectionArticles}
+        activeGravityRecommendations={activeGravityRecommendations}
         categories={categories}
         inputValue={inputValue}
         isActiveArticleCardVisible={isActiveArticleCardVisible}

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { AdditiveBlending, BackSide, type Group } from 'three';
+import { AdditiveBlending, BackSide, type BufferGeometry, type Group } from 'three';
 import { OrbitControls as ThreeOrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import type { ArticleOrbitItem } from '@/types';
 import { ArticlePlanetNode } from './ArticlePlanetNode';
@@ -9,6 +9,7 @@ import {
   buildArticlePlanetLayout,
   type ArticlePlanetConnection,
 } from './articlePlanetLayout';
+import { buildArticlePlanetGravityLayout } from './articlePlanetGravity';
 
 interface ArticlePlanetSceneProps {
   activeArticleId?: number;
@@ -32,6 +33,7 @@ const PLANET_DESKTOP_DRIFT_AMPLITUDE = 0.18;
 const PLANET_MOBILE_DRIFT_AMPLITUDE = 0.07;
 const PLANET_DRIFT_SPEED = 0.18;
 const PLANET_SELF_ROTATION_SPEED = 0.045;
+const GRAVITY_LINE_LERP_SPEED = 3.2;
 
 const randomUnit = (seed: number) => {
   const value = Math.sin(seed * 12.9898) * 43758.5453;
@@ -141,6 +143,17 @@ const PlanetBody = () => (
 );
 
 const ArticlePlanetConnectionLine = ({ connection }: { connection: ArticlePlanetConnection }) => {
+  const geometryRef = useRef<BufferGeometry>(null);
+  const positionsRef = useRef(
+    new Float32Array([
+      connection.from[0],
+      connection.from[1],
+      connection.from[2],
+      connection.to[0],
+      connection.to[1],
+      connection.to[2],
+    ])
+  ).current;
   const positions = useMemo(
     () =>
       new Float32Array([
@@ -154,10 +167,21 @@ const ArticlePlanetConnectionLine = ({ connection }: { connection: ArticlePlanet
     [connection]
   );
 
+  useFrame((_, delta) => {
+    const lerpAmount = Math.min(1, delta * GRAVITY_LINE_LERP_SPEED);
+    for (let index = 0; index < positionsRef.length; index += 1) {
+      positionsRef[index] += (positions[index] - positionsRef[index]) * lerpAmount;
+    }
+    const positionAttribute = geometryRef.current?.attributes.position;
+    if (positionAttribute) {
+      positionAttribute.needsUpdate = true;
+    }
+  });
+
   return (
     <line>
-      <bufferGeometry>
-        <bufferAttribute attach="attributes-position" args={[positions, 3]} />
+      <bufferGeometry ref={geometryRef}>
+        <bufferAttribute attach="attributes-position" args={[positionsRef, 3]} />
       </bufferGeometry>
       <lineBasicMaterial
         blending={AdditiveBlending}
@@ -211,9 +235,13 @@ const ArticlePlanetCluster = ({
   const basePosition: [number, number, number] = isCompact ? [0.16, 1.1, 0] : [1.52, -0.02, 0];
   const driftAmplitude = isCompact ? PLANET_MOBILE_DRIFT_AMPLITUDE : PLANET_DESKTOP_DRIFT_AMPLITUDE;
   const scale = isCompact ? 0.58 : 0.76;
-  const connections = useMemo(
-    () => buildArticlePlanetConnections(nodes, activeArticleId),
+  const gravityNodes = useMemo(
+    () => buildArticlePlanetGravityLayout(nodes, activeArticleId),
     [activeArticleId, nodes]
+  );
+  const connections = useMemo(
+    () => buildArticlePlanetConnections(gravityNodes, activeArticleId),
+    [activeArticleId, gravityNodes]
   );
 
   useFrame(({ clock }, delta) => {
@@ -233,7 +261,7 @@ const ArticlePlanetCluster = ({
         {connections.map((connection) => (
           <ArticlePlanetConnectionLine key={connection.key} connection={connection} />
         ))}
-        {nodes.map((node) => (
+        {gravityNodes.map((node) => (
           <ArticlePlanetNode
             key={node.key}
             isActive={node.article.id === activeArticleId}

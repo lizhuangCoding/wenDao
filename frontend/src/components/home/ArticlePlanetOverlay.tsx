@@ -4,10 +4,12 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import type { ArticleOrbitItem, Category } from '@/types';
 import { getArticlePlanetTimeLabel, type ArticlePlanetTimeMode } from './articlePlanetTime';
+import type { ArticlePlanetGravityRecommendation } from './articlePlanetGravity';
 
 interface ArticlePlanetOverlayProps {
   activeArticle?: ArticleOrbitItem;
   activeCollectionArticles?: ArticleOrbitItem[];
+  activeGravityRecommendations?: ArticlePlanetGravityRecommendation[];
   categories?: Category[];
   inputValue: string;
   isActiveArticleCardVisible: boolean;
@@ -27,6 +29,7 @@ interface ArticlePlanetOverlayProps {
 export const ArticlePlanetOverlay = ({
   activeArticle,
   activeCollectionArticles = [],
+  activeGravityRecommendations = [],
   categories,
   inputValue,
   isActiveArticleCardVisible,
@@ -182,6 +185,38 @@ export const ArticlePlanetOverlay = ({
                 <span>{activeArticle.comment_count} {t('article.comments')}</span>
               </div>
             </Link>
+            {activeGravityRecommendations.length > 0 && (
+              <div className="mt-5 border-t border-white/10 pt-4">
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-[0.24em] text-cyan-200">
+                      引力推荐
+                    </p>
+                    <p className="mt-1 text-xs font-bold text-white/55">
+                      与当前星球语义相近
+                    </p>
+                  </div>
+                  <span className="shrink-0 text-[10px] font-bold uppercase tracking-widest text-white/40">
+                    {activeGravityRecommendations.length} 篇
+                  </span>
+                </div>
+                <div className="space-y-2">
+                  {activeGravityRecommendations.map(({ article, score }) => (
+                    <Link
+                      key={article.id}
+                      to={`/article/${article.slug}`}
+                      className="flex items-center gap-3 border border-cyan-200/10 bg-cyan-200/[0.04] px-3 py-2 text-xs font-bold text-white/64 transition-colors hover:border-cyan-200/45 hover:text-white"
+                    >
+                      <span className="h-2 w-2 shrink-0 rounded-full bg-cyan-200 shadow-[0_0_12px_rgba(103,232,249,0.78)]" />
+                      <span className="min-w-0 flex-1 truncate">{article.title}</span>
+                      <span className="shrink-0 tabular-nums text-cyan-100/60">
+                        {Math.round(score * 100)}%
+                      </span>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
             {activeArticle.collection && activeCollectionArticles.length > 1 && (
               <div className="mt-5 border-t border-white/10 pt-4">
                 <div className="mb-3 flex items-center justify-between gap-3">

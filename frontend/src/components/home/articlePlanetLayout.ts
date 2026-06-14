@@ -63,6 +63,8 @@ export interface ArticlePlanetNodeLayout {
   article: ArticleOrbitItem;
   color: string;
   emissiveIntensity: number;
+  gravityRole?: 'source' | 'related' | 'dimmed';
+  gravityScore?: number;
   index: number;
   key: string;
   position: [number, number, number];

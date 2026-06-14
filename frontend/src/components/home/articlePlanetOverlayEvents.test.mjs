@@ -36,6 +36,16 @@ test('article summary card exposes the active collection reading path on mobile 
   assert.match(source, /activeCollectionArticles\.slice\(0, 5\)\.map/);
 });
 
+test('article summary card exposes gravity recommendations on mobile and desktop', async () => {
+  const source = await readOverlaySource();
+
+  assert.match(source, /activeGravityRecommendations/);
+  assert.match(source, /ArticlePlanetGravityRecommendation/);
+  assert.match(source, /引力推荐/);
+  assert.match(source, /与当前星球语义相近/);
+  assert.match(source, /Math\.round\(score \* 100\)/);
+});
+
 test('article planet overlay exposes time machine controls', async () => {
   const source = await readOverlaySource();
 
