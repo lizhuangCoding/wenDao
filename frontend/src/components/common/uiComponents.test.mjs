@@ -11,7 +11,7 @@ const loadCommonIndex = async () => {
 };
 
 test('common UI primitives centralize professional surface, form, and action styles', async () => {
-  const [button, buttonStyles, panel, pageHeader, formControls, dataTable, statusBadge, toggleSwitch, particle, index] =
+  const [button, buttonStyles, panel, pageHeader, formControls, dataTable, statusBadge, toggleSwitch, comet, index] =
     await Promise.all([
       loadCommonSource('Button'),
       readFile(new URL('./buttonStyles.ts', import.meta.url), 'utf8'),
@@ -21,7 +21,7 @@ test('common UI primitives centralize professional surface, form, and action sty
       loadCommonSource('DataTable'),
       loadCommonSource('StatusBadge'),
       loadCommonSource('ToggleSwitch'),
-      loadCommonSource('ParticleAtmosphere'),
+      loadCommonSource('CursorCometTrail'),
       loadCommonIndex(),
     ]);
 
@@ -39,17 +39,18 @@ test('common UI primitives centralize professional surface, form, and action sty
   assert.match(dataTable, /overflow-x-auto/);
   assert.match(statusBadge, /variantClassName/);
   assert.match(toggleSwitch, /role="switch"/);
-  assert.match(particle, /requestAnimationFrame/);
-  assert.match(particle, /cancelAnimationFrame/);
-  assert.match(particle, /pointer-events-none/);
-  assert.match(particle, /\(hover: hover\) and \(pointer: fine\)/);
-  assert.match(particle, /prefers-reduced-motion: reduce/);
-  assert.match(particle, /Math\.hypot/);
-  assert.match(particle, /velocityInfluence/);
-  assert.match(particle, /mouse\.decay \* 0\.92/);
-  assert.match(particle, /twinkleStrength/);
-  assert.match(particle, /tone === 'reading' \? 0\.76 : 1/);
-  assert.match(particle, /will-change-transform/);
+  assert.match(comet, /requestAnimationFrame/);
+  assert.match(comet, /cancelAnimationFrame/);
+  assert.match(comet, /pointer-events-none/);
+  assert.match(comet, /\(hover: hover\) and \(pointer: fine\)/);
+  assert.match(comet, /prefers-reduced-motion: reduce/);
+  assert.match(comet, /getContext\('2d'\)/);
+  assert.match(comet, /createLinearGradient/);
+  assert.match(comet, /createRadialGradient/);
+  assert.match(comet, /globalCompositeOperation = 'lighter'/);
+  assert.match(comet, /MAX_TRAIL_POINTS/);
+  assert.match(comet, /data-cursor-comet-trail/);
+  assert.doesNotMatch(comet, /Array\.from\(\{ length/);
 
   assert.match(index, /export \* from '.\/Button'/);
   assert.match(index, /export \* from '.\/Panel'/);
@@ -58,5 +59,5 @@ test('common UI primitives centralize professional surface, form, and action sty
   assert.match(index, /export \* from '.\/DataTable'/);
   assert.match(index, /export \* from '.\/StatusBadge'/);
   assert.match(index, /export \* from '.\/ToggleSwitch'/);
-  assert.match(index, /export \* from '.\/ParticleAtmosphere'/);
+  assert.match(index, /export \* from '.\/CursorCometTrail'/);
 });

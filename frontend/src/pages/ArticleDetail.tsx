@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { ArrowLeft, ArrowRight, Bookmark, Heart } from 'lucide-react';
 import { articleApi } from '@/api';
-import { Layout, ErrorState, ParticleAtmosphere } from '@/components/common';
+import { Layout, ErrorState } from '@/components/common';
 import { ArticleContent, ArticleDetailSkeleton, TableOfContents } from '@/components/article';
 import { estimateReadingTime, extractHeadings } from '@/utils/markdown';
 import { CommentList } from '@/components/comment';
@@ -90,7 +90,6 @@ export const ArticleDetail = () => {
         <Helmet>
           <title>{`${t('common.loading')} - 问道`}</title>
         </Helmet>
-        <ParticleAtmosphere count={30} tone="reading" />
         <div className="relative z-10 max-w-display mx-auto px-6 sm:px-10 lg:px-12 py-20">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -107,7 +106,6 @@ export const ArticleDetail = () => {
   if (isError) {
     return (
       <Layout>
-        <ParticleAtmosphere count={30} tone="reading" />
         <div className="relative z-10 max-w-reading mx-auto px-6 py-16">
           <ErrorState
             message={(error as any)?.message || t('article.articleLoadFailed')}
@@ -121,7 +119,6 @@ export const ArticleDetail = () => {
   if (!article) {
     return (
       <Layout>
-        <ParticleAtmosphere count={30} tone="reading" />
         <div className="relative z-10 max-w-reading mx-auto px-6 py-32 text-center">
           <h1 className="text-4xl font-serif font-black text-neutral-900 dark:text-neutral-100 mb-4">{t('article.pieceNotFound')}</h1>
           <button type="button" onClick={() => navigate('/')} className="text-primary-600 dark:text-primary-400 font-bold tracking-widest uppercase text-xs">{t('article.returnGallery')}</button>
@@ -185,7 +182,6 @@ export const ArticleDetail = () => {
 
   return (
     <Layout>
-      <ParticleAtmosphere count={30} tone="reading" />
       <Helmet>
         <title>{pageTitle}</title>
         <meta name="description" content={pageDescription} />

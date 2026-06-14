@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { articleApi, categoryApi, siteApi } from '@/api';
-import { Layout, Loading, Pagination, EmptyState, ErrorState, ParticleAtmosphere } from '@/components/common';
+import { Layout, Loading, Pagination, EmptyState, ErrorState, CursorCometTrail } from '@/components/common';
 import { ArticleCard } from '@/components/article';
 import { ArticlePlanetHero } from '@/components/home';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -67,7 +67,7 @@ export const Home = () => {
 
   return (
     <Layout>
-      <ParticleAtmosphere count={42} tone="planet" />
+      <CursorCometTrail />
       <ArticlePlanetHero
         articles={orbitData?.data ?? []}
         categories={categories}

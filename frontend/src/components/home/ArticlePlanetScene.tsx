@@ -35,40 +35,6 @@ const PLANET_DRIFT_SPEED = 0.18;
 const PLANET_SELF_ROTATION_SPEED = 0.045;
 const GRAVITY_LINE_LERP_SPEED = 3.2;
 
-const randomUnit = (seed: number) => {
-  const value = Math.sin(seed * 12.9898) * 43758.5453;
-  return value - Math.floor(value);
-};
-
-const LightweightStarField = () => {
-  const positions = useMemo(() => {
-    const count = 560;
-    const values = new Float32Array(count * 3);
-
-    for (let index = 0; index < count; index += 1) {
-      const radius = 11 + randomUnit(index + 1) * 34;
-      const theta = randomUnit(index + 11) * Math.PI * 2;
-      const phi = Math.acos(2 * randomUnit(index + 23) - 1);
-      const offset = index * 3;
-
-      values[offset] = Math.sin(phi) * Math.cos(theta) * radius;
-      values[offset + 1] = Math.cos(phi) * radius;
-      values[offset + 2] = Math.sin(phi) * Math.sin(theta) * radius;
-    }
-
-    return values;
-  }, []);
-
-  return (
-    <points>
-      <bufferGeometry>
-        <bufferAttribute attach="attributes-position" args={[positions, 3]} />
-      </bufferGeometry>
-      <pointsMaterial color="#dbeafe" depthWrite={false} opacity={0.62} size={0.024} transparent />
-    </points>
-  );
-};
-
 const PlanetBody = () => (
   <group>
     <pointLight color="#38bdf8" distance={4.8} intensity={9} position={[0.4, 0.5, 1.4]} />
@@ -293,7 +259,6 @@ export const ArticlePlanetScene = ({
       <ambientLight intensity={0.42} />
       <directionalLight color="#dffdf2" intensity={2.1} position={[4, 3, 5]} />
       <pointLight color="#38bdf8" intensity={28} position={[-3, -1, 3]} />
-      <LightweightStarField />
       <ArticlePlanetCluster
         activeArticleId={activeArticleId}
         articles={articles}

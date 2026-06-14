@@ -26,4 +26,4 @@ export * from './RouteTransition';
 export * from './RouteSuspenseBoundary';
 export * from './NotificationBell';
 export * from './NotFoundPage';
-export * from './ParticleAtmosphere';
+export * from './CursorCometTrail';

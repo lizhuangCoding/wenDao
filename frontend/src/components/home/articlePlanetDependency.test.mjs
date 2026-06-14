@@ -47,6 +47,19 @@ test('article planet renders constellation connection lines from layout relation
   assert.match(sceneSource, /connections\.map/);
 });
 
+test('article planet avoids static full-screen star points behind the cursor trail', async () => {
+  const [sceneSource, heroSource] = await Promise.all([
+    readProjectFile('src/components/home/ArticlePlanetScene.tsx'),
+    readProjectFile('src/components/home/ArticlePlanetHero.tsx'),
+  ]);
+
+  assert.doesNotMatch(sceneSource, /LightweightStarField/);
+  assert.doesNotMatch(sceneSource, /<points>/);
+  assert.doesNotMatch(sceneSource, /pointsMaterial/);
+  assert.doesNotMatch(heroSource, /rounded-full bg-primary-200/);
+  assert.doesNotMatch(heroSource, /rounded-full bg-sky-200/);
+});
+
 test('article planet nodes animate toward gravity targets without replacing the open click action', async () => {
   const [nodeSource, heroSource] = await Promise.all([
     readProjectFile('src/components/home/ArticlePlanetNode.tsx'),

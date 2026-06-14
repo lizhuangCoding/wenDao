@@ -19,9 +19,8 @@ test('public mobile pages use stable mobile spacing and do not create horizontal
   assert.match(header, /h-10 w-10 shrink-0/);
   assert.match(header, /max-h-\[calc\(100dvh-7rem\)\] overflow-y-auto/);
   assert.match(home, /py-16 sm:py-24/);
-  assert.match(home, /ParticleAtmosphere/);
-  assert.match(home, /count=\{42\}/);
-  assert.match(home, /tone="planet"/);
+  assert.match(home, /CursorCometTrail/);
+  assert.doesNotMatch(home, /ParticleAtmosphere/);
   assert.match(home, /gap-y-16 sm:gap-y-24/);
   assert.match(articleCard, /text-xl sm:text-2xl/);
   assert.match(articleCard, /flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between/);
