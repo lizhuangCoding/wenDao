@@ -44,16 +44,6 @@ type aiLogger struct {
 	encoder *json.Encoder
 }
 
-// NewAILogger 创建独立 ai-chat 日志器
-func NewAILogger(logDir string) (AILogger, error) {
-	return NewAILoggerWithRotation(logDir, LogRotationConfig{
-		MaxSizeMB:  100,
-		MaxBackups: 7,
-		MaxAgeDays: 10,
-		Compress:   true,
-	})
-}
-
 // NewAILoggerWithRotation 创建带轮转策略的独立 ai-chat 日志器。
 func NewAILoggerWithRotation(logDir string, rotation LogRotationConfig) (AILogger, error) {
 	if logDir == "" {

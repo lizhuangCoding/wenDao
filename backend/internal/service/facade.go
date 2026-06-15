@@ -154,7 +154,6 @@ func NewUploadService(repo uploadrepo.UploadRepository, cfg *config.Config) Uplo
 func NewStatService(repo *statrepo.StatRepository, rdb *redis.Client) *StatService {
 	return statsvc.NewStatService(repo, rdb)
 }
-func NewAILogger(logDir string) (AILogger, error) { return aisvc.NewAILogger(logDir) }
 func NewAILoggerWithRotation(logDir string, rotation LogRotationConfig) (AILogger, error) {
 	return aisvc.NewAILoggerWithRotation(logDir, rotation)
 }
