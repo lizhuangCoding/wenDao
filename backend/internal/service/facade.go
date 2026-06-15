@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"errors"
 
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
@@ -194,5 +193,3 @@ const (
 	StreamEventHeartbeat = chatcore.StreamEventHeartbeat
 	StreamEventDone      = chatcore.StreamEventDone
 )
-
-func IsAIDisabled(err error) bool { return errors.Is(err, ErrAIDisabled) }

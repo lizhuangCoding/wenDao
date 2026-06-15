@@ -215,54 +215,6 @@ func (h *UserHandler) Login(c *gin.Context) {
 	})
 }
 
-// Logout 用户登出
-func (h *UserHandler) Logout(c *gin.Context) {
-	token, exists := c.Get("token")
-	if exists {
-		_ = h.userService.Logout(token.(string))
-	}
-
-	refreshToken, err := c.Cookie("refresh_token")
-	if err != nil {
-		refreshToken = c.GetHeader("X-Refresh-Token")
-	}
-
-	if refreshToken != "" {
-		_ = h.userService.Logout(refreshToken)
-	}
-
-	secureCookie := httpcookie.ShouldUseSecureCookies(h.cfg)
-	c.SetSameSite(http.SameSiteLaxMode)
-	c.SetCookie("token", "", -1, "/", "", secureCookie, true)
-	c.SetCookie("refresh_token", "", -1, "/", "", secureCookie, true)
-
-	response.Success(c, gin.H{
-		"message": "Logged out successfully",
-	})
-}
-
-// GetCurrentUser 获取当前用户信息
-func (h *UserHandler) GetCurrentUser(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		response.Unauthorized(c, "Missing user ID")
-		return
-	}
-
-	user, err := h.userService.GetCurrentUser(userID.(int64))
-	if err != nil {
-		if err.Error() == "user not found" {
-			response.NotFound(c, "User not found")
-			return
-		}
-		response.InternalError(c, "Failed to get user")
-		return
-	}
-
-	user.PasswordHash = nil
-	response.Success(c, user)
-}
-
 // UpdateUsername 修改用户名
 func (h *UserHandler) UpdateUsername(c *gin.Context) {
 	var req UpdateUsernameRequest

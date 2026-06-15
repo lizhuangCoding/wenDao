@@ -574,8 +574,3 @@ func appendAcceptanceLimitations(answer string, review AcceptanceReview) string 
 	}
 	return strings.TrimSpace(answer) + "\n\n回答限制：\n- " + strings.Join(parts, "\n- ")
 }
-
-func enforceAcceptanceQuality(review AcceptanceReview, input AcceptanceReviewInput) AcceptanceReview {
-	_ = input
-	return review
-}

@@ -11,7 +11,6 @@ type ArticleSemanticProfileRepository interface {
 	Upsert(profile *model.ArticleSemanticProfile) error
 	DeleteByArticleID(articleID int64) error
 	ListByArticleIDs(articleIDs []int64) (map[int64]*model.ArticleSemanticProfile, error)
-	ListAll() ([]*model.ArticleSemanticProfile, error)
 }
 
 type articleSemanticProfileRepository struct {
@@ -60,10 +59,3 @@ func (r *articleSemanticProfileRepository) ListByArticleIDs(articleIDs []int64) 
 	return profilesByArticleID, nil
 }
 
-func (r *articleSemanticProfileRepository) ListAll() ([]*model.ArticleSemanticProfile, error) {
-	var profiles []*model.ArticleSemanticProfile
-	if err := r.db.Find(&profiles).Error; err != nil {
-		return nil, err
-	}
-	return profiles, nil
-}

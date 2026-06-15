@@ -47,11 +47,6 @@ func NewLLMClient(cfg *config.AIConfig) (LLMClient, error) {
 	return newLLMClient(cfg)
 }
 
-// NewDoubaoLLMClient 创建 Doubao LLM 客户端（兼容旧调用方）
-func NewDoubaoLLMClient(cfg *config.AIConfig) (LLMClient, error) {
-	return newLLMClient(cfg)
-}
-
 func newLLMClient(cfg *config.AIConfig) (LLMClient, error) {
 	if cfg == nil {
 		return nil, fmt.Errorf("ai config is required")

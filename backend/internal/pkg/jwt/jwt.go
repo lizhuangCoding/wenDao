@@ -49,11 +49,6 @@ func GenerateRefreshToken(userID int64, role string, secret string, expireDays i
 	return token.SignedString([]byte(secret))
 }
 
-// GenerateToken 生成 JWT token（兼容旧接口）
-func GenerateToken(userID int64, role string, secret string, expireHours int) (string, error) {
-	return GenerateAccessToken(userID, role, secret, expireHours)
-}
-
 // ParseToken 解析并验证 token
 func ParseToken(tokenString string, secret string) (*Claims, error) {
 	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(token *jwt.Token) (interface{}, error) {

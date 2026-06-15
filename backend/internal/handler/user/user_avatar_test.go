@@ -16,6 +16,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"wenDao/config"
+	authhandler "wenDao/internal/handler/auth"
 	"wenDao/internal/model"
 	pkgjwt "wenDao/internal/pkg/jwt"
 	"wenDao/internal/pkg/response"
@@ -340,7 +341,7 @@ func TestAuthHandlerGetUserInfo_IncludesAvatarURL(t *testing.T) {
 			UpdatedAt:    time.Unix(1700000300, 0),
 		},
 	}
-	h := NewAuthHandler(userService, &config.Config{JWT: config.JWTConfig{AccessExpireHours: 2}}, nil)
+	h := authhandler.NewAuthHandler(userService, &config.Config{JWT: config.JWTConfig{AccessExpireHours: 2}}, nil)
 
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
@@ -397,7 +398,7 @@ func TestAuthHandlerRefresh_ReturnsInternalErrorWhenRefreshRotationFails(t *test
 	}
 
 	userService := &stubUserService{refreshTokenErr: errors.New("refresh failed")}
-	h := NewAuthHandler(userService, cfg, nil)
+	h := authhandler.NewAuthHandler(userService, cfg, nil)
 
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
@@ -710,7 +711,7 @@ func TestAuthHandlerRefresh_SucceedsWithoutRedisClient(t *testing.T) {
 	}
 
 	userService := &stubUserService{refreshToken: "rotated-refresh-token"}
-	h := NewAuthHandler(userService, cfg, nil)
+	h := authhandler.NewAuthHandler(userService, cfg, nil)
 
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)

@@ -57,7 +57,7 @@ func TestBuildConversationMemory_UsesStoredSummaryAndRecentMessages(t *testing.T
 		{Scope: ConversationMemoryScopeSummary, Content: "用户此前关注 Manus 风格多 Agent 过程展示、工具调用日志和 MySQL 持久化。"},
 	}
 
-	memory := buildConversationMemory(history, memories)
+	memory := buildConversationMemoryForQuestion("",history, memories)
 	if !strings.Contains(memory, "长期记忆") || !strings.Contains(memory, "用户此前关注 Manus 风格") {
 		t.Fatalf("expected stored memory summary, got %q", memory)
 	}
@@ -88,7 +88,7 @@ func TestBuildConversationMemory_CombinesStructuredMemoriesWithRelevantHistory(t
 		{Scope: ConversationMemoryScopeOpenThread, Content: ""},
 	}
 
-	memory := buildConversationMemory(history, memories)
+	memory := buildConversationMemoryForQuestion("",history, memories)
 	if !strings.Contains(memory, "长期记忆") {
 		t.Fatalf("expected structured memories section, got %q", memory)
 	}

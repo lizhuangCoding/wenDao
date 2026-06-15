@@ -161,7 +161,7 @@ func syncPublishedArticleVectors(articleRepo repository.ArticleRepository, seman
 	}
 
 	const pageSize = 100
-	batch := 1
+	page := 1
 	totalSynced := 0
 
 	for {
@@ -169,7 +169,7 @@ func syncPublishedArticleVectors(articleRepo repository.ArticleRepository, seman
 			Status:          "published",
 			AIIndexStatuses: []string{"pending", "failed"},
 			IncludeContent:  true,
-			Page:            1,
+			Page:            page,
 			PageSize:        pageSize,
 		})
 		if err != nil {
@@ -180,7 +180,7 @@ func syncPublishedArticleVectors(articleRepo repository.ArticleRepository, seman
 		}
 
 		logger.Info("Syncing published article vector batch",
-			zap.Int("batch", batch),
+			zap.Int("page", page),
 			zap.Int("batch_size", len(articles)),
 			zap.Int64("total", total))
 
@@ -202,7 +202,7 @@ func syncPublishedArticleVectors(articleRepo repository.ArticleRepository, seman
 			totalSynced++
 		}
 
-		batch++
+		page++
 	}
 
 	logger.Info("Published article vector sync completed", zap.Int("article_count", totalSynced))

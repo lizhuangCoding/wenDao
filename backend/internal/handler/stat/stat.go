@@ -53,28 +53,3 @@ func (h *StatHandler) GetDashboardStats(c *gin.Context) {
 	response.Success(c, stats)
 }
 
-// GetArticleStats 获取文章访问统计
-func (h *StatHandler) GetArticleStats(c *gin.Context) {
-	articleIDStr := c.Param("id")
-	articleID, err := strconv.ParseInt(articleIDStr, 10, 64)
-	if err != nil {
-		response.InvalidParams(c, "无效的文章ID")
-		return
-	}
-
-	daysStr := c.DefaultQuery("days", "7")
-	days, err := strconv.Atoi(daysStr)
-	if err != nil || days <= 0 {
-		days = 7
-	}
-
-	stats, err := h.statService.GetArticleStats(articleID, days)
-	if err != nil {
-		response.InternalError(c, "获取文章统计失败")
-		return
-	}
-
-	response.Success(c, gin.H{
-		"data": stats,
-	})
-}

@@ -215,15 +215,6 @@ func (s *StatService) FlushRecentDailyStatCounters() error {
 	return firstErr
 }
 
-func (s *StatService) flushRecentCountersQuietly() {
-	if s == nil {
-		return
-	}
-	if err := s.FlushRecentDailyStatCounters(); err != nil {
-		log.Printf("[Stat] flush recent counters error: %v", err)
-	}
-}
-
 func (s *StatService) incrementDailyStat(date string, pvDelta, uvDelta, commentDelta int64) error {
 	if s.statRepo == nil {
 		return fmt.Errorf("stat repository is not configured")

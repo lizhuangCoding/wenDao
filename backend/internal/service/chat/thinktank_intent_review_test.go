@@ -584,40 +584,6 @@ func TestSanitizeFinalAnswer_RemovesDocWriterDraftNotesButKeepsReferences(t *tes
 	}
 }
 
-func TestEnforceAcceptanceQuality_DoesNotOverrideAgentReviewWithQuestionKeywords(t *testing.T) {
-	review := AcceptanceReview{
-		Verdict:           acceptanceVerdictPass,
-		Score:             80,
-		MatchedDimensions: []string{"用户目标"},
-		Summary:           "答案满足用户目标。",
-		Available:         true,
-	}
-	cases := []AcceptanceReviewInput{
-		{
-			OriginalQuestion: "帮我调研一下特朗普",
-			Decision:         defaultClarifierDecision("帮我调研一下特朗普"),
-			Answer:           "短答案。",
-			RevisionCount:    0,
-		},
-		{
-			OriginalQuestion: "我要学习ai最新的知识，目标是能够找到一个agent开发岗位",
-			Decision:         defaultClarifierDecision("我要学习ai最新的知识，目标是能够找到一个agent开发岗位"),
-			Answer:           "短答案。",
-			RevisionCount:    0,
-		},
-	}
-
-	for _, input := range cases {
-		got := enforceAcceptanceQuality(review, input)
-		if got.Verdict != acceptanceVerdictPass {
-			t.Fatalf("Go quality gate should not keyword-override agent review for %q, got %#v", input.OriginalQuestion, got)
-		}
-		if len(got.MissingDimensions) != 0 {
-			t.Fatalf("Go quality gate should not fabricate missing dimensions for %q, got %#v", input.OriginalQuestion, got.MissingDimensions)
-		}
-	}
-}
-
 func TestFormatAcceptanceQuestion_ShowsReasonAndQuestion(t *testing.T) {
 	review := AcceptanceReview{
 		Verdict:      acceptanceVerdictAskUser,

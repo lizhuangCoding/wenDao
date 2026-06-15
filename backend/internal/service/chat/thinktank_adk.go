@@ -69,13 +69,6 @@ type askForClarificationOptions struct {
 	NewInput *string
 }
 
-// WithAskForClarificationInput mirrors the Eino subagents example: the first call
-// interrupts the graph, and the resume run injects the user's new answer through
-// this tool option so the original tool call can be rerun.
-func WithAskForClarificationInput(input string) tool.Option {
-	return WithNewInput(input)
-}
-
 // WithNewInput keeps the same option shape as CloudWeGo's subagents example.
 func WithNewInput(input string) tool.Option {
 	return tool.WrapImplSpecificOptFn(func(t *askForClarificationOptions) {

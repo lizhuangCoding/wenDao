@@ -92,7 +92,6 @@ func (o *thinkTankOrchestrator) reviewAnswer(ctx context.Context, question strin
 		s.runs.logStage(nil, nil, "acceptance_warning", "Acceptance review failed; returning generated answer", err.Error())
 		return defaultAcceptanceReview(), false
 	}
-	review = enforceAcceptanceQuality(review, input)
 	shouldRevise := normalizeAcceptanceVerdict(review.Verdict) == acceptanceVerdictRevise && revisionCount < s.maxReviewRevisions
 	return review, shouldRevise
 }

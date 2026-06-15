@@ -139,10 +139,6 @@ func lastMessageID(messages []model.ChatMessage) int64 {
 	return 0
 }
 
-func buildConversationMemory(history []model.ChatMessage, memories []model.ConversationMemory) string {
-	return buildConversationMemoryForQuestion("", history, memories)
-}
-
 func buildConversationMemoryForQuestion(question string, history []model.ChatMessage, memories []model.ConversationMemory) string {
 	if len(history) == 0 && len(memories) == 0 {
 		return ""
