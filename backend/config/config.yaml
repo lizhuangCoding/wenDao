@@ -118,5 +118,5 @@ log:
   output: "log/"         # 日志输出目录，文件名会自动生成为 YYYY-MM-DD.log
   max_size_mb: 100       # 单个日志文件最大大小，超过后按大小轮转
   max_backups: 7         # 同一天日志文件按大小轮转后最多保留的备份数
-  max_age_days: 28       # 按日期生成的历史日志最多保留天数
+  max_age_days: 10       # 按日期生成的历史日志最多保留天数
   compress: true         # 是否压缩轮转后的日志备份

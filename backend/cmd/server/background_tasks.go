@@ -11,6 +11,7 @@ import (
 )
 
 func startBackgroundTasks(cfg *config.Config, logger *zap.Logger, services *appServices) func() {
+	stopLogCleanup := startLogCleanupScheduler(cfg, logger)
 	stopUploadCleanup := func() {}
 	stopStatFlush := func() {}
 	stopArticleScheduler := func() {}
@@ -21,6 +22,7 @@ func startBackgroundTasks(cfg *config.Config, logger *zap.Logger, services *appS
 	}
 
 	return func() {
+		stopLogCleanup()
 		stopUploadCleanup()
 		stopStatFlush()
 		stopArticleScheduler()
@@ -160,6 +162,50 @@ func runArticleSchedulerOnce(logger *zap.Logger, articleService service.ArticleS
 func runStatFlush(logger *zap.Logger, statService *service.StatService) {
 	if err := statService.FlushRecentDailyStatCounters(); err != nil {
 		logger.Warn("Stat flush failed", zap.Error(err))
+	}
+}
+
+// startLogCleanupScheduler 每隔 24 小时清理超过 MaxAgeDays 的过期日志文件。
+// 与启动时 initLogger 中执行的 pruneExpiredLogFiles 互补，确保长时间运行不重启时日志也能被清理。
+func startLogCleanupScheduler(cfg *config.Config, logger *zap.Logger) func() {
+	if cfg == nil || logger == nil || cfg.Log.MaxAgeDays <= 0 {
+		return func() {}
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		const cleanupInterval = 24 * time.Hour
+		ticker := time.NewTicker(cleanupInterval)
+		defer ticker.Stop()
+
+		logger.Info("Log cleanup scheduler started",
+			zap.Int("max_age_days", cfg.Log.MaxAgeDays),
+			zap.Duration("interval", cleanupInterval))
+
+		for {
+			select {
+			case <-ticker.C:
+				runLogCleanup(logger, cfg.Log)
+			case <-ctx.Done():
+				logger.Info("Log cleanup scheduler stopped")
+				return
+			}
+		}
+	}()
+
+	return cancel
+}
+
+func runLogCleanup(logger *zap.Logger, cfg config.LogConfig) {
+	if cfg.Output == "stdout" || cfg.Output == "" {
+		if err := pruneExpiredLogFiles(aiLogDir(cfg.Output), cfg.MaxAgeDays, time.Now()); err != nil {
+			logger.Warn("Periodic prune of AI log files failed", zap.Error(err))
+		}
+	} else {
+		dir := logOutputDir(cfg.Output)
+		if err := pruneExpiredLogFiles(dir, cfg.MaxAgeDays, time.Now()); err != nil {
+			logger.Warn("Periodic prune of log files failed", zap.Error(err))
+		}
 	}
 }
 

@@ -49,7 +49,7 @@ func NewAILogger(logDir string) (AILogger, error) {
 	return NewAILoggerWithRotation(logDir, LogRotationConfig{
 		MaxSizeMB:  100,
 		MaxBackups: 7,
-		MaxAgeDays: 28,
+		MaxAgeDays: 10,
 		Compress:   true,
 	})
 }
