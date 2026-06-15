@@ -2,6 +2,7 @@ package upload
 
 import (
 	"bytes"
+	"errors"
 	"image"
 	"image/color"
 	"image/png"
@@ -16,6 +17,7 @@ import (
 
 	"wenDao/config"
 	"wenDao/internal/model"
+	"wenDao/internal/svcerrors"
 )
 
 type stubUploadRepository struct {
@@ -67,7 +69,7 @@ func TestUploadServiceUploadImage_RejectsSpoofedContentType(t *testing.T) {
 	if err == nil {
 		t.Fatalf("expected spoofed file to be rejected, got upload %+v", upload)
 	}
-	if err.Error() != "file type not allowed" {
+	if !errors.Is(err, svcerrors.ErrFileTypeNotAllowed) {
 		t.Fatalf("expected file type not allowed, got %v", err)
 	}
 }

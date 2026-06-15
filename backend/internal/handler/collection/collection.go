@@ -1,8 +1,8 @@
 package collection
 
 import (
+	"errors"
 	"strconv"
-	"strings"
 
 	"github.com/gin-gonic/gin"
 
@@ -10,6 +10,7 @@ import (
 	"wenDao/internal/pkg/response"
 	"wenDao/internal/repository"
 	"wenDao/internal/service"
+	"wenDao/internal/svcerrors"
 )
 
 type CollectionHandler struct {
@@ -148,16 +149,15 @@ func normalizeCollectionIDs(ids []int64) ([]int64, bool) {
 }
 
 func handleCollectionError(c *gin.Context, err error, fallback string) {
-	switch {
-	case err.Error() == "collection not found":
+	if errors.Is(err, svcerrors.ErrCollectionNotFound) {
 		response.NotFound(c, "Collection not found")
-	case err.Error() == "slug already exists":
+	} else if errors.Is(err, svcerrors.ErrSlugAlreadyExists) {
 		response.Error(c, response.CodeInvalidParams, "Slug already exists")
-	case err.Error() == "invalid collection status":
+	} else if errors.Is(err, svcerrors.ErrInvalidCollectionStatus) {
 		response.InvalidParams(c, "Invalid collection status")
-	case strings.Contains(err.Error(), "cannot delete collection with articles"):
+	} else if errors.Is(err, svcerrors.ErrCannotDeleteCollectionWithArticles) {
 		response.Error(c, response.CodeInvalidParams, "Cannot delete collection with articles")
-	default:
+	} else {
 		response.InternalErrorWithErr(c, fallback, err)
 	}
 }

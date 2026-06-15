@@ -7,6 +7,7 @@ import (
 
 	"wenDao/internal/pkg/response"
 	"wenDao/internal/service"
+	"wenDao/internal/svcerrors"
 )
 
 type VerificationCodeRequest struct {
@@ -98,7 +99,7 @@ func (h *UserHandler) ConfirmPasswordReset(c *gin.Context) {
 	}
 
 	if err := h.userService.ResetPassword(req.Email, req.Password); err != nil {
-		if err.Error() == "user not found" {
+		if errors.Is(err, svcerrors.ErrUserNotFound) {
 			response.InvalidParams(c, "Invalid verification code or email")
 			return
 		}

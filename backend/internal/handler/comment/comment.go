@@ -1,6 +1,7 @@
 package comment
 
 import (
+	"errors"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -9,6 +10,7 @@ import (
 	"wenDao/internal/pkg/response"
 	"wenDao/internal/repository"
 	"wenDao/internal/service"
+	"wenDao/internal/svcerrors"
 )
 
 // CommentHandler 评论处理器
@@ -50,20 +52,19 @@ func (h *CommentHandler) Create(c *gin.Context) {
 
 	comment, err := h.commentService.Create(req.ArticleID, userID.(int64), req.Content, req.ParentID, req.ReplyToUserID)
 	if err != nil {
-		switch err.Error() {
-		case "article not found":
+		if errors.Is(err, svcerrors.ErrArticleNotFound) {
 			response.NotFound(c, "Article not found")
-		case "cannot comment on unpublished article":
+		} else if errors.Is(err, svcerrors.ErrCannotCommentOnUnpublishedArticle) {
 			response.Forbidden(c, "Cannot comment on unpublished article")
-		case "parent comment not found":
+		} else if errors.Is(err, svcerrors.ErrParentCommentNotFound) {
 			response.NotFound(c, "Parent comment not found")
-		case "parent comment does not belong to this article":
+		} else if errors.Is(err, svcerrors.ErrParentCommentNotBelongToArticle) {
 			response.InvalidParams(c, "Parent comment does not belong to this article")
-		case "cannot reply to deleted comment":
+		} else if errors.Is(err, svcerrors.ErrCannotReplyToDeletedComment) {
 			response.InvalidParams(c, "Cannot reply to deleted comment")
-		case "cannot reply to a reply comment (only two levels allowed)":
+		} else if errors.Is(err, svcerrors.ErrCannotReplyToReplyComment) {
 			response.InvalidParams(c, "Cannot reply to a reply comment (only two levels allowed)")
-		default:
+		} else {
 			response.InternalErrorWithErr(c, "Failed to create comment", err)
 		}
 		return
@@ -139,14 +140,13 @@ func (h *CommentHandler) Delete(c *gin.Context) {
 	isAdmin := userRole.(string) == "admin"
 
 	if err := h.commentService.Delete(commentID, userID.(int64), isAdmin); err != nil {
-		switch err.Error() {
-		case "comment not found":
+		if errors.Is(err, svcerrors.ErrCommentNotFound) {
 			response.NotFound(c, "Comment not found")
-		case "permission denied":
+		} else if errors.Is(err, svcerrors.ErrPermissionDenied) {
 			response.Forbidden(c, "Permission denied")
-		case "comment already deleted":
+		} else if errors.Is(err, svcerrors.ErrCommentAlreadyDeleted) {
 			response.InvalidParams(c, "Comment already deleted")
-		default:
+		} else {
 			response.InternalErrorWithErr(c, "Failed to delete comment", err)
 		}
 		return
@@ -291,12 +291,11 @@ func (h *CommentHandler) Restore(c *gin.Context) {
 	}
 
 	if err := h.commentService.Restore(commentID); err != nil {
-		switch err.Error() {
-		case "comment not found":
+		if errors.Is(err, svcerrors.ErrCommentNotFound) {
 			response.NotFound(c, "Comment not found")
-		case "comment is not deleted":
+		} else if errors.Is(err, svcerrors.ErrCommentIsNotDeleted) {
 			response.InvalidParams(c, "Comment is not deleted")
-		default:
+		} else {
 			response.InternalErrorWithErr(c, "Failed to restore comment", err)
 		}
 		return

@@ -1,11 +1,11 @@
 package article
 
 import (
-	"errors"
 	"fmt"
 
 	"wenDao/internal/model"
 	"wenDao/internal/repository"
+	"wenDao/internal/svcerrors"
 )
 
 func (s *articleService) ensurePublishedArticle(articleID int64) (*model.Article, error) {
@@ -14,7 +14,7 @@ func (s *articleService) ensurePublishedArticle(articleID int64) (*model.Article
 		return nil, err
 	}
 	if article.Status != "published" {
-		return nil, errors.New("article not found")
+		return nil, svcerrors.ErrArticleNotFound
 	}
 	return article, nil
 }

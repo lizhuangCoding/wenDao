@@ -8,6 +8,7 @@ import (
 
 	"wenDao/internal/model"
 	"wenDao/internal/repository"
+	"wenDao/internal/svcerrors"
 )
 
 // CategoryService 分类服务接口
@@ -42,7 +43,7 @@ func (s *categoryService) Create(name, slug, description string, sortOrder int) 
 		return nil, fmt.Errorf("failed to check slug: %w", err)
 	}
 	if existingCategory != nil {
-		return nil, errors.New("slug already exists")
+		return nil, svcerrors.ErrSlugAlreadyExists
 	}
 
 	// 创建分类
@@ -65,7 +66,7 @@ func (s *categoryService) GetByID(id int64) (*model.Category, error) {
 	category, err := s.categoryRepo.GetByID(id)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, errors.New("category not found")
+			return nil, svcerrors.ErrCategoryNotFound
 		}
 		return nil, fmt.Errorf("failed to get category: %w", err)
 	}
@@ -77,7 +78,7 @@ func (s *categoryService) GetBySlug(slug string) (*model.Category, error) {
 	category, err := s.categoryRepo.GetBySlug(slug)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, errors.New("category not found")
+			return nil, svcerrors.ErrCategoryNotFound
 		}
 		return nil, fmt.Errorf("failed to get category: %w", err)
 	}
@@ -114,7 +115,7 @@ func (s *categoryService) Update(id int64, name, slug, description string, sortO
 	category, err := s.categoryRepo.GetByID(id)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, errors.New("category not found")
+			return nil, svcerrors.ErrCategoryNotFound
 		}
 		return nil, fmt.Errorf("failed to get category: %w", err)
 	}
@@ -126,7 +127,7 @@ func (s *categoryService) Update(id int64, name, slug, description string, sortO
 			return nil, fmt.Errorf("failed to check slug: %w", err)
 		}
 		if existingCategory != nil {
-			return nil, errors.New("slug already exists")
+			return nil, svcerrors.ErrSlugAlreadyExists
 		}
 	}
 
@@ -149,14 +150,14 @@ func (s *categoryService) Delete(id int64) error {
 	category, err := s.categoryRepo.GetByID(id)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return errors.New("category not found")
+			return svcerrors.ErrCategoryNotFound
 		}
 		return fmt.Errorf("failed to get category: %w", err)
 	}
 
 	// 检查分类下是否有文章
 	if category.ArticleCount > 0 {
-		return errors.New("cannot delete category with articles")
+		return svcerrors.ErrCannotDeleteCategoryWithArticles
 	}
 
 	if err := s.categoryRepo.Delete(id); err != nil {

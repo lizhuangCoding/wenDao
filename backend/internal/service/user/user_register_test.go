@@ -1,9 +1,11 @@
 package user
 
 import (
+	"errors"
 	"testing"
 
 	"wenDao/internal/model"
+	"wenDao/internal/svcerrors"
 )
 
 func TestUserServiceRegister_AllowsDuplicateUsername(t *testing.T) {
@@ -44,7 +46,7 @@ func TestUserServiceRegister_ReturnsErrorWhenEmailExists(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected duplicate email error, got nil")
 	}
-	if err.Error() != "email already exists" {
+	if !errors.Is(err, svcerrors.ErrEmailAlreadyExists) {
 		t.Fatalf("expected error 'email already exists', got %v", err)
 	}
 }

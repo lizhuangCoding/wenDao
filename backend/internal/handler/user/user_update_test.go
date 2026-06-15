@@ -3,7 +3,6 @@ package user
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -12,6 +11,7 @@ import (
 
 	"wenDao/config"
 	"wenDao/internal/model"
+	"wenDao/internal/svcerrors"
 )
 
 func TestUserHandlerUpdateUsername_Success(t *testing.T) {
@@ -84,7 +84,7 @@ func TestUserHandlerUpdateUsername_Duplicate(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	userService := &stubUserService{
-		updateUsernameErr: errors.New("username already exists"),
+		updateUsernameErr: svcerrors.ErrUsernameAlreadyExists,
 	}
 	h := NewUserHandler(userService, &stubUploadService{}, &stubOAuthService{}, nil, &config.Config{})
 
