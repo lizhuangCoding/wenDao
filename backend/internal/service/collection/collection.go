@@ -8,6 +8,7 @@ import (
 
 	"wenDao/internal/model"
 	"wenDao/internal/repository"
+	"wenDao/internal/svcerrors"
 )
 
 type CollectionService interface {
@@ -41,14 +42,14 @@ func normalizeStatus(status string) string {
 
 func (s *collectionService) Create(name, slug, description string, sortOrder int, status string) (*model.Collection, error) {
 	if status = normalizeStatus(status); status != "active" && status != "hidden" {
-		return nil, errors.New("invalid collection status")
+		return nil, svcerrors.ErrInvalidCollectionStatus
 	}
 	existing, err := s.collectionRepo.GetBySlug(slug)
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, fmt.Errorf("failed to check slug: %w", err)
 	}
 	if existing != nil {
-		return nil, errors.New("slug already exists")
+		return nil, svcerrors.ErrSlugAlreadyExists
 	}
 	collection := &model.Collection{
 		Name:        name,
@@ -67,7 +68,7 @@ func (s *collectionService) GetByID(id int64) (*model.Collection, error) {
 	collection, err := s.collectionRepo.GetByID(id)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, errors.New("collection not found")
+			return nil, svcerrors.ErrCollectionNotFound
 		}
 		return nil, fmt.Errorf("failed to get collection: %w", err)
 	}
@@ -78,7 +79,7 @@ func (s *collectionService) GetBySlug(slug string) (*model.Collection, error) {
 	collection, err := s.collectionRepo.GetBySlug(slug)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, errors.New("collection not found")
+			return nil, svcerrors.ErrCollectionNotFound
 		}
 		return nil, fmt.Errorf("failed to get collection: %w", err)
 	}
@@ -109,12 +110,12 @@ func (s *collectionService) ListPaginated(filter repository.CollectionFilter) ([
 
 func (s *collectionService) Update(id int64, name, slug, description string, sortOrder int, status string) (*model.Collection, error) {
 	if status = normalizeStatus(status); status != "active" && status != "hidden" {
-		return nil, errors.New("invalid collection status")
+		return nil, svcerrors.ErrInvalidCollectionStatus
 	}
 	collection, err := s.collectionRepo.GetByID(id)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, errors.New("collection not found")
+			return nil, svcerrors.ErrCollectionNotFound
 		}
 		return nil, fmt.Errorf("failed to get collection: %w", err)
 	}
@@ -124,7 +125,7 @@ func (s *collectionService) Update(id int64, name, slug, description string, sor
 			return nil, fmt.Errorf("failed to check slug: %w", err)
 		}
 		if existing != nil {
-			return nil, errors.New("slug already exists")
+			return nil, svcerrors.ErrSlugAlreadyExists
 		}
 	}
 	collection.Name = name
@@ -142,12 +143,12 @@ func (s *collectionService) Delete(id int64) error {
 	collection, err := s.collectionRepo.GetByID(id)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return errors.New("collection not found")
+			return svcerrors.ErrCollectionNotFound
 		}
 		return fmt.Errorf("failed to get collection: %w", err)
 	}
 	if collection.ArticleCount > 0 {
-		return errors.New("cannot delete collection with articles")
+		return svcerrors.ErrCannotDeleteCollectionWithArticles
 	}
 	if err := s.collectionRepo.Delete(id); err != nil {
 		return fmt.Errorf("failed to delete collection: %w", err)
@@ -175,14 +176,14 @@ func (s *collectionService) DeleteBatch(ids []int64) error {
 func (s *collectionService) SetPrimaryArticlePlacement(articleID int64, collectionID *int64, position int) error {
 	if _, err := s.articleRepo.GetByID(articleID); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return errors.New("article not found")
+			return svcerrors.ErrArticleNotFound
 		}
 		return fmt.Errorf("failed to get article: %w", err)
 	}
 	if collectionID != nil && *collectionID > 0 {
 		if _, err := s.collectionRepo.GetByID(*collectionID); err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
-				return errors.New("collection not found")
+				return svcerrors.ErrCollectionNotFound
 			}
 			return fmt.Errorf("failed to get collection: %w", err)
 		}

@@ -84,17 +84,9 @@ func (h *AuthHandler) Refresh(c *gin.Context) {
 		_ = jwt.AddToBlacklist(h.rdb, req.RefreshToken, remainingTime)
 	}
 
-	// 设置新的 Refresh Token Cookie
+	secure := httpcookie.ShouldUseSecureCookies(h.cfg)
 	c.SetSameSite(http.SameSiteLaxMode)
-	c.SetCookie(
-		"refresh_token",
-		newRefreshToken,
-		h.cfg.JWT.RefreshExpireDays*24*3600,
-		"/",
-		"",
-		httpcookie.ShouldUseSecureCookies(h.cfg), // secure
-		true,                                     // httpOnly
-	)
+	c.SetCookie("refresh_token", newRefreshToken, h.cfg.JWT.RefreshExpireDays*24*3600, "/", "", secure, true)
 
 	response.Success(c, gin.H{
 		"access_token":  accessToken,
@@ -141,11 +133,7 @@ func (h *AuthHandler) Logout(c *gin.Context) {
 		}
 	}
 
-	// 清除浏览器里的 Access Token 和 Refresh Token Cookie
-	secureCookie := httpcookie.ShouldUseSecureCookies(h.cfg)
-	c.SetSameSite(http.SameSiteLaxMode)
-	c.SetCookie("token", "", -1, "/", "", secureCookie, true)
-	c.SetCookie("refresh_token", "", -1, "/", "", secureCookie, true)
+	httpcookie.ClearAuthCookies(c, h.cfg)
 
 	response.Success(c, gin.H{"message": "Logged out successfully"})
 }

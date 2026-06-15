@@ -8,6 +8,7 @@ import (
 
 	"wenDao/internal/model"
 	"wenDao/internal/repository"
+	"wenDao/internal/svcerrors"
 )
 
 // GetByID 根据 ID 获取文章
@@ -20,7 +21,7 @@ func (s *articleService) GetByID(id int64) (*model.Article, error) {
 	article, err = s.articleRepo.GetByID(id)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, errors.New("article not found")
+			return nil, svcerrors.ErrArticleNotFound
 		}
 		return nil, fmt.Errorf("failed to get article: %w", err)
 	}
@@ -39,7 +40,7 @@ func (s *articleService) GetBySlug(slug string) (*model.Article, error) {
 	article, err = s.articleRepo.GetBySlug(slug)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, errors.New("article not found")
+			return nil, svcerrors.ErrArticleNotFound
 		}
 		return nil, fmt.Errorf("failed to get article: %w", err)
 	}

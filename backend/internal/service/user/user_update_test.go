@@ -1,9 +1,11 @@
 package user
 
 import (
+	"errors"
 	"testing"
 
 	"wenDao/internal/model"
+	"wenDao/internal/svcerrors"
 )
 
 func TestUserServiceUpdateUsername_Success(t *testing.T) {
@@ -46,7 +48,7 @@ func TestUserServiceUpdateUsername_Duplicate(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error for duplicate username, got nil")
 	}
-	if err.Error() != "username already exists" {
+	if !errors.Is(err, svcerrors.ErrUsernameAlreadyExists) {
 		t.Fatalf("expected error 'username already exists', got '%v'", err)
 	}
 }

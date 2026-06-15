@@ -1,4 +1,4 @@
-package main
+package ai
 
 import (
 	"reflect"
@@ -7,13 +7,12 @@ import (
 	"go.uber.org/zap"
 
 	"wenDao/internal/model"
-	"wenDao/internal/repository"
-	"wenDao/internal/service"
+	articlerepo "wenDao/internal/repository/article"
 )
 
 type vectorSyncArticleRepoStub struct {
 	articles      []*model.Article
-	seenFilters   []repository.ArticleFilter
+	seenFilters   []articlerepo.ArticleFilter
 	updatedStatus map[int64]string
 }
 
@@ -27,7 +26,7 @@ func (r *vectorSyncArticleRepoStub) GetBySlug(slug string) (*model.Article, erro
 func (r *vectorSyncArticleRepoStub) GetBySource(sourceType string, sourceID int64) (*model.Article, error) {
 	return nil, nil
 }
-func (r *vectorSyncArticleRepoStub) List(filter repository.ArticleFilter) ([]*model.Article, int64, error) {
+func (r *vectorSyncArticleRepoStub) List(filter articlerepo.ArticleFilter) ([]*model.Article, int64, error) {
 	r.seenFilters = append(r.seenFilters, filter)
 	result := make([]*model.Article, 0, len(r.articles))
 	for _, article := range r.articles {
@@ -96,7 +95,7 @@ func (r *vectorSyncArticleRepoStub) RemoveInteraction(userID, articleID int64, i
 func (r *vectorSyncArticleRepoStub) GetInteractionState(userID, articleID int64) (*model.ArticleInteractionState, error) {
 	return nil, nil
 }
-func (r *vectorSyncArticleRepoStub) ListByInteraction(userID int64, interactionType string, filter repository.ArticleFilter) ([]*model.Article, int64, error) {
+func (r *vectorSyncArticleRepoStub) ListByInteraction(userID int64, interactionType string, filter articlerepo.ArticleFilter) ([]*model.Article, int64, error) {
 	return nil, 0, nil
 }
 
@@ -109,7 +108,7 @@ func (s *vectorSyncServiceStub) VectorizeArticle(articleID int64, title, content
 	return nil
 }
 func (s *vectorSyncServiceStub) DeleteArticleVector(articleID int64) error { return nil }
-func (s *vectorSyncServiceStub) SearchArticles(query string, topK int) ([]service.ArticleChunk, error) {
+func (s *vectorSyncServiceStub) SearchArticles(query string, topK int) ([]ArticleChunk, error) {
 	return nil, nil
 }
 func (s *vectorSyncServiceStub) VectorizeKnowledgeDocument(documentID int64, title, content string) error {
@@ -148,7 +147,7 @@ func TestSyncPublishedArticleVectors_OnlyProcessesPendingOrFailedPublishedArticl
 	}}
 	vectorSvc := &vectorSyncServiceStub{}
 
-	if err := syncPublishedArticleVectors(repo, nil, vectorSvc, zap.NewNop()); err != nil {
+	if err := SyncPublishedArticleVectors(repo, nil, vectorSvc, zap.NewNop()); err != nil {
 		t.Fatalf("expected vector sync success, got %v", err)
 	}
 
@@ -182,7 +181,7 @@ func TestSyncPublishedArticleVectors_DoesNotSkipCandidatesWhenStatusChanges(t *t
 	repo := &vectorSyncArticleRepoStub{articles: articles}
 	vectorSvc := &vectorSyncServiceStub{}
 
-	if err := syncPublishedArticleVectors(repo, nil, vectorSvc, zap.NewNop()); err != nil {
+	if err := SyncPublishedArticleVectors(repo, nil, vectorSvc, zap.NewNop()); err != nil {
 		t.Fatalf("expected vector sync success, got %v", err)
 	}
 
@@ -218,7 +217,7 @@ func TestSyncPublishedArticlesMissingSemanticProfiles_ProcessesPublishedArticles
 	}}
 	vectorSvc := &vectorSyncServiceStub{}
 
-	if err := syncPublishedArticlesMissingSemanticProfiles(repo, semanticRepo, vectorSvc, zap.NewNop()); err != nil {
+	if err := SyncPublishedArticlesMissingSemanticProfiles(repo, semanticRepo, vectorSvc, zap.NewNop()); err != nil {
 		t.Fatalf("expected semantic profile sync success, got %v", err)
 	}
 

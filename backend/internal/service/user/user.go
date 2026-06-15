@@ -12,6 +12,7 @@ import (
 
 	"wenDao/config"
 	"wenDao/internal/model"
+	"wenDao/internal/svcerrors"
 	"wenDao/internal/pkg/hash"
 	pkgjwt "wenDao/internal/pkg/jwt"
 	"wenDao/internal/repository"
@@ -70,7 +71,7 @@ func (s *userService) Register(email, password, username string) (*model.User, e
 		return nil, fmt.Errorf("failed to check email: %w", err)
 	}
 	if existingUser != nil {
-		return nil, errors.New("email already exists")
+		return nil, svcerrors.ErrEmailAlreadyExists
 	}
 
 	// 加密密码
@@ -109,19 +110,19 @@ func (s *userService) Login(email, password string) (string, *model.User, error)
 	user, err := s.userRepo.GetByEmail(email)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return "", nil, errors.New("invalid email or password")
+			return "", nil, svcerrors.ErrInvalidEmailOrPassword
 		}
 		return "", nil, fmt.Errorf("failed to get user: %w", err)
 	}
 
 	// 检查账号状态
 	if !user.IsActive() {
-		return "", nil, errors.New("account is banned")
+		return "", nil, svcerrors.ErrAccountBanned
 	}
 
 	// 验证密码
 	if user.PasswordHash == nil || !hash.CheckPassword(password, *user.PasswordHash) {
-		return "", nil, errors.New("invalid email or password")
+		return "", nil, svcerrors.ErrInvalidEmailOrPassword
 	}
 
 	// 生成 JWT token
@@ -148,7 +149,7 @@ func (s *userService) ResetPassword(email, password string) error {
 	user, err := s.userRepo.GetByEmail(normalizeEmail(email))
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return errors.New("user not found")
+			return svcerrors.ErrUserNotFound
 		}
 		return fmt.Errorf("failed to get user: %w", err)
 	}
@@ -232,7 +233,7 @@ func (s *userService) GitHubOAuthLogin(code string) (string, *model.User, error)
 
 	// 检查账号状态
 	if !user.IsActive() {
-		return "", nil, errors.New("account is banned")
+		return "", nil, svcerrors.ErrAccountBanned
 	}
 
 	// 生成 JWT token
@@ -332,7 +333,7 @@ func (s *userService) GetCurrentUser(userID int64) (*model.User, error) {
 	user, err := s.userRepo.GetByID(userID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, errors.New("user not found")
+			return nil, svcerrors.ErrUserNotFound
 		}
 		return nil, fmt.Errorf("failed to get user: %w", err)
 	}
@@ -362,7 +363,7 @@ func (s *userService) UpdateUsername(userID int64, username string) error {
 	user, err := s.userRepo.GetByID(userID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return errors.New("user not found")
+			return svcerrors.ErrUserNotFound
 		}
 		return err
 	}
@@ -370,7 +371,7 @@ func (s *userService) UpdateUsername(userID int64, username string) error {
 	// 检查用户名是否已存在
 	existing, err := s.userRepo.GetByUsername(username)
 	if err == nil && existing.ID != userID {
-		return errors.New("username already exists")
+		return svcerrors.ErrUsernameAlreadyExists
 	}
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return err
@@ -421,7 +422,7 @@ func (s *userService) UpdateCommentReplyEmailEnabled(userID int64, enabled bool)
 	user, err := s.userRepo.GetByID(userID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return errors.New("user not found")
+			return svcerrors.ErrUserNotFound
 		}
 		return err
 	}

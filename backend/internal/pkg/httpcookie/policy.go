@@ -1,8 +1,11 @@
 package httpcookie
 
 import (
+	"net/http"
 	"net/url"
 	"strings"
+
+	"github.com/gin-gonic/gin"
 
 	"wenDao/config"
 )
@@ -22,4 +25,33 @@ func ShouldUseSecureCookies(cfg *config.Config) bool {
 		return cfg.Server.Mode == "release"
 	}
 	return strings.EqualFold(parsed.Scheme, "https")
+}
+
+// SetAuthCookies sets both access_token and refresh_token cookies on the response.
+func SetAuthCookies(c *gin.Context, cfg *config.Config, token, refreshToken string) {
+	secure := ShouldUseSecureCookies(cfg)
+	c.SetSameSite(http.SameSiteLaxMode)
+	c.SetCookie("token", token, cfg.JWT.AccessExpireHours*3600, "/", "", secure, true)
+	c.SetCookie("refresh_token", refreshToken, cfg.JWT.RefreshExpireDays*24*3600, "/", "", secure, true)
+}
+
+// ClearAuthCookies clears both access_token and refresh_token cookies.
+func ClearAuthCookies(c *gin.Context, cfg *config.Config) {
+	secure := ShouldUseSecureCookies(cfg)
+	c.SetSameSite(http.SameSiteLaxMode)
+	c.SetCookie("token", "", -1, "/", "", secure, true)
+	c.SetCookie("refresh_token", "", -1, "/", "", secure, true)
+}
+
+// SetOAuthStateCookie sets the oauth_state cookie for CSRF protection during OAuth flows.
+func SetOAuthStateCookie(c *gin.Context, cfg *config.Config, state string) {
+	secure := ShouldUseSecureCookies(cfg)
+	c.SetSameSite(http.SameSiteLaxMode)
+	c.SetCookie("oauth_state", state, 600, "/", "", secure, true)
+}
+
+// ClearOAuthStateCookie clears the oauth_state cookie.
+func ClearOAuthStateCookie(c *gin.Context) {
+	c.SetSameSite(http.SameSiteLaxMode)
+	c.SetCookie("oauth_state", "", -1, "/", "", false, true)
 }

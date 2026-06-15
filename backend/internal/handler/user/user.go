@@ -3,10 +3,9 @@ package user
 import (
 	"crypto/rand"
 	"encoding/hex"
-	"net/http"
+	"errors"
 	"net/url"
 	"strconv"
-	"strings"
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
@@ -16,6 +15,7 @@ import (
 	"wenDao/internal/pkg/pagination"
 	"wenDao/internal/pkg/response"
 	"wenDao/internal/service"
+	"wenDao/internal/svcerrors"
 )
 
 // UserHandler 用户处理器
@@ -96,7 +96,7 @@ func (h *UserHandler) Register(c *gin.Context) {
 
 	user, err := h.userService.Register(req.Email, req.Password, req.Username)
 	if err != nil {
-		if err.Error() == "email already exists" {
+		if errors.Is(err, svcerrors.ErrEmailAlreadyExists) {
 			response.Error(c, response.CodeInvalidParams, "Email already exists")
 			return
 		}
@@ -119,29 +119,9 @@ func (h *UserHandler) Register(c *gin.Context) {
 		return
 	}
 
-	// 清除敏感信息
 	user.PasswordHash = nil
 
-	secureCookie := httpcookie.ShouldUseSecureCookies(h.cfg)
-	c.SetSameSite(http.SameSiteLaxMode)
-	c.SetCookie(
-		"token",
-		token,
-		h.cfg.JWT.AccessExpireHours*3600,
-		"/",
-		"",
-		secureCookie,
-		true,
-	)
-	c.SetCookie(
-		"refresh_token",
-		refreshToken,
-		h.cfg.JWT.RefreshExpireDays*24*3600,
-		"/",
-		"",
-		secureCookie,
-		true,
-	)
+	httpcookie.SetAuthCookies(c, h.cfg, token, refreshToken)
 
 	response.Success(c, gin.H{
 		"access_token":  token,
@@ -161,11 +141,11 @@ func (h *UserHandler) Login(c *gin.Context) {
 
 	token, user, err := h.userService.Login(req.Email, req.Password)
 	if err != nil {
-		if err.Error() == "invalid email or password" {
+		if errors.Is(err, svcerrors.ErrInvalidEmailOrPassword) {
 			response.Unauthorized(c, "Invalid email or password")
 			return
 		}
-		if err.Error() == "account is banned" {
+		if errors.Is(err, svcerrors.ErrAccountBanned) {
 			response.Forbidden(c, "Account is banned")
 			return
 		}
@@ -180,32 +160,9 @@ func (h *UserHandler) Login(c *gin.Context) {
 		return
 	}
 
-	// 清除敏感信息
 	user.PasswordHash = nil
 
-	// 设置 Access Token Cookie
-	secureCookie := httpcookie.ShouldUseSecureCookies(h.cfg)
-	c.SetSameSite(http.SameSiteLaxMode)
-	c.SetCookie(
-		"token",
-		token,
-		h.cfg.JWT.AccessExpireHours*3600,
-		"/",
-		"",
-		secureCookie,
-		true,
-	)
-
-	// 设置 Refresh Token Cookie（有效期7天）
-	c.SetCookie(
-		"refresh_token",
-		refreshToken,
-		h.cfg.JWT.RefreshExpireDays*24*3600,
-		"/",
-		"",
-		secureCookie,
-		true,
-	)
+	httpcookie.SetAuthCookies(c, h.cfg, token, refreshToken)
 
 	response.Success(c, gin.H{
 		"access_token":  token,
@@ -230,7 +187,7 @@ func (h *UserHandler) UpdateUsername(c *gin.Context) {
 	}
 
 	if err := h.userService.UpdateUsername(userID.(int64), req.Username); err != nil {
-		if err.Error() == "username already exists" {
+		if errors.Is(err, svcerrors.ErrUsernameAlreadyExists) {
 			response.Error(c, response.CodeInvalidParams, "Username already exists")
 			return
 		}
@@ -255,7 +212,7 @@ func (h *UserHandler) UpdatePreferences(c *gin.Context) {
 	}
 
 	if err := h.userService.UpdateCommentReplyEmailEnabled(userID.(int64), *req.CommentReplyEmailEnabled); err != nil {
-		if err.Error() == "user not found" {
+		if errors.Is(err, svcerrors.ErrUserNotFound) {
 			response.NotFound(c, "User not found")
 			return
 		}
@@ -289,12 +246,11 @@ func (h *UserHandler) UploadAvatar(c *gin.Context) {
 
 	upload, err := h.uploadService.UploadImage(file, header, userID.(int64))
 	if err != nil {
-		switch {
-		case err.Error() == "file type not allowed":
+		if errors.Is(err, svcerrors.ErrFileTypeNotAllowed) {
 			response.InvalidParams(c, "File type not allowed. Only jpg, png, gif, webp are supported.")
-		case strings.HasPrefix(err.Error(), "file size exceeds limit"):
+		} else if errors.Is(err, svcerrors.ErrFileSizeExceedsLimit) {
 			response.InvalidParams(c, err.Error())
-		default:
+		} else {
 			response.InternalError(c, "Failed to upload avatar")
 		}
 		return
@@ -308,7 +264,7 @@ func (h *UserHandler) UploadAvatar(c *gin.Context) {
 
 	user, err := h.userService.GetCurrentUser(userID.(int64))
 	if err != nil {
-		if err.Error() == "user not found" {
+		if errors.Is(err, svcerrors.ErrUserNotFound) {
 			response.NotFound(c, "User not found")
 			return
 		}
@@ -328,9 +284,7 @@ func (h *UserHandler) GitHubLogin(c *gin.Context) {
 	}
 
 	state := generateRandomState()
-	secureCookie := httpcookie.ShouldUseSecureCookies(h.cfg)
-	c.SetSameSite(http.SameSiteLaxMode)
-	c.SetCookie("oauth_state", state, 600, "/", "", secureCookie, true)
+	httpcookie.SetOAuthStateCookie(c, h.cfg, state)
 
 	authURL := h.oauthService.GetGitHubAuthURL(state)
 	c.Redirect(302, authURL)
@@ -352,8 +306,7 @@ func (h *UserHandler) GitHubCallback(c *gin.Context) {
 		return
 	}
 
-	c.SetSameSite(http.SameSiteLaxMode)
-	c.SetCookie("oauth_state", "", -1, "/", "", false, true)
+	httpcookie.ClearOAuthStateCookie(c)
 
 	token, user, err := h.userService.GitHubOAuthLogin(code)
 	if err != nil {
@@ -369,10 +322,7 @@ func (h *UserHandler) GitHubCallback(c *gin.Context) {
 		return
 	}
 
-	secureCookie := httpcookie.ShouldUseSecureCookies(h.cfg)
-	c.SetSameSite(http.SameSiteLaxMode)
-	c.SetCookie("token", token, h.cfg.JWT.AccessExpireHours*3600, "/", "", secureCookie, true)
-	c.SetCookie("refresh_token", refreshToken, h.cfg.JWT.RefreshExpireDays*24*3600, "/", "", secureCookie, true)
+	httpcookie.SetAuthCookies(c, h.cfg, token, refreshToken)
 
 	redirectURL := h.cfg.Site.URL
 	if redirectURL == "" {

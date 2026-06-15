@@ -1,11 +1,11 @@
 package article
 
 import (
-	"errors"
 	"fmt"
 	"time"
 
 	"wenDao/internal/model"
+	"wenDao/internal/svcerrors"
 )
 
 // Publish 发布文章
@@ -16,7 +16,7 @@ func (s *articleService) Publish(id int64) error {
 	}
 
 	if article.Status == "published" {
-		return errors.New("article is already published")
+		return svcerrors.ErrArticleAlreadyPublished
 	}
 
 	article.Status = "published"
@@ -82,7 +82,7 @@ func (s *articleService) Draft(id int64) error {
 	}
 
 	if article.Status == "draft" {
-		return errors.New("article is already draft")
+		return svcerrors.ErrArticleAlreadyDraft
 	}
 
 	article.Status = "draft"

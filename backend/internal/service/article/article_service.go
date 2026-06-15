@@ -12,6 +12,7 @@ import (
 
 	"wenDao/internal/model"
 	"wenDao/internal/repository"
+	"wenDao/internal/svcerrors"
 )
 
 // ArticleService 文章服务接口
@@ -104,7 +105,7 @@ func (s *articleService) getArticleByIDOrNotFound(id int64) (*model.Article, err
 	article, err := s.articleRepo.GetByID(id)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, errors.New("article not found")
+			return nil, svcerrors.ErrArticleNotFound
 		}
 		return nil, fmt.Errorf("failed to get article: %w", err)
 	}
@@ -115,7 +116,7 @@ func (s *articleService) getCategoryByIDOrNotFound(categoryID int64) (*model.Cat
 	category, err := s.categoryRepo.GetByID(categoryID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, errors.New("category not found")
+			return nil, svcerrors.ErrCategoryNotFound
 		}
 		return nil, fmt.Errorf("failed to get category: %w", err)
 	}

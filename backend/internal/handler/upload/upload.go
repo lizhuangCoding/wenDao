@@ -1,12 +1,13 @@
 package upload
 
 import (
-	"strings"
+	"errors"
 
 	"github.com/gin-gonic/gin"
 
 	"wenDao/internal/pkg/response"
 	"wenDao/internal/service"
+	"wenDao/internal/svcerrors"
 )
 
 // UploadHandler 上传处理器
@@ -45,12 +46,11 @@ func (h *UploadHandler) UploadImage(c *gin.Context) {
 	}
 	upload, err := uploadFunc(file, header, userID.(int64))
 	if err != nil {
-		switch {
-		case err.Error() == "file type not allowed":
+		if errors.Is(err, svcerrors.ErrFileTypeNotAllowed) {
 			response.InvalidParams(c, "File type not allowed. Only jpg, png, gif, webp are supported.")
-		case strings.HasPrefix(err.Error(), "file size exceeds limit"):
+		} else if errors.Is(err, svcerrors.ErrFileSizeExceedsLimit) {
 			response.InvalidParams(c, err.Error())
-		default:
+		} else {
 			response.InternalError(c, "Failed to upload file")
 		}
 		return

@@ -1,8 +1,8 @@
 package category
 
 import (
+	"errors"
 	"strconv"
-	"strings"
 
 	"github.com/gin-gonic/gin"
 
@@ -10,6 +10,7 @@ import (
 	"wenDao/internal/pkg/response"
 	"wenDao/internal/repository"
 	"wenDao/internal/service"
+	"wenDao/internal/svcerrors"
 )
 
 // CategoryHandler 分类处理器
@@ -54,7 +55,7 @@ func (h *CategoryHandler) Create(c *gin.Context) {
 
 	category, err := h.categoryService.Create(req.Name, req.Slug, req.Description, req.SortOrder)
 	if err != nil {
-		if err.Error() == "slug already exists" {
+		if errors.Is(err, svcerrors.ErrSlugAlreadyExists) {
 			response.Error(c, response.CodeInvalidParams, "Slug already exists")
 			return
 		}
@@ -76,7 +77,7 @@ func (h *CategoryHandler) GetByID(c *gin.Context) {
 
 	category, err := h.categoryService.GetByID(id)
 	if err != nil {
-		if err.Error() == "category not found" {
+		if errors.Is(err, svcerrors.ErrCategoryNotFound) {
 			response.NotFound(c, "Category not found")
 			return
 		}
@@ -93,7 +94,7 @@ func (h *CategoryHandler) GetBySlug(c *gin.Context) {
 
 	category, err := h.categoryService.GetBySlug(slug)
 	if err != nil {
-		if err.Error() == "category not found" {
+		if errors.Is(err, svcerrors.ErrCategoryNotFound) {
 			response.NotFound(c, "Category not found")
 			return
 		}
@@ -153,11 +154,11 @@ func (h *CategoryHandler) Update(c *gin.Context) {
 
 	category, err := h.categoryService.Update(id, req.Name, req.Slug, req.Description, req.SortOrder)
 	if err != nil {
-		if err.Error() == "category not found" {
+		if errors.Is(err, svcerrors.ErrCategoryNotFound) {
 			response.NotFound(c, "Category not found")
 			return
 		}
-		if err.Error() == "slug already exists" {
+		if errors.Is(err, svcerrors.ErrSlugAlreadyExists) {
 			response.Error(c, response.CodeInvalidParams, "Slug already exists")
 			return
 		}
@@ -178,11 +179,11 @@ func (h *CategoryHandler) Delete(c *gin.Context) {
 	}
 
 	if err := h.categoryService.Delete(id); err != nil {
-		if err.Error() == "category not found" {
+		if errors.Is(err, svcerrors.ErrCategoryNotFound) {
 			response.NotFound(c, "Category not found")
 			return
 		}
-		if err.Error() == "cannot delete category with articles" {
+		if errors.Is(err, svcerrors.ErrCannotDeleteCategoryWithArticles) {
 			response.Error(c, response.CodeInvalidParams, "Cannot delete category with articles")
 			return
 		}
@@ -208,7 +209,7 @@ func (h *CategoryHandler) BatchDelete(c *gin.Context) {
 		return
 	}
 	if err := h.categoryService.DeleteBatch(ids); err != nil {
-		if strings.Contains(err.Error(), "cannot delete category with articles") {
+		if errors.Is(err, svcerrors.ErrCannotDeleteCategoryWithArticles) {
 			response.Error(c, response.CodeInvalidParams, "Cannot delete category with articles")
 			return
 		}

@@ -7,8 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"image"
-	"image/color"
-	"image/draw"
 	"image/jpeg"
 	"image/png"
 	"io"
@@ -21,7 +19,9 @@ import (
 
 	"wenDao/config"
 	"wenDao/internal/model"
+	"wenDao/internal/pkg/watermark"
 	"wenDao/internal/repository"
+	"wenDao/internal/svcerrors"
 )
 
 // UploadService 上传服务接口
@@ -128,30 +128,22 @@ func (s *uploadService) compressImage(fileBytes []byte, contentType string) ([]b
 
 // UploadImage 上传图片
 func (s *uploadService) UploadImage(file multipart.File, header *multipart.FileHeader, userID int64) (*model.Upload, error) {
-	return s.uploadImage(file, header, userID, watermarkNone)
+	return s.uploadImage(file, header, userID, watermark.ModeNone)
 }
 
 // UploadArticleImage 上传文章图片并添加版权水印
 func (s *uploadService) UploadArticleImage(file multipart.File, header *multipart.FileHeader, userID int64) (*model.Upload, error) {
-	return s.uploadImage(file, header, userID, watermarkCorner)
+	return s.uploadImage(file, header, userID, watermark.ModeText)
 }
 
 // UploadCoverImage 上传封面图片并添加裁剪安全的版权水印
 func (s *uploadService) UploadCoverImage(file multipart.File, header *multipart.FileHeader, userID int64) (*model.Upload, error) {
-	return s.uploadImage(file, header, userID, watermarkCenter)
+	return s.uploadImage(file, header, userID, watermark.ModeTile)
 }
 
-type watermarkMode int
-
-const (
-	watermarkNone watermarkMode = iota
-	watermarkCorner
-	watermarkCenter
-)
-
-func (s *uploadService) uploadImage(file multipart.File, header *multipart.FileHeader, userID int64, watermark watermarkMode) (*model.Upload, error) {
+func (s *uploadService) uploadImage(file multipart.File, header *multipart.FileHeader, userID int64, wmMode watermark.Mode) (*model.Upload, error) {
 	if header.Size > s.cfg.Upload.MaxSize {
-		return nil, fmt.Errorf("file size exceeds limit: %d bytes", s.cfg.Upload.MaxSize)
+		return nil, fmt.Errorf("%w: maximum %d bytes", svcerrors.ErrFileSizeExceedsLimit, s.cfg.Upload.MaxSize)
 	}
 
 	fileBytes, err := io.ReadAll(file)
@@ -161,12 +153,12 @@ func (s *uploadService) uploadImage(file multipart.File, header *multipart.FileH
 
 	detectedContentType := http.DetectContentType(fileBytes)
 	if !s.isAllowedType(detectedContentType) {
-		return nil, errors.New("file type not allowed")
+		return nil, svcerrors.ErrFileTypeNotAllowed
 	}
 
 	safeExt, ok := safeExtensionForContentType(detectedContentType)
 	if !ok {
-		return nil, errors.New("file type not allowed")
+		return nil, svcerrors.ErrFileTypeNotAllowed
 	}
 
 	storedBytes := fileBytes
@@ -178,12 +170,30 @@ func (s *uploadService) uploadImage(file multipart.File, header *multipart.FileH
 		storedBytes = compressed
 	}
 
-	if watermark != watermarkNone {
-		watermarked, err := s.applyWatermark(storedBytes, detectedContentType, watermark)
-		if err != nil {
-			return nil, err
+	if wmMode != watermark.ModeNone {
+		if detectedContentType == "image/jpeg" || detectedContentType == "image/png" {
+			img, _, err := image.Decode(bytes.NewReader(storedBytes))
+			if err != nil {
+				return nil, fmt.Errorf("failed to decode image for watermark: %w", err)
+			}
+			watermarked, err := watermark.Apply(img, "lizhuang", wmMode)
+			if err != nil {
+				return nil, err
+			}
+			var buf bytes.Buffer
+			switch detectedContentType {
+			case "image/jpeg":
+				if err := jpeg.Encode(&buf, watermarked, &jpeg.Options{Quality: s.cfg.Upload.ImageQuality}); err != nil {
+					return nil, fmt.Errorf("failed to encode jpeg watermark: %w", err)
+				}
+			case "image/png":
+				encoder := png.Encoder{CompressionLevel: png.BestCompression}
+				if err := encoder.Encode(&buf, watermarked); err != nil {
+					return nil, fmt.Errorf("failed to encode png watermark: %w", err)
+				}
+			}
+			storedBytes = buf.Bytes()
 		}
-		storedBytes = watermarked
 	}
 
 	hash := md5.Sum(storedBytes)
@@ -225,199 +235,6 @@ func (s *uploadService) uploadImage(file multipart.File, header *multipart.FileH
 	}
 
 	return upload, nil
-}
-
-func (s *uploadService) applyWatermark(fileBytes []byte, contentType string, mode watermarkMode) ([]byte, error) {
-	if contentType != "image/jpeg" && contentType != "image/png" {
-		return fileBytes, nil
-	}
-
-	img, _, err := image.Decode(bytes.NewReader(fileBytes))
-	if err != nil {
-		return nil, fmt.Errorf("failed to decode image for watermark: %w", err)
-	}
-
-	rgba := image.NewRGBA(image.Rect(0, 0, img.Bounds().Dx(), img.Bounds().Dy()))
-	draw.Draw(rgba, rgba.Bounds(), img, img.Bounds().Min, draw.Src)
-	drawTextWatermark(rgba, "lizhuang", mode)
-
-	var buf bytes.Buffer
-	switch contentType {
-	case "image/jpeg":
-		if err := jpeg.Encode(&buf, rgba, &jpeg.Options{Quality: s.cfg.Upload.ImageQuality}); err != nil {
-			return nil, fmt.Errorf("failed to encode jpeg watermark: %w", err)
-		}
-	case "image/png":
-		encoder := png.Encoder{CompressionLevel: png.BestCompression}
-		if err := encoder.Encode(&buf, rgba); err != nil {
-			return nil, fmt.Errorf("failed to encode png watermark: %w", err)
-		}
-	}
-
-	return buf.Bytes(), nil
-}
-
-func drawTextWatermark(img *image.RGBA, text string, mode watermarkMode) {
-	bounds := img.Bounds()
-	width := bounds.Dx()
-	height := bounds.Dy()
-	if width < 24 || height < 16 {
-		return
-	}
-
-	scale := width / 160
-	if height/80 < scale {
-		scale = height / 80
-	}
-	if scale < 2 {
-		scale = 2
-	}
-	if scale > 6 {
-		scale = 6
-	}
-
-	charWidth := 5 * scale
-	gap := scale
-	textWidth := len(text)*charWidth + (len(text)-1)*gap
-	textHeight := 7 * scale
-	margin := 6 * scale
-	x := width - textWidth - margin
-	y := height - textHeight - margin
-	if mode == watermarkCenter {
-		x = (width - textWidth) / 2
-		y = (height - textHeight) / 2
-	}
-	if x < margin {
-		x = margin
-	}
-	if y < margin {
-		y = margin
-	}
-
-	drawBitmapText(img, text, x+scale, y+scale, scale, color.RGBA{A: 120})
-	drawBitmapText(img, text, x, y, scale, color.RGBA{R: 255, G: 255, B: 255, A: 190})
-}
-
-func drawBitmapText(img *image.RGBA, text string, x, y, scale int, c color.RGBA) {
-	cursor := x
-	for _, ch := range strings.ToLower(text) {
-		glyph, ok := watermarkGlyphs[ch]
-		if !ok {
-			cursor += 6 * scale
-			continue
-		}
-		for row, pattern := range glyph {
-			for col, pixel := range pattern {
-				if pixel != '1' {
-					continue
-				}
-				fillRectAlpha(img, cursor+col*scale, y+row*scale, scale, scale, c)
-			}
-		}
-		cursor += 6 * scale
-	}
-}
-
-func fillRectAlpha(img *image.RGBA, x, y, width, height int, c color.RGBA) {
-	bounds := img.Bounds()
-	for py := y; py < y+height; py++ {
-		if py < bounds.Min.Y || py >= bounds.Max.Y {
-			continue
-		}
-		for px := x; px < x+width; px++ {
-			if px < bounds.Min.X || px >= bounds.Max.X {
-				continue
-			}
-			blendPixel(img, px, py, c)
-		}
-	}
-}
-
-func blendPixel(img *image.RGBA, x, y int, overlay color.RGBA) {
-	base := img.RGBAAt(x, y)
-	alpha := uint32(overlay.A)
-	inv := 255 - alpha
-	img.SetRGBA(x, y, color.RGBA{
-		R: uint8((uint32(overlay.R)*alpha + uint32(base.R)*inv) / 255),
-		G: uint8((uint32(overlay.G)*alpha + uint32(base.G)*inv) / 255),
-		B: uint8((uint32(overlay.B)*alpha + uint32(base.B)*inv) / 255),
-		A: base.A,
-	})
-}
-
-var watermarkGlyphs = map[rune][]string{
-	'a': {
-		"01110",
-		"10001",
-		"10001",
-		"11111",
-		"10001",
-		"10001",
-		"10001",
-	},
-	'g': {
-		"01111",
-		"10000",
-		"10000",
-		"10111",
-		"10001",
-		"10001",
-		"01110",
-	},
-	'h': {
-		"10001",
-		"10001",
-		"10001",
-		"11111",
-		"10001",
-		"10001",
-		"10001",
-	},
-	'i': {
-		"11111",
-		"00100",
-		"00100",
-		"00100",
-		"00100",
-		"00100",
-		"11111",
-	},
-	'l': {
-		"10000",
-		"10000",
-		"10000",
-		"10000",
-		"10000",
-		"10000",
-		"11111",
-	},
-	'n': {
-		"10001",
-		"11001",
-		"10101",
-		"10011",
-		"10001",
-		"10001",
-		"10001",
-	},
-	'u': {
-		"10001",
-		"10001",
-		"10001",
-		"10001",
-		"10001",
-		"10001",
-		"01110",
-	},
-	'z': {
-		"11111",
-		"00001",
-		"00010",
-		"00100",
-		"01000",
-		"10000",
-		"11111",
-	},
 }
 
 // CleanupByFilePath 删除上传记录和本地文件

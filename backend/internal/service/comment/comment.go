@@ -12,6 +12,7 @@ import (
 	"wenDao/internal/model"
 	"wenDao/internal/repository"
 	articlesvc "wenDao/internal/service/article"
+	"wenDao/internal/svcerrors"
 )
 
 // CommentService 评论服务接口
@@ -94,14 +95,14 @@ func (s *commentService) Create(articleID, userID int64, content string, parentI
 	article, err := s.articleRepo.GetByID(articleID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, errors.New("article not found")
+			return nil, svcerrors.ErrArticleNotFound
 		}
 		return nil, fmt.Errorf("failed to get article: %w", err)
 	}
 
 	// 验证文章是否已发布
 	if article.Status != "published" {
-		return nil, errors.New("cannot comment on unpublished article")
+		return nil, svcerrors.ErrCannotCommentOnUnpublishedArticle
 	}
 
 	var rootID *int64
@@ -113,19 +114,19 @@ func (s *commentService) Create(articleID, userID int64, content string, parentI
 		parentComment, err = s.commentRepo.GetByID(*parentID)
 		if err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
-				return nil, errors.New("parent comment not found")
+				return nil, svcerrors.ErrParentCommentNotFound
 			}
 			return nil, fmt.Errorf("failed to get parent comment: %w", err)
 		}
 
 		// 验证父评论是否属于同一文章
 		if parentComment.ArticleID != articleID {
-			return nil, errors.New("parent comment does not belong to this article")
+			return nil, svcerrors.ErrParentCommentNotBelongToArticle
 		}
 
 		// 验证父评论是否已删除
 		if parentComment.Status == "deleted" {
-			return nil, errors.New("cannot reply to deleted comment")
+			return nil, svcerrors.ErrCannotReplyToDeletedComment
 		}
 
 		// 抖音模式：所有二级、三级评论都挂在同一个一级评论（Root）下
@@ -280,19 +281,19 @@ func (s *commentService) Delete(id, userID int64, isAdmin bool) error {
 	comment, err := s.commentRepo.GetByID(id)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return errors.New("comment not found")
+			return svcerrors.ErrCommentNotFound
 		}
 		return fmt.Errorf("failed to get comment: %w", err)
 	}
 
 	// 验证权限：只有本人或管理员可以删除
 	if !isAdmin && comment.UserID != userID {
-		return errors.New("permission denied")
+		return svcerrors.ErrPermissionDenied
 	}
 
 	// 验证评论是否已删除
 	if comment.Status == "deleted" {
-		return errors.New("comment already deleted")
+		return svcerrors.ErrCommentAlreadyDeleted
 	}
 
 	// 删除评论
@@ -322,7 +323,7 @@ func (s *commentService) DeleteBatch(ids []int64, userID int64, isAdmin bool) er
 		}
 		seen[id] = struct{}{}
 		if err := s.Delete(id, userID, isAdmin); err != nil {
-			if err.Error() == "comment already deleted" {
+			if errors.Is(err, svcerrors.ErrCommentAlreadyDeleted) {
 				continue
 			}
 			return fmt.Errorf("failed to delete comment %d: %w", id, err)
@@ -337,14 +338,14 @@ func (s *commentService) Restore(id int64) error {
 	comment, err := s.commentRepo.GetByID(id)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return errors.New("comment not found")
+			return svcerrors.ErrCommentNotFound
 		}
 		return fmt.Errorf("failed to get comment: %w", err)
 	}
 
 	// 验证评论是否已删除
 	if comment.Status != "deleted" {
-		return errors.New("comment is not deleted")
+		return svcerrors.ErrCommentIsNotDeleted
 	}
 
 	// 恢复评论
@@ -379,12 +380,12 @@ func (s *commentService) Like(commentID, userID int64) error {
 	comment, err := s.commentRepo.GetByID(commentID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return errors.New("comment not found")
+			return svcerrors.ErrCommentNotFound
 		}
 		return fmt.Errorf("failed to get comment: %w", err)
 	}
 	if comment == nil || comment.Status == "deleted" {
-		return errors.New("comment not found")
+		return svcerrors.ErrCommentNotFound
 	}
 
 	if err := s.commentRepo.IncrementLike(commentID); err != nil {
@@ -400,12 +401,12 @@ func (s *commentService) Unlike(commentID, userID int64) error {
 	comment, err := s.commentRepo.GetByID(commentID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return errors.New("comment not found")
+			return svcerrors.ErrCommentNotFound
 		}
 		return fmt.Errorf("failed to get comment: %w", err)
 	}
 	if comment == nil || comment.Status == "deleted" {
-		return errors.New("comment not found")
+		return svcerrors.ErrCommentNotFound
 	}
 
 	if err := s.commentRepo.DecrementLike(commentID); err != nil {
@@ -421,12 +422,12 @@ func (s *commentService) Dislike(commentID, userID int64) error {
 	comment, err := s.commentRepo.GetByID(commentID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return errors.New("comment not found")
+			return svcerrors.ErrCommentNotFound
 		}
 		return fmt.Errorf("failed to get comment: %w", err)
 	}
 	if comment == nil || comment.Status == "deleted" {
-		return errors.New("comment not found")
+		return svcerrors.ErrCommentNotFound
 	}
 
 	if err := s.commentRepo.IncrementDislike(commentID); err != nil {
@@ -442,12 +443,12 @@ func (s *commentService) Undislike(commentID, userID int64) error {
 	comment, err := s.commentRepo.GetByID(commentID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return errors.New("comment not found")
+			return svcerrors.ErrCommentNotFound
 		}
 		return fmt.Errorf("failed to get comment: %w", err)
 	}
 	if comment == nil || comment.Status == "deleted" {
-		return errors.New("comment not found")
+		return svcerrors.ErrCommentNotFound
 	}
 
 	if err := s.commentRepo.DecrementDislike(commentID); err != nil {
