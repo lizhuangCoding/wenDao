@@ -23,6 +23,7 @@ type Config struct {
 	RateLimit    RateLimitConfig    `mapstructure:"ratelimit"`
 	Email        EmailConfig        `mapstructure:"email"`
 	Verification VerificationConfig `mapstructure:"verification"`
+	Migration    MigrationConfig    `mapstructure:"migration"`
 	Log          LogConfig          `mapstructure:"log"`
 }
 
@@ -47,6 +48,12 @@ type DatabaseConfig struct {
 	DBName       string `mapstructure:"dbname"`
 	MaxIdleConns int    `mapstructure:"max_idle_conns"`
 	MaxOpenConns int    `mapstructure:"max_open_conns"`
+}
+
+// MigrationConfig controls database schema migration behavior.
+type MigrationConfig struct {
+	Mode string `mapstructure:"mode"`
+	Path string `mapstructure:"path"`
 }
 
 // RedisConfig Redis 配置
@@ -174,6 +181,8 @@ func LoadConfig() (*Config, error) {
 	viper.SetDefault("database.host", "localhost")
 	viper.SetDefault("database.port", "3306")
 	viper.SetDefault("database.dbname", "wendao")
+	viper.SetDefault("migration.mode", "versioned")
+	viper.SetDefault("migration.path", "migrations")
 	viper.SetDefault("redis.host", "localhost")
 	viper.SetDefault("redis.port", "6379")
 	viper.SetDefault("redis.pool_size", 10)
@@ -208,6 +217,8 @@ func LoadConfig() (*Config, error) {
 	_ = viper.BindEnv("database.user", "DB_USER")
 	_ = viper.BindEnv("database.password", "DB_PASSWORD")
 	_ = viper.BindEnv("database.dbname", "DB_NAME")
+	_ = viper.BindEnv("migration.mode", "MIGRATION_MODE")
+	_ = viper.BindEnv("migration.path", "MIGRATION_PATH")
 
 	_ = viper.BindEnv("redis.host", "REDIS_HOST")
 	_ = viper.BindEnv("redis.port", "REDIS_PORT")
@@ -313,6 +324,13 @@ func LoadConfig() (*Config, error) {
 	if cfg.Email.FromName == "" {
 		cfg.Email.FromName = "WenDao Blog"
 	}
+	cfg.Migration.Mode = strings.ToLower(strings.TrimSpace(cfg.Migration.Mode))
+	if cfg.Migration.Mode == "" {
+		cfg.Migration.Mode = "versioned"
+	}
+	if strings.TrimSpace(cfg.Migration.Path) == "" {
+		cfg.Migration.Path = "migrations"
+	}
 	if cfg.Verification.CodeTTLMinutes <= 0 {
 		cfg.Verification.CodeTTLMinutes = 10
 	}
@@ -350,6 +368,14 @@ func validateConfig(cfg *Config) error {
 	}
 	if strings.TrimSpace(cfg.Database.Port) == "" {
 		return fmt.Errorf("invalid database.port: must not be empty")
+	}
+	switch cfg.Migration.Mode {
+	case "versioned", "auto", "disabled":
+	default:
+		return fmt.Errorf("invalid migration.mode: must be versioned, auto, or disabled")
+	}
+	if cfg.Migration.Mode == "versioned" && strings.TrimSpace(cfg.Migration.Path) == "" {
+		return fmt.Errorf("invalid migration.path: must not be empty when migration.mode is versioned")
 	}
 	if strings.TrimSpace(cfg.Redis.Host) == "" {
 		return fmt.Errorf("invalid redis.host: must not be empty")

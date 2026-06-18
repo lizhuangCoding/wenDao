@@ -60,6 +60,8 @@ services:
       DB_USER: ${DB_USER:-wendao}
       DB_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD}
       DB_NAME: ${DB_NAME:-wendao}
+      MIGRATION_MODE: ${MIGRATION_MODE:-versioned}
+      MIGRATION_PATH: ${MIGRATION_PATH:-migrations}
 
       # Redis 用于缓存、限流、JWT 黑名单；Redis Vector 用于 AI/RAG 向量检索。
       # 当前两个都指向同一个 redis-stack 容器。

@@ -127,6 +127,8 @@ npm run preview
 - `DB_USER`
 - `DB_PASSWORD`
 - `DB_NAME`
+- `MIGRATION_MODE`
+- `MIGRATION_PATH`
 - `JWT_SECRET`
 - `AI_PROVIDER`
 - `AI_API_KEY`
@@ -148,6 +150,8 @@ npm run preview
 - `SITE_URL`
 
 其中 `AI_PROVIDER` 用来切换聊天模型提供商，当前支持 `doubao`、`deepseek` 和 `openai-compatible`。向量模型仍然默认使用豆包，不需要为切换聊天模型额外改动知识库配置。
+
+数据库结构默认通过 `backend/migrations/*.sql` 版本化迁移维护，生产环境使用 `MIGRATION_MODE=versioned`。本地临时开发如需恢复旧的 GORM 自动建表行为，可以显式设置 `MIGRATION_MODE=auto`。
 
 前端可通过 `frontend/.env` 指定：
 

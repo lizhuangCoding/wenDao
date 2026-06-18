@@ -61,7 +61,7 @@ func initInfrastructure(cfg *config.Config, logger *zap.Logger) (*infrastructure
 	}
 	logger.Info("MySQL connected successfully")
 
-	if err := database.AutoMigrate(db); err != nil {
+	if err := migrateDatabase(db, cfg); err != nil {
 		return nil, err
 	}
 	logger.Info("Database migrated successfully")
@@ -73,6 +73,23 @@ func initInfrastructure(cfg *config.Config, logger *zap.Logger) (*infrastructure
 	logger.Info("Redis Vector connected successfully")
 
 	return &infrastructure{db: db, rdb: rdb, rdbVector: rdbVector}, nil
+}
+
+func migrateDatabase(db *gorm.DB, cfg *config.Config) error {
+	if cfg == nil {
+		return fmt.Errorf("config is required")
+	}
+
+	switch cfg.Migration.Mode {
+	case "versioned":
+		return database.RunVersionedMigrations(db, database.VersionedMigrationOptions{Dir: cfg.Migration.Path})
+	case "auto":
+		return database.AutoMigrate(db)
+	case "disabled":
+		return nil
+	default:
+		return fmt.Errorf("unsupported migration mode %q", cfg.Migration.Mode)
+	}
 }
 
 func newRedisClient(cfg config.RedisConfig) *redis.Client {

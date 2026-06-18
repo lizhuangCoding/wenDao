@@ -63,6 +63,20 @@ docker compose --env-file .env.production -f docker-compose.prod.yml ps
 docker compose --env-file .env.production -f docker-compose.prod.yml logs -f backend
 ```
 
+### Database migrations
+
+Production starts the backend with `MIGRATION_MODE=versioned` by default. On startup, the backend reads SQL files from `backend/migrations` inside the image, applies unapplied files in version order, and records them in the `schema_migrations` table.
+
+The first migration, `000001_initial_schema.sql`, is the baseline schema. It uses `CREATE TABLE IF NOT EXISTS`, so existing databases that were previously created by GORM `AutoMigrate` can be adopted without dropping data; the migration runner records the baseline once it has run. Future schema changes should be added as new SQL files such as `000002_add_example_column.sql`.
+
+For local development only, you can temporarily set:
+
+```env
+MIGRATION_MODE=auto
+```
+
+That keeps the old GORM `AutoMigrate` behavior. Do not use `auto` for production deployments unless you are intentionally bypassing versioned migrations for a one-off maintenance task.
+
 ### IP-only deployment
 
 When deploying by public IP before a domain is ready, use the IP override file. It disables Caddy, exposes the frontend on server port `8081`, and uses the images that are easier to pull on Alibaba Cloud Linux:

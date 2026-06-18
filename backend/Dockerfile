@@ -32,6 +32,7 @@ WORKDIR /app
 COPY --from=builder /out/wendao-server /app/wendao-server
 COPY --from=builder /out/wendao-init-admin /app/wendao-init-admin
 COPY config/config.yaml /app/config/config.yaml
+COPY migrations /app/migrations
 
 # uploads 和 log 是运行时目录；uploads 由 compose 挂载 volume 持久化。
 RUN mkdir -p /app/uploads /app/log \

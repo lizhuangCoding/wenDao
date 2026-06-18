@@ -22,6 +22,11 @@ database:
   max_idle_conns: 10     # 连接池最大空闲连接数
   max_open_conns: 100    # 连接池最大打开连接数
 
+# 数据库迁移配置
+migration:
+  mode: "versioned"      # versioned: 执行 migrations/*.sql；auto: 使用 GORM AutoMigrate；disabled: 跳过迁移
+  path: "migrations"     # 迁移文件目录，相对于后端工作目录
+
 # 普通 Redis 配置 (用于缓存、限流、JWT 黑名单等)
 redis:
   host: "localhost"      # Redis 连接地址
