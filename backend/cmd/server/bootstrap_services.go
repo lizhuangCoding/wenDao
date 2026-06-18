@@ -153,4 +153,3 @@ func logVerificationEmailConfig(cfg *config.Config, logger *zap.Logger) {
 		zap.Bool("from_address_configured", cfg.Email.FromAddress != ""),
 	)
 }
-

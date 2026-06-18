@@ -12,10 +12,10 @@ import (
 
 	"wenDao/config"
 	"wenDao/internal/model"
-	"wenDao/internal/svcerrors"
 	"wenDao/internal/pkg/hash"
 	pkgjwt "wenDao/internal/pkg/jwt"
 	"wenDao/internal/repository"
+	"wenDao/internal/svcerrors"
 )
 
 // UserService 用户服务接口

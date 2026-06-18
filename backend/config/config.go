@@ -114,18 +114,18 @@ type ModelConfig struct {
 
 // AIConfig AI 配置
 type AIConfig struct {
-	Provider               string  `mapstructure:"provider"`
-	APIKey                 string  `mapstructure:"api_key"`
-	Endpoint               string  `mapstructure:"endpoint"`
-	EmbeddingModel         string  `mapstructure:"embedding_model"`
-	LLMModel               string  `mapstructure:"llm_model"`
-	Temperature            float32 `mapstructure:"temperature"`
-	MaxTokens              int     `mapstructure:"max_tokens"`
-	TopK                   int     `mapstructure:"top_k"`
-	RAGMinScore            float32 `mapstructure:"rag_min_score"`
-	ResearchEndpoint       string  `mapstructure:"research_endpoint"`
-	ResearchAPIKey         string  `mapstructure:"research_api_key"`
-	ResearchMaxResults     int     `mapstructure:"research_max_results"`
+	Provider               string        `mapstructure:"provider"`
+	APIKey                 string        `mapstructure:"api_key"`
+	Endpoint               string        `mapstructure:"endpoint"`
+	EmbeddingModel         string        `mapstructure:"embedding_model"`
+	LLMModel               string        `mapstructure:"llm_model"`
+	Temperature            float32       `mapstructure:"temperature"`
+	MaxTokens              int           `mapstructure:"max_tokens"`
+	TopK                   int           `mapstructure:"top_k"`
+	RAGMinScore            float32       `mapstructure:"rag_min_score"`
+	ResearchEndpoint       string        `mapstructure:"research_endpoint"`
+	ResearchAPIKey         string        `mapstructure:"research_api_key"`
+	ResearchMaxResults     int           `mapstructure:"research_max_results"`
 	ResearchTimeoutSeconds int           `mapstructure:"research_timeout_seconds"`
 	Models                 []ModelConfig `mapstructure:"models"`
 }

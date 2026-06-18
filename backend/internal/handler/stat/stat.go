@@ -52,4 +52,3 @@ func (h *StatHandler) GetDashboardStats(c *gin.Context) {
 
 	response.Success(c, stats)
 }
-

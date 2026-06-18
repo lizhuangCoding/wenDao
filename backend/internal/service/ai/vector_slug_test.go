@@ -22,7 +22,9 @@ func (s *stubVectorStore) UpsertBatch(items []eino.VectorItem) error {
 	return nil
 }
 func (s *stubVectorStore) Delete(pattern string) error { return nil }
-func (s *stubVectorStore) Search(vector []float32, topK int) ([]eino.SearchResult, error) { return nil, nil }
+func (s *stubVectorStore) Search(vector []float32, topK int) ([]eino.SearchResult, error) {
+	return nil, nil
+}
 
 type stubEmbedder struct{}
 

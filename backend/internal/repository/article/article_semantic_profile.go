@@ -58,4 +58,3 @@ func (r *articleSemanticProfileRepository) ListByArticleIDs(articleIDs []int64) 
 	}
 	return profilesByArticleID, nil
 }
-

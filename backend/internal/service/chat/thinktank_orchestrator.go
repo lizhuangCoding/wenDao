@@ -422,4 +422,3 @@ func (o *thinkTankOrchestrator) persistFinalAnswer(conv *model.Conversation, use
 	o.service.runs.persistCompletedRun(conv.ID, userID, question, answer, decision)
 	o.service.memories.updateConversationMemoryWithWarning(conv.ID, userID, appendConversationTurn(history, question, answer))
 }
-

@@ -5,14 +5,14 @@ import "context"
 type StreamEventType string
 
 const (
-	StreamEventStage    StreamEventType = "stage"
-	StreamEventQuestion StreamEventType = "question"
-	StreamEventChunk    StreamEventType = "chunk"
-	StreamEventStep     StreamEventType = "step"
-	StreamEventResume   StreamEventType = "resume"
-	StreamEventSnapshot StreamEventType = "snapshot"
+	StreamEventStage     StreamEventType = "stage"
+	StreamEventQuestion  StreamEventType = "question"
+	StreamEventChunk     StreamEventType = "chunk"
+	StreamEventStep      StreamEventType = "step"
+	StreamEventResume    StreamEventType = "resume"
+	StreamEventSnapshot  StreamEventType = "snapshot"
 	StreamEventHeartbeat StreamEventType = "heartbeat"
-	StreamEventDone     StreamEventType = "done"
+	StreamEventDone      StreamEventType = "done"
 )
 
 type StreamEvent struct {

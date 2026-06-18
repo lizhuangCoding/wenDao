@@ -158,15 +158,15 @@ func TestFormatMemorySource(t *testing.T) {
 
 func TestFormatExistingMemories(t *testing.T) {
 	tests := []struct {
-		name      string
-		memories  []model.ConversationMemory
-		contains  []string
-		isEmpty   bool
+		name     string
+		memories []model.ConversationMemory
+		contains []string
+		isEmpty  bool
 	}{
 		{
-			name: "empty",
+			name:     "empty",
 			memories: nil,
-			isEmpty: true,
+			isEmpty:  true,
 		},
 		{
 			name: "single",

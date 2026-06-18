@@ -599,4 +599,3 @@ func (h *ArticleHandler) AutoSave(c *gin.Context) {
 
 	response.Success(c, nil)
 }
-
