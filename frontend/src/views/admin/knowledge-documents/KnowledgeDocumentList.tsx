@@ -200,7 +200,7 @@ export const KnowledgeDocumentList = () => {
               <DataTableHeaderCell width="wide">{t('admin.title')}</DataTableHeaderCell>
               <DataTableHeaderCell width="medium">{t('admin.status')}</DataTableHeaderCell>
               <DataTableHeaderCell width="medium">{t('knowledgeDocument.createdAt')}</DataTableHeaderCell>
-              <DataTableHeaderCell width="actions" align="right">{t('knowledgeDocument.actionView')}</DataTableHeaderCell>
+              <DataTableHeaderCell width="actionsCompact" align="right">{t('knowledgeDocument.actionView')}</DataTableHeaderCell>
             </DataTableHeadRow>
               </thead>
           <DataTableBody>

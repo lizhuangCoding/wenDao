@@ -39,6 +39,7 @@ func TestBuildRouter_RegistersRequiredRoutes(t *testing.T) {
 			stat:              &handler.StatHandler{},
 			chat:              &handler.ChatHandler{},
 			knowledgeDocument: &handler.KnowledgeDocumentHandler{},
+			aiObservability:   &handler.AIObservabilityHandler{},
 		},
 	)
 
@@ -79,6 +80,8 @@ func TestBuildRouter_RegistersRequiredRoutes(t *testing.T) {
 		"GET /api/admin/knowledge-documents/:id",
 		"POST /api/admin/knowledge-documents/:id/approve",
 		"POST /api/admin/knowledge-documents/:id/reject",
+		"GET /api/admin/ai-observability/runs",
+		"POST /api/admin/ai-observability/runs/batch-delete",
 		"GET /health",
 	}
 

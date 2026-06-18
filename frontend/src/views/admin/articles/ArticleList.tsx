@@ -290,7 +290,7 @@ export const ArticleList = () => {
               <DataTableHeaderCell width="compact" align="center">{t('article.pinned')}</DataTableHeaderCell>
               <DataTableHeaderCell width="compact">{t('admin.status')}</DataTableHeaderCell>
               <DataTableHeaderCell width="medium">{t('admin.createdAt')}</DataTableHeaderCell>
-              <DataTableHeaderCell width="actions" align="right">{t('admin.actions')}</DataTableHeaderCell>
+              <DataTableHeaderCell width="actionsWide" align="right">{t('admin.actions')}</DataTableHeaderCell>
             </DataTableHeadRow>
           </thead>
           <DataTableBody>

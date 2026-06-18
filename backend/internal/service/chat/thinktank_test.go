@@ -179,6 +179,35 @@ func (r *stubConversationRunStepRepository) GetByRunID(runID int64) ([]model.Con
 	return filtered, nil
 }
 
+func (r *stubConversationRunStepRepository) GetByRunIDs(runIDs []int64) ([]model.ConversationRunStep, error) {
+	allowed := make(map[int64]struct{}, len(runIDs))
+	for _, runID := range runIDs {
+		allowed[runID] = struct{}{}
+	}
+	filtered := make([]model.ConversationRunStep, 0, len(r.steps))
+	for _, step := range r.steps {
+		if _, ok := allowed[step.RunID]; ok {
+			filtered = append(filtered, step)
+		}
+	}
+	return filtered, nil
+}
+
+func (r *stubConversationRunStepRepository) DeleteByRunIDs(runIDs []int64) error {
+	filtered := r.steps[:0]
+	deleting := make(map[int64]struct{}, len(runIDs))
+	for _, runID := range runIDs {
+		deleting[runID] = struct{}{}
+	}
+	for _, step := range r.steps {
+		if _, ok := deleting[step.RunID]; !ok {
+			filtered = append(filtered, step)
+		}
+	}
+	r.steps = filtered
+	return nil
+}
+
 func (r *stubConversationRunStepRepository) DeleteByConversationID(conversationID int64) error {
 	filtered := r.steps[:0]
 	for _, step := range r.steps {
@@ -212,10 +241,37 @@ func (r *stubConversationRunRepository) GetActiveByConversationID(conversationID
 	return r.active, nil
 }
 
+func (r *stubConversationRunRepository) ListRecent(filter repository.ConversationRunFilter) ([]model.ConversationRun, int64, error) {
+	if r.active == nil {
+		return nil, 0, nil
+	}
+	return []model.ConversationRun{*r.active}, 1, nil
+}
+
 func (r *stubConversationRunRepository) Update(run *model.ConversationRun) error {
 	clone := *run
 	r.saved = &clone
 	r.active = &clone
+	return nil
+}
+
+func (r *stubConversationRunRepository) DeleteBatch(ids []int64) error {
+	if r.active != nil {
+		for _, id := range ids {
+			if r.active.ID == id {
+				r.active = nil
+				break
+			}
+		}
+	}
+	if r.saved != nil {
+		for _, id := range ids {
+			if r.saved.ID == id {
+				r.saved = nil
+				break
+			}
+		}
+	}
 	return nil
 }
 

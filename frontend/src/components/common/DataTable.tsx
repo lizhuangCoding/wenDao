@@ -1,24 +1,37 @@
 import type { ComponentProps, ReactNode } from 'react';
 import { cn } from '@/utils';
 
-type DataTableColumnWidth = 'select' | 'compact' | 'medium' | 'wide' | 'actions';
+type DataTableColumnWidth = 'select' | 'compact' | 'medium' | 'wide' | 'actionsCompact' | 'actions' | 'actionsWide';
 
 const columnWidthClasses: Record<DataTableColumnWidth, string> = {
   select: 'w-12 sm:w-14',
   compact: 'w-24 sm:w-28',
   medium: 'w-32 sm:w-40',
-  wide: 'w-[38%]',
-  actions: 'w-40 sm:w-48',
+  wide: 'w-[34%]',
+  actionsCompact: 'w-24 sm:w-28',
+  actions: 'w-32 sm:w-36',
+  actionsWide: 'w-48 sm:w-56',
 };
 
 interface DataTableProps {
   children: ReactNode;
   className?: string;
   emptyState?: ReactNode;
+  layout?: 'fixed' | 'auto';
+  minWidth?: string;
+  stretch?: boolean;
   tableClassName?: string;
 }
 
-export const DataTable = ({ children, className, emptyState, tableClassName }: DataTableProps) => (
+export const DataTable = ({
+  children,
+  className,
+  emptyState,
+  layout = 'fixed',
+  minWidth = '880px',
+  stretch = true,
+  tableClassName,
+}: DataTableProps) => (
   <div
     className={cn(
       'overflow-hidden rounded-2xl border border-neutral-100 bg-white shadow-sm dark:border-neutral-800 dark:bg-neutral-900',
@@ -26,7 +39,17 @@ export const DataTable = ({ children, className, emptyState, tableClassName }: D
     )}
   >
     <div className="overflow-x-auto">
-      <table className={cn('w-full min-w-[880px] table-fixed border-collapse text-left', tableClassName)}>{children}</table>
+      <table
+        className={cn(
+          'border-collapse text-left',
+          stretch ? 'w-full' : '',
+          layout === 'fixed' ? 'table-fixed' : 'table-auto',
+          tableClassName
+        )}
+        style={{ minWidth, width: stretch ? undefined : minWidth }}
+      >
+        {children}
+      </table>
     </div>
     {emptyState}
   </div>

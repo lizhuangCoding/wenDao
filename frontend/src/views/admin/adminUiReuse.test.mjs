@@ -75,21 +75,32 @@ test('admin settings and category management expose configurable site and catego
 });
 
 test('admin data tables protect utility columns from long primary text', async () => {
-  const [dataTable, articles, categories, comments, documents, users] = await Promise.all([
+  const [dataTable, articles, categories, comments, documents, users, collections, aiObservability] = await Promise.all([
     readFile(new URL('../../components/common/DataTable.tsx', import.meta.url), 'utf8'),
     loadAdminSource('articles/ArticleList.tsx'),
     loadAdminSource('categories/CategoryList.tsx'),
     loadAdminSource('comments/CommentList.tsx'),
     loadAdminSource('knowledge-documents/KnowledgeDocumentList.tsx'),
     loadAdminSource('users/UserManagement.tsx'),
+    loadAdminSource('collections/CollectionList.tsx'),
+    loadAdminSource('AIObservability.tsx'),
   ]);
 
   assert.match(dataTable, /table-fixed/);
+  assert.match(dataTable, /layout\?: 'fixed' \| 'auto'/);
+  assert.match(dataTable, /minWidth\?: string/);
+  assert.match(dataTable, /stretch\?: boolean/);
   assert.match(dataTable, /width\?:/);
   assert.match(dataTable, /nowrap\?:/);
   assert.match(dataTable, /truncate\?:/);
 
-  for (const source of [articles, categories, comments, documents, users]) {
+  assert.match(dataTable, /actionsCompact/);
+  assert.match(dataTable, /actionsWide/);
+  assert.match(articles, /width="actionsWide"/);
+  for (const source of [comments, documents, aiObservability]) {
+    assert.match(source, /width="actionsCompact"/);
+  }
+  for (const source of [categories, collections, users]) {
     assert.match(source, /width="actions"/);
   }
 
@@ -100,4 +111,18 @@ test('admin data tables protect utility columns from long primary text', async (
   for (const source of [articles, categories, comments, documents, users]) {
     assert.match(source, /truncate/);
   }
+
+  for (const source of [categories, collections, aiObservability]) {
+    assert.match(source, /minWidth="/);
+  }
+
+  assert.doesNotMatch(collections, /layout="auto"/);
+  assert.match(collections, /stretch=\{false\}/);
+  assert.match(categories, /stretch=\{false\}/);
+  assert.match(collections, /<DataTableHeaderCell width="medium">名称<\/DataTableHeaderCell>/);
+  assert.match(collections, /<DataTableHeaderCell width="compact">创建时间<\/DataTableHeaderCell>/);
+  assert.match(collections, /<DataTableHeaderCell width="actions">操作<\/DataTableHeaderCell>/);
+  assert.doesNotMatch(collections, /DataTableCell align="right" nowrap/);
+  assert.match(categories, /<DataTableHeaderCell width="medium">\{t\('admin\.name'\)\}<\/DataTableHeaderCell>/);
+  assert.doesNotMatch(categories, /DataTableCell align="right" nowrap/);
 });

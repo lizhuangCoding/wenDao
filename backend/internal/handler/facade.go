@@ -31,6 +31,7 @@ type AIHandler = chathandler.AIHandler
 type SiteHandler = sitehandler.SiteHandler
 type StatHandler = stathandler.StatHandler
 type ChatHandler = chathandler.ChatHandler
+type AIObservabilityHandler = chathandler.AIObservabilityHandler
 type KnowledgeDocumentHandler = knowledgehandler.KnowledgeDocumentHandler
 type NotificationHandler = notifhandler.NotificationHandler
 
@@ -73,6 +74,12 @@ func NewChatHandler(
 	memoryRepo repository.ConversationMemoryRepository,
 ) *ChatHandler {
 	return chathandler.NewChatHandler(cfg, convRepo, msgRepo, runRepo, runStepRepo, memoryRepo)
+}
+func NewAIObservabilityHandler(
+	runRepo repository.ConversationRunRepository,
+	runStepRepo repository.ConversationRunStepRepository,
+) *AIObservabilityHandler {
+	return chathandler.NewAIObservabilityHandler(runRepo, runStepRepo)
 }
 func NewKnowledgeDocumentHandler(knowledgeSvc service.KnowledgeDocumentService) *KnowledgeDocumentHandler {
 	return knowledgehandler.NewKnowledgeDocumentHandler(knowledgeSvc)

@@ -213,7 +213,7 @@ export const CommentList = () => {
               <DataTableHeaderCell width="medium">{t('admin.article')}</DataTableHeaderCell>
               <DataTableHeaderCell width="compact">{t('admin.status')}</DataTableHeaderCell>
               <DataTableHeaderCell width="medium">{t('admin.createdAt')}</DataTableHeaderCell>
-              <DataTableHeaderCell width="actions" align="right">{t('admin.actions')}</DataTableHeaderCell>
+              <DataTableHeaderCell width="actionsCompact" align="right">{t('admin.actions')}</DataTableHeaderCell>
             </DataTableHeadRow>
               </thead>
           <DataTableBody>

@@ -37,6 +37,9 @@ const CommentList = lazy(() =>
 const Dashboard = lazy(() =>
   import('./views/admin/Dashboard').then((module) => ({ default: module.Dashboard }))
 );
+const AIObservability = lazy(() =>
+  import('./views/admin/AIObservability').then((module) => ({ default: module.AIObservability }))
+);
 const KnowledgeDocumentList = lazy(() =>
   import('./views/admin/knowledge-documents/KnowledgeDocumentList').then((module) => ({
     default: module.KnowledgeDocumentList,
@@ -131,6 +134,7 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <Navigate to="/admin/stats" replace /> },
       { path: 'stats', element: withSuspense(<Dashboard />) },
+      { path: 'ai-observability', element: withSuspense(<AIObservability />) },
       { path: 'articles', element: withSuspense(<ArticleList />) },
       { path: 'articles/new', element: withSuspense(<ArticleEditor />) },
       { path: 'articles/edit/:id', element: withSuspense(<ArticleEditor />) },

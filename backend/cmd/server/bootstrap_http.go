@@ -26,6 +26,7 @@ type appHandlers struct {
 	site              *handler.SiteHandler
 	stat              *handler.StatHandler
 	chat              *handler.ChatHandler
+	aiObservability   *handler.AIObservabilityHandler
 	knowledgeDocument *handler.KnowledgeDocumentHandler
 	notification      *handler.NotificationHandler
 }
@@ -47,6 +48,7 @@ func initHandlers(cfg *config.Config, repos *repositories, services *appServices
 		site:              handler.NewSiteHandler(cfg, services.article, services.setting),
 		stat:              handler.NewStatHandler(services.stat),
 		chat:              handler.NewChatHandler(cfg, repos.conversation, repos.chatMessage, repos.conversationRun, repos.conversationRunStep, repos.conversationMemory),
+		aiObservability:   handler.NewAIObservabilityHandler(repos.conversationRun, repos.conversationRunStep),
 		knowledgeDocument: handler.NewKnowledgeDocumentHandler(services.knowledgeDocument),
 		notification:      notificationHandler,
 	}
@@ -77,6 +79,7 @@ func buildRouter(cfg *config.Config, logger *zap.Logger, rdb *redis.Client, hand
 		handlers.site,
 		handlers.stat,
 		handlers.chat,
+		handlers.aiObservability,
 		handlers.knowledgeDocument,
 		handlers.notification,
 	)
@@ -110,6 +113,7 @@ func registerRoutes(
 	siteHandler *handler.SiteHandler,
 	statHandler *handler.StatHandler,
 	chatHandler *handler.ChatHandler,
+	aiObservabilityHandler *handler.AIObservabilityHandler,
 	knowledgeDocumentHandler *handler.KnowledgeDocumentHandler,
 	notificationHandler *handler.NotificationHandler,
 ) {
@@ -313,6 +317,8 @@ func registerRoutes(
 			}
 			admin.POST("/upload/image", uploadHandler.UploadImage)
 			admin.GET("/stats/dashboard", statHandler.GetDashboardStats)
+			admin.GET("/ai-observability/runs", aiObservabilityHandler.ListRuns)
+			admin.POST("/ai-observability/runs/batch-delete", aiObservabilityHandler.BatchDeleteRuns)
 			admin.PUT("/settings/sort-mode", articleHandler.SetSortMode)
 			admin.PUT("/settings/slogan", siteHandler.SetSlogan)
 			admin.PUT("/settings/contact-links", siteHandler.SetContactLinks)

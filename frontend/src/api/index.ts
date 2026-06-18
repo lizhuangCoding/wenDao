@@ -5,6 +5,7 @@ export * from './category';
 export * from './collection';
 export * from './comment';
 export * from './chat';
+export * from './aiObservability';
 export * from './knowledgeDocument';
 export * from './site';
 export * from './stat';

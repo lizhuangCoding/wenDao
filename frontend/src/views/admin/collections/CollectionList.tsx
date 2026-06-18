@@ -172,6 +172,8 @@ export const CollectionList = () => {
         <ErrorState message={(error as any)?.message || '合集列表加载失败'} onRetry={() => refetch()} />
       ) : (
         <DataTable
+          minWidth="920px"
+          stretch={false}
           emptyState={
             collections.length === 0 ? (
               <EmptyState title="暂无合集" description="新建合集后，就可以把文章组织成连续阅读路径。" className="m-6" />
@@ -189,13 +191,13 @@ export const CollectionList = () => {
                   aria-label="选择当前页合集"
                 />
               </DataTableHeaderCell>
-              <DataTableHeaderCell width="wide">名称</DataTableHeaderCell>
+              <DataTableHeaderCell width="medium">名称</DataTableHeaderCell>
               <DataTableHeaderCell width="medium">Slug</DataTableHeaderCell>
               <DataTableHeaderCell width="compact">排序</DataTableHeaderCell>
               <DataTableHeaderCell width="compact">文章数</DataTableHeaderCell>
               <DataTableHeaderCell width="compact">状态</DataTableHeaderCell>
-              <DataTableHeaderCell width="medium">创建时间</DataTableHeaderCell>
-              <DataTableHeaderCell width="actions" align="right">操作</DataTableHeaderCell>
+              <DataTableHeaderCell width="compact">创建时间</DataTableHeaderCell>
+              <DataTableHeaderCell width="actions">操作</DataTableHeaderCell>
             </DataTableHeadRow>
           </thead>
           <DataTableBody>
@@ -224,8 +226,8 @@ export const CollectionList = () => {
                   </span>
                 </DataTableCell>
                 <DataTableCell nowrap>{formatDate(collection.created_at)}</DataTableCell>
-                <DataTableCell align="right" nowrap>
-                  <div className="inline-flex items-center justify-end gap-2">
+                <DataTableCell nowrap>
+                  <div className="inline-flex items-center gap-2">
                     <Button
                       variant="ghost"
                       size="sm"

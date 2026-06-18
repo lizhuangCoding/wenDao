@@ -457,6 +457,75 @@ export interface KnowledgeDocumentSource {
   sort_order: number;
 }
 
+export interface AIObservabilityToolUsage {
+  local_search: number;
+  web_search: number;
+  web_fetch: number;
+  doc_writer: number;
+  other: number;
+}
+
+export interface AIObservabilitySources {
+  local_hits: number;
+  web_hits: number;
+  external_urls: string[];
+}
+
+export interface AIObservabilityCost {
+  status: 'not_collected' | 'estimated' | 'collected';
+  prompt_tokens: number;
+  completion_tokens: number;
+  estimated_cost: number;
+  currency: string;
+}
+
+export interface AIObservabilityFeedback {
+  status: 'not_collected' | 'collected';
+  score?: number;
+}
+
+export interface AIObservabilityFailedStep {
+  id: number;
+  agent_name: string;
+  type: string;
+  summary: string;
+  detail: string;
+  created_at: string;
+}
+
+export interface AIObservabilityStep {
+  id: number;
+  agent_name: string;
+  type: string;
+  summary: string;
+  status: string;
+  created_at: string;
+}
+
+export interface AIObservabilityRun {
+  id: number;
+  conversation_id: number;
+  user_id: number;
+  status: string;
+  current_stage: string;
+  original_question: string;
+  normalized_question: string;
+  last_error?: string;
+  duration_seconds: number;
+  step_count: number;
+  failed_step_count: number;
+  tool_usage: AIObservabilityToolUsage;
+  sources: AIObservabilitySources;
+  cost: AIObservabilityCost;
+  feedback: AIObservabilityFeedback;
+  failed_steps: AIObservabilityFailedStep[];
+  steps: AIObservabilityStep[];
+  created_at: string;
+  updated_at: string;
+  completed_at?: string;
+  heartbeat_at?: string;
+}
+
 // 分页相关类型
 export interface PaginationParams {
   page: number;

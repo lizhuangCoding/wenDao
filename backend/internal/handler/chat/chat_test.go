@@ -12,6 +12,7 @@ import (
 
 	"wenDao/config"
 	"wenDao/internal/model"
+	"wenDao/internal/repository"
 )
 
 type stubConversationRepo struct {
@@ -66,7 +67,14 @@ func (r *stubConversationRunRepo) GetByID(id int64) (*model.ConversationRun, err
 func (r *stubConversationRunRepo) GetActiveByConversationID(conversationID int64) (*model.ConversationRun, error) {
 	return r.active, nil
 }
+func (r *stubConversationRunRepo) ListRecent(filter repository.ConversationRunFilter) ([]model.ConversationRun, int64, error) {
+	if r.active == nil {
+		return nil, 0, nil
+	}
+	return []model.ConversationRun{*r.active}, 1, nil
+}
 func (r *stubConversationRunRepo) Update(run *model.ConversationRun) error { return nil }
+func (r *stubConversationRunRepo) DeleteBatch(ids []int64) error           { return nil }
 func (r *stubConversationRunRepo) DeleteByConversationID(conversationID int64) error {
 	r.deletedConversationID = conversationID
 	return nil
@@ -91,6 +99,20 @@ func (r *stubConversationRunStepRepo) GetByRunID(runID int64) ([]model.Conversat
 	}
 	return filtered, nil
 }
+func (r *stubConversationRunStepRepo) GetByRunIDs(runIDs []int64) ([]model.ConversationRunStep, error) {
+	allowed := make(map[int64]struct{}, len(runIDs))
+	for _, runID := range runIDs {
+		allowed[runID] = struct{}{}
+	}
+	filtered := make([]model.ConversationRunStep, 0, len(r.steps))
+	for _, step := range r.steps {
+		if _, ok := allowed[step.RunID]; ok {
+			filtered = append(filtered, step)
+		}
+	}
+	return filtered, nil
+}
+func (r *stubConversationRunStepRepo) DeleteByRunIDs(runIDs []int64) error { return nil }
 func (r *stubConversationRunStepRepo) DeleteByConversationID(conversationID int64) error {
 	r.deletedConversationID = conversationID
 	return nil

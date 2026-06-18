@@ -170,6 +170,8 @@ export const CategoryList = () => {
         <ErrorState message={(error as any)?.message || t('admin.categoryListLoadingFailed')} onRetry={() => refetch()} />
       ) : (
         <DataTable
+          minWidth="860px"
+          stretch={false}
           emptyState={
             categories.length === 0 ? (
               <EmptyState title={t('admin.noCategories')} description={t('admin.noCategoriesDescription')} className="m-6" />
@@ -187,12 +189,12 @@ export const CategoryList = () => {
                       aria-label={t('admin.selectCurrentPageCategories')}
                     />
               </DataTableHeaderCell>
-                <DataTableHeaderCell width="wide">{t('admin.name')}</DataTableHeaderCell>
+                <DataTableHeaderCell width="medium">{t('admin.name')}</DataTableHeaderCell>
                 <DataTableHeaderCell width="medium">{t('admin.slug')}</DataTableHeaderCell>
                 <DataTableHeaderCell width="compact">{t('admin.sortOrder')}</DataTableHeaderCell>
                 <DataTableHeaderCell width="compact">{t('admin.articleCount')}</DataTableHeaderCell>
-                <DataTableHeaderCell width="medium">{t('admin.createdAt')}</DataTableHeaderCell>
-                <DataTableHeaderCell width="actions" align="right">{t('admin.actions')}</DataTableHeaderCell>
+                <DataTableHeaderCell width="compact">{t('admin.createdAt')}</DataTableHeaderCell>
+                <DataTableHeaderCell width="actions">{t('admin.actions')}</DataTableHeaderCell>
             </DataTableHeadRow>
               </thead>
           <DataTableBody>
@@ -216,8 +218,8 @@ export const CategoryList = () => {
                 <DataTableCell nowrap className="tabular-nums text-neutral-500 dark:text-neutral-400">{category.sort_order}</DataTableCell>
                 <DataTableCell nowrap>{category.article_count}</DataTableCell>
                 <DataTableCell nowrap>{formatDate(category.created_at)}</DataTableCell>
-                <DataTableCell align="right" nowrap>
-                      <div className="inline-flex items-center justify-end gap-2">
+                <DataTableCell nowrap>
+                      <div className="inline-flex items-center gap-2">
                     <Button
                       variant="ghost"
                       size="sm"
