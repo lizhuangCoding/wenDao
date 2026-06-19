@@ -18,6 +18,22 @@ func TestConversationRunModel_UsesConversationRunsTable(t *testing.T) {
 	if s.Table != "conversation_runs" {
 		t.Fatalf("expected table conversation_runs, got %q", s.Table)
 	}
+	for _, column := range []string{
+		"provider",
+		"model_name",
+		"prompt_tokens",
+		"completion_tokens",
+		"estimated_cost",
+		"cost_currency",
+		"cost_status",
+		"source_quality_score",
+		"failure_category",
+		"failure_fingerprint",
+	} {
+		if _, ok := s.FieldsByDBName[column]; !ok {
+			t.Fatalf("expected conversation_runs model to include column %q", column)
+		}
+	}
 }
 
 func TestConversationRunStepModel_UsesConversationRunStepsTable(t *testing.T) {

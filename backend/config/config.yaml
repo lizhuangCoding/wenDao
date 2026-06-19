@@ -65,6 +65,11 @@ ai:
   research_api_key: ""   # 多 Agent Journalist 调研服务鉴权 Key，建议通过环境变量 RESEARCH_API_KEY 注入
   research_max_results: 5 # 单次联网调研最多拉取的来源数量
   research_timeout_seconds: 15 # 单次联网调研请求超时时间（秒）
+  daily_token_limit: 200000 # 单用户每日 AI 估算 token 上限
+  daily_run_limit: 100      # 单用户每日 AI 对话运行次数上限
+  prompt_price_per_1k: 0    # 输入 token 每 1000 个估算价格；0 表示只统计 token 不估算费用
+  completion_price_per_1k: 0 # 输出 token 每 1000 个估算价格
+  cost_currency: "USD"      # 估算费用币种
 
 # OAuth 第三方登录配置
 oauth:

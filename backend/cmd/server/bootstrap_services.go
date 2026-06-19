@@ -84,7 +84,7 @@ func initServices(cfg *config.Config, logger *zap.Logger, repos *repositories, i
 			MaxResults:     cfg.AI.ResearchMaxResults,
 			TimeoutSeconds: cfg.AI.ResearchTimeoutSeconds,
 		})
-		options := []any{memorySummarizer}
+		options := []any{memorySummarizer, service.NewRunMetricsConfig(cfg.AI)}
 		if err != nil {
 			logger.Warn("ThinkTank runner unavailable, continuing with manual ThinkTank flow", zap.Error(err))
 		} else if adkRunner != nil {

@@ -134,6 +134,11 @@ type AIConfig struct {
 	ResearchAPIKey         string        `mapstructure:"research_api_key"`
 	ResearchMaxResults     int           `mapstructure:"research_max_results"`
 	ResearchTimeoutSeconds int           `mapstructure:"research_timeout_seconds"`
+	DailyTokenLimit        int64         `mapstructure:"daily_token_limit"`
+	DailyRunLimit          int           `mapstructure:"daily_run_limit"`
+	PromptPricePer1K       float64       `mapstructure:"prompt_price_per_1k"`
+	CompletionPricePer1K   float64       `mapstructure:"completion_price_per_1k"`
+	CostCurrency           string        `mapstructure:"cost_currency"`
 	Models                 []ModelConfig `mapstructure:"models"`
 }
 
@@ -211,6 +216,9 @@ func LoadConfig() (*Config, error) {
 	viper.SetDefault("upload.cleanup_interval_hours", 24)
 	viper.SetDefault("upload.cleanup_batch_size", 200)
 	viper.SetDefault("ai.provider", "doubao")
+	viper.SetDefault("ai.daily_token_limit", 200000)
+	viper.SetDefault("ai.daily_run_limit", 100)
+	viper.SetDefault("ai.cost_currency", "USD")
 
 	_ = viper.BindEnv("database.host", "DB_HOST")
 	_ = viper.BindEnv("database.port", "DB_PORT")
@@ -238,6 +246,11 @@ func LoadConfig() (*Config, error) {
 	_ = viper.BindEnv("ai.embedding_model", "AI_EMBEDDING_MODEL", "DOUBAO_EMBEDDING_MODEL")
 	_ = viper.BindEnv("ai.research_endpoint", "RESEARCH_ENDPOINT")
 	_ = viper.BindEnv("ai.research_api_key", "RESEARCH_API_KEY")
+	_ = viper.BindEnv("ai.daily_token_limit", "AI_DAILY_TOKEN_LIMIT")
+	_ = viper.BindEnv("ai.daily_run_limit", "AI_DAILY_RUN_LIMIT")
+	_ = viper.BindEnv("ai.prompt_price_per_1k", "AI_PROMPT_PRICE_PER_1K")
+	_ = viper.BindEnv("ai.completion_price_per_1k", "AI_COMPLETION_PRICE_PER_1K")
+	_ = viper.BindEnv("ai.cost_currency", "AI_COST_CURRENCY")
 	_ = viper.BindEnv("upload.max_size", "UPLOAD_MAX_SIZE")
 	_ = viper.BindEnv("upload.storage_path", "UPLOAD_PATH")
 	_ = viper.BindEnv("upload.cleanup_enabled", "UPLOAD_CLEANUP_ENABLED")
@@ -290,6 +303,15 @@ func LoadConfig() (*Config, error) {
 	}
 	if cfg.AI.ResearchTimeoutSeconds <= 0 {
 		cfg.AI.ResearchTimeoutSeconds = 15
+	}
+	if cfg.AI.DailyTokenLimit <= 0 {
+		cfg.AI.DailyTokenLimit = 200000
+	}
+	if cfg.AI.DailyRunLimit <= 0 {
+		cfg.AI.DailyRunLimit = 100
+	}
+	if strings.TrimSpace(cfg.AI.CostCurrency) == "" {
+		cfg.AI.CostCurrency = "USD"
 	}
 	if cfg.Upload.ImageQuality <= 0 || cfg.Upload.ImageQuality > 100 {
 		cfg.Upload.ImageQuality = 80

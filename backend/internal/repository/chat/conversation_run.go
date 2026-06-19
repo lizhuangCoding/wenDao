@@ -1,6 +1,8 @@
 package chat
 
 import (
+	"time"
+
 	"gorm.io/gorm"
 
 	"wenDao/internal/model"
@@ -12,9 +14,16 @@ type ConversationRunRepository interface {
 	GetByID(id int64) (*model.ConversationRun, error)
 	GetActiveByConversationID(conversationID int64) (*model.ConversationRun, error)
 	ListRecent(filter ConversationRunFilter) ([]model.ConversationRun, int64, error)
+	GetDailyUsageByUser(userID int64, day time.Time) (ConversationRunDailyUsage, error)
 	Update(run *model.ConversationRun) error
 	DeleteBatch(ids []int64) error
 	DeleteByConversationID(conversationID int64) error
+}
+
+type ConversationRunDailyUsage struct {
+	RunCount         int64
+	PromptTokens     int64
+	CompletionTokens int64
 }
 
 type ConversationRunFilter struct {
@@ -87,6 +96,20 @@ func (r *conversationRunRepository) ListRecent(filter ConversationRunFilter) ([]
 		Offset((page - 1) * pageSize).
 		Find(&runs).Error
 	return runs, total, err
+}
+
+func (r *conversationRunRepository) GetDailyUsageByUser(userID int64, day time.Time) (ConversationRunDailyUsage, error) {
+	if userID <= 0 {
+		return ConversationRunDailyUsage{}, nil
+	}
+	start := time.Date(day.Year(), day.Month(), day.Day(), 0, 0, 0, 0, day.Location())
+	end := start.AddDate(0, 0, 1)
+	var usage ConversationRunDailyUsage
+	err := r.db.Model(&model.ConversationRun{}).
+		Select("COUNT(*) AS run_count, COALESCE(SUM(prompt_tokens), 0) AS prompt_tokens, COALESCE(SUM(completion_tokens), 0) AS completion_tokens").
+		Where("user_id = ? AND created_at >= ? AND created_at < ?", userID, start, end).
+		Scan(&usage).Error
+	return usage, err
 }
 
 func (r *conversationRunRepository) Update(run *model.ConversationRun) error {

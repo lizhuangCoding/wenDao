@@ -72,6 +72,7 @@ func NewThinkTankService(
 	var memorySummarizer ConversationMemorySummarizer
 	var clarifier Clarifier
 	var acceptanceReviewer AcceptanceReviewer
+	var metrics RunMetricsConfig
 	for _, option := range options {
 		switch v := option.(type) {
 		case *thinkTankADKRunner:
@@ -82,6 +83,8 @@ func NewThinkTankService(
 			clarifier = v
 		case AcceptanceReviewer:
 			acceptanceReviewer = v
+		case RunMetricsConfig:
+			metrics = v
 		}
 	}
 	if runner != nil {
@@ -100,7 +103,7 @@ func NewThinkTankService(
 		logger:             logger,
 		conversations:      newThinkTankConversationManager(convRepo, msgRepo, logger),
 		memories:           newThinkTankMemoryManager(memoryRepo, memorySummarizer, logger),
-		runs:               newThinkTankRunRecorder(runRepo, runStepRepo, logger),
+		runs:               newThinkTankRunRecorder(runRepo, runStepRepo, logger, metrics),
 		streams:            newThinkTankStreamEmitter(),
 		researchDraft:      newThinkTankResearchDraftSink(knowledgeSvc),
 		runHub:             newChatRunHub(),

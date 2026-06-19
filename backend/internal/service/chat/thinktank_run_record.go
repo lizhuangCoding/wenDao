@@ -4,14 +4,35 @@ import (
 	"strings"
 	"time"
 
+	"wenDao/config"
 	"wenDao/internal/model"
+	"wenDao/internal/pkg/aiobserve"
 	"wenDao/internal/repository"
 )
+
+type RunMetricsConfig struct {
+	Provider             string
+	ModelName            string
+	PromptPricePer1K     float64
+	CompletionPricePer1K float64
+	CostCurrency         string
+}
+
+func NewRunMetricsConfig(cfg config.AIConfig) RunMetricsConfig {
+	return RunMetricsConfig{
+		Provider:             strings.TrimSpace(cfg.Provider),
+		ModelName:            strings.TrimSpace(cfg.LLMModel),
+		PromptPricePer1K:     cfg.PromptPricePer1K,
+		CompletionPricePer1K: cfg.CompletionPricePer1K,
+		CostCurrency:         strings.TrimSpace(cfg.CostCurrency),
+	}
+}
 
 type thinkTankRunRecorder struct {
 	runRepo     repository.ConversationRunRepository
 	runStepRepo repository.ConversationRunStepRepository
 	logger      AILogger
+	metrics     RunMetricsConfig
 }
 
 type thinkTankStepTracker struct {
@@ -24,11 +45,13 @@ func newThinkTankRunRecorder(
 	runRepo repository.ConversationRunRepository,
 	runStepRepo repository.ConversationRunStepRepository,
 	logger AILogger,
+	metrics RunMetricsConfig,
 ) *thinkTankRunRecorder {
 	return &thinkTankRunRecorder{
 		runRepo:     runRepo,
 		runStepRepo: runStepRepo,
 		logger:      logger,
+		metrics:     metrics,
 	}
 }
 
@@ -52,6 +75,10 @@ func (r *thinkTankRunRecorder) startADKRun(conversationID int64, userID int64, q
 		OriginalQuestion: question,
 		LastPlan:         decision.PlanSummary,
 		PendingContext:   marshalADKPendingContext(checkpointID, question),
+		Provider:         r.metrics.Provider,
+		ModelName:        r.metrics.ModelName,
+		CostCurrency:     r.costCurrency(),
+		CostStatus:       "not_collected",
 	}
 	if pending != nil {
 		run.ID = pending.ID
@@ -77,6 +104,10 @@ func (r *thinkTankRunRecorder) persistADKClarification(conversationID int64, use
 		LastAnswer:       clarification,
 		LastPlan:         decision.PlanSummary,
 		PendingContext:   marshalADKPendingContext(checkpointID, question, clarification),
+		Provider:         r.metrics.Provider,
+		ModelName:        r.metrics.ModelName,
+		CostCurrency:     r.costCurrency(),
+		CostStatus:       "not_collected",
 	}
 	if run.ID > 0 {
 		_ = r.runRepo.Update(run)
@@ -103,6 +134,10 @@ func (r *thinkTankRunRecorder) persistAgentClarification(conversationID int64, u
 		LastAnswer:       clarification,
 		LastPlan:         decision.PlanSummary,
 		PendingContext:   pendingContext,
+		Provider:         r.metrics.Provider,
+		ModelName:        r.metrics.ModelName,
+		CostCurrency:     r.costCurrency(),
+		CostStatus:       "not_collected",
 	}
 	if run.ID > 0 {
 		_ = r.runRepo.Update(run)
@@ -126,9 +161,13 @@ func (r *thinkTankRunRecorder) persistCompletedRun(conversationID int64, userID 
 		LastPlan:         decision.PlanSummary,
 		PendingContext:   answer,
 		CompletedAt:      &now,
+		Provider:         r.metrics.Provider,
+		ModelName:        r.metrics.ModelName,
 	}
+	r.applyCompletionMetrics(run, question, answer)
 	if existing, _ := r.runRepo.GetActiveByConversationID(conversationID); existing != nil {
 		run.ID = existing.ID
+		run.SourceQualityScore = r.sourceQualityScore(existing.ID)
 		_ = r.runRepo.Update(run)
 		return
 	}
@@ -284,6 +323,58 @@ func (r *thinkTankRunRecorder) persistFailure(runID int64, err error) {
 	if err != nil {
 		message := err.Error()
 		run.LastError = &message
+		run.FailureCategory = aiobserve.ClassifyFailure(message)
+		run.FailureFingerprint = aiobserve.FailureFingerprint(run.FailureCategory, message)
 	}
 	_ = r.runRepo.Update(run)
+}
+
+func (r *thinkTankRunRecorder) applyCompletionMetrics(run *model.ConversationRun, question string, answer string) {
+	if run == nil {
+		return
+	}
+	cost := aiobserve.EstimateCost(config.AIConfig{
+		PromptPricePer1K:     r.metrics.PromptPricePer1K,
+		CompletionPricePer1K: r.metrics.CompletionPricePer1K,
+		CostCurrency:         r.costCurrency(),
+	}, question, answer)
+	run.PromptTokens = cost.PromptTokens
+	run.CompletionTokens = cost.CompletionTokens
+	run.EstimatedCost = cost.EstimatedCost
+	run.CostCurrency = cost.Currency
+	run.CostStatus = cost.Status
+	run.FailureCategory = ""
+	run.FailureFingerprint = ""
+}
+
+func (r *thinkTankRunRecorder) sourceQualityScore(runID int64) int {
+	if r == nil || r.runStepRepo == nil || runID <= 0 {
+		return 0
+	}
+	steps, err := r.runStepRepo.GetByRunID(runID)
+	if err != nil {
+		return 0
+	}
+	localHits := 0
+	webHits := 0
+	urls := make([]string, 0)
+	for _, step := range steps {
+		text := step.AgentName + " " + step.Type + " " + step.Summary + " " + step.Detail
+		classification := strings.ToLower(text)
+		if strings.Contains(classification, "localsearch") || strings.Contains(classification, "local search") || strings.Contains(classification, "redis 知识库") {
+			localHits++
+		}
+		if strings.Contains(classification, "websearch") || strings.Contains(classification, "web search") || strings.Contains(classification, "webfetch") || strings.Contains(classification, "web fetch") || strings.Contains(classification, "联网搜索") || strings.Contains(classification, "网页抓取") {
+			webHits++
+		}
+		urls = append(urls, aiobserve.ExtractHTTPURLs(text)...)
+	}
+	return aiobserve.ScoreSourceQuality(urls, localHits, webHits)
+}
+
+func (r *thinkTankRunRecorder) costCurrency() string {
+	if strings.TrimSpace(r.metrics.CostCurrency) == "" {
+		return "USD"
+	}
+	return strings.TrimSpace(r.metrics.CostCurrency)
 }

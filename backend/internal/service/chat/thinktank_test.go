@@ -248,6 +248,10 @@ func (r *stubConversationRunRepository) ListRecent(filter repository.Conversatio
 	return []model.ConversationRun{*r.active}, 1, nil
 }
 
+func (r *stubConversationRunRepository) GetDailyUsageByUser(userID int64, day time.Time) (repository.ConversationRunDailyUsage, error) {
+	return repository.ConversationRunDailyUsage{}, nil
+}
+
 func (r *stubConversationRunRepository) Update(run *model.ConversationRun) error {
 	clone := *run
 	r.saved = &clone

@@ -7,6 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"wenDao/internal/model"
+	"wenDao/internal/pkg/aiobserve"
 	"wenDao/internal/pkg/pagination"
 	"wenDao/internal/pkg/response"
 	"wenDao/internal/repository"
@@ -40,7 +41,10 @@ type AIObservabilityRunResponse struct {
 	Sources            AIObservabilitySourceSummary     `json:"sources"`
 	Cost               AIObservabilityCostEstimate      `json:"cost"`
 	Feedback           AIObservabilityFeedbackSummary   `json:"feedback"`
+	FailureCategory    string                           `json:"failure_category,omitempty"`
+	FailureFingerprint string                           `json:"failure_fingerprint,omitempty"`
 	FailedSteps        []AIObservabilityFailedStep      `json:"failed_steps"`
+	FailureClusters    []AIObservabilityFailureCluster  `json:"failure_clusters"`
 	Steps              []AIObservabilityStepResponse    `json:"steps"`
 	CreatedAt          string                           `json:"created_at"`
 	UpdatedAt          string                           `json:"updated_at"`
@@ -57,9 +61,15 @@ type AIObservabilityToolUsageResponse struct {
 }
 
 type AIObservabilitySourceSummary struct {
-	LocalHits    int      `json:"local_hits"`
-	WebHits      int      `json:"web_hits"`
-	ExternalURLs []string `json:"external_urls"`
+	LocalHits    int                             `json:"local_hits"`
+	WebHits      int                             `json:"web_hits"`
+	QualityScore int                             `json:"quality_score"`
+	ExternalURLs []AIObservabilityExternalSource `json:"external_urls"`
+}
+
+type AIObservabilityExternalSource struct {
+	URL          string `json:"url"`
+	QualityScore int    `json:"quality_score"`
 }
 
 type AIObservabilityCostEstimate struct {
@@ -81,7 +91,13 @@ type AIObservabilityFailedStep struct {
 	Type      string `json:"type"`
 	Summary   string `json:"summary"`
 	Detail    string `json:"detail"`
+	Category  string `json:"category"`
 	CreatedAt string `json:"created_at"`
+}
+
+type AIObservabilityFailureCluster struct {
+	Category string `json:"category"`
+	Count    int    `json:"count"`
 }
 
 type AIObservabilityStepResponse struct {
@@ -177,6 +193,7 @@ func buildAIObservabilityRunResponse(run model.ConversationRun, steps []model.Co
 	toolUsage := AIObservabilityToolUsageResponse{}
 	sources := AIObservabilitySourceSummary{}
 	failedSteps := make([]AIObservabilityFailedStep, 0)
+	failureClusters := make(map[string]int)
 	stepResponses := make([]AIObservabilityStepResponse, 0, len(steps))
 	urls := make(map[string]struct{})
 
@@ -202,16 +219,25 @@ func buildAIObservabilityRunResponse(run model.ConversationRun, steps []model.Co
 		for _, url := range extractHTTPURLs(step.Summary + " " + step.Detail) {
 			if _, exists := urls[url]; !exists {
 				urls[url] = struct{}{}
-				sources.ExternalURLs = append(sources.ExternalURLs, url)
+				sources.ExternalURLs = append(sources.ExternalURLs, AIObservabilityExternalSource{
+					URL:          url,
+					QualityScore: aiobserve.ScoreSourceQuality([]string{url}, 0, 1),
+				})
 			}
 		}
 		if step.Status == "failed" {
+			category := aiobserve.ClassifyFailure(step.Summary + " " + step.Detail)
+			if category == "" {
+				category = "unknown"
+			}
+			failureClusters[category]++
 			failedSteps = append(failedSteps, AIObservabilityFailedStep{
 				ID:        step.ID,
 				AgentName: step.AgentName,
 				Type:      step.Type,
 				Summary:   step.Summary,
 				Detail:    truncateForObservability(step.Detail, 800),
+				Category:  category,
 				CreatedAt: formatObservedTime(step.CreatedAt),
 			})
 		}
@@ -223,6 +249,27 @@ func buildAIObservabilityRunResponse(run model.ConversationRun, steps []model.Co
 			Status:    step.Status,
 			CreatedAt: formatObservedTime(step.CreatedAt),
 		})
+	}
+	if sources.QualityScore == 0 {
+		sourceURLs := make([]string, 0, len(sources.ExternalURLs))
+		for _, source := range sources.ExternalURLs {
+			sourceURLs = append(sourceURLs, source.URL)
+		}
+		sources.QualityScore = aiobserve.ScoreSourceQuality(sourceURLs, sources.LocalHits, sources.WebHits)
+	}
+	if run.SourceQualityScore > 0 {
+		sources.QualityScore = run.SourceQualityScore
+	}
+	clusters := make([]AIObservabilityFailureCluster, 0, len(failureClusters))
+	if run.FailureCategory != "" {
+		failureClusters[run.FailureCategory]++
+	}
+	for category, count := range failureClusters {
+		clusters = append(clusters, AIObservabilityFailureCluster{Category: category, Count: count})
+	}
+	if run.FailureCategory == "" && derefString(run.LastError) != "" {
+		run.FailureCategory = aiobserve.ClassifyFailure(derefString(run.LastError))
+		run.FailureFingerprint = aiobserve.FailureFingerprint(run.FailureCategory, derefString(run.LastError))
 	}
 
 	return AIObservabilityRunResponse{
@@ -240,16 +287,22 @@ func buildAIObservabilityRunResponse(run model.ConversationRun, steps []model.Co
 		ToolUsage:          toolUsage,
 		Sources:            sources,
 		Cost: AIObservabilityCostEstimate{
-			Status:   "not_collected",
-			Currency: "USD",
+			Status:           observedCostStatus(run),
+			PromptTokens:     run.PromptTokens,
+			CompletionTokens: run.CompletionTokens,
+			EstimatedCost:    run.EstimatedCost,
+			Currency:         observedCostCurrency(run),
 		},
-		Feedback:    AIObservabilityFeedbackSummary{Status: "not_collected"},
-		FailedSteps: failedSteps,
-		Steps:       stepResponses,
-		CreatedAt:   formatObservedTime(run.CreatedAt),
-		UpdatedAt:   formatObservedTime(run.UpdatedAt),
-		CompletedAt: formatObservedTimePtr(run.CompletedAt),
-		HeartbeatAt: formatObservedTimePtr(run.HeartbeatAt),
+		Feedback:           AIObservabilityFeedbackSummary{Status: "not_collected"},
+		FailureCategory:    run.FailureCategory,
+		FailureFingerprint: run.FailureFingerprint,
+		FailedSteps:        failedSteps,
+		FailureClusters:    clusters,
+		Steps:              stepResponses,
+		CreatedAt:          formatObservedTime(run.CreatedAt),
+		UpdatedAt:          formatObservedTime(run.UpdatedAt),
+		CompletedAt:        formatObservedTimePtr(run.CompletedAt),
+		HeartbeatAt:        formatObservedTimePtr(run.HeartbeatAt),
 	}
 }
 
@@ -286,15 +339,7 @@ func classifyToolStep(step model.ConversationRunStep) string {
 }
 
 func extractHTTPURLs(text string) []string {
-	fields := strings.Fields(text)
-	urls := make([]string, 0)
-	for _, field := range fields {
-		candidate := strings.Trim(field, `"'(),.，。；;[]{}<>`)
-		if strings.HasPrefix(candidate, "http://") || strings.HasPrefix(candidate, "https://") {
-			urls = append(urls, candidate)
-		}
-	}
-	return urls
+	return aiobserve.ExtractHTTPURLs(text)
 }
 
 func observedRunDurationSeconds(run model.ConversationRun) int64 {
@@ -335,4 +380,21 @@ func formatObservedTimePtr(value *time.Time) string {
 		return ""
 	}
 	return formatObservedTime(*value)
+}
+
+func observedCostStatus(run model.ConversationRun) string {
+	if strings.TrimSpace(run.CostStatus) != "" {
+		return run.CostStatus
+	}
+	if run.PromptTokens > 0 || run.CompletionTokens > 0 {
+		return "estimated"
+	}
+	return "not_collected"
+}
+
+func observedCostCurrency(run model.ConversationRun) string {
+	if strings.TrimSpace(run.CostCurrency) != "" {
+		return run.CostCurrency
+	}
+	return "USD"
 }

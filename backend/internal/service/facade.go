@@ -73,6 +73,7 @@ type ConversationMemorySummarizer = chatsvc.ConversationMemorySummarizer
 type Librarian = chatsvc.Librarian
 type Journalist = chatsvc.Journalist
 type ThinkTankSynthesizer = chatsvc.ThinkTankSynthesizer
+type RunMetricsConfig = chatsvc.RunMetricsConfig
 
 var ErrAIDisabled = aisvc.ErrAIDisabled
 var ErrUnsupportedWritingAction = aisvc.ErrUnsupportedWritingAction
@@ -166,6 +167,9 @@ func NewConversationMemorySummarizer(llm eino.LLMClient) ConversationMemorySumma
 }
 func NewThinkTankADKRunner(ctx context.Context, llm eino.LLMClient, librarian Librarian, knowledgeDocSvc KnowledgeDocumentService, researchCfg ResearchConfig) (any, error) {
 	return chatsvc.NewThinkTankADKRunner(ctx, llm, librarian, knowledgeDocSvc, researchCfg)
+}
+func NewRunMetricsConfig(cfg config.AIConfig) RunMetricsConfig {
+	return chatsvc.NewRunMetricsConfig(cfg)
 }
 func NewThinkTankService(
 	librarian Librarian,

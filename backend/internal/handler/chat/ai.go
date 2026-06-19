@@ -11,7 +11,9 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"wenDao/config"
+	"wenDao/internal/pkg/aiobserve"
 	"wenDao/internal/pkg/response"
+	"wenDao/internal/repository"
 	"wenDao/internal/service"
 )
 
@@ -19,11 +21,16 @@ import (
 type AIHandler struct {
 	aiService service.AIService
 	cfg       *config.Config
+	runRepo   repository.ConversationRunRepository
 }
 
 // NewAIHandler 创建 AI Handler 实例
-func NewAIHandler(aiService service.AIService, cfg *config.Config) *AIHandler {
-	return &AIHandler{aiService: aiService, cfg: cfg}
+func NewAIHandler(aiService service.AIService, cfg *config.Config, runRepos ...repository.ConversationRunRepository) *AIHandler {
+	var runRepo repository.ConversationRunRepository
+	if len(runRepos) > 0 {
+		runRepo = runRepos[0]
+	}
+	return &AIHandler{aiService: aiService, cfg: cfg, runRepo: runRepo}
 }
 
 // ChatRequest AI 对话请求
@@ -132,6 +139,9 @@ func (h *AIHandler) Chat(c *gin.Context) {
 		response.InvalidParams(c, "消息内容不能为空")
 		return
 	}
+	if !h.allowAIUsage(c, req.Message) {
+		return
+	}
 
 	answer, err := h.aiService.Chat(c.Request.Context(), req.Message, req.ConversationID, getCurrentUserID(c))
 	if err != nil {
@@ -228,6 +238,9 @@ func (h *AIHandler) ChatStream(c *gin.Context) {
 		response.InvalidParams(c, "消息内容不能为空")
 		return
 	}
+	if !h.allowAIUsage(c, req.Message) {
+		return
+	}
 
 	c.Header("Content-Type", "text/event-stream")
 	c.Header("Cache-Control", "no-cache")
@@ -259,6 +272,32 @@ func (h *AIHandler) ResumeChatStream(c *gin.Context) {
 	eventCh, errCh := h.aiService.ResumeChatStream(c.Request.Context(), req.ConversationID, req.RunID, getCurrentUserID(c))
 	h.streamEvents(c, eventCh, errCh)
 	c.Status(http.StatusOK)
+}
+
+func (h *AIHandler) allowAIUsage(c *gin.Context, message string) bool {
+	if h == nil || h.cfg == nil || h.runRepo == nil {
+		return true
+	}
+	userID := getCurrentUserID(c)
+	if userID == nil || *userID <= 0 {
+		return true
+	}
+	usage, err := h.runRepo.GetDailyUsageByUser(*userID, time.Now())
+	if err != nil {
+		response.InternalErrorWithErr(c, "AI usage quota check failed", err)
+		return false
+	}
+	if h.cfg.AI.DailyRunLimit > 0 && usage.RunCount >= int64(h.cfg.AI.DailyRunLimit) {
+		response.TooManyRequests(c, "今日 AI 对话次数已达上限，请明天再试")
+		return false
+	}
+	requestTokens := aiobserve.EstimateTokens(message, "").PromptTokens
+	usedTokens := usage.PromptTokens + usage.CompletionTokens
+	if h.cfg.AI.DailyTokenLimit > 0 && usedTokens+requestTokens > h.cfg.AI.DailyTokenLimit {
+		response.TooManyRequests(c, "今日 AI token 额度已达上限，请明天再试")
+		return false
+	}
+	return true
 }
 
 func (h *AIHandler) streamEvents(c *gin.Context, eventCh <-chan service.StreamEvent, errCh <-chan error) {

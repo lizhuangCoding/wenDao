@@ -14,16 +14,24 @@ func TestBuildAIObservabilityRunResponseSummarizesRun(t *testing.T) {
 	lastError := "web fetch timeout"
 
 	run := model.ConversationRun{
-		ID:               11,
-		ConversationID:   22,
-		UserID:           33,
-		Status:           "failed",
-		CurrentStage:     "research",
-		OriginalQuestion: "解释 RAG 命中来源",
-		LastError:        &lastError,
-		CreatedAt:        start,
-		UpdatedAt:        start.Add(10 * time.Second),
-		CompletedAt:      &completed,
+		ID:                 11,
+		ConversationID:     22,
+		UserID:             33,
+		Status:             "failed",
+		CurrentStage:       "research",
+		OriginalQuestion:   "解释 RAG 命中来源",
+		LastError:          &lastError,
+		PromptTokens:       120,
+		CompletionTokens:   80,
+		EstimatedCost:      0.03,
+		CostCurrency:       "USD",
+		CostStatus:         "estimated",
+		SourceQualityScore: 72,
+		FailureCategory:    "timeout",
+		FailureFingerprint: "abc123",
+		CreatedAt:          start,
+		UpdatedAt:          start.Add(10 * time.Second),
+		CompletedAt:        &completed,
 	}
 	steps := []model.ConversationRunStep{
 		{
@@ -70,13 +78,19 @@ func TestBuildAIObservabilityRunResponseSummarizesRun(t *testing.T) {
 	if resp.Sources.LocalHits != 1 || resp.Sources.WebHits != 2 {
 		t.Fatalf("unexpected source counts: %#v", resp.Sources)
 	}
-	if len(resp.Sources.ExternalURLs) != 1 || resp.Sources.ExternalURLs[0] != "https://example.com/rag" {
+	if len(resp.Sources.ExternalURLs) != 1 || resp.Sources.ExternalURLs[0].URL != "https://example.com/rag" {
 		t.Fatalf("unexpected external URLs: %#v", resp.Sources.ExternalURLs)
 	}
-	if len(resp.FailedSteps) != 1 || len([]rune(resp.FailedSteps[0].Detail)) != 803 {
+	if resp.Sources.QualityScore != 72 {
+		t.Fatalf("expected persisted source quality, got %d", resp.Sources.QualityScore)
+	}
+	if len(resp.FailedSteps) != 1 || len([]rune(resp.FailedSteps[0].Detail)) != 803 || resp.FailedSteps[0].Category != "tool" {
 		t.Fatalf("expected one truncated failed step, got %#v", resp.FailedSteps)
 	}
-	if resp.Cost.Status != "not_collected" || resp.Feedback.Status != "not_collected" {
+	if resp.Cost.Status != "estimated" || resp.Cost.PromptTokens != 120 || resp.Cost.CompletionTokens != 80 || resp.Cost.EstimatedCost != 0.03 {
 		t.Fatalf("expected cost and feedback placeholders, got cost=%#v feedback=%#v", resp.Cost, resp.Feedback)
+	}
+	if resp.FailureCategory != "timeout" || resp.FailureFingerprint != "abc123" || len(resp.FailureClusters) == 0 {
+		t.Fatalf("expected failure classification in response, got %#v", resp)
 	}
 }

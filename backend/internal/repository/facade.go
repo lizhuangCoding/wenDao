@@ -30,6 +30,7 @@ type ChatMessageRepository = chatrepo.ChatMessageRepository
 type ConversationRepository = chatrepo.ConversationRepository
 type ConversationRunRepository = chatrepo.ConversationRunRepository
 type ConversationRunFilter = chatrepo.ConversationRunFilter
+type ConversationRunDailyUsage = chatrepo.ConversationRunDailyUsage
 type ConversationRunStepRepository = chatrepo.ConversationRunStepRepository
 type ConversationMemoryRepository = chatrepo.ConversationMemoryRepository
 type KnowledgeDocumentRepository = knowledgerepo.KnowledgeDocumentRepository

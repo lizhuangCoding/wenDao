@@ -16,6 +16,16 @@ type ConversationRun struct {
 	LastAnswer         string     `gorm:"type:longtext" json:"last_answer"`
 	LastPlan           string     `gorm:"type:longtext" json:"last_plan"`
 	LastError          *string    `gorm:"type:text" json:"last_error,omitempty"`
+	Provider           string     `gorm:"size:64" json:"provider"`
+	ModelName          string     `gorm:"size:128" json:"model_name"`
+	PromptTokens       int64      `gorm:"not null;default:0" json:"prompt_tokens"`
+	CompletionTokens   int64      `gorm:"not null;default:0" json:"completion_tokens"`
+	EstimatedCost      float64    `gorm:"not null;default:0" json:"estimated_cost"`
+	CostCurrency       string     `gorm:"size:16;not null;default:USD" json:"cost_currency"`
+	CostStatus         string     `gorm:"size:32;not null;default:not_collected" json:"cost_status"`
+	SourceQualityScore int        `gorm:"not null;default:0" json:"source_quality_score"`
+	FailureCategory    string     `gorm:"size:64" json:"failure_category"`
+	FailureFingerprint string     `gorm:"size:128" json:"failure_fingerprint"`
 	HeartbeatAt        *time.Time `json:"heartbeat_at,omitempty"`
 	CompletedAt        *time.Time `json:"completed_at,omitempty"`
 	CreatedAt          time.Time  `json:"created_at"`

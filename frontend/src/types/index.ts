@@ -468,11 +468,15 @@ export interface AIObservabilityToolUsage {
 export interface AIObservabilitySources {
   local_hits: number;
   web_hits: number;
-  external_urls: string[];
+  quality_score: number;
+  external_urls: Array<{
+    url: string;
+    quality_score: number;
+  }>;
 }
 
 export interface AIObservabilityCost {
-  status: 'not_collected' | 'estimated' | 'collected';
+  status: 'not_collected' | 'tokens_only' | 'estimated' | 'collected';
   prompt_tokens: number;
   completion_tokens: number;
   estimated_cost: number;
@@ -490,7 +494,13 @@ export interface AIObservabilityFailedStep {
   type: string;
   summary: string;
   detail: string;
+  category: string;
   created_at: string;
+}
+
+export interface AIObservabilityFailureCluster {
+  category: string;
+  count: number;
 }
 
 export interface AIObservabilityStep {
@@ -518,7 +528,10 @@ export interface AIObservabilityRun {
   sources: AIObservabilitySources;
   cost: AIObservabilityCost;
   feedback: AIObservabilityFeedback;
+  failure_category?: string;
+  failure_fingerprint?: string;
   failed_steps: AIObservabilityFailedStep[];
+  failure_clusters: AIObservabilityFailureCluster[];
   steps: AIObservabilityStep[];
   created_at: string;
   updated_at: string;

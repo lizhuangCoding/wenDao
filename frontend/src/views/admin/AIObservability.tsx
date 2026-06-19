@@ -35,6 +35,13 @@ const formatDuration = (seconds: number) => {
   return rest ? `${minutes}m ${rest}s` : `${minutes}m`;
 };
 
+const formatCost = (run: AIObservabilityRun) => {
+  const totalTokens = run.cost.prompt_tokens + run.cost.completion_tokens;
+  if (run.cost.status === 'not_collected') return '未采集';
+  if (run.cost.status === 'tokens_only') return `${totalTokens} tokens`;
+  return `${totalTokens} tokens · ${run.cost.estimated_cost.toFixed(4)} ${run.cost.currency}`;
+};
+
 const statusVariant = (status: string): 'success' | 'warning' | 'danger' | 'neutral' => {
   if (status === 'completed') return 'success';
   if (status === 'running' || status === 'waiting_user') return 'warning';
@@ -232,6 +239,8 @@ export const AIObservability = () => {
                 <DataTableHeaderCell width="compact">状态</DataTableHeaderCell>
                 <DataTableHeaderCell width="compact">耗时</DataTableHeaderCell>
                 <DataTableHeaderCell width="medium">工具</DataTableHeaderCell>
+                <DataTableHeaderCell width="medium">Token</DataTableHeaderCell>
+                <DataTableHeaderCell width="compact">来源</DataTableHeaderCell>
                 <DataTableHeaderCell width="compact">失败</DataTableHeaderCell>
                 <DataTableHeaderCell width="medium">创建时间</DataTableHeaderCell>
                 <DataTableHeaderCell width="actionsCompact" align="right">操作</DataTableHeaderCell>
@@ -270,8 +279,19 @@ export const AIObservability = () => {
                       <span className="rounded bg-neutral-100 px-2 py-0.5 dark:bg-neutral-800">Doc {run.tool_usage.doc_writer}</span>
                     </div>
                   </DataTableCell>
+                  <DataTableCell width="medium">
+                    <div className="text-xs text-neutral-600 dark:text-neutral-300">{formatCost(run)}</div>
+                  </DataTableCell>
                   <DataTableCell width="compact" nowrap>
-                    <span className={run.failed_step_count > 0 ? 'font-semibold text-red-500' : 'text-neutral-400'}>
+                    <span className="font-semibold text-emerald-600 dark:text-emerald-300">
+                      {run.sources.quality_score}
+                    </span>
+                  </DataTableCell>
+                  <DataTableCell width="compact" nowrap>
+                    <span
+                      className={run.failed_step_count > 0 || run.failure_category ? 'font-semibold text-red-500' : 'text-neutral-400'}
+                      title={run.failure_category || undefined}
+                    >
                       {run.failed_step_count}
                     </span>
                   </DataTableCell>
@@ -336,13 +356,13 @@ const RunDetail = ({ run }: { run?: AIObservabilityRun }) => {
         <div>
           <div className="text-xs font-semibold text-neutral-500 dark:text-neutral-400">来源摘要</div>
           <div className="mt-2 text-sm text-neutral-700 dark:text-neutral-200">
-            站内命中 {run.sources.local_hits} · 外部痕迹 {run.sources.web_hits}
+            站内命中 {run.sources.local_hits} · 外部痕迹 {run.sources.web_hits} · 质量 {run.sources.quality_score}
           </div>
           {run.sources.external_urls.length > 0 && (
             <div className="mt-2 space-y-1">
-              {run.sources.external_urls.slice(0, 5).map((url) => (
-                <a key={url} href={url} target="_blank" rel="noreferrer" className="block truncate text-xs text-primary-600 dark:text-primary-400">
-                  {url}
+              {run.sources.external_urls.slice(0, 5).map((source) => (
+                <a key={source.url} href={source.url} target="_blank" rel="noreferrer" className="block truncate text-xs text-primary-600 dark:text-primary-400">
+                  {source.url} · {source.quality_score}
                 </a>
               ))}
             </div>
@@ -351,9 +371,10 @@ const RunDetail = ({ run }: { run?: AIObservabilityRun }) => {
         <div>
           <div className="text-xs font-semibold text-neutral-500 dark:text-neutral-400">Token / 成本</div>
           <div className="mt-2 text-sm text-neutral-700 dark:text-neutral-200">
-            {run.cost.status === 'not_collected'
-              ? '暂未采集 token 和成本数据'
-              : `${run.cost.prompt_tokens + run.cost.completion_tokens} tokens · ${run.cost.estimated_cost} ${run.cost.currency}`}
+            {formatCost(run)}
+          </div>
+          <div className="mt-1 text-xs text-neutral-400 dark:text-neutral-500">
+            Prompt {run.cost.prompt_tokens} · Completion {run.cost.completion_tokens} · {run.cost.status}
           </div>
         </div>
         <div>
@@ -366,7 +387,22 @@ const RunDetail = ({ run }: { run?: AIObservabilityRun }) => {
 
       {run.last_error && (
         <div className="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-300">
+          {run.failure_category && (
+            <div className="mb-1 text-xs font-bold uppercase tracking-wide">
+              {run.failure_category} · {run.failure_fingerprint}
+            </div>
+          )}
           {run.last_error}
+        </div>
+      )}
+
+      {run.failure_clusters.length > 0 && (
+        <div className="flex flex-wrap gap-2 text-xs">
+          {run.failure_clusters.map((cluster) => (
+            <span key={cluster.category} className="rounded bg-red-50 px-2 py-1 font-semibold text-red-600 dark:bg-red-950/30 dark:text-red-300">
+              {cluster.category} x{cluster.count}
+            </span>
+          ))}
         </div>
       )}
 
@@ -377,7 +413,7 @@ const RunDetail = ({ run }: { run?: AIObservabilityRun }) => {
             {run.failed_steps.map((step) => (
               <div key={step.id} className="rounded border border-red-100 bg-red-50/60 p-3 dark:border-red-900/50 dark:bg-red-950/20">
                 <div className="text-sm font-semibold text-red-700 dark:text-red-300">
-                  {step.agent_name} · {step.type} · {step.created_at}
+                  {step.agent_name} · {step.type} · {step.category} · {step.created_at}
                 </div>
                 <div className="mt-1 text-sm text-neutral-700 dark:text-neutral-200">{step.summary}</div>
                 {step.detail && <pre className="mt-2 max-h-36 overflow-auto whitespace-pre-wrap text-xs text-neutral-500 dark:text-neutral-400">{step.detail}</pre>}

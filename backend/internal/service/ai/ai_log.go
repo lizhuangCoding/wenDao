@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"gopkg.in/natefinch/lumberjack.v2"
+
+	"wenDao/internal/pkg/aiobserve"
 )
 
 // AILogEntry AI 聊天结构化日志条目
@@ -89,6 +91,8 @@ func (l *aiLogger) LogError(entry AILogEntry) {
 func (l *aiLogger) write(entry AILogEntry) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
+	entry.Detail = aiobserve.RedactLogDetail(entry.Stage, entry.Detail)
+	entry.Metadata = aiobserve.RedactLogMetadata(entry.Stage, entry.Metadata)
 	_ = l.encoder.Encode(entry)
 }
 

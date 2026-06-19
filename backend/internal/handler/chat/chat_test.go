@@ -73,6 +73,9 @@ func (r *stubConversationRunRepo) ListRecent(filter repository.ConversationRunFi
 	}
 	return []model.ConversationRun{*r.active}, 1, nil
 }
+func (r *stubConversationRunRepo) GetDailyUsageByUser(userID int64, day time.Time) (repository.ConversationRunDailyUsage, error) {
+	return repository.ConversationRunDailyUsage{}, nil
+}
 func (r *stubConversationRunRepo) Update(run *model.ConversationRun) error { return nil }
 func (r *stubConversationRunRepo) DeleteBatch(ids []int64) error           { return nil }
 func (r *stubConversationRunRepo) DeleteByConversationID(conversationID int64) error {

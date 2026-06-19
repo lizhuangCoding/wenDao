@@ -44,7 +44,7 @@ func initHandlers(cfg *config.Config, repos *repositories, services *appServices
 		article:           handler.NewArticleHandler(services.article, services.stat, services.setting, services.collection),
 		comment:           handler.NewCommentHandler(services.comment, services.stat),
 		upload:            handler.NewUploadHandler(services.upload),
-		ai:                handler.NewAIHandler(services.ai, cfg),
+		ai:                handler.NewAIHandler(services.ai, cfg, repos.conversationRun),
 		site:              handler.NewSiteHandler(cfg, services.article, services.setting),
 		stat:              handler.NewStatHandler(services.stat),
 		chat:              handler.NewChatHandler(cfg, repos.conversation, repos.chatMessage, repos.conversationRun, repos.conversationRunStep, repos.conversationMemory),

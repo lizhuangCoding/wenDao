@@ -56,8 +56,8 @@ func NewCommentHandler(commentSvc service.CommentService, statSvc *service.StatS
 func NewUploadHandler(uploadSvc service.UploadService) *UploadHandler {
 	return uploadhandler.NewUploadHandler(uploadSvc)
 }
-func NewAIHandler(aiSvc service.AIService, cfg *config.Config) *AIHandler {
-	return chathandler.NewAIHandler(aiSvc, cfg)
+func NewAIHandler(aiSvc service.AIService, cfg *config.Config, runRepos ...repository.ConversationRunRepository) *AIHandler {
+	return chathandler.NewAIHandler(aiSvc, cfg, runRepos...)
 }
 func NewSiteHandler(cfg *config.Config, articleSvc service.ArticleService, settingSvc service.SettingService) *SiteHandler {
 	return sitehandler.NewSiteHandler(cfg, articleSvc, settingSvc)
