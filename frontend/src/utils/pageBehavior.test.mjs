@@ -77,7 +77,7 @@ test('current user response only applies to the auth state that requested it', a
 test('getArticlePrimaryActionLabel matches the submitted article status', async () => {
   const { getArticlePrimaryActionLabel } = await loadPageBehavior();
 
-  assert.equal(getArticlePrimaryActionLabel({ isEdit: false, status: 'draft' }), '保存草稿');
-  assert.equal(getArticlePrimaryActionLabel({ isEdit: false, status: 'published' }), '发布文章');
-  assert.equal(getArticlePrimaryActionLabel({ isEdit: true, status: 'draft' }), '更新文章');
+  assert.equal(getArticlePrimaryActionLabel({ isEdit: false, status: 'draft' }), 'Save Draft');
+  assert.equal(getArticlePrimaryActionLabel({ isEdit: false, status: 'published' }), 'Publish Article');
+  assert.equal(getArticlePrimaryActionLabel({ isEdit: true, status: 'draft' }), 'Update Article');
 });

@@ -28,9 +28,9 @@ test('resolveAgentMood maps Librarian to a library micro-expression', async () =
   const { resolveAgentMood } = await loadAgentMood();
 
   assert.deepEqual(resolveAgentMood({ agentName: 'Librarian', status: 'running' }), {
-    caption: '戴上眼镜翻找站内知识',
+    caption: 'Searching the internal knowledge base',
     key: 'librarian',
-    label: 'Librarian 正在查图书馆',
+    label: 'Librarian is searching the library',
     tone: 'emerald',
   });
 });
@@ -55,7 +55,7 @@ test('resolveAgentMood celebrates strong matches on completed steps', async () =
   });
 
   assert.equal(mood.key, 'found');
-  assert.equal(mood.label, '发现高匹配答案');
+  assert.equal(mood.label, 'High-match answer found');
 });
 
 test('resolveAgentMood celebrates sufficient local coverage from step detail', async () => {

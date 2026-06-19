@@ -30,8 +30,8 @@ test('article detail renders like and favorite actions using authenticated inter
   assert.match(source, /favoriteArticle/);
   assert.match(source, /unfavoriteArticle/);
   assert.match(source, /interactionQuery/);
-  assert.match(source, /喜欢/);
-  assert.match(source, /收藏/);
+  assert.match(source, /t\('article\.like'\)/);
+  assert.match(source, /t\('article\.favorite'\)/);
 });
 
 test('article detail places like and favorite actions after the article body before comments', async () => {
@@ -55,7 +55,7 @@ test('profile page exposes liked and favorite article tabs', async () => {
   assert.match(source, /getFavoriteArticles/);
   assert.match(source, /liked-articles/);
   assert.match(source, /favorite-articles/);
-  assert.match(source, /我的点赞/);
-  assert.match(source, /我的收藏/);
+  assert.match(source, /t\('profile\.likedArticles'\)/);
+  assert.match(source, /t\('profile\.favoriteArticles'\)/);
   assert.match(source, /ArticleCard/);
 });

@@ -61,7 +61,8 @@ test('admin surfaces keep mobile controls stacked and tables scroll instead of s
   assert.match(adminLayout, /scrollbar-hide/);
   assert.match(pageHeader, /w-full flex-col/);
   assert.match(pageHeader, /lg:w-auto/);
-  assert.match(dataTable, /min-w-\[880px\]/);
+  assert.match(dataTable, /minWidth = '880px'/);
+  assert.match(dataTable, /style=\{\{ minWidth, width: stretch \? undefined : minWidth \}\}/);
   assert.match(dataTable, /px-4 py-3/);
   assert.match(dataTable, /sm:px-6 sm:py-4/);
   assert.match(articleEditor, /flex flex-col gap-3 sm:flex-row/);
