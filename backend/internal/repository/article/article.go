@@ -2,6 +2,7 @@ package article
 
 import (
 	"errors"
+	"strings"
 	"time"
 
 	"gorm.io/gorm"
@@ -202,15 +203,15 @@ func (r *articleRepository) Search(filter ArticleSearchFilter) ([]ArticleSearchR
 	if filter.TagID > 0 {
 		db = db.Where("article_tags.tag_id = ?", filter.TagID)
 	}
-	if filter.Keyword != "" {
-		keyword := "%" + filter.Keyword + "%"
+	if keyword := strings.TrimSpace(filter.Keyword); keyword != "" {
+		likeKeyword := "%" + keyword + "%"
 		db = db.Where(
-			"articles.title LIKE ? OR articles.summary LIKE ? OR articles.content LIKE ? OR categories.name LIKE ? OR tags.name LIKE ?",
+			"("+articleFullTextMatchSQL()+" OR articles.title LIKE ? OR articles.summary LIKE ? OR categories.name LIKE ? OR tags.name LIKE ?)",
 			keyword,
-			keyword,
-			keyword,
-			keyword,
-			keyword,
+			likeKeyword,
+			likeKeyword,
+			likeKeyword,
+			likeKeyword,
 		)
 	}
 
@@ -229,16 +230,17 @@ func (r *articleRepository) Search(filter ArticleSearchFilter) ([]ArticleSearchR
 	}
 
 	orderArgs := []any{}
-	orderSQL := "CASE " +
-		"WHEN articles.title LIKE ? THEN 0 " +
-		"WHEN articles.summary LIKE ? THEN 1 " +
-		"WHEN categories.name LIKE ? OR tags.name LIKE ? THEN 2 " +
-		"ELSE 3 END, articles.published_at DESC, articles.created_at DESC"
-	if filter.Keyword == "" {
-		orderSQL = "articles.published_at DESC, articles.created_at DESC"
-	} else {
-		keyword := "%" + filter.Keyword + "%"
-		orderArgs = append(orderArgs, keyword, keyword, keyword, keyword)
+	orderSQL := "articles.published_at DESC, articles.created_at DESC"
+	if keyword := strings.TrimSpace(filter.Keyword); keyword != "" {
+		likeKeyword := "%" + keyword + "%"
+		orderSQL = "CASE " +
+			"WHEN " + articleFullTextMatchSQL() + " THEN 0 " +
+			"WHEN articles.title LIKE ? THEN 1 " +
+			"WHEN articles.summary LIKE ? THEN 2 " +
+			"WHEN categories.name LIKE ? OR tags.name LIKE ? THEN 3 " +
+			"ELSE 4 END, " +
+			articleFullTextScoreSQL() + " DESC, articles.published_at DESC, articles.created_at DESC"
+		orderArgs = append(orderArgs, keyword, likeKeyword, likeKeyword, likeKeyword, likeKeyword, keyword)
 	}
 
 	if err := query.
@@ -261,6 +263,14 @@ func (r *articleRepository) Search(filter ArticleSearchFilter) ([]ArticleSearchR
 		results = append(results, ArticleSearchResult{Article: article})
 	}
 	return results, total, nil
+}
+
+func articleFullTextMatchSQL() string {
+	return "MATCH(articles.title, articles.summary, articles.content) AGAINST (? IN NATURAL LANGUAGE MODE)"
+}
+
+func articleFullTextScoreSQL() string {
+	return "MATCH(articles.title, articles.summary, articles.content) AGAINST (? IN NATURAL LANGUAGE MODE)"
 }
 
 // ListOrbitArticles 获取首页文章星球需要的轻量文章数据。

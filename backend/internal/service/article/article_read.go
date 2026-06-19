@@ -104,9 +104,6 @@ func (s *articleService) List(status string, categoryID, tagID int64, keyword st
 // ListOrbitArticles 获取首页文章星球需要的轻量文章数据。
 func (s *articleService) ListOrbitArticles() ([]*model.Article, error) {
 	if articles, ok := s.getCachedOrbitArticles(); ok {
-		if err := s.hydrateOrbitSemanticProfiles(articles); err != nil {
-			return nil, fmt.Errorf("failed to hydrate orbit semantic profiles: %w", err)
-		}
 		return articles, nil
 	}
 
@@ -119,6 +116,9 @@ func (s *articleService) ListOrbitArticles() ([]*model.Article, error) {
 		if err != nil {
 			return nil, err
 		}
+		if err := s.hydrateOrbitSemanticProfiles(articles); err != nil {
+			return nil, fmt.Errorf("failed to hydrate orbit semantic profiles: %w", err)
+		}
 		s.setCachedOrbitArticles(articles)
 		return articles, nil
 	})
@@ -126,9 +126,6 @@ func (s *articleService) ListOrbitArticles() ([]*model.Article, error) {
 		return nil, fmt.Errorf("failed to list orbit articles: %w", err)
 	}
 	articles := result.([]*model.Article)
-	if err := s.hydrateOrbitSemanticProfiles(articles); err != nil {
-		return nil, fmt.Errorf("failed to hydrate orbit semantic profiles: %w", err)
-	}
 	return articles, nil
 }
 

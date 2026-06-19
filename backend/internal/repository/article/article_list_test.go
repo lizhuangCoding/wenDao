@@ -85,6 +85,41 @@ func TestArticleRepositoryList_WithTagFilterQualifiesArticleColumns(t *testing.T
 	}
 }
 
+func TestArticleRepositorySearch_UsesFullTextForArticleBodyKeyword(t *testing.T) {
+	capture := &sqlCaptureLogger{Interface: logger.Discard}
+	db, err := gorm.Open(mysql.New(mysql.Config{
+		Conn:                      sql.OpenDB(noopConnector{}),
+		SkipInitializeWithVersion: true,
+	}), &gorm.Config{
+		DryRun: true,
+		Logger: capture,
+	})
+	if err != nil {
+		t.Fatalf("expected dry-run database to open, got %v", err)
+	}
+
+	repo := NewArticleRepository(db)
+	_, _, err = repo.Search(ArticleSearchFilter{
+		Keyword:  "redis vector",
+		Page:     1,
+		PageSize: 10,
+	})
+	if err != nil && !strings.Contains(err.Error(), "dry run mode unsupported") {
+		t.Fatalf("expected search dry-run to succeed, got %v", err)
+	}
+
+	joined := strings.Join(capture.statements, "\n")
+	if !strings.Contains(joined, "MATCH(articles.title, articles.summary, articles.content) AGAINST") {
+		t.Fatalf("expected keyword search to use fulltext MATCH, statements:\n%s", joined)
+	}
+	if strings.Contains(joined, "articles.content LIKE") {
+		t.Fatalf("expected keyword search to avoid content LIKE scan, statements:\n%s", joined)
+	}
+	if !strings.Contains(joined, "categories.name LIKE") || !strings.Contains(joined, "tags.name LIKE") {
+		t.Fatalf("expected keyword search to keep category/tag fallback matching, statements:\n%s", joined)
+	}
+}
+
 func TestArticleRepositoryGetDueScheduledArticles_UsesApplicationTimeInsteadOfDatabaseNow(t *testing.T) {
 	capture := &sqlCaptureLogger{Interface: logger.Discard}
 	db, err := gorm.Open(mysql.New(mysql.Config{

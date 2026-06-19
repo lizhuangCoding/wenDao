@@ -152,6 +152,31 @@ func (r *cacheArticleRepoStub) ListByInteraction(userID int64, interactionType s
 	return nil, 0, nil
 }
 
+type cacheSemanticRepoStub struct {
+	listCount int
+	profiles  map[int64]*model.ArticleSemanticProfile
+}
+
+func (r *cacheSemanticRepoStub) Upsert(profile *model.ArticleSemanticProfile) error {
+	return nil
+}
+
+func (r *cacheSemanticRepoStub) DeleteByArticleID(articleID int64) error {
+	return nil
+}
+
+func (r *cacheSemanticRepoStub) ListByArticleIDs(articleIDs []int64) (map[int64]*model.ArticleSemanticProfile, error) {
+	r.listCount++
+	result := make(map[int64]*model.ArticleSemanticProfile, len(articleIDs))
+	for _, articleID := range articleIDs {
+		if profile := r.profiles[articleID]; profile != nil {
+			copied := *profile
+			result[articleID] = &copied
+		}
+	}
+	return result, nil
+}
+
 type cacheCategoryRepoStub struct{}
 
 func (r *cacheCategoryRepoStub) Create(category *model.Category) error { return nil }
@@ -280,5 +305,42 @@ func TestArticleServiceListOrbitArticles_UsesCache(t *testing.T) {
 	}
 	if repo.orbitCount != 1 {
 		t.Fatalf("expected orbit cache hit to avoid repo lookup, got %d", repo.orbitCount)
+	}
+}
+
+func TestArticleServiceListOrbitArticles_CachesSemanticHydration(t *testing.T) {
+	repo := &cacheArticleRepoStub{
+		article: &model.Article{ID: 8, Title: "orbit", Slug: "orbit", Status: "published"},
+	}
+	profile := &model.ArticleSemanticProfile{ArticleID: 8, MapX: 1, MapY: 2, MapZ: 3}
+	if err := profile.SetEmbedding([]float32{1, 0, 0}); err != nil {
+		t.Fatalf("failed to seed embedding: %v", err)
+	}
+	semanticRepo := &cacheSemanticRepoStub{
+		profiles: map[int64]*model.ArticleSemanticProfile{8: profile},
+	}
+	cache := newMemoryArticleCacheStore()
+	svc := newArticleServiceWithCacheStore(repo, &cacheCategoryRepoStub{}, cache, nil, nil, semanticRepo)
+
+	first, err := svc.ListOrbitArticles()
+	if err != nil {
+		t.Fatalf("expected first orbit lookup success, got %v", err)
+	}
+	if len(first) != 1 || first[0].SemanticProfile == nil {
+		t.Fatalf("expected first orbit lookup to hydrate semantic profile, got %#v", first)
+	}
+	if semanticRepo.listCount != 1 {
+		t.Fatalf("expected one semantic profile lookup, got %d", semanticRepo.listCount)
+	}
+
+	second, err := svc.ListOrbitArticles()
+	if err != nil {
+		t.Fatalf("expected cached orbit lookup success, got %v", err)
+	}
+	if len(second) != 1 || second[0].SemanticProfile == nil {
+		t.Fatalf("expected cached orbit lookup to include semantic profile, got %#v", second)
+	}
+	if semanticRepo.listCount != 1 {
+		t.Fatalf("expected orbit cache hit to avoid semantic profile lookup, got %d lookups", semanticRepo.listCount)
 	}
 }
