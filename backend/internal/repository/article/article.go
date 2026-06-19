@@ -121,10 +121,10 @@ func (r *articleRepository) List(filter ArticleFilter) ([]*model.Article, int64,
 	db := r.db.Model(&model.Article{})
 
 	if filter.Status != "" {
-		db = db.Where("status = ?", filter.Status)
+		db = db.Where("articles.status = ?", filter.Status)
 	}
 	if filter.CategoryID > 0 {
-		db = db.Where("category_id = ?", filter.CategoryID)
+		db = db.Where("articles.category_id = ?", filter.CategoryID)
 	}
 	if filter.TagID > 0 {
 		db = db.Joins("JOIN article_tags ON article_tags.article_id = articles.id").
@@ -132,10 +132,10 @@ func (r *articleRepository) List(filter ArticleFilter) ([]*model.Article, int64,
 	}
 	if filter.Keyword != "" {
 		keyword := "%" + filter.Keyword + "%"
-		db = db.Where("title LIKE ? OR summary LIKE ?", keyword, keyword)
+		db = db.Where("articles.title LIKE ? OR articles.summary LIKE ?", keyword, keyword)
 	}
 	if len(filter.AIIndexStatuses) > 0 {
-		db = db.Where("ai_index_status IN ?", filter.AIIndexStatuses)
+		db = db.Where("articles.ai_index_status IN ?", filter.AIIndexStatuses)
 	}
 
 	if err := db.Count(&total).Error; err != nil {
@@ -148,21 +148,8 @@ func (r *articleRepository) List(filter ArticleFilter) ([]*model.Article, int64,
 		query = query.Offset(offset).Limit(filter.PageSize)
 	}
 
-	// 排序逻辑：置顶 > (活跃度/发布时间)
-	orderStr := "is_top DESC"
-	if filter.SortByPopularity {
-		orderStr += ", popularity DESC, published_at DESC"
-	} else {
-		orderStr += ", published_at DESC, created_at DESC"
-	}
-
 	if !filter.IncludeContent {
-		query = query.Select(
-			"id", "title", "slug", "summary", "category_id", "author_id", "cover_image",
-			"status", "ai_index_status", "source_type", "source_id", "view_count",
-			"comment_count", "like_count", "is_top", "popularity", "published_at",
-			"created_at", "updated_at",
-		)
+		query = query.Select(articleListSelectColumns())
 	}
 
 	err := query.
@@ -175,10 +162,27 @@ func (r *articleRepository) List(filter ArticleFilter) ([]*model.Article, int64,
 		Preload("Tags", func(db *gorm.DB) *gorm.DB {
 			return db.Select("id", "name", "slug", "article_count")
 		}).
-		Order(orderStr).
+		Order(articleListOrderClause(filter.SortByPopularity)).
 		Find(&articles).Error
 
 	return articles, total, err
+}
+
+func articleListSelectColumns() []string {
+	return []string{
+		"articles.id", "articles.title", "articles.slug", "articles.summary", "articles.category_id", "articles.author_id", "articles.cover_image",
+		"articles.status", "articles.ai_index_status", "articles.source_type", "articles.source_id", "articles.view_count",
+		"articles.comment_count", "articles.like_count", "articles.is_top", "articles.popularity", "articles.published_at",
+		"articles.created_at", "articles.updated_at",
+	}
+}
+
+func articleListOrderClause(sortByPopularity bool) string {
+	orderStr := "articles.is_top DESC"
+	if sortByPopularity {
+		return orderStr + ", articles.popularity DESC, articles.published_at DESC"
+	}
+	return orderStr + ", articles.published_at DESC, articles.created_at DESC"
 }
 
 // Search 搜索已发布文章，支持标题、摘要、正文、分类名和标签名匹配。

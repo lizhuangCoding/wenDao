@@ -46,6 +46,45 @@ func TestArticleRepositoryList_UsesLightweightColumnsAndAvoidsContentLikeSearch(
 	}
 }
 
+func TestArticleRepositoryList_WithTagFilterQualifiesArticleColumns(t *testing.T) {
+	capture := &sqlCaptureLogger{Interface: logger.Discard}
+	db, err := gorm.Open(mysql.New(mysql.Config{
+		Conn:                      sql.OpenDB(noopConnector{}),
+		SkipInitializeWithVersion: true,
+	}), &gorm.Config{
+		DryRun: true,
+		Logger: capture,
+	})
+	if err != nil {
+		t.Fatalf("expected dry-run database to open, got %v", err)
+	}
+
+	repo := NewArticleRepository(db)
+	_, _, err = repo.List(ArticleFilter{
+		Status:   "published",
+		TagID:    1,
+		Page:     1,
+		PageSize: 9,
+	})
+	if err != nil {
+		t.Fatalf("expected tagged list dry-run to succeed, got %v", err)
+	}
+
+	joined := strings.Join(capture.statements, "\n")
+	if !strings.Contains(joined, "JOIN article_tags ON article_tags.article_id = articles.id") {
+		t.Fatalf("expected tag filter to join article_tags, statements:\n%s", joined)
+	}
+	for _, column := range articleListSelectColumns() {
+		if !strings.HasPrefix(column, "articles.") {
+			t.Fatalf("expected article list select column %q to be table-qualified", column)
+		}
+	}
+	orderClause := articleListOrderClause(false)
+	if !strings.Contains(orderClause, "articles.created_at") || strings.Contains(orderClause, " created_at") {
+		t.Fatalf("expected article list order clause to qualify created_at, got %q", orderClause)
+	}
+}
+
 func TestArticleRepositoryGetDueScheduledArticles_UsesApplicationTimeInsteadOfDatabaseNow(t *testing.T) {
 	capture := &sqlCaptureLogger{Interface: logger.Discard}
 	db, err := gorm.Open(mysql.New(mysql.Config{
