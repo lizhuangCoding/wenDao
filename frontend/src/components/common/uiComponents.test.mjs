@@ -30,7 +30,7 @@ test('common UI primitives centralize professional surface, form, and action sty
   assert.match(button, /type = 'button'/);
   assert.match(buttonStyles, /getButtonClassName/);
   assert.match(buttonStyles, /dark:/);
-  assert.match(panel, /dark:border-neutral-800/);
+  assert.match(panel, /dark:border-neutral-700/);
   assert.match(panel, /variantClassName/);
   assert.match(pageShell, /max-w-6xl/);
   assert.match(pageShell, /PageShell/);

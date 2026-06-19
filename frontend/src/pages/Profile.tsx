@@ -244,7 +244,7 @@ export const Profile = () => {
               />
             </div>
 
-            <div className="border-t border-neutral-100 pt-6 dark:border-neutral-800">
+            <div className="border-t border-neutral-200 pt-6 dark:border-neutral-700">
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <label
@@ -268,7 +268,7 @@ export const Profile = () => {
               </div>
             </div>
 
-            <section className="border-t border-neutral-100 pt-8 dark:border-neutral-800">
+            <section className="border-t border-neutral-200 pt-8 dark:border-neutral-700">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <h2 className="text-xl font-serif font-black text-neutral-900 dark:text-neutral-100">
@@ -319,7 +319,7 @@ export const Profile = () => {
                       ))}
                     </div>
                     {activityTotalPages > 1 && (
-                      <div className="mt-8 flex items-center justify-between border-t border-neutral-100 pt-6 dark:border-neutral-800">
+                      <div className="mt-8 flex items-center justify-between border-t border-neutral-200 pt-6 dark:border-neutral-700">
                         <Button
                           type="button"
                           variant="secondary"

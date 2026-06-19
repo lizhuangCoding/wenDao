@@ -116,7 +116,7 @@ export const CommentItem = ({ comment, articleId, isReply = false }: CommentItem
         {/* 评论头部 */}
         <div className="flex items-center gap-3 mb-2">
           {/* 用户头像 */}
-          <div className="w-8 h-8 rounded-full overflow-hidden bg-neutral-200 dark:bg-neutral-700 flex items-center justify-center flex-shrink-0 border border-neutral-100 dark:border-neutral-600">
+          <div className="w-8 h-8 rounded-full overflow-hidden bg-neutral-200 dark:bg-neutral-700 flex items-center justify-center flex-shrink-0 border border-neutral-200 dark:border-neutral-600">
             {isDeletedUser ? (
               <DefaultDeletedUserAvatar />
             ) : (

@@ -37,7 +37,7 @@ export const ChatQuestionNavigator = ({ activeId, items, onSelect }: ChatQuestio
           })}
         </div>
 
-        <div className="absolute inset-y-0 right-0 w-80 translate-x-4 rounded-2xl border border-neutral-100 bg-white/95 p-3 opacity-0 shadow-elevated backdrop-blur transition-all duration-200 group-hover:translate-x-0 group-hover:opacity-100 group-focus-within:translate-x-0 group-focus-within:opacity-100 dark:border-neutral-700 dark:bg-neutral-900/95">
+        <div className="absolute inset-y-0 right-0 w-80 translate-x-4 rounded-2xl border border-neutral-200 bg-white/95 p-3 opacity-0 shadow-elevated backdrop-blur transition-all duration-200 group-hover:translate-x-0 group-hover:opacity-100 group-focus-within:translate-x-0 group-focus-within:opacity-100 dark:border-neutral-700 dark:bg-neutral-900/95">
           <div className="mb-3 flex items-center justify-between px-1">
             <p className="text-xs font-black tracking-wider text-neutral-800 dark:text-neutral-100">
               {t('chat.questionDirectory')}

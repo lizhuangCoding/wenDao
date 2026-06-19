@@ -7,7 +7,7 @@ interface EmptyStateProps {
 export const EmptyState = ({ title, description, className = '' }: EmptyStateProps) => {
   return (
     <div
-      className={`rounded-2xl border border-dashed border-neutral-200 bg-neutral-50 px-6 py-12 text-center dark:border-neutral-800 dark:bg-neutral-900/60 ${className}`}
+      className={`rounded-2xl border border-dashed border-neutral-200 bg-neutral-50 px-6 py-12 text-center dark:border-neutral-700 dark:bg-neutral-900/60 ${className}`}
     >
       <div className="text-base font-semibold text-neutral-600 dark:text-neutral-300">{title}</div>
       {description && (

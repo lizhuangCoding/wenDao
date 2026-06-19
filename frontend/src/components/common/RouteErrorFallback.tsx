@@ -42,13 +42,13 @@ export const RouteErrorFallback = () => {
           <button
             type="button"
             onClick={() => window.location.reload()}
-            className="rounded-full bg-neutral-900 px-5 py-2.5 text-xs font-black tracking-widest text-white transition-colors hover:bg-primary-600 dark:bg-neutral-100 dark:text-neutral-950 dark:hover:bg-primary-400"
+            className="rounded-full bg-neutral-900 px-5 py-2.5 text-xs font-black tracking-widest text-white transition-colors hover:bg-primary-600 dark:bg-neutral-100 dark:text-neutral-950 dark:hover:bg-primary-400 dark:hover:text-white"
           >
             {t('routeError.reload')}
           </button>
           <Link
             to="/"
-            className="rounded-full border border-neutral-200 px-5 py-2.5 text-xs font-black tracking-widest text-neutral-700 transition-colors hover:bg-white dark:border-neutral-800 dark:text-neutral-200 dark:hover:bg-neutral-900"
+            className="rounded-full border border-neutral-200 px-5 py-2.5 text-xs font-black tracking-widest text-neutral-700 transition-colors hover:bg-white dark:border-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-900"
           >
             {t('common.backToHome')}
           </Link>

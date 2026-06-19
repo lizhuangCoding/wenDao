@@ -90,7 +90,7 @@ export const Broadcast = () => {
         }
       />
 
-      <section className="rounded-2xl border border-neutral-100 bg-white p-5 shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
+      <section className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm dark:border-neutral-700 dark:bg-neutral-900">
         <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
           {t('broadcast.notificationTitle')}
         </label>

@@ -36,7 +36,7 @@ export const ContactLinks = ({ className, links = defaultContactLinks }: Contact
           const Icon = iconByType[link.type] || ExternalLink;
           const href = normalizeUrl(link);
           const cardClassName =
-            'group flex items-center gap-3 rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-left transition-colors hover:border-primary-200 hover:bg-primary-50/50 dark:border-neutral-800 dark:bg-neutral-950/40 dark:hover:border-primary-900 dark:hover:bg-neutral-900';
+            'group flex items-center gap-3 rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-left transition-colors hover:border-primary-200 hover:bg-primary-50/50 dark:border-neutral-700 dark:bg-neutral-950/40 dark:hover:border-primary-900 dark:hover:bg-neutral-900';
           const iconClassName =
             'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-neutral-900 text-white transition-transform group-hover:scale-105 dark:bg-neutral-100 dark:text-neutral-900';
 

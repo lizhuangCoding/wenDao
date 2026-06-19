@@ -11,7 +11,7 @@ test('ArticleCard keeps metadata and placeholders readable in light and dark mod
 
   assert.match(source, /dark:from-neutral-800/);
   assert.match(source, /dark:to-neutral-900/);
-  assert.match(source, /dark:border-neutral-800/);
+  assert.match(source, /dark:border-neutral-700/);
   assert.match(source, /dark:text-neutral-500/);
   assert.match(source, /dark:bg-neutral-700/);
 });

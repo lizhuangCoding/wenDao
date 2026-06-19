@@ -14,11 +14,11 @@ const paddingClassName: Record<NonNullable<PanelProps['padding']>, string> = {
 };
 
 const variantClassName: Record<NonNullable<PanelProps['variant']>, string> = {
-  default: 'border-neutral-100 bg-white shadow-sm dark:border-neutral-800 dark:bg-neutral-900',
-  muted: 'border-neutral-100 bg-neutral-50/70 dark:border-neutral-800 dark:bg-neutral-900/60',
-  elevated: 'border-neutral-100 bg-white shadow-soft dark:border-neutral-800 dark:bg-neutral-900',
+  default: 'border-neutral-200 bg-white shadow-sm dark:border-neutral-700 dark:bg-neutral-900',
+  muted: 'border-neutral-200 bg-neutral-50/80 dark:border-neutral-700 dark:bg-neutral-900/80',
+  elevated: 'border-neutral-200 bg-white shadow-soft dark:border-neutral-700 dark:bg-neutral-900',
   interactive:
-    'border-neutral-100 bg-white shadow-sm transition-colors hover:border-primary-200 dark:border-neutral-800 dark:bg-neutral-900 dark:hover:border-primary-500/40',
+    'border-neutral-200 bg-white shadow-sm transition-colors hover:border-primary-300 dark:border-neutral-700 dark:bg-neutral-900 dark:hover:border-primary-500/60',
 };
 
 export const Panel = ({ className, padding = 'md', variant = 'default', ...props }: PanelProps) => (

@@ -523,11 +523,11 @@ export const MarkdownWritingStudio = ({
     ? 'fixed inset-0 z-50 flex flex-col overflow-hidden bg-neutral-50 p-3 dark:bg-neutral-950 sm:p-4'
     : 'space-y-3';
   const headerClassName = isImmersive
-    ? 'mb-3 flex shrink-0 flex-col gap-3 rounded-2xl border border-neutral-200 bg-white px-4 py-3 shadow-sm dark:border-neutral-800 dark:bg-neutral-900 lg:flex-row lg:items-center lg:justify-between'
+    ? 'mb-3 flex shrink-0 flex-col gap-3 rounded-2xl border border-neutral-200 bg-white px-4 py-3 shadow-sm dark:border-neutral-700 dark:bg-neutral-900 lg:flex-row lg:items-center lg:justify-between'
     : 'flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between';
   const studioShellClassName = isImmersive
-    ? 'flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-neutral-200 bg-neutral-50/90 p-3 dark:border-neutral-800 dark:bg-neutral-950/90'
-    : 'rounded-2xl border border-neutral-200 bg-neutral-50/70 p-3 dark:border-neutral-800 dark:bg-neutral-950/40';
+    ? 'flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-neutral-200 bg-neutral-50/90 p-3 dark:border-neutral-700 dark:bg-neutral-950/90'
+    : 'rounded-2xl border border-neutral-200 bg-neutral-50/70 p-3 dark:border-neutral-700 dark:bg-neutral-950/40';
   const toolbarClassName = isImmersive
     ? 'mb-3 flex shrink-0 flex-wrap items-center gap-2'
     : 'mb-3 flex flex-wrap items-center gap-2';
@@ -700,8 +700,8 @@ export const MarkdownWritingStudio = ({
         </div>
 
         {isAIPanelOpen && (
-          <section className="mb-4 rounded-2xl border border-neutral-200 bg-white shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
-            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-neutral-100 px-4 py-3 dark:border-neutral-800">
+          <section className="mb-4 rounded-2xl border border-neutral-200 bg-white shadow-sm dark:border-neutral-700 dark:bg-neutral-900">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-neutral-200 px-4 py-3 dark:border-neutral-700">
               <div>
                 <div className="inline-flex items-center gap-2 text-sm font-semibold text-neutral-700 dark:text-neutral-200">
                   <Sparkles className="h-4 w-4 text-amber-500" aria-hidden="true" />
@@ -795,7 +795,7 @@ export const MarkdownWritingStudio = ({
                           key={suggestion}
                           type="button"
                           onClick={() => onApplyWritingResult(suggestion)}
-                          className="block w-full rounded-xl border border-neutral-100 bg-white px-3 py-2.5 text-left text-sm font-semibold text-neutral-700 transition-colors hover:border-amber-200 hover:bg-amber-50 dark:border-neutral-800 dark:bg-neutral-950 dark:text-neutral-100 dark:hover:border-amber-500/30 dark:hover:bg-amber-500/10"
+                          className="block w-full rounded-xl border border-neutral-200 bg-white px-3 py-2.5 text-left text-sm font-semibold text-neutral-700 transition-colors hover:border-amber-200 hover:bg-amber-50 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100 dark:hover:border-amber-500/30 dark:hover:bg-amber-500/10"
                         >
                           {suggestion}
                         </button>
@@ -826,9 +826,9 @@ export const MarkdownWritingStudio = ({
         <div className={panelGridClassName}>
           {editorMode !== 'preview' && (
             <section
-              className={`flex ${panelSizeClass} flex-col overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm dark:border-neutral-800 dark:bg-neutral-900`}
+              className={`flex ${panelSizeClass} flex-col overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm dark:border-neutral-700 dark:bg-neutral-900`}
             >
-              <div className="flex items-center justify-between border-b border-neutral-100 px-4 py-3 dark:border-neutral-800">
+              <div className="flex items-center justify-between border-b border-neutral-200 px-4 py-3 dark:border-neutral-700">
                 <div>
                   <div className="text-sm font-semibold text-neutral-700 dark:text-neutral-200">
                     Markdown
@@ -865,9 +865,9 @@ export const MarkdownWritingStudio = ({
 
           {editorMode !== 'edit' && (
             <section
-              className={`flex ${panelSizeClass} flex-col overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm dark:border-neutral-800 dark:bg-neutral-900`}
+              className={`flex ${panelSizeClass} flex-col overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm dark:border-neutral-700 dark:bg-neutral-900`}
             >
-              <div className="flex items-center justify-between border-b border-neutral-100 px-4 py-3 dark:border-neutral-800">
+              <div className="flex items-center justify-between border-b border-neutral-200 px-4 py-3 dark:border-neutral-700">
                 <div>
                   <div className="text-sm font-semibold text-neutral-700 dark:text-neutral-200">
                     {t('articleEditor.previewTitle')}
@@ -891,7 +891,7 @@ export const MarkdownWritingStudio = ({
                     <ArticlePreview content={content} />
                   </Suspense>
                 ) : (
-                  <div className="flex h-full min-h-[420px] items-center justify-center rounded-xl border border-dashed border-neutral-200 text-sm text-neutral-400 dark:border-neutral-800 dark:text-neutral-500">
+                  <div className="flex h-full min-h-[420px] items-center justify-center rounded-xl border border-dashed border-neutral-200 text-sm text-neutral-400 dark:border-neutral-700 dark:text-neutral-500">
                     {t('articleEditor.previewEmpty')}
                   </div>
                 )}

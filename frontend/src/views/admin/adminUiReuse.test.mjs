@@ -37,7 +37,7 @@ test('admin list pages reuse shared layout, form, table, and status primitives',
   assert.match(sources[3], /StatusBadge/);
 
   const combined = sources.join('\n');
-  assert.equal(countMatches(combined, /rounded-2xl border border-neutral-100 bg-white/g), 0);
+  assert.equal(countMatches(combined, /rounded-2xl border border-neutral-(?:100|200) bg-white/g), 0);
   assert.ok(countMatches(combined, /px-6 py-4 text-sm font-semibold text-neutral-600/g) < 3);
 });
 

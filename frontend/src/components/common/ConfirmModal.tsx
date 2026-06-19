@@ -49,7 +49,7 @@ export const ConfirmModal = ({
               initial={{ opacity: 0, scale: 0.9, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              className="w-full max-w-sm bg-white dark:bg-neutral-800 rounded-[32px] shadow-elevated overflow-hidden border border-neutral-100 dark:border-neutral-700"
+              className="w-full max-w-sm bg-white dark:bg-neutral-800 rounded-[32px] shadow-elevated overflow-hidden border border-neutral-200 dark:border-neutral-700"
             >
               <div className="p-8">
                 <h3 className="text-xl font-serif font-black text-neutral-900 dark:text-neutral-100 mb-3">
@@ -64,7 +64,7 @@ export const ConfirmModal = ({
                     type="button"
                     onClick={onCancel}
                     disabled={isConfirming}
-                    className="flex-1 px-6 py-3 rounded-2xl text-[10px] font-black tracking-widest uppercase transition-all border border-neutral-100 dark:border-neutral-700 text-neutral-400 hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-60 dark:hover:bg-neutral-700"
+                    className="flex-1 px-6 py-3 rounded-2xl text-[10px] font-black tracking-widest uppercase transition-all border border-neutral-200 dark:border-neutral-700 text-neutral-400 hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-60 dark:hover:bg-neutral-700"
                   >
                     {cancelText || t('common.cancel')}
                   </button>

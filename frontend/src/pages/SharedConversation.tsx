@@ -132,7 +132,7 @@ export const SharedConversation = () => {
           </p>
         </div>
 
-        <div className="bg-white dark:bg-neutral-800 rounded-2xl sm:rounded-[32px] border border-neutral-100 dark:border-neutral-700 shadow-soft overflow-hidden">
+        <div className="bg-white dark:bg-neutral-800 rounded-2xl sm:rounded-[32px] border border-neutral-200 dark:border-neutral-700 shadow-soft overflow-hidden">
           <ChatQuestionNavigator
             activeId={null}
             items={questionNavItems}

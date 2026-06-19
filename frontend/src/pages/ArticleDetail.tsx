@@ -270,7 +270,7 @@ export const ArticleDetail = () => {
 
               {isAdmin && (
                 <div className="flex gap-4 mb-8">
-                  <Link to={`/admin/articles/edit/${article.id}`} className="bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900 text-[10px] font-black tracking-widest px-6 py-3 rounded-full hover:bg-primary-600 dark:hover:bg-primary-500 transition-all uppercase">
+                  <Link to={`/admin/articles/edit/${article.id}`} className="bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900 text-[10px] font-black tracking-widest px-6 py-3 rounded-full hover:bg-primary-600 dark:hover:bg-primary-500 dark:hover:text-white transition-all uppercase">
                     {t('article.editPiece')}
                   </Link>
                 </div>
@@ -281,7 +281,7 @@ export const ArticleDetail = () => {
               <ArticleContent content={article.content} />
             </div>
 
-            <div className="article-interaction-actions mt-16 flex flex-wrap items-center justify-center gap-3 border-y border-neutral-100 py-8 dark:border-neutral-800">
+            <div className="article-interaction-actions mt-16 flex flex-wrap items-center justify-center gap-3 border-y border-neutral-200 py-8 dark:border-neutral-700">
               <button
                 type="button"
                 onClick={handleLikeClick}
@@ -314,8 +314,8 @@ export const ArticleDetail = () => {
             </div>
 
             {article.collection_navigation && (
-              <nav className="mt-12 rounded-xl border border-neutral-100 bg-white p-5 shadow-sm dark:border-neutral-800 dark:bg-neutral-900" aria-label="合集导航">
-                <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-neutral-100 pb-4 dark:border-neutral-800">
+              <nav className="mt-12 rounded-xl border border-neutral-200 bg-white p-5 shadow-sm dark:border-neutral-700 dark:bg-neutral-900" aria-label="合集导航">
+                <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-neutral-200 pb-4 dark:border-neutral-700">
                   <div>
                     <p className="text-[10px] font-black uppercase tracking-[0.24em] text-primary-600 dark:text-primary-400">Collection</p>
                     <p className="mt-1 text-sm font-bold text-neutral-900 dark:text-neutral-100">
@@ -330,7 +330,7 @@ export const ArticleDetail = () => {
                   {article.collection_navigation.previous ? (
                     <Link
                       to={`/article/${article.collection_navigation.previous.slug}`}
-                      className="group flex min-h-24 flex-col justify-between rounded-lg border border-neutral-100 p-4 transition-all hover:border-primary-200 hover:bg-primary-50/60 dark:border-neutral-800 dark:hover:border-primary-500/30 dark:hover:bg-primary-500/10"
+                      className="group flex min-h-24 flex-col justify-between rounded-lg border border-neutral-200 p-4 transition-all hover:border-primary-200 hover:bg-primary-50/60 dark:border-neutral-700 dark:hover:border-primary-500/30 dark:hover:bg-primary-500/10"
                     >
                       <span className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-[0.18em] text-neutral-400 group-hover:text-primary-600 dark:text-neutral-500 dark:group-hover:text-primary-300">
                         <ArrowLeft className="h-4 w-4" />
@@ -341,14 +341,14 @@ export const ArticleDetail = () => {
                       </span>
                     </Link>
                   ) : (
-                    <div className="flex min-h-24 items-center rounded-lg border border-dashed border-neutral-100 p-4 text-sm font-medium text-neutral-400 dark:border-neutral-800 dark:text-neutral-600">
+                    <div className="flex min-h-24 items-center rounded-lg border border-dashed border-neutral-200 p-4 text-sm font-medium text-neutral-400 dark:border-neutral-700 dark:text-neutral-600">
                       已经是合集第一篇
                     </div>
                   )}
                   {article.collection_navigation.next ? (
                     <Link
                       to={`/article/${article.collection_navigation.next.slug}`}
-                      className="group flex min-h-24 flex-col justify-between rounded-lg border border-neutral-100 p-4 text-right transition-all hover:border-primary-200 hover:bg-primary-50/60 dark:border-neutral-800 dark:hover:border-primary-500/30 dark:hover:bg-primary-500/10"
+                      className="group flex min-h-24 flex-col justify-between rounded-lg border border-neutral-200 p-4 text-right transition-all hover:border-primary-200 hover:bg-primary-50/60 dark:border-neutral-700 dark:hover:border-primary-500/30 dark:hover:bg-primary-500/10"
                     >
                       <span className="inline-flex items-center justify-end gap-2 text-xs font-black uppercase tracking-[0.18em] text-neutral-400 group-hover:text-primary-600 dark:text-neutral-500 dark:group-hover:text-primary-300">
                         下一篇
@@ -359,7 +359,7 @@ export const ArticleDetail = () => {
                       </span>
                     </Link>
                   ) : (
-                    <div className="flex min-h-24 items-center justify-end rounded-lg border border-dashed border-neutral-100 p-4 text-right text-sm font-medium text-neutral-400 dark:border-neutral-800 dark:text-neutral-600">
+                    <div className="flex min-h-24 items-center justify-end rounded-lg border border-dashed border-neutral-200 p-4 text-right text-sm font-medium text-neutral-400 dark:border-neutral-700 dark:text-neutral-600">
                       已经是合集最后一篇
                     </div>
                   )}
@@ -367,7 +367,7 @@ export const ArticleDetail = () => {
               </nav>
             )}
 
-            <div className="mt-24 pt-16 border-t border-neutral-100 dark:border-neutral-800">
+            <div className="mt-24 pt-16 border-t border-neutral-200 dark:border-neutral-700">
               <CommentList articleId={article.id} totalCommentCount={article.comment_count} />
             </div>
           </motion.article>

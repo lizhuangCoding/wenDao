@@ -50,7 +50,7 @@ export const Pagination = ({
           type="button"
           onClick={() => onChange(Math.max(1, safePage - 1))}
           disabled={safePage === 1}
-          className="inline-flex items-center gap-2 rounded-xl bg-neutral-100 px-4 py-2 text-sm font-medium text-neutral-700 transition-all hover:bg-neutral-200 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-700"
+          className="inline-flex items-center gap-2 rounded-xl border border-neutral-200 bg-white px-4 py-2 text-sm font-medium text-neutral-700 transition-all hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-40 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200 dark:hover:bg-neutral-800"
         >
           <ChevronLeft className="h-4 w-4" />
           {resolvedPreviousLabel}
@@ -68,8 +68,8 @@ export const Pagination = ({
                   onClick={() => onChange(item)}
                   className={`h-10 min-w-10 rounded-xl px-3 text-sm font-bold transition-all ${
                     safePage === item
-                      ? 'bg-primary-600 text-white shadow-sm'
-                      : 'bg-neutral-100 text-neutral-500 hover:bg-neutral-200 hover:text-neutral-900 dark:bg-neutral-800 dark:text-neutral-400 dark:hover:bg-neutral-700 dark:hover:text-neutral-100'
+                      ? 'bg-primary-600 text-white shadow-sm dark:bg-primary-500 dark:text-white'
+                      : 'border border-neutral-200 bg-white text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800 dark:hover:text-neutral-100'
                   }`}
                   aria-current={safePage === item ? 'page' : undefined}
                 >
@@ -84,7 +84,7 @@ export const Pagination = ({
           type="button"
           onClick={() => onChange(Math.min(safeTotalPages, safePage + 1))}
           disabled={safePage === safeTotalPages}
-          className="inline-flex items-center gap-2 rounded-xl bg-neutral-100 px-4 py-2 text-sm font-medium text-neutral-700 transition-all hover:bg-neutral-200 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-700"
+          className="inline-flex items-center gap-2 rounded-xl border border-neutral-200 bg-white px-4 py-2 text-sm font-medium text-neutral-700 transition-all hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-40 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200 dark:hover:bg-neutral-800"
         >
           {resolvedNextLabel}
           <ChevronRight className="h-4 w-4" />
@@ -101,7 +101,7 @@ export const Pagination = ({
           <select
             value={pageSize}
             onChange={(e) => onPageSizeChange(Number(e.target.value))}
-            className="rounded-lg border border-neutral-100 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 px-2 py-1 text-xs font-medium text-neutral-600 dark:text-neutral-400 focus:outline-none focus:border-primary-500 cursor-pointer"
+            className="cursor-pointer rounded-lg border border-neutral-200 bg-white px-2 py-1 text-xs font-medium text-neutral-700 focus:border-primary-500 focus:outline-none dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200"
             aria-label={t('common.perPage', { count: pageSize })}
           >
             {pageSizeOptions.map((size) => (

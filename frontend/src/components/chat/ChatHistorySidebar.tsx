@@ -158,7 +158,7 @@ export const ChatHistorySidebar = ({
                       initial={{ opacity: 0, scale: 0.95, y: -10 }}
                       animate={{ opacity: 1, scale: 1, y: 0 }}
                       exit={{ opacity: 0, scale: 0.95, y: -10 }}
-                      className="absolute right-0 top-full mt-2 w-36 bg-white dark:bg-neutral-800 rounded-xl shadow-elevated border border-neutral-100 dark:border-neutral-700 py-1.5 z-[100] backdrop-blur-sm"
+                      className="absolute right-0 top-full mt-2 w-36 bg-white dark:bg-neutral-800 rounded-xl shadow-elevated border border-neutral-200 dark:border-neutral-700 py-1.5 z-[100] backdrop-blur-sm"
                     >
                       <button
                         type="button"
@@ -218,7 +218,7 @@ export const ChatHistorySidebar = ({
               animate={{ x: 0 }}
               exit={{ x: -320 }}
               transition={{ type: 'spring', stiffness: 260, damping: 28 }}
-              className="h-full w-[min(88vw,320px)] bg-white dark:bg-neutral-900 border-r border-neutral-100 dark:border-neutral-800 p-5 flex flex-col gap-4 shadow-elevated"
+              className="h-full w-[min(88vw,320px)] bg-white dark:bg-neutral-900 border-r border-neutral-200 dark:border-neutral-700 p-5 flex flex-col gap-4 shadow-elevated"
               onClick={(event) => event.stopPropagation()}
             >
               <div className="flex items-center justify-between">
@@ -243,12 +243,12 @@ export const ChatHistorySidebar = ({
         )}
       </AnimatePresence>
 
-      <aside className={`${isSidebarCollapsed ? 'w-16 pr-3' : 'w-80 pr-6'} hidden lg:flex flex-col gap-4 h-full border-r border-neutral-100 dark:border-neutral-800 transition-all duration-200 ${isImmersive ? 'pl-4 py-4 bg-white dark:bg-neutral-900' : ''}`}>
+      <aside className={`${isSidebarCollapsed ? 'w-16 pr-3' : 'w-80 pr-6'} hidden lg:flex flex-col gap-4 h-full border-r border-neutral-200 dark:border-neutral-700 transition-all duration-200 ${isImmersive ? 'pl-4 py-4 bg-white dark:bg-neutral-900' : ''}`}>
         <button
           type="button"
           onClick={() => onSidebarCollapsedChange(!isSidebarCollapsed)}
           data-chat-history-toggle="sidebar"
-          className="w-12 h-12 flex items-center justify-center rounded-2xl border border-neutral-100 dark:border-neutral-700 text-neutral-500 dark:text-neutral-300 hover:text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors"
+          className="w-12 h-12 flex items-center justify-center rounded-2xl border border-neutral-200 dark:border-neutral-700 text-neutral-500 dark:text-neutral-300 hover:text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors"
           aria-label={isSidebarCollapsed ? t('chat.expandHistory') : t('chat.collapseHistory')}
           title={isSidebarCollapsed ? t('chat.expandHistory') : t('chat.collapseHistory')}
         >

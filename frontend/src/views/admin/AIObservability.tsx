@@ -427,7 +427,7 @@ const RunDetail = ({ run }: { run?: AIObservabilityRun }) => {
         <div className="mb-2 text-sm font-semibold text-neutral-800 dark:text-neutral-100">过程步骤</div>
         <div className="grid gap-2">
           {run.steps.map((step) => (
-            <div key={step.id} className="flex flex-col gap-1 rounded border border-neutral-100 p-3 dark:border-neutral-800 sm:flex-row sm:items-center sm:justify-between">
+            <div key={step.id} className="flex flex-col gap-1 rounded border border-neutral-200 p-3 dark:border-neutral-700 sm:flex-row sm:items-center sm:justify-between">
               <div className="min-w-0">
                 <div className="text-sm font-medium text-neutral-800 dark:text-neutral-100">{step.summary}</div>
                 <div className="text-xs text-neutral-400 dark:text-neutral-500">{step.agent_name} · {step.type} · {step.created_at}</div>

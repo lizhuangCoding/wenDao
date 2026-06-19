@@ -38,7 +38,7 @@ export const ChatComposer = ({
         onChange={(event) => onChange(event.target.value)}
         onKeyDown={onKeyDown}
         placeholder={requiresUserInput && pendingQuestion ? pendingQuestion : placeholder}
-        className="max-h-40 min-h-[52px] w-full resize-none overflow-y-auto bg-neutral-50 dark:bg-neutral-700 border-2 border-neutral-100 dark:border-neutral-600 rounded-2xl py-3.5 pl-4 pr-14 sm:min-h-[56px] sm:py-4 sm:pl-6 sm:pr-16 text-sm font-bold leading-6 text-neutral-900 dark:text-neutral-100 placeholder-neutral-400 dark:placeholder-neutral-500 transition-all focus:outline-none focus:border-primary-500 focus:bg-white dark:focus:bg-neutral-600 focus:shadow-elevated"
+        className="max-h-40 min-h-[52px] w-full resize-none overflow-y-auto bg-neutral-50 dark:bg-neutral-700 border-2 border-neutral-200 dark:border-neutral-600 rounded-2xl py-3.5 pl-4 pr-14 sm:min-h-[56px] sm:py-4 sm:pl-6 sm:pr-16 text-sm font-bold leading-6 text-neutral-900 dark:text-neutral-100 placeholder-neutral-400 dark:placeholder-neutral-500 transition-all focus:outline-none focus:border-primary-500 focus:bg-white dark:focus:bg-neutral-600 focus:shadow-elevated"
         disabled={disabled}
         aria-label={t('chat.composerAriaLabel')}
       />

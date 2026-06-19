@@ -521,13 +521,13 @@ export const ArticleEditor = () => {
         className={
           isWritingFocused
             ? 'space-y-5'
-            : 'space-y-6 rounded-xl border border-neutral-100 bg-white p-4 shadow-sm dark:border-neutral-800 dark:bg-neutral-900 sm:p-8'
+            : 'space-y-6 rounded-xl border border-neutral-200 bg-white p-4 shadow-sm dark:border-neutral-700 dark:bg-neutral-900 sm:p-8'
         }
       >
         <div
           className={
             isWritingFocused
-              ? 'rounded-2xl border border-neutral-100 bg-white p-5 shadow-sm dark:border-neutral-800 dark:bg-neutral-900'
+              ? 'rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm dark:border-neutral-700 dark:bg-neutral-900'
               : ''
           }
         >
@@ -643,7 +643,7 @@ export const ArticleEditor = () => {
                   {formData.scheduled_publish_at ? t('articleEditor.scheduledSet') : t('articleEditor.optional')}
                 </span>
               </div>
-              <div className="article-schedule-picker rounded-2xl border border-neutral-100 bg-neutral-50/80 p-3 shadow-inner shadow-white/70 transition-colors dark:border-neutral-800 dark:bg-neutral-800/40 dark:shadow-none">
+              <div className="article-schedule-picker rounded-2xl border border-neutral-200 bg-neutral-50/80 p-3 shadow-inner shadow-white/70 transition-colors dark:border-neutral-700 dark:bg-neutral-800/40 dark:shadow-none">
                 <DatePicker
                   value={scheduledPublishPickerValue}
                   onChange={(value) =>
@@ -669,7 +669,7 @@ export const ArticleEditor = () => {
               </p>
             </div>
 
-            <div className="rounded-2xl border border-neutral-100 bg-white p-4 shadow-sm transition-colors dark:border-neutral-800 dark:bg-neutral-900">
+            <div className="rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm transition-colors dark:border-neutral-700 dark:bg-neutral-900">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">

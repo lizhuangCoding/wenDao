@@ -342,16 +342,16 @@ export const AIChat = () => {
         <main className={`min-w-0 flex-1 flex flex-col h-full bg-white dark:bg-neutral-800 overflow-hidden relative ${
           isImmersive
             ? 'rounded-none border-0 shadow-none'
-            : 'rounded-2xl sm:rounded-[32px] border border-neutral-100 dark:border-neutral-700 shadow-soft'
+            : 'rounded-2xl sm:rounded-[32px] border border-neutral-200 dark:border-neutral-700 shadow-soft'
         }`}>
-          <header className={`px-4 sm:px-8 lg:px-10 py-4 lg:py-6 border-b border-neutral-100 dark:border-neutral-700 flex flex-col items-stretch gap-3 bg-white dark:bg-neutral-800 z-10 sm:flex-row sm:items-center sm:justify-between ${
+          <header className={`px-4 sm:px-8 lg:px-10 py-4 lg:py-6 border-b border-neutral-200 dark:border-neutral-700 flex flex-col items-stretch gap-3 bg-white dark:bg-neutral-800 z-10 sm:flex-row sm:items-center sm:justify-between ${
             isImmersive ? 'rounded-none' : 'rounded-t-2xl sm:rounded-[32px]'
           }`}>
             <div className="flex items-center gap-3 min-w-0">
               <button
                 type="button"
                 onClick={() => setIsHistoryDrawerOpen(true)}
-                className="lg:hidden h-9 w-9 sm:w-10 sm:h-10 flex shrink-0 items-center justify-center rounded-xl border border-neutral-100 dark:border-neutral-700 text-neutral-500 dark:text-neutral-300 hover:text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors"
+                className="lg:hidden h-9 w-9 sm:w-10 sm:h-10 flex shrink-0 items-center justify-center rounded-xl border border-neutral-200 dark:border-neutral-700 text-neutral-500 dark:text-neutral-300 hover:text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors"
                 aria-label={t('chat.openHistory')}
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -425,7 +425,7 @@ export const AIChat = () => {
                     type="button"
                     onClick={handleExport}
                     disabled={isExporting || messages.length === 0}
-                    className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-neutral-100 dark:border-neutral-700 px-2.5 py-2 sm:px-3 text-xs font-bold text-neutral-500 dark:text-neutral-300 hover:text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors disabled:opacity-30"
+                    className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-neutral-200 dark:border-neutral-700 px-2.5 py-2 sm:px-3 text-xs font-bold text-neutral-500 dark:text-neutral-300 hover:text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors disabled:opacity-30"
                     title={t('chat.exportConversation')}
                   >
                     <Download className="h-4 w-4" aria-hidden="true" />
@@ -452,7 +452,7 @@ export const AIChat = () => {
                         type="button"
                         onClick={handleToggleShare}
                         disabled={isSharing}
-                        className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-neutral-100 dark:border-neutral-700 px-2 py-2 sm:px-2.5 text-xs font-bold text-neutral-400 hover:text-red-500 hover:border-red-200 dark:hover:border-red-800 transition-colors disabled:opacity-30"
+                        className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-neutral-200 dark:border-neutral-700 px-2 py-2 sm:px-2.5 text-xs font-bold text-neutral-400 hover:text-red-500 hover:border-red-200 dark:hover:border-red-800 transition-colors disabled:opacity-30"
                         title={t('chat.cancelShare')}
                       >
                         <span className="hidden sm:inline">{isSharing ? '...' : t('chat.cancelShare')}</span>
@@ -463,7 +463,7 @@ export const AIChat = () => {
                       type="button"
                       onClick={handleToggleShare}
                       disabled={isSharing || messages.length === 0}
-                      className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-neutral-100 dark:border-neutral-700 px-2.5 py-2 sm:px-3 text-xs font-bold text-neutral-500 dark:text-neutral-300 hover:text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors disabled:opacity-30"
+                      className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-neutral-200 dark:border-neutral-700 px-2.5 py-2 sm:px-3 text-xs font-bold text-neutral-500 dark:text-neutral-300 hover:text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors disabled:opacity-30"
                       title={t('chat.shareConversation')}
                     >
                       <Share2 className="h-4 w-4" aria-hidden="true" />
@@ -475,7 +475,7 @@ export const AIChat = () => {
               <button
                 type="button"
                 onClick={() => setIsImmersive((value) => !value)}
-                className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-neutral-100 dark:border-neutral-700 px-2.5 py-2 sm:px-3 text-xs font-bold text-neutral-500 dark:text-neutral-300 hover:text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors"
+                className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-neutral-200 dark:border-neutral-700 px-2.5 py-2 sm:px-3 text-xs font-bold text-neutral-500 dark:text-neutral-300 hover:text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors"
                 title={isImmersive ? t('chat.exitImmersiveMode') : t('chat.immersiveMode')}
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -553,7 +553,7 @@ export const AIChat = () => {
             )}
           </AnimatePresence>
 
-          <div className="px-3 sm:px-8 lg:px-10 py-4 lg:py-8 bg-white dark:bg-neutral-800 border-t border-neutral-100 dark:border-neutral-700 rounded-b-2xl sm:rounded-b-[32px]">
+          <div className="px-3 sm:px-8 lg:px-10 py-4 lg:py-8 bg-white dark:bg-neutral-800 border-t border-neutral-200 dark:border-neutral-700 rounded-b-2xl sm:rounded-b-[32px]">
             <AnimatePresence>
               {isAssistantProcessing && (
                 <AIProcessingHalo

@@ -12,7 +12,7 @@ export const ArticleDetailSkeleton = () => {
   return (
     <div className="flex flex-col justify-center gap-16 lg:flex-row">
       <aside className="hidden w-64 shrink-0 lg:block">
-        <div className="sticky top-32 space-y-6 rounded-2xl border border-neutral-200/70 bg-white/70 p-5 shadow-soft backdrop-blur-xl dark:border-neutral-800 dark:bg-[#07111a]/80">
+        <div className="sticky top-32 space-y-6 rounded-2xl border border-neutral-200/70 bg-white/70 p-5 shadow-soft backdrop-blur-xl dark:border-neutral-700 dark:bg-[#07111a]/80">
           <SkeletonLine className="h-3 w-24 rounded-md" />
           <div className="space-y-3">
             <SkeletonLine className="h-3 w-4/5 rounded-md" />
@@ -46,14 +46,14 @@ export const ArticleDetailSkeleton = () => {
             <SkeletonLine className="h-12 w-[80%] rounded-none" />
           </div>
 
-          <div className="mb-12 border-l-4 border-neutral-200 pl-6 dark:border-neutral-800">
+          <div className="mb-12 border-l-4 border-neutral-200 pl-6 dark:border-neutral-700">
             <div className="space-y-3 py-1">
               <SkeletonLine className="h-5 w-full rounded-md" />
               <SkeletonLine className="h-5 w-[88%] rounded-md" />
             </div>
           </div>
 
-          <div className="mb-16 aspect-[16/9] rounded-[32px] border border-neutral-200 bg-neutral-50 shadow-soft dark:border-neutral-800 dark:bg-neutral-900/50" />
+          <div className="mb-16 aspect-[16/9] rounded-[32px] border border-neutral-200 bg-neutral-50 shadow-soft dark:border-neutral-700 dark:bg-neutral-900/50" />
 
           <div className="flex gap-4">
             <SkeletonChip className="h-11 w-28" />
@@ -65,12 +65,12 @@ export const ArticleDetailSkeleton = () => {
           <ArticleContentSkeleton />
         </div>
 
-        <div className="mt-16 flex flex-wrap items-center justify-center gap-3 border-y border-neutral-100 py-8 dark:border-neutral-800">
+        <div className="mt-16 flex flex-wrap items-center justify-center gap-3 border-y border-neutral-200 py-8 dark:border-neutral-700">
           <SkeletonChip className="h-11 w-36" />
           <SkeletonChip className="h-11 w-36" />
         </div>
 
-        <div className="mt-24 border-t border-neutral-100 pt-16 dark:border-neutral-800">
+        <div className="mt-24 border-t border-neutral-200 pt-16 dark:border-neutral-700">
           <div className="space-y-4">
             <SkeletonLine className="h-4 w-40 rounded-md" />
             <SkeletonLine className="h-4 w-full rounded-md" />

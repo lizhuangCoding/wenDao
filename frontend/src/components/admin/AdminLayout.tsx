@@ -24,7 +24,7 @@ export const AdminLayout = () => {
     <Layout>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10 lg:py-12 flex flex-col md:flex-row gap-5 sm:gap-8 min-h-[calc(100dvh-4rem)]">
         <aside className="w-full shrink-0 md:w-64">
-          <nav className="flex gap-2 overflow-x-auto md:overflow-visible md:block md:space-y-1 scrollbar-hide bg-white dark:bg-neutral-800 rounded-2xl shadow-sm border border-neutral-100 dark:border-neutral-700 p-2">
+          <nav className="flex gap-2 overflow-x-auto md:overflow-visible md:block md:space-y-1 scrollbar-hide rounded-2xl border border-neutral-200 bg-white p-2 shadow-sm dark:border-neutral-700 dark:bg-neutral-900">
             {menuItems.map((item) => {
               const isActive = location.pathname.startsWith(item.path);
               return (
@@ -33,8 +33,8 @@ export const AdminLayout = () => {
                   to={item.path}
                   className={`flex shrink-0 whitespace-nowrap items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all md:w-full ${
                     isActive
-                      ? 'bg-primary-50 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400'
-                      : 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-50 dark:hover:bg-neutral-800 hover:text-neutral-900 dark:hover:text-neutral-200'
+                      ? 'bg-primary-50 text-primary-700 dark:bg-primary-500/15 dark:text-primary-300'
+                      : 'text-neutral-700 hover:bg-neutral-100 hover:text-neutral-950 dark:text-neutral-300 dark:hover:bg-neutral-800/80 dark:hover:text-neutral-100'
                   }`}
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">

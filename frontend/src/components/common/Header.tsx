@@ -50,7 +50,7 @@ export const Header = () => {
       <header
         className={cn(
           'fixed top-0 left-0 right-0 z-50 transition-all duration-500 ease-in-out',
-          'bg-white/70 dark:bg-[#07111a]/80 backdrop-blur-xl border-b border-neutral-200/50 dark:border-primary-900/20 shadow-sm',
+          'bg-white/70 dark:bg-[#07111a]/80 backdrop-blur-xl border-b border-neutral-200/70 dark:border-neutral-700/80 shadow-sm',
           scrollDirection === 'down' && !isMobileMenuOpen ? '-translate-y-full' : 'translate-y-0'
         )}
       >
@@ -156,7 +156,7 @@ export const Header = () => {
                   <Link to="/login" className="text-sm font-bold text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100 transition-colors">
                     {t('nav.login')}
                   </Link>
-                  <Link to="/register" className="bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900 text-xs font-bold tracking-widest px-6 py-2.5 rounded-full hover:bg-primary-600 dark:hover:bg-primary-500 transition-all shadow-soft">
+                  <Link to="/register" className="bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900 text-xs font-bold tracking-widest px-6 py-2.5 rounded-full hover:bg-primary-600 dark:hover:bg-primary-500 dark:hover:text-white transition-all shadow-soft">
                     {t('nav.signup')}
                   </Link>
                 </div>
@@ -180,7 +180,7 @@ export const Header = () => {
       {isMobileMenuOpen && (
         <div className="fixed inset-0 z-40 bg-neutral-950/30 backdrop-blur-sm lg:hidden" onClick={closeMobileMenu}>
           <div
-            className="absolute left-4 right-4 top-24 max-h-[calc(100dvh-7rem)] overflow-y-auto rounded-3xl border border-neutral-100 bg-white p-5 shadow-elevated dark:border-primary-900/20 dark:bg-[#07111a]"
+            className="absolute left-4 right-4 top-24 max-h-[calc(100dvh-7rem)] overflow-y-auto rounded-3xl border border-neutral-200 bg-white p-5 shadow-elevated dark:border-neutral-700 dark:bg-[#07111a]"
             onClick={(event) => event.stopPropagation()}
           >
             <nav className="space-y-2">
@@ -227,18 +227,18 @@ export const Header = () => {
               )}
             </nav>
 
-            <div className="mt-5 grid grid-cols-2 gap-2 border-t border-neutral-100 pt-5 dark:border-neutral-800">
+            <div className="mt-5 grid grid-cols-2 gap-2 border-t border-neutral-200 pt-5 dark:border-neutral-700">
               <button
                 type="button"
                 onClick={() => setLanguage(language === 'zh' ? 'en' : 'zh')}
-                className="rounded-2xl border border-neutral-100 px-4 py-3 text-xs font-bold uppercase text-neutral-500 transition-colors hover:bg-neutral-50 dark:border-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                className="rounded-2xl border border-neutral-200 px-4 py-3 text-xs font-bold uppercase text-neutral-700 transition-colors hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-800"
               >
                 {t('common.language')} · {language}
               </button>
               <button
                 type="button"
                 onClick={toggleTheme}
-                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-neutral-100 px-4 py-3 text-xs font-bold text-neutral-500 transition-colors hover:bg-neutral-50 dark:border-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-neutral-200 px-4 py-3 text-xs font-bold text-neutral-700 transition-colors hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-800"
               >
                 {getThemeIcon()}
                 {t('common.theme')}
@@ -259,14 +259,14 @@ export const Header = () => {
                   <Link
                     to="/login"
                     onClick={closeMobileMenu}
-                    className="rounded-2xl border border-neutral-100 px-4 py-3 text-center text-xs font-black tracking-widest text-neutral-600 transition-colors hover:bg-neutral-50 dark:border-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                    className="rounded-2xl border border-neutral-200 px-4 py-3 text-center text-xs font-black tracking-widest text-neutral-700 transition-colors hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-800"
                   >
                     {t('nav.login')}
                   </Link>
                   <Link
                     to="/register"
                     onClick={closeMobileMenu}
-                    className="rounded-2xl bg-neutral-900 px-4 py-3 text-center text-xs font-black tracking-widest text-white transition-colors hover:bg-primary-600 dark:bg-neutral-100 dark:text-neutral-900"
+                    className="rounded-2xl bg-neutral-900 px-4 py-3 text-center text-xs font-black tracking-widest text-white transition-colors hover:bg-primary-600 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-primary-500 dark:hover:text-white"
                   >
                     {t('nav.signup')}
                   </Link>

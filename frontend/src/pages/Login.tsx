@@ -140,7 +140,7 @@ export const Login = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-neutral-50 dark:bg-neutral-950 px-4 transition-colors">
-      <div className="max-w-md w-full bg-white/95 dark:bg-neutral-900/95 backdrop-blur rounded-[28px] shadow-elevated border border-neutral-100 dark:border-neutral-800 p-8 md:p-10">
+      <div className="max-w-md w-full bg-white/95 dark:bg-neutral-900/95 backdrop-blur rounded-[28px] shadow-elevated border border-neutral-200 dark:border-neutral-700 p-8 md:p-10">
         {isResetMode ? (
           <PasswordResetForm
             initialEmail={email}

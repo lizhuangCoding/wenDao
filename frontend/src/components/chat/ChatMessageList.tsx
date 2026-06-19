@@ -79,7 +79,7 @@ const MessageList = ({
         : undefined;
       const bubbleClassName = message.role === 'user'
         ? 'bg-gradient-to-br from-neutral-950 via-neutral-900 to-neutral-800 text-white shadow-elevated dark:from-neutral-800 dark:via-neutral-700 dark:to-neutral-800 dark:text-neutral-100 rounded-tr-none'
-        : 'border border-neutral-100 bg-white text-neutral-800 shadow-sm dark:border-neutral-700 dark:bg-[#07111a] dark:text-neutral-100 rounded-tl-none';
+        : 'border border-neutral-200 bg-white text-neutral-800 shadow-sm dark:border-neutral-700 dark:bg-[#07111a] dark:text-neutral-100 rounded-tl-none';
 
       return (
         <motion.div
@@ -170,7 +170,7 @@ const MessageList = ({
             status={featuredAgentStep?.status || 'running'}
             summary={featuredAgentStep?.summary}
           />
-          <div className="rounded-[24px] rounded-tl-none border border-neutral-100 bg-white px-6 py-4 shadow-sm dark:border-neutral-700 dark:bg-[#07111a]">
+          <div className="rounded-[24px] rounded-tl-none border border-neutral-200 bg-white px-6 py-4 shadow-sm dark:border-neutral-700 dark:bg-[#07111a]">
             <AgentMoodIndicator
               agentName={featuredAgentStep?.agent_name}
               detail={featuredAgentStep?.detail}

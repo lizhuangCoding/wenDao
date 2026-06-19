@@ -17,7 +17,7 @@ export const ArticleContentSkeleton = () => {
         <SkeletonLine className="h-4 w-[78%]" />
       </div>
 
-      <div className="rounded-2xl border border-neutral-200 bg-neutral-50/70 p-5 dark:border-neutral-800 dark:bg-neutral-900/70">
+      <div className="rounded-2xl border border-neutral-200 bg-neutral-50/70 p-5 dark:border-neutral-700 dark:bg-neutral-900/70">
         <div className="mb-4 flex items-center gap-2">
           <SkeletonLine className="h-3 w-16 rounded-md" />
           <SkeletonLine className="h-3 w-10 rounded-md" />

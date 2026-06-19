@@ -52,7 +52,7 @@ const StarterPromptButton = ({ disabled, onSelect, starterPrompt }: StarterPromp
       style={{ x, y }}
       whileHover={{ scale: 1.01 }}
       whileTap={{ scale: 0.99 }}
-      className="group flex min-h-28 items-start gap-4 rounded-2xl border border-neutral-100 bg-white p-4 text-left shadow-sm transition-colors hover:border-primary-200 hover:shadow-soft disabled:cursor-not-allowed disabled:opacity-60 dark:border-neutral-700 dark:bg-neutral-800 dark:hover:border-primary-800"
+      className="group flex min-h-28 items-start gap-4 rounded-2xl border border-neutral-200 bg-white p-4 text-left shadow-sm transition-colors hover:border-primary-200 hover:shadow-soft disabled:cursor-not-allowed disabled:opacity-60 dark:border-neutral-700 dark:bg-neutral-800 dark:hover:border-primary-800"
     >
       <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-neutral-100 text-neutral-500 transition-colors group-hover:bg-primary-50 group-hover:text-primary-600 dark:bg-neutral-700 dark:text-neutral-300 dark:group-hover:bg-primary-900/30 dark:group-hover:text-primary-300">
         <Icon className="h-5 w-5" aria-hidden="true" />

@@ -57,7 +57,7 @@ export const ModelSelector = ({ selectedModel, onSelect }: ModelSelectorProps) =
       </button>
 
       {open && (
-        <div className="absolute bottom-full right-0 mb-2 w-[min(92vw,28rem)] rounded-xl border border-neutral-100 dark:border-neutral-700 bg-white dark:bg-neutral-800 shadow-elevated z-50 py-1 overflow-hidden animate-in fade-in slide-in-from-bottom-1 duration-150">
+        <div className="absolute bottom-full right-0 mb-2 w-[min(92vw,28rem)] rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 shadow-elevated z-50 py-1 overflow-hidden animate-in fade-in slide-in-from-bottom-1 duration-150">
           <button
             type="button"
             onClick={() => { onSelect(null); setOpen(false); }}

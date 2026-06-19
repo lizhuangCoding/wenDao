@@ -138,7 +138,7 @@ export const Home = () => {
                 onChange={setCurrentPage}
                 previousLabel={t('home.newer')}
                 nextLabel={t('home.older')}
-                className="mt-40 border-t border-neutral-100 pt-16 dark:border-neutral-800"
+                className="mt-40 border-t border-neutral-200 pt-16 dark:border-neutral-700"
               />
             )}
 

@@ -73,7 +73,8 @@ test('global button utilities include dark mode variants', async () => {
 
   assert.match(indexCss, /btn-primary[\s\S]*dark:bg-primary-500/);
   assert.match(indexCss, /btn-primary[\s\S]*dark:hover:bg-primary-400/);
-  assert.match(indexCss, /btn-secondary[\s\S]*dark:bg-neutral-800/);
+  assert.match(indexCss, /btn-secondary[\s\S]*dark:border-neutral-700/);
+  assert.match(indexCss, /btn-secondary[\s\S]*dark:bg-neutral-900/);
   assert.match(indexCss, /btn-secondary[\s\S]*dark:text-neutral-200/);
-  assert.match(indexCss, /btn-secondary[\s\S]*dark:hover:bg-neutral-700/);
+  assert.match(indexCss, /btn-secondary[\s\S]*dark:hover:bg-neutral-800/);
 });

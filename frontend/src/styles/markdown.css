@@ -183,7 +183,7 @@
 }
 
 .article-reading-body h1 {
-  @apply mb-5 mt-12 border-b border-neutral-100 pb-4 font-serif text-3xl font-black tracking-tight text-neutral-900 dark:border-neutral-800 dark:text-neutral-100;
+  @apply mb-5 mt-12 border-b border-neutral-200 pb-4 font-serif text-3xl font-black tracking-tight text-neutral-900 dark:border-neutral-700 dark:text-neutral-100;
   line-height: 1.2;
 }
 
@@ -336,7 +336,7 @@
 }
 
 .article-reading-body img {
-  @apply my-10 h-auto max-w-full rounded-2xl border border-neutral-100 shadow-soft dark:border-neutral-800;
+  @apply my-10 h-auto max-w-full rounded-2xl border border-neutral-200 shadow-soft dark:border-neutral-700;
 }
 
 .article-reading-body hr {

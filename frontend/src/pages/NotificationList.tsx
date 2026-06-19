@@ -178,7 +178,7 @@ export const NotificationList = () => {
                       </div>
                     </div>
 
-                    <div className="border-t border-neutral-100 bg-neutral-50/70 px-5 py-5 dark:border-neutral-800 dark:bg-neutral-950/30">
+                    <div className="border-t border-neutral-200 bg-neutral-50/70 px-5 py-5 dark:border-neutral-700 dark:bg-neutral-950/30">
                       <div className="notification-message-body article-reading-body max-w-none text-sm text-neutral-700 dark:text-neutral-200">
                         <ArticleContent content={notif.content} />
                       </div>

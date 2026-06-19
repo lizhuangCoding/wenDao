@@ -34,7 +34,7 @@ export const DataTable = ({
 }: DataTableProps) => (
   <div
     className={cn(
-      'overflow-hidden rounded-2xl border border-neutral-100 bg-white shadow-sm dark:border-neutral-800 dark:bg-neutral-900',
+      'overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm dark:border-neutral-700 dark:bg-neutral-900',
       className
     )}
   >
@@ -58,7 +58,7 @@ export const DataTable = ({
 export const DataTableHeadRow = ({ className, ...props }: ComponentProps<'tr'>) => (
   <tr
     className={cn(
-      'border-b border-neutral-100 bg-neutral-50 dark:border-neutral-800 dark:bg-neutral-800/50',
+      'border-b border-neutral-200 bg-neutral-50/90 dark:border-neutral-700 dark:bg-neutral-800/70',
       className
     )}
     {...props}
@@ -82,7 +82,7 @@ export const DataTableHeaderCell = ({
 }: DataTableHeaderCellProps) => (
   <th
     className={cn(
-      'px-4 py-3 text-sm font-semibold text-neutral-600 dark:text-neutral-400 sm:px-6 sm:py-4',
+      'px-4 py-3 text-sm font-semibold text-neutral-700 dark:text-neutral-200 sm:px-6 sm:py-4',
       width ? columnWidthClasses[width] : '',
       nowrap ? 'whitespace-nowrap' : '',
       truncate ? 'overflow-hidden text-ellipsis' : '',
@@ -95,12 +95,12 @@ export const DataTableHeaderCell = ({
 );
 
 export const DataTableBody = ({ className, ...props }: ComponentProps<'tbody'>) => (
-  <tbody className={cn('divide-y divide-neutral-100 dark:divide-neutral-800', className)} {...props} />
+  <tbody className={cn('divide-y divide-neutral-200 dark:divide-neutral-700', className)} {...props} />
 );
 
 export const DataTableRow = ({ className, ...props }: ComponentProps<'tr'>) => (
   <tr
-    className={cn('transition-colors hover:bg-neutral-50 dark:hover:bg-neutral-800/50', className)}
+    className={cn('transition-colors hover:bg-neutral-100/70 dark:hover:bg-neutral-800/70', className)}
     {...props}
   />
 );
@@ -122,7 +122,7 @@ export const DataTableCell = ({
 }: DataTableCellProps) => (
   <td
     className={cn(
-      'px-4 py-3 text-sm text-neutral-500 dark:text-neutral-400 sm:px-6 sm:py-4',
+      'px-4 py-3 text-sm text-neutral-700 dark:text-neutral-300 sm:px-6 sm:py-4',
       width ? columnWidthClasses[width] : '',
       nowrap ? 'whitespace-nowrap' : '',
       truncate ? 'overflow-hidden text-ellipsis whitespace-nowrap' : '',

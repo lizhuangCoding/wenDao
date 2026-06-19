@@ -304,7 +304,7 @@ export const CategoryList = () => {
               className="w-full max-w-md"
             >
               <Panel padding="none" className="overflow-hidden shadow-xl">
-              <div className="border-b border-neutral-100 px-6 py-4 dark:border-neutral-800">
+              <div className="border-b border-neutral-200 px-6 py-4 dark:border-neutral-700">
                 <h3 className="text-xl font-bold text-neutral-800 dark:text-neutral-100">
                   {editingCategory ? t('admin.editCategory') : t('admin.newCategory')}
                 </h3>

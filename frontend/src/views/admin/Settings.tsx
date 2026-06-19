@@ -205,7 +205,7 @@ export const Settings = () => {
             contactLinksInput.map((link, index) => (
               <div
                 key={`${link.type}-${link.sort_order}-${index}`}
-                className="rounded-2xl border border-neutral-100 bg-neutral-50/70 p-4 dark:border-neutral-800 dark:bg-neutral-900/50"
+                className="rounded-2xl border border-neutral-200 bg-neutral-50/70 p-4 dark:border-neutral-700 dark:bg-neutral-900/50"
               >
                 <div className="flex items-start gap-4">
                   <div className="grid min-w-0 flex-1 gap-4 md:grid-cols-2">
@@ -289,7 +289,7 @@ export const Settings = () => {
                   </div>
                 </div>
 
-                <div className="mt-4 flex items-center justify-between border-t border-neutral-100 pt-4 dark:border-neutral-800">
+                <div className="mt-4 flex items-center justify-between border-t border-neutral-200 pt-4 dark:border-neutral-700">
                   <div className="text-xs font-semibold uppercase tracking-[0.24em] text-neutral-400 dark:text-neutral-500">
                     {t('settings.contactLinkOrder', { order: link.sort_order })}
                   </div>

@@ -157,7 +157,7 @@ export const Search = () => {
           </div>
         </Panel>
 
-        <div className="mt-8 flex items-center justify-between gap-4 border-b border-neutral-100 pb-4 dark:border-neutral-800">
+        <div className="mt-8 flex items-center justify-between gap-4 border-b border-neutral-200 pb-4 dark:border-neutral-700">
           <p className="text-sm font-bold text-neutral-500 dark:text-neutral-400">{resultSummary}</p>
           {hasSearchCriteria && (
             <Button
@@ -185,7 +185,7 @@ export const Search = () => {
         ) : searchData?.data?.length === 0 ? (
           <EmptyState title="没有找到相关文章" description="换一个关键词，或放宽分类/标签筛选。" className="py-24" />
         ) : (
-          <div className="divide-y divide-neutral-100 dark:divide-neutral-800">
+          <div className="divide-y divide-neutral-200 dark:divide-neutral-700">
             {searchData?.data.map((result) => {
               const article = result.article;
               return (
@@ -237,7 +237,7 @@ export const Search = () => {
             onChange={(page) => updateParams({ page })}
             previousLabel="上一页"
             nextLabel="下一页"
-            className="mt-10 border-t border-neutral-100 pt-8 dark:border-neutral-800"
+            className="mt-10 border-t border-neutral-200 pt-8 dark:border-neutral-700"
           />
         )}
       </PageShell>

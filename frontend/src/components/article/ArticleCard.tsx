@@ -85,7 +85,7 @@ export const ArticleCard = ({ article }: ArticleCardProps) => {
             )}
           </div>
 
-          <footer className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between pt-6 border-t border-neutral-100 dark:border-neutral-800">
+          <footer className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between pt-6 border-t border-neutral-200 dark:border-neutral-700">
             <div className="flex min-w-0 items-center gap-3">
               <div className="w-6 h-6 rounded-full overflow-hidden border border-neutral-200 bg-neutral-100 dark:border-neutral-700 dark:bg-neutral-700">
                 <img
