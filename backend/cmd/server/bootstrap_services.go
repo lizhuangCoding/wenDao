@@ -105,7 +105,14 @@ func initServices(cfg *config.Config, logger *zap.Logger, repos *repositories, i
 			aiEventLogger,
 			options...,
 		)
-		aiService = service.NewAIService(aiCore.llmClient, thinkTankService, logger)
+		pluginRegistry := service.NewPluginRegistry()
+		if err := pluginRegistry.Register(service.NewThinkTankPlugin(thinkTankService), service.WithDefaultPlugin()); err != nil {
+			logger.Warn("ThinkTank plugin registration failed, continuing with disabled AI service", zap.Error(err))
+		} else if defaultAgent, ok := pluginRegistry.Default(); ok {
+			aiService = service.NewAIService(aiCore.llmClient, defaultAgent, logger)
+		} else {
+			logger.Warn("ThinkTank plugin registry has no default plugin, continuing with disabled AI service")
+		}
 
 		return &appServices{
 			oauth:             oauthService,

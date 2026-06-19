@@ -72,6 +72,9 @@ type AILogEntry = aisvc.AILogEntry
 type LogRotationConfig = aisvc.LogRotationConfig
 type ThinkTankService = chatcore.ThinkTankService
 type StreamEvent = chatcore.StreamEvent
+type AgentPlugin = chatcore.AgentPlugin
+type PluginRegistry = chatcore.PluginRegistry
+type RegisterOption = chatcore.RegisterOption
 type ResearchConfig = chatsvc.ResearchConfig
 type ConversationMemorySummarizer = chatsvc.ConversationMemorySummarizer
 type Librarian = chatsvc.Librarian
@@ -128,9 +131,14 @@ func NewKnowledgeDocumentService(docRepo knowledgerepo.KnowledgeDocumentReposito
 	return knowledgesvc.NewKnowledgeDocumentService(docRepo, srcRepo, vector, articleRepo, categoryRepo, logger)
 }
 func NewDisabledAIService(reason string) AIService { return aisvc.NewDisabledAIService(reason) }
-func NewAIService(llm eino.LLMClient, thinkTank ThinkTankService, logger *zap.Logger) AIService {
-	return aisvc.NewAIService(llm, thinkTank, logger)
+func NewAIService(llm eino.LLMClient, agent AgentPlugin, logger *zap.Logger) AIService {
+	return aisvc.NewAIService(llm, agent, logger)
 }
+func NewThinkTankPlugin(thinkTank ThinkTankService) AgentPlugin {
+	return chatcore.NewThinkTankPlugin(thinkTank)
+}
+func NewPluginRegistry() PluginRegistry { return chatcore.NewPluginRegistry() }
+func WithDefaultPlugin() RegisterOption { return chatcore.WithDefaultPlugin() }
 func NewArticleService(articleRepo articlerepo.ArticleRepository, categoryRepo categoryrepo.CategoryRepository, rdb *redis.Client, vector VectorService, logger *zap.Logger, extras ...any) ArticleService {
 	return articlesvc.NewArticleService(articleRepo, categoryRepo, rdb, vector, logger, extras...)
 }

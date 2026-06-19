@@ -30,7 +30,7 @@ type AIService interface {
 
 // aiService AI 服务实现
 type aiService struct {
-	thinkTank chatcore.ThinkTankService
+	agent     chatcore.AgentPlugin
 	llmClient eino.LLMClient
 	logger    *zap.Logger
 }
@@ -40,9 +40,9 @@ type disabledAIService struct {
 }
 
 // NewAIService 创建 AI 服务实例
-func NewAIService(llmClient eino.LLMClient, thinkTank chatcore.ThinkTankService, logger *zap.Logger) AIService {
+func NewAIService(llmClient eino.LLMClient, agent chatcore.AgentPlugin, logger *zap.Logger) AIService {
 	return &aiService{
-		thinkTank: thinkTank,
+		agent:     agent,
 		llmClient: llmClient,
 		logger:    logger,
 	}
@@ -66,7 +66,11 @@ func (s *aiService) Chat(ctx context.Context, question string, conversationID *i
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	resp, err := s.thinkTank.Chat(ctx, question, conversationID, userID)
+	resp, err := s.agent.Run(ctx, chatcore.AgentRunInput{
+		Question:       question,
+		ConversationID: conversationID,
+		UserID:         userID,
+	})
 	if err != nil {
 		return "", err
 	}
@@ -75,11 +79,19 @@ func (s *aiService) Chat(ctx context.Context, question string, conversationID *i
 
 // ChatStream AI 流式对话
 func (s *aiService) ChatStream(ctx context.Context, question string, conversationID *int64, userID *int64) (<-chan chatcore.StreamEvent, <-chan error) {
-	return s.thinkTank.ChatStream(ctx, question, conversationID, userID)
+	return s.agent.RunStream(ctx, chatcore.AgentRunInput{
+		Question:       question,
+		ConversationID: conversationID,
+		UserID:         userID,
+	})
 }
 
 func (s *aiService) ResumeChatStream(ctx context.Context, conversationID int64, runID int64, userID *int64) (<-chan chatcore.StreamEvent, <-chan error) {
-	return s.thinkTank.ResumeChatStream(ctx, conversationID, runID, userID)
+	return s.agent.ResumeStream(ctx, chatcore.AgentResumeInput{
+		ConversationID: conversationID,
+		RunID:          runID,
+		UserID:         userID,
+	})
 }
 
 // GenerateSummary 生成文章摘要
