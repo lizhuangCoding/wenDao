@@ -4,6 +4,7 @@ export * from './Footer';
 export * from './Button';
 export * from './buttonStyles';
 export * from './Panel';
+export * from './PageShell';
 export * from './PageHeader';
 export * from './FormControls';
 export * from './DataTable';

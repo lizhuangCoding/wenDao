@@ -11,11 +11,12 @@ const loadCommonIndex = async () => {
 };
 
 test('common UI primitives centralize professional surface, form, and action styles', async () => {
-  const [button, buttonStyles, panel, pageHeader, formControls, dataTable, statusBadge, toggleSwitch, comet, index] =
+  const [button, buttonStyles, panel, pageShell, pageHeader, formControls, dataTable, statusBadge, toggleSwitch, comet, index] =
     await Promise.all([
       loadCommonSource('Button'),
       readFile(new URL('./buttonStyles.ts', import.meta.url), 'utf8'),
       loadCommonSource('Panel'),
+      loadCommonSource('PageShell'),
       loadCommonSource('PageHeader'),
       loadCommonSource('FormControls'),
       loadCommonSource('DataTable'),
@@ -30,7 +31,11 @@ test('common UI primitives centralize professional surface, form, and action sty
   assert.match(buttonStyles, /getButtonClassName/);
   assert.match(buttonStyles, /dark:/);
   assert.match(panel, /dark:border-neutral-800/);
+  assert.match(panel, /variantClassName/);
+  assert.match(pageShell, /max-w-6xl/);
+  assert.match(pageShell, /PageShell/);
   assert.match(pageHeader, /text-3xl/);
+  assert.match(pageHeader, /eyebrow/);
   assert.match(formControls, /TextInput/);
   assert.match(formControls, /SelectInput/);
   assert.match(formControls, /TextArea/);
@@ -55,6 +60,7 @@ test('common UI primitives centralize professional surface, form, and action sty
 
   assert.match(index, /export \* from '.\/Button'/);
   assert.match(index, /export \* from '.\/Panel'/);
+  assert.match(index, /export \* from '.\/PageShell'/);
   assert.match(index, /export \* from '.\/PageHeader'/);
   assert.match(index, /export \* from '.\/FormControls'/);
   assert.match(index, /export \* from '.\/DataTable'/);

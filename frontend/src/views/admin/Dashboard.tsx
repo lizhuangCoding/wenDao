@@ -120,8 +120,9 @@ export const Dashboard = () => {
     <div className="space-y-8">
       <PageHeader
         title={t('admin.dashboard')}
+        tone="admin"
         actions={
-          <Panel padding="sm" className="w-full border-neutral-200 dark:border-neutral-700 sm:w-auto">
+          <Panel padding="sm" variant="muted" className="w-full border-neutral-200 dark:border-neutral-700 sm:w-auto">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
             <div className="min-w-0 lg:pr-2">
               <div className="text-xs font-semibold text-neutral-700 dark:text-neutral-200">{t('admin.timeRange')}</div>

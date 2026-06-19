@@ -1,6 +1,16 @@
 import { useRef, useState, type ChangeEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Layout, Loading } from '@/components/common';
+import {
+  Button,
+  Layout,
+  Loading,
+  PageHeader,
+  PageShell,
+  Panel,
+  SegmentedControl,
+  TextInput,
+  ToggleSwitch,
+} from '@/components/common';
 import { ArticleCard } from '@/components/article';
 import { uploadApi, authApi, articleApi } from '@/api';
 import { useAuth } from '@/hooks';
@@ -131,8 +141,8 @@ export const Profile = () => {
 
   return (
     <Layout>
-      <div className="max-w-5xl mx-auto px-6 sm:px-10 py-16">
-        <div className="bg-white dark:bg-neutral-900 border border-neutral-100 dark:border-neutral-800 rounded-3xl shadow-sm p-8 sm:p-10">
+      <PageShell width="default" padding="lg">
+        <Panel padding="lg">
           <div className="flex flex-col sm:flex-row sm:items-center gap-6 mb-10">
             <img
               src={avatarUrl}
@@ -141,12 +151,7 @@ export const Profile = () => {
             />
 
             <div className="flex-1">
-              <h1 className="text-3xl font-serif font-black text-neutral-900 dark:text-neutral-100 mb-2">
-                {t('profile.title')}
-              </h1>
-              <p className="text-sm text-neutral-500 dark:text-neutral-400">
-                {t('profile.subtitle')}
-              </p>
+              <PageHeader title={t('profile.title')} description={t('profile.subtitle')} />
             </div>
 
             <div>
@@ -158,14 +163,13 @@ export const Profile = () => {
                 className="hidden"
                 disabled={isUploading}
               />
-              <button
+              <Button
                 type="button"
                 onClick={handleUploadClick}
                 disabled={isUploading}
-                className="btn btn-primary disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 {t('profile.changeAvatar')}
-              </button>
+              </Button>
             </div>
           </div>
 
@@ -207,16 +211,16 @@ export const Profile = () => {
                   </div>
                 )}
               </div>
-              <input
+              <TextInput
                 type="text"
                 value={isEditingUsername ? newUsername : user.username}
                 onChange={(e) => setNewUsername(e.target.value)}
                 readOnly={!isEditingUsername}
-                className={`input w-full ${
+                className={
                   !isEditingUsername
-                    ? 'bg-neutral-50 dark:bg-neutral-800/80 dark:border-neutral-700 dark:text-neutral-100 cursor-not-allowed'
-                    : 'bg-white dark:bg-neutral-800 dark:border-primary-500 dark:text-neutral-100'
-                }`}
+                    ? '[&_input]:cursor-not-allowed [&_input]:bg-neutral-50 dark:[&_input]:bg-neutral-800/80'
+                    : '[&_input]:border-primary-400'
+                }
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
                     handleUsernameUpdate();
@@ -232,11 +236,11 @@ export const Profile = () => {
               <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
                 {t('profile.email')}
               </label>
-              <input
+              <TextInput
                 type="email"
                 value={user.email}
                 readOnly
-                className="input w-full bg-neutral-50 dark:bg-neutral-800/80 dark:border-neutral-700 dark:text-neutral-100 cursor-not-allowed"
+                className="[&_input]:cursor-not-allowed [&_input]:bg-neutral-50 dark:[&_input]:bg-neutral-800/80"
               />
             </div>
 
@@ -253,27 +257,14 @@ export const Profile = () => {
                     {t('profile.commentReplyEmailHint')}
                   </p>
                 </div>
-                <button
+                <ToggleSwitch
                   id="comment-reply-email"
-                  type="button"
-                  role="switch"
-                  aria-checked={user.comment_reply_email_enabled ?? true}
+                  checked={user.comment_reply_email_enabled ?? true}
                   disabled={isSavingPreferences}
                   onClick={() =>
                     handleCommentReplyEmailChange(!(user.comment_reply_email_enabled ?? true))
                   }
-                  className={`relative inline-flex h-7 w-12 flex-shrink-0 rounded-full border-2 border-transparent transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
-                    user.comment_reply_email_enabled ?? true
-                      ? 'bg-primary-500'
-                      : 'bg-neutral-300 dark:bg-neutral-700'
-                  }`}
-                >
-                  <span
-                    className={`inline-block h-6 w-6 transform rounded-full bg-white shadow transition-transform ${
-                      user.comment_reply_email_enabled ?? true ? 'translate-x-5' : 'translate-x-0'
-                    }`}
-                  />
-                </button>
+                />
               </div>
             </div>
 
@@ -287,30 +278,15 @@ export const Profile = () => {
                     {t('profile.articleActivityHint')}
                   </p>
                 </div>
-                <div className="inline-flex rounded-full border border-neutral-200 bg-neutral-50 p-1 dark:border-neutral-700 dark:bg-neutral-800">
-                  <button
-                    type="button"
-                    onClick={() => handleArticleActivityTabChange('liked')}
-                    className={`rounded-full px-4 py-2 text-sm font-bold transition-colors ${
-                      articleActivityTab === 'liked'
-                        ? 'bg-white text-neutral-900 shadow-sm dark:bg-neutral-950 dark:text-neutral-100'
-                        : 'text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-100'
-                    }`}
-                  >
-                    {t('profile.likedArticles')}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleArticleActivityTabChange('favorite')}
-                    className={`rounded-full px-4 py-2 text-sm font-bold transition-colors ${
-                      articleActivityTab === 'favorite'
-                        ? 'bg-white text-neutral-900 shadow-sm dark:bg-neutral-950 dark:text-neutral-100'
-                        : 'text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-100'
-                    }`}
-                  >
-                    {t('profile.favoriteArticles')}
-                  </button>
-                </div>
+                <SegmentedControl<ArticleActivityTab>
+                  value={articleActivityTab}
+                  onChange={handleArticleActivityTabChange}
+                  className="w-full sm:w-auto"
+                  items={[
+                    { value: 'liked', label: t('profile.likedArticles') },
+                    { value: 'favorite', label: t('profile.favoriteArticles') },
+                  ]}
+                />
               </div>
 
               <div className="mt-8">
@@ -344,27 +320,27 @@ export const Profile = () => {
                     </div>
                     {activityTotalPages > 1 && (
                       <div className="mt-8 flex items-center justify-between border-t border-neutral-100 pt-6 dark:border-neutral-800">
-                        <button
+                        <Button
                           type="button"
-                        onClick={() => setArticleActivityPage((page) => Math.max(1, page - 1))}
+                          variant="secondary"
+                          onClick={() => setArticleActivityPage((page) => Math.max(1, page - 1))}
                           disabled={articleActivityPage <= 1}
-                          className="btn btn-secondary disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           {t('admin.previous')}
-                        </button>
+                        </Button>
                         <span className="text-xs font-bold tracking-widest text-neutral-400 dark:text-neutral-500">
                           {articleActivityPage} / {activityTotalPages}
                         </span>
-                        <button
+                        <Button
                           type="button"
-                        onClick={() =>
+                          variant="secondary"
+                          onClick={() =>
                             setArticleActivityPage((page) => Math.min(activityTotalPages, page + 1))
                           }
                           disabled={articleActivityPage >= activityTotalPages}
-                          className="btn btn-secondary disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           {t('admin.next')}
-                        </button>
+                        </Button>
                       </div>
                     )}
                   </>
@@ -372,8 +348,8 @@ export const Profile = () => {
               </div>
             </section>
           </div>
-        </div>
-      </div>
+        </Panel>
+      </PageShell>
     </Layout>
   );
 };

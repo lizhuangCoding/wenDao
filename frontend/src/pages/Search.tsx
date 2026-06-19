@@ -9,6 +9,8 @@ import {
   ErrorState,
   Layout,
   Loading,
+  PageHeader,
+  PageShell,
   Pagination,
   Panel,
   SelectInput,
@@ -100,18 +102,13 @@ export const Search = () => {
 
   return (
     <Layout>
-      <div className="relative z-10 mx-auto max-w-5xl px-5 py-16 sm:px-8 sm:py-20">
-        <header className="mb-8">
-          <p className="text-xs font-black uppercase tracking-[0.24em] text-primary-600 dark:text-primary-400">
-            Site Search
-          </p>
-          <h1 className="mt-3 text-3xl font-black text-neutral-900 dark:text-neutral-100 sm:text-5xl">
-            站内搜索
-          </h1>
-          <p className="mt-4 max-w-2xl text-sm leading-7 text-neutral-500 dark:text-neutral-400">
-            搜索文章标题、摘要、正文、分类和标签。
-          </p>
-        </header>
+      <PageShell width="default" padding="lg">
+        <PageHeader
+          eyebrow="Site Search"
+          title="站内搜索"
+          description="搜索文章标题、摘要、正文、分类和标签。"
+          className="mb-8"
+        />
 
         <Panel className="space-y-4">
           <form onSubmit={handleSubmit} className="grid gap-3 md:grid-cols-[1fr_auto]">
@@ -163,16 +160,17 @@ export const Search = () => {
         <div className="mt-8 flex items-center justify-between gap-4 border-b border-neutral-100 pb-4 dark:border-neutral-800">
           <p className="text-sm font-bold text-neutral-500 dark:text-neutral-400">{resultSummary}</p>
           {hasSearchCriteria && (
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="sm"
               onClick={() => {
                 setInputValue('');
                 setSearchParams(new URLSearchParams());
               }}
-              className="text-xs font-black uppercase tracking-widest text-neutral-400 transition-colors hover:text-primary-600 dark:hover:text-primary-400"
             >
               清空
-            </button>
+            </Button>
           )}
         </div>
 
@@ -192,7 +190,7 @@ export const Search = () => {
               const article = result.article;
               return (
                 <article key={article.id} className="py-7">
-                  <div className="mb-3 flex flex-wrap items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-neutral-400">
+                  <div className="mb-3 flex flex-wrap items-center gap-2 text-xs font-semibold text-neutral-400">
                     <span className="rounded-full bg-primary-50 px-2.5 py-1 text-primary-600 dark:bg-primary-500/10 dark:text-primary-300">
                       {article.category?.name}
                     </span>
@@ -242,7 +240,7 @@ export const Search = () => {
             className="mt-10 border-t border-neutral-100 pt-8 dark:border-neutral-800"
           />
         )}
-      </div>
+      </PageShell>
     </Layout>
   );
 };

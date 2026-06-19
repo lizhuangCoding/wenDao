@@ -7,20 +7,32 @@ interface PageHeaderProps {
   description?: ReactNode;
   actions?: ReactNode;
   className?: string;
+  eyebrow?: ReactNode;
+  tone?: 'default' | 'admin';
 }
 
-export const PageHeader = ({ title, description, actions, className }: PageHeaderProps) => (
+export const PageHeader = ({ title, description, actions, className, eyebrow, tone = 'default' }: PageHeaderProps) => (
   <motion.div
     initial={{ opacity: 0, y: -16 }}
     animate={{ opacity: 1, y: 0 }}
     className={cn('flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between', className)}
   >
     <div className="min-w-0">
-      <h1 className="text-3xl font-serif font-bold text-neutral-800 dark:text-neutral-100">
+      {eyebrow ? (
+        <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-primary-600 dark:text-primary-400">
+          {eyebrow}
+        </p>
+      ) : null}
+      <h1
+        className={cn(
+          'text-3xl font-bold text-neutral-900 dark:text-neutral-100',
+          tone === 'default' ? 'font-serif sm:text-4xl' : 'font-sans tracking-normal'
+        )}
+      >
         {title}
       </h1>
       {description ? (
-        <p className="mt-1 text-sm font-medium text-neutral-500 dark:text-neutral-400">
+        <p className="mt-2 max-w-2xl text-sm leading-6 text-neutral-500 dark:text-neutral-400">
           {description}
         </p>
       ) : null}
