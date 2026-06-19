@@ -58,6 +58,7 @@ type WritingAction = aisvc.WritingAction
 type WritingRequest = aisvc.WritingRequest
 type WritingResult = aisvc.WritingResult
 type ArticleService = articlesvc.ArticleService
+type ArticleSearchResult = articlesvc.ArticleSearchResult
 type CommentService = commentsvc.CommentService
 type CommentServiceOption = commentsvc.CommentServiceOption
 type CommentReplyNotificationSender = commentsvc.CommentReplyNotificationSender

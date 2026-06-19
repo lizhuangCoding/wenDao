@@ -12,6 +12,7 @@ const Home = lazy(() => import('./pages/Home').then((module) => ({ default: modu
 const ArticleDetail = lazy(() =>
   import('./pages/ArticleDetail').then((module) => ({ default: module.ArticleDetail }))
 );
+const Search = lazy(() => import('./pages/Search').then((module) => ({ default: module.Search })));
 const AIChat = lazy(() => import('./pages/AIChat').then((module) => ({ default: module.AIChat })));
 const Profile = lazy(() => import('./pages/Profile').then((module) => ({ default: module.Profile })));
 const Login = lazy(() => import('./pages/Login').then((module) => ({ default: module.Login })));
@@ -82,6 +83,11 @@ export const router = createBrowserRouter([
   {
     path: '/article/:slug',
     element: withSuspense(<ArticleDetail />),
+    errorElement: <RouteErrorFallback />,
+  },
+  {
+    path: '/search',
+    element: withSuspense(<Search />),
     errorElement: <RouteErrorFallback />,
   },
   {

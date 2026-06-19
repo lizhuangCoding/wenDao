@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 import { articleApi, categoryApi, siteApi, tagApi } from '@/api';
 import { Layout, Loading, Pagination, EmptyState, ErrorState, CursorCometTrail } from '@/components/common';
 import { ArticleCard } from '@/components/article';
@@ -10,10 +11,10 @@ import type { ArticlePlanetTimeMode } from '@/components/home/articlePlanetTime'
 
 export const Home = () => {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedCategory, setSelectedCategory] = useState<number>();
   const [selectedTag, setSelectedTag] = useState<number>();
-  const [searchKeyword, setSearchKeyword] = useState('');
   const [inputValue, setInputValue] = useState('');
   const [planetTimeMode, setPlanetTimeMode] = useState<ArticlePlanetTimeMode>('all');
 
@@ -37,14 +38,13 @@ export const Home = () => {
 
   // 获取文章列表
   const { data: articlesData, isLoading, isError, error, refetch } = useQuery({
-    queryKey: ['articles', currentPage, selectedCategory, selectedTag, searchKeyword],
+    queryKey: ['articles', currentPage, selectedCategory, selectedTag],
     queryFn: () =>
       articleApi.getArticles({
         page: currentPage,
         pageSize: 9,
         category_id: selectedCategory,
         tag_id: selectedTag,
-        keyword: searchKeyword,
       }),
     placeholderData: (previousData) => previousData,
   });
@@ -63,8 +63,12 @@ export const Home = () => {
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    setSearchKeyword(inputValue);
-    setCurrentPage(1);
+    const keyword = inputValue.trim();
+    if (keyword) {
+      navigate(`/search?q=${encodeURIComponent(keyword)}`);
+      return;
+    }
+    navigate('/search');
   };
 
   const handleCategoryChange = (categoryId?: number) => {

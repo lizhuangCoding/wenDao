@@ -359,6 +359,28 @@ func (h *ArticleHandler) List(c *gin.Context) {
 	})
 }
 
+// Search 站内搜索已发布文章。
+func (h *ArticleHandler) Search(c *gin.Context) {
+	keyword := c.Query("q")
+	categoryID, _ := strconv.ParseInt(c.Query("category_id"), 10, 64)
+	tagID, _ := strconv.ParseInt(c.Query("tag_id"), 10, 64)
+	p := pagination.FromQuery(c)
+
+	results, total, err := h.articleService.SearchArticles(keyword, categoryID, tagID, p.Page, p.PageSize)
+	if err != nil {
+		response.InternalErrorWithErr(c, "Failed to search articles", err)
+		return
+	}
+
+	response.Success(c, gin.H{
+		"data":       results,
+		"total":      total,
+		"page":       p.Page,
+		"pageSize":   p.PageSize,
+		"totalPages": pagination.TotalPages(total, p.PageSize),
+	})
+}
+
 // AdminList 获取所有文章列表（管理员，包含草稿）
 func (h *ArticleHandler) AdminList(c *gin.Context) {
 	status := c.Query("status")

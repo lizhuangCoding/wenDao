@@ -109,6 +109,9 @@ func (r *cacheArticleRepoStub) List(filter repository.ArticleFilter) ([]*model.A
 	copied := *r.article
 	return []*model.Article{&copied}, 1, nil
 }
+func (r *cacheArticleRepoStub) Search(filter repository.ArticleSearchFilter) ([]repository.ArticleSearchResult, int64, error) {
+	return nil, 0, nil
+}
 func (r *cacheArticleRepoStub) ListOrbitArticles() ([]*model.Article, error) {
 	r.orbitCount++
 	if r.article == nil {

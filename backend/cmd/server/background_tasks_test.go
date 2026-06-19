@@ -70,6 +70,9 @@ func (s *immediateArticleSchedulerService) GetBySlug(slug string) (*model.Articl
 func (s *immediateArticleSchedulerService) List(status string, categoryID, tagID int64, keyword string, sortByPopularity bool, page, pageSize int) ([]*model.Article, int64, error) {
 	return nil, 0, nil
 }
+func (s *immediateArticleSchedulerService) SearchArticles(keyword string, categoryID, tagID int64, page, pageSize int) ([]service.ArticleSearchResult, int64, error) {
+	return nil, 0, nil
+}
 func (s *immediateArticleSchedulerService) ListOrbitArticles() ([]*model.Article, error) {
 	return nil, nil
 }

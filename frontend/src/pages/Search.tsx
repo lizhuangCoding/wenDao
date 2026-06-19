@@ -1,0 +1,248 @@
+import { FormEvent, useMemo, useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
+import { Search as SearchIcon } from 'lucide-react';
+import { categoryApi, searchApi, tagApi } from '@/api';
+import {
+  Button,
+  EmptyState,
+  ErrorState,
+  Layout,
+  Loading,
+  Pagination,
+  Panel,
+  SelectInput,
+  TextInput,
+} from '@/components/common';
+import { formatDate } from '@/utils';
+
+const parsePositiveInt = (value: string | null) => {
+  if (!value) return undefined;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
+};
+
+export const Search = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const query = searchParams.get('q')?.trim() ?? '';
+  const categoryID = parsePositiveInt(searchParams.get('category_id'));
+  const tagID = parsePositiveInt(searchParams.get('tag_id'));
+  const currentPage = parsePositiveInt(searchParams.get('page')) ?? 1;
+  const [inputValue, setInputValue] = useState(query);
+
+  const hasSearchCriteria = query !== '' || !!categoryID || !!tagID;
+
+  const { data: categories } = useQuery({
+    queryKey: ['categories'],
+    queryFn: categoryApi.getCategories,
+  });
+
+  const { data: tags } = useQuery({
+    queryKey: ['tags'],
+    queryFn: tagApi.getTags,
+  });
+
+  const {
+    data: searchData,
+    isLoading,
+    isError,
+    error,
+    refetch,
+  } = useQuery({
+    queryKey: ['site-search', query, categoryID, tagID, currentPage],
+    queryFn: () =>
+      searchApi.searchArticles({
+        q: query || undefined,
+        category_id: categoryID,
+        tag_id: tagID,
+        page: currentPage,
+        pageSize: 10,
+      }),
+    enabled: hasSearchCriteria,
+    placeholderData: (previousData) => previousData,
+  });
+
+  const totalPages = Math.max(1, searchData?.totalPages ?? 1);
+  const resultSummary = useMemo(() => {
+    if (!hasSearchCriteria) return '输入关键词，或选择分类/标签开始搜索';
+    if (!searchData) return '正在搜索';
+    return `找到 ${searchData.total} 篇相关文章`;
+  }, [hasSearchCriteria, searchData]);
+
+  const updateParams = (next: { q?: string; category_id?: number; tag_id?: number; page?: number }) => {
+    const params = new URLSearchParams(searchParams);
+    const writeString = (key: string, value?: string) => {
+      if (value && value.trim()) {
+        params.set(key, value.trim());
+      } else {
+        params.delete(key);
+      }
+    };
+    const writeNumber = (key: string, value?: number) => {
+      if (value && value > 0) {
+        params.set(key, String(value));
+      } else {
+        params.delete(key);
+      }
+    };
+
+    if ('q' in next) writeString('q', next.q);
+    if ('category_id' in next) writeNumber('category_id', next.category_id);
+    if ('tag_id' in next) writeNumber('tag_id', next.tag_id);
+    if ('page' in next) writeNumber('page', next.page && next.page > 1 ? next.page : undefined);
+    setSearchParams(params);
+  };
+
+  const handleSubmit = (event: FormEvent) => {
+    event.preventDefault();
+    updateParams({ q: inputValue, page: 1 });
+  };
+
+  return (
+    <Layout>
+      <div className="relative z-10 mx-auto max-w-5xl px-5 py-16 sm:px-8 sm:py-20">
+        <header className="mb-8">
+          <p className="text-xs font-black uppercase tracking-[0.24em] text-primary-600 dark:text-primary-400">
+            Site Search
+          </p>
+          <h1 className="mt-3 text-3xl font-black text-neutral-900 dark:text-neutral-100 sm:text-5xl">
+            站内搜索
+          </h1>
+          <p className="mt-4 max-w-2xl text-sm leading-7 text-neutral-500 dark:text-neutral-400">
+            搜索文章标题、摘要、正文、分类和标签。
+          </p>
+        </header>
+
+        <Panel className="space-y-4">
+          <form onSubmit={handleSubmit} className="grid gap-3 md:grid-cols-[1fr_auto]">
+            <TextInput
+              value={inputValue}
+              onChange={(event) => setInputValue(event.target.value)}
+              placeholder="搜索文章、主题或关键词"
+              leading={<SearchIcon className="h-4 w-4" />}
+            />
+            <Button type="submit">搜索</Button>
+          </form>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <SelectInput
+              value={categoryID ? String(categoryID) : ''}
+              onChange={(event) =>
+                updateParams({
+                  category_id: parsePositiveInt(event.target.value),
+                  page: 1,
+                })
+              }
+            >
+              <option value="">全部分类</option>
+              {categories?.map((category) => (
+                <option key={category.id} value={category.id}>
+                  {category.name}
+                </option>
+              ))}
+            </SelectInput>
+            <SelectInput
+              value={tagID ? String(tagID) : ''}
+              onChange={(event) =>
+                updateParams({
+                  tag_id: parsePositiveInt(event.target.value),
+                  page: 1,
+                })
+              }
+            >
+              <option value="">全部标签</option>
+              {tags?.map((tag) => (
+                <option key={tag.id} value={tag.id}>
+                  {tag.name}
+                </option>
+              ))}
+            </SelectInput>
+          </div>
+        </Panel>
+
+        <div className="mt-8 flex items-center justify-between gap-4 border-b border-neutral-100 pb-4 dark:border-neutral-800">
+          <p className="text-sm font-bold text-neutral-500 dark:text-neutral-400">{resultSummary}</p>
+          {hasSearchCriteria && (
+            <button
+              type="button"
+              onClick={() => {
+                setInputValue('');
+                setSearchParams(new URLSearchParams());
+              }}
+              className="text-xs font-black uppercase tracking-widest text-neutral-400 transition-colors hover:text-primary-600 dark:hover:text-primary-400"
+            >
+              清空
+            </button>
+          )}
+        </div>
+
+        {!hasSearchCriteria ? (
+          <EmptyState title="开始一次站内搜索" description="输入关键词，或者选择分类/标签查看相关文章。" className="py-24" />
+        ) : isLoading ? (
+          <div className="flex justify-center py-20">
+            <Loading />
+          </div>
+        ) : isError ? (
+          <ErrorState message={(error as any)?.message || '搜索失败'} onRetry={() => refetch()} className="mt-10" />
+        ) : searchData?.data?.length === 0 ? (
+          <EmptyState title="没有找到相关文章" description="换一个关键词，或放宽分类/标签筛选。" className="py-24" />
+        ) : (
+          <div className="divide-y divide-neutral-100 dark:divide-neutral-800">
+            {searchData?.data.map((result) => {
+              const article = result.article;
+              return (
+                <article key={article.id} className="py-7">
+                  <div className="mb-3 flex flex-wrap items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-neutral-400">
+                    <span className="rounded-full bg-primary-50 px-2.5 py-1 text-primary-600 dark:bg-primary-500/10 dark:text-primary-300">
+                      {article.category?.name}
+                    </span>
+                    <span>{formatDate(article.created_at)}</span>
+                    {result.matched_fields.map((field) => (
+                      <span key={field} className="rounded-full border border-neutral-200 px-2 py-1 dark:border-neutral-700">
+                        {field}
+                      </span>
+                    ))}
+                  </div>
+                  <Link to={`/article/${article.slug}`} className="group block">
+                    <h2 className="text-2xl font-black leading-tight text-neutral-900 transition-colors group-hover:text-primary-600 dark:text-neutral-100 dark:group-hover:text-primary-400">
+                      {article.title}
+                    </h2>
+                    <p
+                      className="mt-3 text-sm leading-7 text-neutral-500 [&_mark]:rounded [&_mark]:bg-yellow-200 [&_mark]:px-1 [&_mark]:text-neutral-950 dark:text-neutral-400 dark:[&_mark]:bg-yellow-300"
+                      dangerouslySetInnerHTML={{ __html: result.snippet }}
+                    />
+                  </Link>
+                  {article.tags && article.tags.length > 0 && (
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      {article.tags.map((tag) => (
+                        <span
+                          key={tag.id}
+                          className="rounded-full border border-neutral-200 px-2.5 py-1 text-xs font-bold text-neutral-500 dark:border-neutral-700 dark:text-neutral-400"
+                        >
+                          #{tag.name}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </article>
+              );
+            })}
+          </div>
+        )}
+
+        {searchData && searchData.totalPages > 1 && (
+          <Pagination
+            page={currentPage}
+            totalPages={totalPages}
+            total={searchData.total}
+            pageSize={10}
+            onChange={(page) => updateParams({ page })}
+            previousLabel="上一页"
+            nextLabel="下一页"
+            className="mt-10 border-t border-neutral-100 pt-8 dark:border-neutral-800"
+          />
+        )}
+      </div>
+    </Layout>
+  );
+};

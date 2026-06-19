@@ -57,6 +57,9 @@ func (r *vectorSyncArticleRepoStub) List(filter articlerepo.ArticleFilter) ([]*m
 	}
 	return result[start:end], total, nil
 }
+func (r *vectorSyncArticleRepoStub) Search(filter articlerepo.ArticleSearchFilter) ([]articlerepo.ArticleSearchResult, int64, error) {
+	return nil, 0, nil
+}
 func (r *vectorSyncArticleRepoStub) ListOrbitArticles() ([]*model.Article, error) { return nil, nil }
 func (r *vectorSyncArticleRepoStub) Update(article *model.Article) error          { return nil }
 func (r *vectorSyncArticleRepoStub) Delete(id int64) error                        { return nil }

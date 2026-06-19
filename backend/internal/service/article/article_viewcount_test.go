@@ -28,6 +28,9 @@ func (r *viewCountArticleRepoStub) GetBySource(sourceType string, sourceID int64
 func (r *viewCountArticleRepoStub) List(filter repository.ArticleFilter) ([]*model.Article, int64, error) {
 	return nil, 0, nil
 }
+func (r *viewCountArticleRepoStub) Search(filter repository.ArticleSearchFilter) ([]repository.ArticleSearchResult, int64, error) {
+	return nil, 0, nil
+}
 func (r *viewCountArticleRepoStub) ListOrbitArticles() ([]*model.Article, error) { return nil, nil }
 func (r *viewCountArticleRepoStub) Update(article *model.Article) error {
 	copied := *article

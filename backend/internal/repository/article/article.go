@@ -23,6 +23,20 @@ type ArticleFilter struct {
 	PageSize         int // 每页数量
 }
 
+// ArticleSearchFilter 站内文章搜索筛选条件
+type ArticleSearchFilter struct {
+	Keyword    string
+	CategoryID int64
+	TagID      int64
+	Page       int
+	PageSize   int
+}
+
+// ArticleSearchResult 站内文章搜索结果
+type ArticleSearchResult struct {
+	Article *model.Article
+}
+
 // ArticleRepository 文章数据访问接口
 type ArticleRepository interface {
 	Create(article *model.Article) error
@@ -30,6 +44,7 @@ type ArticleRepository interface {
 	GetBySlug(slug string) (*model.Article, error)
 	GetBySource(sourceType string, sourceID int64) (*model.Article, error)
 	List(filter ArticleFilter) ([]*model.Article, int64, error)
+	Search(filter ArticleSearchFilter) ([]ArticleSearchResult, int64, error)
 	ListOrbitArticles() ([]*model.Article, error)
 	Update(article *model.Article) error
 	Delete(id int64) error
@@ -164,6 +179,84 @@ func (r *articleRepository) List(filter ArticleFilter) ([]*model.Article, int64,
 		Find(&articles).Error
 
 	return articles, total, err
+}
+
+// Search 搜索已发布文章，支持标题、摘要、正文、分类名和标签名匹配。
+func (r *articleRepository) Search(filter ArticleSearchFilter) ([]ArticleSearchResult, int64, error) {
+	var articles []*model.Article
+	var total int64
+
+	db := r.db.Model(&model.Article{}).
+		Joins("LEFT JOIN categories ON categories.id = articles.category_id").
+		Joins("LEFT JOIN article_tags ON article_tags.article_id = articles.id").
+		Joins("LEFT JOIN tags ON tags.id = article_tags.tag_id").
+		Where("articles.status = ?", "published")
+
+	if filter.CategoryID > 0 {
+		db = db.Where("articles.category_id = ?", filter.CategoryID)
+	}
+	if filter.TagID > 0 {
+		db = db.Where("article_tags.tag_id = ?", filter.TagID)
+	}
+	if filter.Keyword != "" {
+		keyword := "%" + filter.Keyword + "%"
+		db = db.Where(
+			"articles.title LIKE ? OR articles.summary LIKE ? OR articles.content LIKE ? OR categories.name LIKE ? OR tags.name LIKE ?",
+			keyword,
+			keyword,
+			keyword,
+			keyword,
+			keyword,
+		)
+	}
+
+	countDB := db.Session(&gorm.Session{})
+	if err := countDB.Select("COUNT(DISTINCT articles.id)").Scan(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	query := db.
+		Select("articles.*").
+		Group("articles.id")
+
+	if filter.Page > 0 && filter.PageSize > 0 {
+		offset := (filter.Page - 1) * filter.PageSize
+		query = query.Offset(offset).Limit(filter.PageSize)
+	}
+
+	orderArgs := []any{}
+	orderSQL := "CASE " +
+		"WHEN articles.title LIKE ? THEN 0 " +
+		"WHEN articles.summary LIKE ? THEN 1 " +
+		"WHEN categories.name LIKE ? OR tags.name LIKE ? THEN 2 " +
+		"ELSE 3 END, articles.published_at DESC, articles.created_at DESC"
+	if filter.Keyword == "" {
+		orderSQL = "articles.published_at DESC, articles.created_at DESC"
+	} else {
+		keyword := "%" + filter.Keyword + "%"
+		orderArgs = append(orderArgs, keyword, keyword, keyword, keyword)
+	}
+
+	if err := query.
+		Preload("Category", func(db *gorm.DB) *gorm.DB {
+			return db.Select("id", "name", "slug")
+		}).
+		Preload("Author", func(db *gorm.DB) *gorm.DB {
+			return db.Select("id", "username", "avatar_url", "avatar_source")
+		}).
+		Preload("Tags", func(db *gorm.DB) *gorm.DB {
+			return db.Select("id", "name", "slug", "article_count")
+		}).
+		Order(gorm.Expr(orderSQL, orderArgs...)).
+		Find(&articles).Error; err != nil {
+		return nil, 0, err
+	}
+
+	results := make([]ArticleSearchResult, 0, len(articles))
+	for _, article := range articles {
+		results = append(results, ArticleSearchResult{Article: article})
+	}
+	return results, total, nil
 }
 
 // ListOrbitArticles 获取首页文章星球需要的轻量文章数据。

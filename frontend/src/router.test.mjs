@@ -19,6 +19,13 @@ test('router provides a recovery boundary for failed lazy route chunks', async (
   assert.match(source, /<RouteSuspenseBoundary>\s*\{element\}\s*<\/RouteSuspenseBoundary>/);
 });
 
+test('router exposes the public site search route', async () => {
+  const source = await loadRouterSource();
+
+  assert.match(source, /const Search = lazy/);
+  assert.match(source, /path:\s*'\/search',\s*element:\s*withSuspense\(<Search\s*\/>\)/);
+});
+
 test('route suspense boundary resets stale lazy content when the path changes', async () => {
   const source = await loadRouteSuspenseBoundarySource();
 

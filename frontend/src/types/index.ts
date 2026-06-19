@@ -201,6 +201,12 @@ export interface CreateArticleRequest {
   collection_position?: number;
 }
 
+export interface ArticleSearchResult {
+  article: ArticleListItem;
+  snippet: string;
+  matched_fields: string[];
+}
+
 // 分类相关类型
 export interface Category {
   id: number;

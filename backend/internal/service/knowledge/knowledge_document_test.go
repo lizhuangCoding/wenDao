@@ -99,6 +99,10 @@ func (r *stubKnowledgeArticleRepository) List(filter repository.ArticleFilter) (
 	return nil, 0, nil
 }
 
+func (r *stubKnowledgeArticleRepository) Search(filter repository.ArticleSearchFilter) ([]repository.ArticleSearchResult, int64, error) {
+	return nil, 0, nil
+}
+
 func (r *stubKnowledgeArticleRepository) ListOrbitArticles() ([]*model.Article, error) {
 	return nil, nil
 }

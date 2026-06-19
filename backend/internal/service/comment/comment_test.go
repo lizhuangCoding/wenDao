@@ -112,6 +112,9 @@ func (r *replyNotificationArticleRepo) GetBySource(sourceType string, sourceID i
 func (r *replyNotificationArticleRepo) List(filter repository.ArticleFilter) ([]*model.Article, int64, error) {
 	return nil, 0, nil
 }
+func (r *replyNotificationArticleRepo) Search(filter repository.ArticleSearchFilter) ([]repository.ArticleSearchResult, int64, error) {
+	return nil, 0, nil
+}
 func (r *replyNotificationArticleRepo) ListOrbitArticles() ([]*model.Article, error) {
 	return nil, nil
 }

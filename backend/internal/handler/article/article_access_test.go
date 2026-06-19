@@ -11,6 +11,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"wenDao/internal/model"
+	"wenDao/internal/service"
 	"wenDao/internal/service/setting"
 )
 
@@ -46,6 +47,9 @@ func (s *stubArticleService) GetBySlug(slug string) (*model.Article, error) {
 func (s *stubArticleService) List(status string, categoryID, tagID int64, keyword string, sortByPopularity bool, page, pageSize int) ([]*model.Article, int64, error) {
 	s.listPage = page
 	s.listPageSize = pageSize
+	return nil, 0, nil
+}
+func (s *stubArticleService) SearchArticles(keyword string, categoryID, tagID int64, page, pageSize int) ([]service.ArticleSearchResult, int64, error) {
 	return nil, 0, nil
 }
 func (s *stubArticleService) ListOrbitArticles() ([]*model.Article, error) {

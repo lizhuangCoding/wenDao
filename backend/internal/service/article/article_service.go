@@ -21,6 +21,7 @@ type ArticleService interface {
 	GetByID(id int64) (*model.Article, error)
 	GetBySlug(slug string) (*model.Article, error)
 	List(status string, categoryID, tagID int64, keyword string, sortByPopularity bool, page, pageSize int) ([]*model.Article, int64, error)
+	SearchArticles(keyword string, categoryID, tagID int64, page, pageSize int) ([]ArticleSearchResult, int64, error)
 	ListOrbitArticles() ([]*model.Article, error)
 	Update(id int64, title, content, summary string, categoryID int64, coverImage *string) (*model.Article, error)
 	SetTags(id int64, tagIDs []int64) (*model.Article, error)
