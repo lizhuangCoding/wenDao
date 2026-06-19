@@ -1,11 +1,15 @@
 package article
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
+	"gorm.io/gorm"
+
 	"wenDao/internal/model"
 	"wenDao/internal/pkg/hash"
+	"wenDao/internal/svcerrors"
 )
 
 // Create 创建文章
@@ -96,6 +100,31 @@ func (s *articleService) Update(id int64, title, content, summary string, catego
 	}
 
 	return article, nil
+}
+
+// SetTags 设置文章标签。
+func (s *articleService) SetTags(id int64, tagIDs []int64) (*model.Article, error) {
+	article, err := s.getArticleByIDOrNotFound(id)
+	if err != nil {
+		return nil, err
+	}
+	if s.tagRepo == nil {
+		return nil, fmt.Errorf("tag repository is not configured")
+	}
+	if err := s.tagRepo.SetArticleTags(id, tagIDs); err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, svcerrors.ErrTagNotFound
+		}
+		return nil, fmt.Errorf("failed to set article tags: %w", err)
+	}
+	s.deleteArticleFromCache(article)
+	s.invalidateArticleCollections()
+	updated, err := s.articleRepo.GetByID(id)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get article after setting tags: %w", err)
+	}
+	s.setArticleToCache(updated)
+	return updated, nil
 }
 
 // Delete 删除文章

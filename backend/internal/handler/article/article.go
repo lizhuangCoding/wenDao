@@ -94,6 +94,7 @@ type CreateArticleRequest struct {
 	ScheduledPublishAt *string `json:"scheduled_publish_at"`
 	CollectionID       *int64  `json:"collection_id"`
 	CollectionPosition int     `json:"collection_position"`
+	TagIDs             []int64 `json:"tag_ids"`
 }
 
 // UpdateArticleRequest 更新文章请求
@@ -106,6 +107,7 @@ type UpdateArticleRequest struct {
 	ScheduledPublishAt *string `json:"scheduled_publish_at"`
 	CollectionID       *int64  `json:"collection_id"`
 	CollectionPosition int     `json:"collection_position"`
+	TagIDs             []int64 `json:"tag_ids"`
 }
 
 type BatchDeleteArticleRequest struct {
@@ -169,6 +171,24 @@ func (h *ArticleHandler) setArticleCollectionPlacement(c *gin.Context, articleID
 	return true
 }
 
+func (h *ArticleHandler) setArticleTags(c *gin.Context, article *model.Article, tagIDs []int64) (*model.Article, bool) {
+	if tagIDs == nil {
+		return article, true
+	}
+	updated, err := h.articleService.SetTags(article.ID, tagIDs)
+	if err != nil {
+		if errors.Is(err, svcerrors.ErrArticleNotFound) {
+			response.NotFound(c, "Article not found")
+		} else if errors.Is(err, svcerrors.ErrTagNotFound) {
+			response.NotFound(c, "Tag not found")
+		} else {
+			response.InternalErrorWithErr(c, "Failed to set article tags", err)
+		}
+		return nil, false
+	}
+	return updated, true
+}
+
 // Create 创建文章（管理员）
 func (h *ArticleHandler) Create(c *gin.Context) {
 	var req CreateArticleRequest
@@ -214,6 +234,12 @@ func (h *ArticleHandler) Create(c *gin.Context) {
 			// 已成功创建文章，但定时设置失败，仅记录
 			c.Error(updateErr)
 		}
+	}
+
+	if updated, ok := h.setArticleTags(c, article, req.TagIDs); !ok {
+		return
+	} else {
+		article = updated
 	}
 
 	if !h.setArticleCollectionPlacement(c, article.ID, req.CollectionID, req.CollectionPosition) {
@@ -301,6 +327,7 @@ func (h *ArticleHandler) GetBySlug(c *gin.Context) {
 func (h *ArticleHandler) List(c *gin.Context) {
 	status := c.Query("status")
 	categoryIDStr := c.Query("category_id")
+	tagIDStr := c.Query("tag_id")
 	keyword := c.Query("keyword")
 	sortByPopularityStr := c.Query("sort_by_popularity")
 	var sortByPopularity bool
@@ -311,12 +338,13 @@ func (h *ArticleHandler) List(c *gin.Context) {
 	}
 	p := pagination.FromQuery(c)
 	categoryID, _ := strconv.ParseInt(categoryIDStr, 10, 64)
+	tagID, _ := strconv.ParseInt(tagIDStr, 10, 64)
 
 	if status == "" {
 		status = "published"
 	}
 
-	articles, total, err := h.articleService.List(status, categoryID, keyword, sortByPopularity, p.Page, p.PageSize)
+	articles, total, err := h.articleService.List(status, categoryID, tagID, keyword, sortByPopularity, p.Page, p.PageSize)
 	if err != nil {
 		response.InternalErrorWithErr(c, "Failed to list articles", err)
 		return
@@ -335,6 +363,7 @@ func (h *ArticleHandler) List(c *gin.Context) {
 func (h *ArticleHandler) AdminList(c *gin.Context) {
 	status := c.Query("status")
 	categoryIDStr := c.Query("category_id")
+	tagIDStr := c.Query("tag_id")
 	keyword := c.Query("keyword")
 	sortByPopularityStr := c.Query("sort_by_popularity")
 	var sortByPopularity bool
@@ -345,8 +374,9 @@ func (h *ArticleHandler) AdminList(c *gin.Context) {
 	}
 	p := pagination.FromQuery(c)
 	categoryID, _ := strconv.ParseInt(categoryIDStr, 10, 64)
+	tagID, _ := strconv.ParseInt(tagIDStr, 10, 64)
 
-	articles, total, err := h.articleService.List(status, categoryID, keyword, sortByPopularity, p.Page, p.PageSize)
+	articles, total, err := h.articleService.List(status, categoryID, tagID, keyword, sortByPopularity, p.Page, p.PageSize)
 	if err != nil {
 		response.InternalErrorWithErr(c, "Failed to list articles", err)
 		return
@@ -449,6 +479,12 @@ func (h *ArticleHandler) Update(c *gin.Context) {
 		if scheduledAt != nil {
 			article.Status = "draft"
 		}
+	}
+
+	if updated, ok := h.setArticleTags(c, article, req.TagIDs); !ok {
+		return
+	} else {
+		article = updated
 	}
 
 	if !h.setArticleCollectionPlacement(c, article.ID, req.CollectionID, req.CollectionPosition) {

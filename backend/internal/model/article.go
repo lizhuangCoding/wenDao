@@ -39,6 +39,7 @@ type Article struct {
 	// 关联（不存储在数据库）
 	Category *Category `gorm:"foreignKey:CategoryID" json:"category,omitempty"`
 	Author   *User     `gorm:"foreignKey:AuthorID" json:"author,omitempty"`
+	Tags     []*Tag    `gorm:"many2many:article_tags;joinForeignKey:ArticleID;joinReferences:TagID" json:"tags,omitempty"`
 
 	CollectionMembership *ArticleCollectionMembership `gorm:"-" json:"collection_membership,omitempty"`
 	CollectionNavigation *ArticleCollectionNavigation `gorm:"-" json:"collection_navigation,omitempty"`

@@ -198,14 +198,14 @@ func TestArticleServiceList_UsesCachedResultsUntilInvalidated(t *testing.T) {
 	cache := newMemoryArticleCacheStore()
 	svc := newArticleServiceWithCacheStore(repo, &cacheCategoryRepoStub{}, cache, nil, nil)
 
-	first, total, err := svc.List("published", 3, "go", true, 2, 9)
+	first, total, err := svc.List("published", 3, 0, "go", true, 2, 9)
 	if err != nil {
 		t.Fatalf("expected first list success, got %v", err)
 	}
 	if repo.listCount != 1 {
 		t.Fatalf("expected one repository lookup, got %d", repo.listCount)
 	}
-	second, totalAgain, err := svc.List("published", 3, "go", true, 2, 9)
+	second, totalAgain, err := svc.List("published", 3, 0, "go", true, 2, 9)
 	if err != nil {
 		t.Fatalf("expected cached list success, got %v", err)
 	}
@@ -221,7 +221,7 @@ func TestArticleServiceList_UsesCachedResultsUntilInvalidated(t *testing.T) {
 		t.Fatalf("expected update success, got %v", err)
 	}
 
-	afterUpdate, _, err := svc.List("published", 3, "go", true, 2, 9)
+	afterUpdate, _, err := svc.List("published", 3, 0, "go", true, 2, 9)
 	if err != nil {
 		t.Fatalf("expected list after invalidation to succeed, got %v", err)
 	}

@@ -3,7 +3,7 @@ import type { FormEvent, ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Loading } from '@/components/common';
-import type { ArticleOrbitItem, Category } from '@/types';
+import type { ArticleOrbitItem, Category, Tag } from '@/types';
 import { ArticlePlanetOverlay } from './ArticlePlanetOverlay';
 import {
   filterArticlesByPlanetTime,
@@ -67,9 +67,12 @@ interface ArticlePlanetHeroProps {
   isError: boolean;
   isLoading: boolean;
   selectedCategory?: number;
+  selectedTag?: number;
   slogan?: string;
+  tags?: Tag[];
   timeMode: ArticlePlanetTimeMode;
   onCategoryChange: (categoryId?: number) => void;
+  onTagChange: (tagId?: number) => void;
   onSearch: (event: FormEvent) => void;
   onSearchInputChange: (value: string) => void;
   onTimeModeChange: (mode: ArticlePlanetTimeMode) => void;
@@ -82,9 +85,12 @@ export const ArticlePlanetHero = ({
   isError,
   isLoading,
   selectedCategory,
+  selectedTag,
   slogan,
+  tags,
   timeMode,
   onCategoryChange,
+  onTagChange,
   onSearch,
   onSearchInputChange,
   onTimeModeChange,
@@ -165,12 +171,15 @@ export const ArticlePlanetHero = ({
         isActiveArticleCardVisible={isActiveArticleCardVisible}
         planetYears={planetYears}
         selectedCategory={selectedCategory}
+        selectedTag={selectedTag}
         slogan={slogan}
+        tags={tags}
         timeMode={timeMode}
         visibleArticleCount={visibleArticles.length}
         totalArticleCount={articles.length}
         onActiveArticleClose={() => setIsActiveArticleCardVisible(false)}
         onCategoryChange={onCategoryChange}
+        onTagChange={onTagChange}
         onSearch={onSearch}
         onSearchInputChange={onSearchInputChange}
         onTimeModeChange={onTimeModeChange}

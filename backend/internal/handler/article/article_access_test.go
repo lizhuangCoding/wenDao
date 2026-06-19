@@ -43,7 +43,7 @@ func (s *stubArticleService) GetByID(id int64) (*model.Article, error) { return 
 func (s *stubArticleService) GetBySlug(slug string) (*model.Article, error) {
 	return s.articleBySlug, nil
 }
-func (s *stubArticleService) List(status string, categoryID int64, keyword string, sortByPopularity bool, page, pageSize int) ([]*model.Article, int64, error) {
+func (s *stubArticleService) List(status string, categoryID, tagID int64, keyword string, sortByPopularity bool, page, pageSize int) ([]*model.Article, int64, error) {
 	s.listPage = page
 	s.listPageSize = pageSize
 	return nil, 0, nil
@@ -55,6 +55,9 @@ func (s *stubArticleService) Update(id int64, title, content, summary string, ca
 	if s.updatedArticle != nil {
 		return s.updatedArticle, nil
 	}
+	return &model.Article{ID: id, Status: "draft"}, nil
+}
+func (s *stubArticleService) SetTags(id int64, tagIDs []int64) (*model.Article, error) {
 	return &model.Article{ID: id, Status: "draft"}, nil
 }
 func (s *stubArticleService) Delete(id int64) error { return nil }

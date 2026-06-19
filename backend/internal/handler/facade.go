@@ -14,6 +14,7 @@ import (
 	notifhandler "wenDao/internal/handler/notification"
 	sitehandler "wenDao/internal/handler/site"
 	stathandler "wenDao/internal/handler/stat"
+	taghandler "wenDao/internal/handler/tag"
 	uploadhandler "wenDao/internal/handler/upload"
 	userhandler "wenDao/internal/handler/user"
 	"wenDao/internal/repository"
@@ -23,6 +24,7 @@ import (
 type UserHandler = userhandler.UserHandler
 type AuthHandler = authhandler.AuthHandler
 type CategoryHandler = categoryhandler.CategoryHandler
+type TagHandler = taghandler.TagHandler
 type CollectionHandler = collectionhandler.CollectionHandler
 type ArticleHandler = articlehandler.ArticleHandler
 type CommentHandler = commenthandler.CommentHandler
@@ -43,6 +45,9 @@ func NewAuthHandler(userSvc service.UserService, cfg *config.Config, rdb *redis.
 }
 func NewCategoryHandler(categorySvc service.CategoryService) *CategoryHandler {
 	return categoryhandler.NewCategoryHandler(categorySvc)
+}
+func NewTagHandler(tagSvc service.TagService) *TagHandler {
+	return taghandler.NewTagHandler(tagSvc)
 }
 func NewCollectionHandler(collectionSvc service.CollectionService) *CollectionHandler {
 	return collectionhandler.NewCollectionHandler(collectionSvc)

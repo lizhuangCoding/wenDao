@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { articleApi, categoryApi, siteApi } from '@/api';
+import { articleApi, categoryApi, siteApi, tagApi } from '@/api';
 import { Layout, Loading, Pagination, EmptyState, ErrorState, CursorCometTrail } from '@/components/common';
 import { ArticleCard } from '@/components/article';
 import { ArticlePlanetHero } from '@/components/home';
@@ -12,6 +12,7 @@ export const Home = () => {
   const { t } = useTranslation();
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedCategory, setSelectedCategory] = useState<number>();
+  const [selectedTag, setSelectedTag] = useState<number>();
   const [searchKeyword, setSearchKeyword] = useState('');
   const [inputValue, setInputValue] = useState('');
   const [planetTimeMode, setPlanetTimeMode] = useState<ArticlePlanetTimeMode>('all');
@@ -29,14 +30,20 @@ export const Home = () => {
     queryFn: categoryApi.getCategories,
   });
 
+  const { data: tags } = useQuery({
+    queryKey: ['tags'],
+    queryFn: tagApi.getTags,
+  });
+
   // 获取文章列表
   const { data: articlesData, isLoading, isError, error, refetch } = useQuery({
-    queryKey: ['articles', currentPage, selectedCategory, searchKeyword],
+    queryKey: ['articles', currentPage, selectedCategory, selectedTag, searchKeyword],
     queryFn: () =>
       articleApi.getArticles({
         page: currentPage,
         pageSize: 9,
         category_id: selectedCategory,
+        tag_id: selectedTag,
         keyword: searchKeyword,
       }),
     placeholderData: (previousData) => previousData,
@@ -65,6 +72,11 @@ export const Home = () => {
     setCurrentPage(1);
   };
 
+  const handleTagChange = (tagId?: number) => {
+    setSelectedTag(tagId);
+    setCurrentPage(1);
+  };
+
   return (
     <Layout>
       <CursorCometTrail />
@@ -74,10 +86,13 @@ export const Home = () => {
         inputValue={inputValue}
         isError={isOrbitError}
         isLoading={isOrbitLoading}
+        tags={tags}
         timeMode={planetTimeMode}
         selectedCategory={selectedCategory}
+        selectedTag={selectedTag}
         slogan={siteData?.slogan}
         onCategoryChange={handleCategoryChange}
+        onTagChange={handleTagChange}
         onSearch={handleSearch}
         onSearchInputChange={setInputValue}
         onTimeModeChange={setPlanetTimeMode}

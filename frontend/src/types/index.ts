@@ -70,7 +70,7 @@ export interface Article {
   category: Category;
   author_id: number;
   author: User;
-  tags?: string[];
+  tags?: Tag[];
   collection_id?: number;
   collection_position?: number;
   collection_membership?: ArticleCollectionMembership;
@@ -132,6 +132,7 @@ export interface ArticleListItem {
   source_id?: number;
   category: Category;
   author: User;
+  tags?: Tag[];
   created_at: string;
 }
 
@@ -194,7 +195,7 @@ export interface CreateArticleRequest {
   cover_image?: string;
   category_id: number | undefined;
   status: 'draft' | 'published';
-  tags?: string[];
+  tag_ids?: number[];
   scheduled_publish_at?: string;
   collection_id?: number;
   collection_position?: number;
@@ -208,6 +209,16 @@ export interface Category {
   description?: string;
   article_count: number;
   sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+// 标签相关类型
+export interface Tag {
+  id: number;
+  name: string;
+  slug: string;
+  article_count: number;
   created_at: string;
   updated_at: string;
 }

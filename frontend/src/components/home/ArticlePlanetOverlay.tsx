@@ -2,7 +2,7 @@ import type { FormEvent } from 'react';
 import { ArrowRight, Search, Sparkles, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
-import type { ArticleOrbitItem, Category } from '@/types';
+import type { ArticleOrbitItem, Category, Tag } from '@/types';
 import { getArticlePlanetTimeLabel, type ArticlePlanetTimeMode } from './articlePlanetTime';
 import type { ArticlePlanetGravityRecommendation } from './articlePlanetGravity';
 
@@ -15,12 +15,15 @@ interface ArticlePlanetOverlayProps {
   isActiveArticleCardVisible: boolean;
   planetYears: number[];
   selectedCategory?: number;
+  selectedTag?: number;
   slogan?: string;
+  tags?: Tag[];
   timeMode: ArticlePlanetTimeMode;
   totalArticleCount: number;
   visibleArticleCount: number;
   onActiveArticleClose: () => void;
   onCategoryChange: (categoryId?: number) => void;
+  onTagChange: (tagId?: number) => void;
   onSearch: (event: FormEvent) => void;
   onSearchInputChange: (value: string) => void;
   onTimeModeChange: (mode: ArticlePlanetTimeMode) => void;
@@ -35,12 +38,15 @@ export const ArticlePlanetOverlay = ({
   isActiveArticleCardVisible,
   planetYears,
   selectedCategory,
+  selectedTag,
   slogan,
+  tags,
   timeMode,
   totalArticleCount,
   visibleArticleCount,
   onActiveArticleClose,
   onCategoryChange,
+  onTagChange,
   onSearch,
   onSearchInputChange,
   onTimeModeChange,
@@ -106,6 +112,37 @@ export const ArticlePlanetOverlay = ({
               </button>
             ))}
           </div>
+          {tags && tags.length > 0 && (
+            <div className="pointer-events-auto mt-3 flex max-w-full gap-2 overflow-x-auto pb-1 scrollbar-hide">
+              <button
+                type="button"
+                onClick={() => onTagChange(undefined)}
+                aria-pressed={selectedTag === undefined}
+                className={`pointer-events-auto shrink-0 border px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.18em] transition-colors ${
+                  selectedTag === undefined
+                    ? 'border-emerald-200 bg-emerald-200 text-neutral-950'
+                    : 'border-white/15 bg-white/[0.04] text-white/60 hover:border-white/35 hover:text-white'
+                }`}
+              >
+                全部标签
+              </button>
+              {tags.map((tag) => (
+                <button
+                  key={tag.id}
+                  type="button"
+                  onClick={() => onTagChange(tag.id)}
+                  aria-pressed={selectedTag === tag.id}
+                  className={`pointer-events-auto shrink-0 border px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.18em] transition-colors ${
+                    selectedTag === tag.id
+                      ? 'border-emerald-200 bg-emerald-200 text-neutral-950'
+                      : 'border-white/15 bg-white/[0.04] text-white/60 hover:border-white/35 hover:text-white'
+                  }`}
+                >
+                  #{tag.name}
+                </button>
+              ))}
+            </div>
+          )}
           {planetYears.length > 0 && (
             <div className="pointer-events-auto mt-4 max-w-full sm:max-w-2xl">
               <div className="mb-2 flex items-center gap-3 text-[10px] font-black uppercase tracking-[0.22em] text-white/45">

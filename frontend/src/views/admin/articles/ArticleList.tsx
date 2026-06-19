@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Plus, Search } from 'lucide-react';
-import { articleApi, categoryApi, siteApi } from '@/api';
+import { articleApi, categoryApi, siteApi, tagApi } from '@/api';
 import {
   Button,
   BulkActionBar,
@@ -38,6 +38,7 @@ export const ArticleList = () => {
   const [page, setPage] = useState(1);
   const [status, setStatus] = useState<ArticleStatusFilter>('');
   const [categoryID, setCategoryID] = useState('');
+  const [tagID, setTagID] = useState('');
   const [keyword, setKeyword] = useState('');
   const [keywordInput, setKeywordInput] = useState('');
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
@@ -56,6 +57,11 @@ export const ArticleList = () => {
     queryFn: categoryApi.getCategories,
   });
 
+  const { data: tags } = useQuery({
+    queryKey: ['tags'],
+    queryFn: tagApi.getTags,
+  });
+
   const {
     data: articlesData,
     isLoading,
@@ -63,13 +69,14 @@ export const ArticleList = () => {
     error,
     refetch,
   } = useQuery({
-    queryKey: ['admin-articles', page, pageSize, status, categoryID, keyword, sortMode?.enabled],
+    queryKey: ['admin-articles', page, pageSize, status, categoryID, tagID, keyword, sortMode?.enabled],
     queryFn: () =>
       articleApi.getAdminArticles({
         page,
         pageSize,
         status: status || undefined,
         category_id: categoryID ? Number(categoryID) : undefined,
+        tag_id: tagID ? Number(tagID) : undefined,
         keyword: keyword || undefined,
         sort_by_popularity: sortMode?.enabled,
       }),
@@ -160,6 +167,7 @@ export const ArticleList = () => {
   const resetFilters = () => {
     setStatus('');
     setCategoryID('');
+    setTagID('');
     setKeyword('');
     setKeywordInput('');
     setPage(1);
@@ -213,7 +221,7 @@ export const ArticleList = () => {
       />
 
       <Panel className="space-y-3">
-        <form onSubmit={applySearch} className="grid gap-3 md:grid-cols-[1fr_auto_auto_auto]">
+        <form onSubmit={applySearch} className="grid gap-3 md:grid-cols-[1fr_auto_auto_auto_auto]">
           <TextInput
             value={keywordInput}
             onChange={(event) => setKeywordInput(event.target.value)}
@@ -244,6 +252,21 @@ export const ArticleList = () => {
             {categories?.map((category) => (
               <option key={category.id} value={category.id}>
                 {category.name}
+              </option>
+            ))}
+          </SelectInput>
+          <SelectInput
+            value={tagID}
+            onChange={(event) => {
+              setTagID(event.target.value);
+              setPage(1);
+              setSelectedIds([]);
+            }}
+          >
+            <option value="">全部标签</option>
+            {tags?.map((tag) => (
+              <option key={tag.id} value={tag.id}>
+                {tag.name}
               </option>
             ))}
           </SelectInput>

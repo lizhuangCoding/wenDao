@@ -20,9 +20,10 @@ type ArticleService interface {
 	Create(title, content, summary string, categoryID, authorID int64, coverImage *string, status string) (*model.Article, error)
 	GetByID(id int64) (*model.Article, error)
 	GetBySlug(slug string) (*model.Article, error)
-	List(status string, categoryID int64, keyword string, sortByPopularity bool, page, pageSize int) ([]*model.Article, int64, error)
+	List(status string, categoryID, tagID int64, keyword string, sortByPopularity bool, page, pageSize int) ([]*model.Article, int64, error)
 	ListOrbitArticles() ([]*model.Article, error)
 	Update(id int64, title, content, summary string, categoryID int64, coverImage *string) (*model.Article, error)
+	SetTags(id int64, tagIDs []int64) (*model.Article, error)
 	Delete(id int64) error
 	DeleteBatch(ids []int64) error
 	Publish(id int64) error
@@ -50,6 +51,7 @@ type articleService struct {
 	articleRepo   repository.ArticleRepository
 	semanticRepo  repository.ArticleSemanticProfileRepository
 	categoryRepo  repository.CategoryRepository
+	tagRepo       repository.TagRepository
 	cache         articleCacheStore
 	vectorService VectorService
 	logger        *zap.Logger
@@ -63,16 +65,14 @@ func NewArticleService(
 	rdb *redis.Client,
 	vectorService VectorService,
 	logger *zap.Logger,
-	semanticRepos ...repository.ArticleSemanticProfileRepository,
+	extras ...any,
 ) ArticleService {
-	var semanticRepo repository.ArticleSemanticProfileRepository
-	if len(semanticRepos) > 0 {
-		semanticRepo = semanticRepos[0]
-	}
+	semanticRepo, tagRepo := parseArticleServiceExtras(extras...)
 	return &articleService{
 		articleRepo:   articleRepo,
 		semanticRepo:  semanticRepo,
 		categoryRepo:  categoryRepo,
+		tagRepo:       tagRepo,
 		cache:         newRedisArticleCacheStore(rdb),
 		vectorService: vectorService,
 		logger:        logger,
@@ -85,20 +85,36 @@ func newArticleServiceWithCacheStore(
 	cache articleCacheStore,
 	vectorService VectorService,
 	logger *zap.Logger,
-	semanticRepos ...repository.ArticleSemanticProfileRepository,
+	extras ...any,
 ) *articleService {
-	var semanticRepo repository.ArticleSemanticProfileRepository
-	if len(semanticRepos) > 0 {
-		semanticRepo = semanticRepos[0]
-	}
+	semanticRepo, tagRepo := parseArticleServiceExtras(extras...)
 	return &articleService{
 		articleRepo:   articleRepo,
 		semanticRepo:  semanticRepo,
 		categoryRepo:  categoryRepo,
+		tagRepo:       tagRepo,
 		cache:         cache,
 		vectorService: vectorService,
 		logger:        logger,
 	}
+}
+
+func parseArticleServiceExtras(extras ...any) (repository.ArticleSemanticProfileRepository, repository.TagRepository) {
+	var semanticRepo repository.ArticleSemanticProfileRepository
+	var tagRepo repository.TagRepository
+	for _, extra := range extras {
+		switch repo := extra.(type) {
+		case repository.ArticleSemanticProfileRepository:
+			if semanticRepo == nil {
+				semanticRepo = repo
+			}
+		case repository.TagRepository:
+			if tagRepo == nil {
+				tagRepo = repo
+			}
+		}
+	}
+	return semanticRepo, tagRepo
 }
 
 func (s *articleService) getArticleByIDOrNotFound(id int64) (*model.Article, error) {

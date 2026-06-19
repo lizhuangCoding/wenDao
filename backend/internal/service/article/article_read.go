@@ -55,7 +55,7 @@ func (s *articleService) GetAllPublished() ([]*model.Article, error) {
 }
 
 // List 获取文章列表
-func (s *articleService) List(status string, categoryID int64, keyword string, sortByPopularity bool, page, pageSize int) ([]*model.Article, int64, error) {
+func (s *articleService) List(status string, categoryID, tagID int64, keyword string, sortByPopularity bool, page, pageSize int) ([]*model.Article, int64, error) {
 	if page <= 0 {
 		page = 1
 	}
@@ -69,6 +69,7 @@ func (s *articleService) List(status string, categoryID int64, keyword string, s
 	filter := repository.ArticleFilter{
 		Status:           status,
 		CategoryID:       categoryID,
+		TagID:            tagID,
 		Keyword:          keyword,
 		SortByPopularity: sortByPopularity,
 		Page:             page,

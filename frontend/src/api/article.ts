@@ -13,7 +13,7 @@ import { toPaginationQuery } from './pagination';
 // 文章 API
 export const articleApi = {
   // 获取文章列表（公开）
-  getArticles: (params: PaginationParams & { category_id?: number; keyword?: string }) => {
+  getArticles: (params: PaginationParams & { category_id?: number; tag_id?: number; keyword?: string }) => {
     return request.get<PaginatedResponse<ArticleListItem>>('/articles', { params: toPaginationQuery(params) });
   },
 
@@ -61,7 +61,7 @@ export const articleApi = {
   // --- 管理员接口 ---
 
   // 获取所有文章列表（管理员）
-  getAdminArticles: (params: PaginationParams & { status?: string; category_id?: number; keyword?: string; sort_by_popularity?: boolean }) => {
+  getAdminArticles: (params: PaginationParams & { status?: string; category_id?: number; tag_id?: number; keyword?: string; sort_by_popularity?: boolean }) => {
     return request.get<PaginatedResponse<ArticleListItem>>('/admin/articles', { params: toPaginationQuery(params) });
   },
 

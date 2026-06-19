@@ -71,6 +71,18 @@ export const ArticleCard = ({ article }: ArticleCardProps) => {
             <p className="text-neutral-500 dark:text-neutral-400 text-sm leading-relaxed line-clamp-3 font-medium italic">
               {article.summary || t('article.summaryPlaceholder')}
             </p>
+            {article.tags && article.tags.length > 0 && (
+              <div className="mt-4 flex flex-wrap gap-2">
+                {article.tags.slice(0, 4).map((tag) => (
+                  <span
+                    key={tag.id}
+                    className="rounded-full border border-neutral-200 px-2.5 py-1 text-[10px] font-bold text-neutral-500 dark:border-neutral-700 dark:text-neutral-400"
+                  >
+                    #{tag.name}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
 
           <footer className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between pt-6 border-t border-neutral-100 dark:border-neutral-800">

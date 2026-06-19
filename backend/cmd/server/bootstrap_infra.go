@@ -33,6 +33,7 @@ type repositories struct {
 	article                 repository.ArticleRepository
 	articleSemanticProfile  repository.ArticleSemanticProfileRepository
 	category                repository.CategoryRepository
+	tag                     repository.TagRepository
 	collection              repository.CollectionRepository
 	comment                 repository.CommentRepository
 	chatMessage             repository.ChatMessageRepository
@@ -107,6 +108,7 @@ func initRepositories(db *gorm.DB) *repositories {
 		article:                 repository.NewArticleRepository(db),
 		articleSemanticProfile:  repository.NewArticleSemanticProfileRepository(db),
 		category:                repository.NewCategoryRepository(db),
+		tag:                     repository.NewTagRepository(db),
 		collection:              repository.NewCollectionRepository(db),
 		comment:                 repository.NewCommentRepository(db),
 		chatMessage:             repository.NewChatMessageRepository(db),

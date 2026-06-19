@@ -12,6 +12,7 @@ import (
 	notifrepo "wenDao/internal/repository/notification"
 	settingrepo "wenDao/internal/repository/setting"
 	statrepo "wenDao/internal/repository/stat"
+	tagrepo "wenDao/internal/repository/tag"
 	uploadrepo "wenDao/internal/repository/upload"
 	userrepo "wenDao/internal/repository/user"
 )
@@ -22,6 +23,8 @@ type ArticleSemanticProfileRepository = articlerepo.ArticleSemanticProfileReposi
 type ArticleFilter = articlerepo.ArticleFilter
 type CategoryRepository = categoryrepo.CategoryRepository
 type CategoryFilter = categoryrepo.CategoryFilter
+type TagRepository = tagrepo.TagRepository
+type TagFilter = tagrepo.TagFilter
 type CollectionRepository = collectionrepo.CollectionRepository
 type CollectionFilter = collectionrepo.CollectionFilter
 type CommentRepository = commentrepo.CommentRepository
@@ -48,6 +51,9 @@ func NewArticleSemanticProfileRepository(db *gorm.DB) ArticleSemanticProfileRepo
 }
 func NewCategoryRepository(db *gorm.DB) CategoryRepository {
 	return categoryrepo.NewCategoryRepository(db)
+}
+func NewTagRepository(db *gorm.DB) TagRepository {
+	return tagrepo.NewTagRepository(db)
 }
 func NewCollectionRepository(db *gorm.DB) CollectionRepository {
 	return collectionrepo.NewCollectionRepository(db)

@@ -13,7 +13,7 @@ import { DatePicker, Select } from 'tdesign-react';
 import type { DatePickerProps } from 'tdesign-react';
 import { CalendarClock } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { articleApi, categoryApi, collectionApi, uploadApi, chatApi } from '@/api';
+import { articleApi, categoryApi, collectionApi, tagApi, uploadApi, chatApi } from '@/api';
 import type { AIWritingAction } from '@/api/chat';
 import { Loading, ErrorState } from '@/components/common';
 import { useUIStore } from '@/store';
@@ -81,6 +81,7 @@ export const ArticleEditor = () => {
     scheduled_publish_at: '',
     collection_id: undefined as number | undefined,
     collection_position: 0,
+    tag_ids: [] as number[],
   });
   const primaryActionLabel = getArticlePrimaryActionLabel({
     isEdit,
@@ -110,6 +111,11 @@ export const ArticleEditor = () => {
   } = useQuery({
     queryKey: ['collections'],
     queryFn: collectionApi.getCollections,
+  });
+
+  const { data: tags, isError: isTagsError, error: tagsError, refetch: refetchTags } = useQuery({
+    queryKey: ['tags'],
+    queryFn: tagApi.getTags,
   });
 
   const { data: article, isLoading: isArticleLoading, isError: isArticleError, error: articleError, refetch: refetchArticle } = useQuery({
@@ -145,6 +151,7 @@ export const ArticleEditor = () => {
         scheduled_publish_at: article.scheduled_publish_at || '',
         collection_id: article.collection_membership?.collection_id,
         collection_position: article.collection_membership?.position ?? 0,
+        tag_ids: article.tags?.map((tag) => tag.id) ?? [],
       });
       lastSavedDataRef.current = { title: article.title, content: article.content, summary: article.summary };
     }
@@ -164,6 +171,7 @@ export const ArticleEditor = () => {
       scheduled_publish_at: formData.scheduled_publish_at,
       collection_id: formData.collection_id,
       collection_position: formData.collection_position,
+      tag_ids: formData.tag_ids,
     };
     localStorage.setItem(draftKey, JSON.stringify(backupData));
   }, [formData, draftKey, t]);
@@ -457,6 +465,17 @@ export const ArticleEditor = () => {
     );
   }
 
+  if (isTagsError) {
+    return (
+      <div className="max-w-6xl mx-auto pb-12">
+        <ErrorState
+          message={(tagsError as any)?.message || '标签列表加载失败'}
+          onRetry={() => refetchTags()}
+        />
+      </div>
+    );
+  }
+
   return (
     <div
       className={`${isWritingFocused ? 'max-w-display' : 'max-w-6xl'} mx-auto pb-12 transition-[max-width] duration-300`}
@@ -594,6 +613,27 @@ export const ArticleEditor = () => {
                   disabled={!formData.collection_id}
                 />
               </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">文章标签</label>
+              <Select
+                value={formData.tag_ids}
+                onChange={(value) =>
+                  setFormData({
+                    ...formData,
+                    tag_ids: Array.isArray(value) ? (value as number[]) : [],
+                  })
+                }
+                multiple
+                clearable
+                placeholder="选择标签"
+                style={{ width: '100%' }}
+              >
+                {tags?.map((tag) => (
+                  <Select.Option key={tag.id} value={tag.id} label={tag.name} />
+                ))}
+              </Select>
             </div>
 
             <div>

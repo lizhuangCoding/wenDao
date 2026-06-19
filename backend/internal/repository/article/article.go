@@ -14,6 +14,7 @@ import (
 type ArticleFilter struct {
 	Status           string // draft/published/空=全部
 	CategoryID       int64  // 分类 ID，0=全部
+	TagID            int64  // 标签 ID，0=全部
 	Keyword          string // 搜索关键字
 	SortByPopularity bool   // 是否按活跃度排序
 	AIIndexStatuses  []string
@@ -68,7 +69,7 @@ func (r *articleRepository) Create(article *model.Article) error {
 // GetByID 根据 ID 查询文章（预加载分类和作者）
 func (r *articleRepository) GetByID(id int64) (*model.Article, error) {
 	var article model.Article
-	err := r.db.Preload("Category").Preload("Author").Where("id = ?", id).First(&article).Error
+	err := r.db.Preload("Category").Preload("Author").Preload("Tags").Where("id = ?", id).First(&article).Error
 	if err != nil {
 		return nil, err
 	}
@@ -78,7 +79,7 @@ func (r *articleRepository) GetByID(id int64) (*model.Article, error) {
 // GetBySlug 根据 slug 查询文章（预加载分类和作者）
 func (r *articleRepository) GetBySlug(slug string) (*model.Article, error) {
 	var article model.Article
-	err := r.db.Preload("Category").Preload("Author").Where("slug = ?", slug).First(&article).Error
+	err := r.db.Preload("Category").Preload("Author").Preload("Tags").Where("slug = ?", slug).First(&article).Error
 	if err != nil {
 		return nil, err
 	}
@@ -88,7 +89,7 @@ func (r *articleRepository) GetBySlug(slug string) (*model.Article, error) {
 // GetBySource 根据来源查询文章
 func (r *articleRepository) GetBySource(sourceType string, sourceID int64) (*model.Article, error) {
 	var article model.Article
-	err := r.db.Preload("Category").Preload("Author").
+	err := r.db.Preload("Category").Preload("Author").Preload("Tags").
 		Where("source_type = ? AND source_id = ?", sourceType, sourceID).
 		First(&article).Error
 	if err != nil {
@@ -109,6 +110,10 @@ func (r *articleRepository) List(filter ArticleFilter) ([]*model.Article, int64,
 	}
 	if filter.CategoryID > 0 {
 		db = db.Where("category_id = ?", filter.CategoryID)
+	}
+	if filter.TagID > 0 {
+		db = db.Joins("JOIN article_tags ON article_tags.article_id = articles.id").
+			Where("article_tags.tag_id = ?", filter.TagID)
 	}
 	if filter.Keyword != "" {
 		keyword := "%" + filter.Keyword + "%"
@@ -152,6 +157,9 @@ func (r *articleRepository) List(filter ArticleFilter) ([]*model.Article, int64,
 		Preload("Author", func(db *gorm.DB) *gorm.DB {
 			return db.Select("id", "username", "avatar_url", "avatar_source")
 		}).
+		Preload("Tags", func(db *gorm.DB) *gorm.DB {
+			return db.Select("id", "name", "slug", "article_count")
+		}).
 		Order(orderStr).
 		Find(&articles).Error
 
@@ -166,6 +174,9 @@ func (r *articleRepository) ListOrbitArticles() ([]*model.Article, error) {
 		Where("status = ?", "published").
 		Preload("Category", func(db *gorm.DB) *gorm.DB {
 			return db.Select("id", "name", "slug")
+		}).
+		Preload("Tags", func(db *gorm.DB) *gorm.DB {
+			return db.Select("id", "name", "slug", "article_count")
 		}).
 		Order("is_top DESC, published_at DESC, created_at DESC").
 		Find(&articles).Error
@@ -198,6 +209,19 @@ func (r *articleRepository) Delete(id int64) error {
 		}
 		if err := tx.Where("article_id = ?", id).Delete(&model.ArticleCollection{}).Error; err != nil {
 			return err
+		}
+		var articleTags []model.ArticleTag
+		if err := tx.Where("article_id = ?", id).Find(&articleTags).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("article_id = ?", id).Delete(&model.ArticleTag{}).Error; err != nil {
+			return err
+		}
+		for _, articleTag := range articleTags {
+			if err := tx.Model(&model.Tag{}).Where("id = ?", articleTag.TagID).
+				UpdateColumn("article_count", gorm.Expr("CASE WHEN article_count > ? THEN article_count - ? ELSE 0 END", 0, 1)).Error; err != nil {
+				return err
+			}
 		}
 		for _, placement := range collectionPlacements {
 			if err := tx.Model(&model.Collection{}).Where("id = ?", placement.CollectionID).
@@ -373,6 +397,9 @@ func (r *articleRepository) ListByInteraction(userID int64, interactionType stri
 		}).
 		Preload("Author", func(db *gorm.DB) *gorm.DB {
 			return db.Select("id", "username", "avatar_url", "avatar_source")
+		}).
+		Preload("Tags", func(db *gorm.DB) *gorm.DB {
+			return db.Select("id", "name", "slug", "article_count")
 		}).
 		Order("article_interactions.created_at DESC").
 		Offset(offset).

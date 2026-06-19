@@ -14,6 +14,8 @@ var (
 var (
 	ErrSlugAlreadyExists                = errors.New("slug already exists")
 	ErrCannotDeleteCategoryWithArticles = errors.New("cannot delete category with articles")
+	ErrTagNotFound                      = errors.New("tag not found")
+	ErrCannotDeleteTagWithArticles      = errors.New("cannot delete tag with articles")
 )
 
 // Comment errors

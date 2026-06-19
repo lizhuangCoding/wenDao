@@ -16,6 +16,7 @@ type appServices struct {
 	verification      service.VerificationService
 	user              service.UserService
 	category          service.CategoryService
+	tag               service.TagService
 	collection        service.CollectionService
 	setting           service.SettingService
 	vector            service.VectorService
@@ -37,6 +38,7 @@ func initServices(cfg *config.Config, logger *zap.Logger, repos *repositories, i
 	commentReplyEmailSender := service.NewSMTPCommentReplyEmailSender(cfg.Email, cfg.Site.URL)
 	notifSvc := service.NewNotificationService(repos.notification)
 	categoryService := service.NewCategoryService(repos.category)
+	tagService := service.NewTagService(repos.tag)
 	collectionService := service.NewCollectionService(repos.collection, repos.article)
 	settingService := service.NewSettingService(repos.setting)
 	knowledgeDocumentService := service.NewKnowledgeDocumentService(repos.knowledgeDocument, repos.knowledgeDocumentSource, nil, repos.article, repos.category, logger)
@@ -110,12 +112,13 @@ func initServices(cfg *config.Config, logger *zap.Logger, repos *repositories, i
 			verification:      verificationService,
 			user:              userService,
 			category:          categoryService,
+			tag:               tagService,
 			collection:        collectionService,
 			setting:           settingService,
 			vector:            vectorService,
 			knowledgeDocument: knowledgeDocumentService,
 			ai:                aiService,
-			article:           service.NewArticleService(repos.article, repos.category, infra.rdb, vectorService, logger, repos.articleSemanticProfile),
+			article:           service.NewArticleService(repos.article, repos.category, infra.rdb, vectorService, logger, repos.articleSemanticProfile, repos.tag),
 			comment:           service.NewCommentService(repos.comment, repos.article, service.WithReplyNotificationSender(commentReplyEmailSender), service.WithCommentNotificationService(notifSvc), service.WithCommentUserRepository(repos.user), service.WithArticleCacheInvalidation(infra.rdb)),
 			upload:            service.NewUploadService(repos.upload, cfg),
 			stat:              service.NewStatService(repos.stat, infra.rdb),
@@ -128,12 +131,13 @@ func initServices(cfg *config.Config, logger *zap.Logger, repos *repositories, i
 		verification:      verificationService,
 		user:              userService,
 		category:          categoryService,
+		tag:               tagService,
 		collection:        collectionService,
 		setting:           settingService,
 		vector:            nil,
 		knowledgeDocument: knowledgeDocumentService,
 		ai:                aiService,
-		article:           service.NewArticleService(repos.article, repos.category, infra.rdb, nil, logger, repos.articleSemanticProfile),
+		article:           service.NewArticleService(repos.article, repos.category, infra.rdb, nil, logger, repos.articleSemanticProfile, repos.tag),
 		comment:           service.NewCommentService(repos.comment, repos.article, service.WithReplyNotificationSender(commentReplyEmailSender), service.WithCommentNotificationService(notifSvc), service.WithCommentUserRepository(repos.user), service.WithArticleCacheInvalidation(infra.rdb)),
 		upload:            service.NewUploadService(repos.upload, cfg),
 		stat:              service.NewStatService(repos.stat, infra.rdb),

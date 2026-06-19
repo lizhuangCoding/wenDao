@@ -67,13 +67,16 @@ func (s *immediateArticleSchedulerService) GetByID(id int64) (*model.Article, er
 func (s *immediateArticleSchedulerService) GetBySlug(slug string) (*model.Article, error) {
 	return nil, nil
 }
-func (s *immediateArticleSchedulerService) List(status string, categoryID int64, keyword string, sortByPopularity bool, page, pageSize int) ([]*model.Article, int64, error) {
+func (s *immediateArticleSchedulerService) List(status string, categoryID, tagID int64, keyword string, sortByPopularity bool, page, pageSize int) ([]*model.Article, int64, error) {
 	return nil, 0, nil
 }
 func (s *immediateArticleSchedulerService) ListOrbitArticles() ([]*model.Article, error) {
 	return nil, nil
 }
 func (s *immediateArticleSchedulerService) Update(id int64, title, content, summary string, categoryID int64, coverImage *string) (*model.Article, error) {
+	return nil, nil
+}
+func (s *immediateArticleSchedulerService) SetTags(id int64, tagIDs []int64) (*model.Article, error) {
 	return nil, nil
 }
 func (s *immediateArticleSchedulerService) Delete(id int64) error         { return nil }

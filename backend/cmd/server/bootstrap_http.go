@@ -18,6 +18,7 @@ type appHandlers struct {
 	user              *handler.UserHandler
 	auth              *handler.AuthHandler
 	category          *handler.CategoryHandler
+	tag               *handler.TagHandler
 	collection        *handler.CollectionHandler
 	article           *handler.ArticleHandler
 	comment           *handler.CommentHandler
@@ -40,6 +41,7 @@ func initHandlers(cfg *config.Config, repos *repositories, services *appServices
 		user:              handler.NewUserHandler(services.user, services.upload, services.oauth, services.verification, cfg),
 		auth:              handler.NewAuthHandler(services.user, cfg, rdb),
 		category:          handler.NewCategoryHandler(services.category),
+		tag:               handler.NewTagHandler(services.tag),
 		collection:        handler.NewCollectionHandler(services.collection),
 		article:           handler.NewArticleHandler(services.article, services.stat, services.setting, services.collection),
 		comment:           handler.NewCommentHandler(services.comment, services.stat),
@@ -71,6 +73,7 @@ func buildRouter(cfg *config.Config, logger *zap.Logger, rdb *redis.Client, hand
 		handlers.user,
 		handlers.auth,
 		handlers.category,
+		handlers.tag,
 		handlers.collection,
 		handlers.article,
 		handlers.comment,
@@ -105,6 +108,7 @@ func registerRoutes(
 	userHandler *handler.UserHandler,
 	authHandler *handler.AuthHandler,
 	categoryHandler *handler.CategoryHandler,
+	tagHandler *handler.TagHandler,
 	collectionHandler *handler.CollectionHandler,
 	articleHandler *handler.ArticleHandler,
 	commentHandler *handler.CommentHandler,
@@ -172,6 +176,7 @@ func registerRoutes(
 		api.GET("/articles/:id", articleHandler.GetByID)
 		api.GET("/articles/slug/:slug", articleHandler.GetBySlug)
 		api.GET("/categories", categoryHandler.List)
+		api.GET("/tags", tagHandler.List)
 		api.GET("/collections", collectionHandler.List)
 		api.GET("/categories/:id/articles", articleHandler.List)
 		api.GET("/comments/article/:id", commentHandler.GetByArticleID)
@@ -290,6 +295,14 @@ func registerRoutes(
 				categories.POST("", categoryHandler.Create)
 				categories.PUT("/:id", categoryHandler.Update)
 				categories.DELETE("/:id", categoryHandler.Delete)
+			}
+			tags := admin.Group("/tags")
+			{
+				tags.GET("", tagHandler.AdminList)
+				tags.POST("/batch-delete", tagHandler.BatchDelete)
+				tags.POST("", tagHandler.Create)
+				tags.PUT("/:id", tagHandler.Update)
+				tags.DELETE("/:id", tagHandler.Delete)
 			}
 			collections := admin.Group("/collections")
 			{

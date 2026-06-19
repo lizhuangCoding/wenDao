@@ -17,6 +17,7 @@ import (
 	notifrepo "wenDao/internal/repository/notification"
 	settingrepo "wenDao/internal/repository/setting"
 	statrepo "wenDao/internal/repository/stat"
+	tagrepo "wenDao/internal/repository/tag"
 	uploadrepo "wenDao/internal/repository/upload"
 	userrepo "wenDao/internal/repository/user"
 	aisvc "wenDao/internal/service/ai"
@@ -31,6 +32,7 @@ import (
 	notifsvc "wenDao/internal/service/notification"
 	settingsvc "wenDao/internal/service/setting"
 	statsvc "wenDao/internal/service/stat"
+	tagsvc "wenDao/internal/service/tag"
 	uploadsvc "wenDao/internal/service/upload"
 	usersvc "wenDao/internal/service/user"
 )
@@ -42,6 +44,7 @@ type VerificationPurpose = authsvc.VerificationPurpose
 type VerificationEmailSender = authsvc.VerificationEmailSender
 type UserService = usersvc.UserService
 type CategoryService = categorysvc.CategoryService
+type TagService = tagsvc.TagService
 type CollectionService = collectionsvc.CollectionService
 type SettingService = settingsvc.SettingService
 type VectorService = aisvc.VectorService
@@ -108,6 +111,9 @@ func NewUserService(repo userrepo.UserRepository, oauth OAuthService, cfg *confi
 func NewCategoryService(repo categoryrepo.CategoryRepository) CategoryService {
 	return categorysvc.NewCategoryService(repo)
 }
+func NewTagService(repo tagrepo.TagRepository) TagService {
+	return tagsvc.NewTagService(repo)
+}
 func NewCollectionService(repo collectionrepo.CollectionRepository, articleRepo articlerepo.ArticleRepository) CollectionService {
 	return collectionsvc.NewCollectionService(repo, articleRepo)
 }
@@ -124,8 +130,8 @@ func NewDisabledAIService(reason string) AIService { return aisvc.NewDisabledAIS
 func NewAIService(llm eino.LLMClient, thinkTank ThinkTankService, logger *zap.Logger) AIService {
 	return aisvc.NewAIService(llm, thinkTank, logger)
 }
-func NewArticleService(articleRepo articlerepo.ArticleRepository, categoryRepo categoryrepo.CategoryRepository, rdb *redis.Client, vector VectorService, logger *zap.Logger, semanticRepos ...articlerepo.ArticleSemanticProfileRepository) ArticleService {
-	return articlesvc.NewArticleService(articleRepo, categoryRepo, rdb, vector, logger, semanticRepos...)
+func NewArticleService(articleRepo articlerepo.ArticleRepository, categoryRepo categoryrepo.CategoryRepository, rdb *redis.Client, vector VectorService, logger *zap.Logger, extras ...any) ArticleService {
+	return articlesvc.NewArticleService(articleRepo, categoryRepo, rdb, vector, logger, extras...)
 }
 func NewCommentService(commentRepo commentrepo.CommentRepository, articleRepo articlerepo.ArticleRepository, options ...CommentServiceOption) CommentService {
 	return commentsvc.NewCommentService(commentRepo, articleRepo, options...)

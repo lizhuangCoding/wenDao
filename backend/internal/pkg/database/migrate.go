@@ -28,8 +28,10 @@ func autoMigrateModels() []any {
 	return []any{
 		&model.User{},
 		&model.Category{},
+		&model.Tag{},
 		&model.Collection{},
 		&model.Article{},
+		&model.ArticleTag{},
 		&model.ArticleSemanticProfile{},
 		&model.ArticleCollection{},
 		&model.ArticleInteraction{},

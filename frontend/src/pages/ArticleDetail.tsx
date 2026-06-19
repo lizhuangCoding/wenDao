@@ -243,6 +243,19 @@ export const ArticleDetail = () => {
                 </div>
               )}
 
+              {article.tags && article.tags.length > 0 && (
+                <div className="mb-10 flex flex-wrap gap-2">
+                  {article.tags.map((tag) => (
+                    <span
+                      key={tag.id}
+                      className="rounded-full border border-neutral-200 bg-white px-3 py-1.5 text-xs font-bold text-neutral-500 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-400"
+                    >
+                      #{tag.name}
+                    </span>
+                  ))}
+                </div>
+              )}
+
               {article.cover_image && (
                 <div className="w-full mb-16 rounded-[32px] overflow-hidden shadow-elevated">
                   <img
