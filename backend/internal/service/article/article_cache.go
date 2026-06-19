@@ -203,10 +203,11 @@ func (s *articleService) invalidateArticleCollections() {
 
 func (s *articleService) articleListCacheKey(filter repository.ArticleFilter) string {
 	return fmt.Sprintf(
-		"article:list:v%d:status=%s:category=%d:keyword=%s:sort=%t:page=%d:size=%d:ai=%s:content=%t",
+		"article:list:v%d:status=%s:category=%d:tag=%d:keyword=%s:sort=%t:page=%d:size=%d:ai=%s:content=%t",
 		s.articleListCacheVersion(),
 		filter.Status,
 		filter.CategoryID,
+		filter.TagID,
 		url.QueryEscape(filter.Keyword),
 		filter.SortByPopularity,
 		filter.Page,

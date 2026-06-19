@@ -236,6 +236,32 @@ func TestArticleServiceList_UsesCachedResultsUntilInvalidated(t *testing.T) {
 	}
 }
 
+func TestArticleServiceList_CacheKeyIncludesTagFilter(t *testing.T) {
+	repo := &cacheArticleRepoStub{
+		article: &model.Article{ID: 7, Title: "tag one", Slug: "tag-one", Status: "published"},
+	}
+	cache := newMemoryArticleCacheStore()
+	svc := newArticleServiceWithCacheStore(repo, &cacheCategoryRepoStub{}, cache, nil, nil)
+
+	first, _, err := svc.List("published", 3, 11, "", false, 1, 9)
+	if err != nil {
+		t.Fatalf("expected first tagged list success, got %v", err)
+	}
+	repo.article = &model.Article{ID: 8, Title: "tag two", Slug: "tag-two", Status: "published"}
+
+	second, _, err := svc.List("published", 3, 22, "", false, 1, 9)
+	if err != nil {
+		t.Fatalf("expected second tagged list success, got %v", err)
+	}
+
+	if repo.listCount != 2 {
+		t.Fatalf("expected different tag filters to use different cache keys, got %d repository lookups", repo.listCount)
+	}
+	if len(first) == 0 || len(second) == 0 || first[0].ID == second[0].ID {
+		t.Fatalf("expected different cached payloads for different tag filters, got first=%#v second=%#v", first, second)
+	}
+}
+
 func TestArticleServiceListOrbitArticles_UsesCache(t *testing.T) {
 	repo := &cacheArticleRepoStub{
 		article: &model.Article{ID: 8, Title: "orbit", Slug: "orbit", Status: "published"},
