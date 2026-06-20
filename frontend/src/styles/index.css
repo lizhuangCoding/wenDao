@@ -3,8 +3,21 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    --theme-transition-duration: 300ms;
+    --theme-transition-easing: ease;
+  }
+
   * {
     @apply box-border;
+  }
+
+  html,
+  body,
+  body * {
+    transition-property: background-color, color, border-color, fill, stroke;
+    transition-duration: var(--theme-transition-duration);
+    transition-timing-function: var(--theme-transition-easing);
   }
 
   html {
@@ -34,6 +47,12 @@
 
   .dark h1, .dark h2, .dark h3, .dark h4, .dark h5, .dark h6 {
     @apply text-neutral-100;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    :root {
+      --theme-transition-duration: 0ms;
+    }
   }
 }
 

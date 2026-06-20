@@ -68,6 +68,16 @@ test('dark mode uses a deeper cool background and readable secondary text', asyn
   assert.match(layout, /dark:bg-\[#050a10\]/);
 });
 
+test('theme changes animate color surfaces while respecting reduced motion', async () => {
+  const indexCss = await loadIndexCss();
+
+  assert.match(indexCss, /--theme-transition-duration:\s*300ms/);
+  assert.match(indexCss, /transition-property:\s*background-color,\s*color,\s*border-color,\s*fill,\s*stroke/);
+  assert.match(indexCss, /transition-duration:\s*var\(--theme-transition-duration\)/);
+  assert.match(indexCss, /prefers-reduced-motion:\s*reduce/);
+  assert.match(indexCss, /--theme-transition-duration:\s*0ms/);
+});
+
 test('global button utilities include dark mode variants', async () => {
   const indexCss = await loadIndexCss();
 
