@@ -27,3 +27,17 @@ test('search page reads URL filters and calls the search API', async () => {
   assert.match(source, /tag_id:\s*tagID/);
   assert.match(source, /dangerouslySetInnerHTML/);
 });
+
+test('search page provides local search history without popular search shortcuts', async () => {
+  const source = await loadSearchSource();
+
+  assert.match(source, /SEARCH_HISTORY_KEY\s*=\s*'wendao-search-history'/);
+  assert.match(source, /MAX_SEARCH_HISTORY\s*=\s*8/);
+  assert.match(source, /localStorage\.getItem\(SEARCH_HISTORY_KEY\)/);
+  assert.match(source, /localStorage\.setItem\(SEARCH_HISTORY_KEY/);
+  assert.match(source, /saveSearchHistory/);
+  assert.match(source, /搜索历史/);
+  assert.match(source, /清空历史/);
+  assert.doesNotMatch(source, /POPULAR_SEARCH_TERMS/);
+  assert.doesNotMatch(source, /热门搜索/);
+});
