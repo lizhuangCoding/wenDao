@@ -48,6 +48,10 @@ const resources = {
       notFound: {
         title: 'Page Not Found',
         description: 'This address does not point to an accessible page. The link may have changed, or the path may be incorrect.',
+        backPrevious: 'Go back',
+        randomArticle: 'Read a random piece',
+        recommendedTitle: 'Maybe read these',
+        noRecommendations: 'No recommendations are available right now.',
       },
       routeError: {
         pageLoadFailed: 'Page load failed',
@@ -718,6 +722,10 @@ const resources = {
       notFound: {
         title: '页面不存在',
         description: '这个地址没有可访问的页面，可能是链接已经变更，或者你输入了错误的路径。',
+        backPrevious: '返回上一页',
+        randomArticle: '随机读一篇',
+        recommendedTitle: '也许你可以读这些',
+        noRecommendations: '暂时没有可推荐的文章。',
       },
       routeError: {
         pageLoadFailed: '页面加载失败',

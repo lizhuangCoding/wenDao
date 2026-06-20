@@ -19,6 +19,7 @@ import {
   PageHeader,
   Pagination,
   Panel,
+  SelectInput,
   TextInput,
 } from '@/components/common';
 import { useUIStore } from '@/store';
@@ -349,14 +350,14 @@ export const CollectionList = () => {
                   </div>
                   <div>
                     <label className="mb-2 block text-sm font-medium text-neutral-700 dark:text-neutral-300">状态</label>
-                    <select
-                      className="w-full rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-3 text-neutral-800 transition-all focus:outline-none focus:ring-2 focus:ring-primary-500 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-200"
+                    <SelectInput
+                      className="w-full"
                       value={formData.status}
                       onChange={(e) => setFormData({ ...formData, status: e.target.value as CollectionFormData['status'] })}
                     >
                       <option value="active">启用</option>
                       <option value="hidden">隐藏</option>
-                    </select>
+                    </SelectInput>
                   </div>
                   <div>
                     <label className="mb-2 block text-sm font-medium text-neutral-700 dark:text-neutral-300">描述</label>

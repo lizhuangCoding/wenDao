@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { SelectInput } from './FormControls';
 
 interface PaginationProps {
   page: number;
@@ -98,10 +99,10 @@ export const Pagination = ({
             </span>
           )}
         {pageSize !== undefined && onPageSizeChange && (
-          <select
+          <SelectInput
             value={pageSize}
             onChange={(e) => onPageSizeChange(Number(e.target.value))}
-            className="cursor-pointer rounded-lg border border-neutral-200 bg-white px-2 py-1 text-xs font-medium text-neutral-700 focus:border-primary-500 focus:outline-none dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200"
+            className="w-32"
             aria-label={t('common.perPage', { count: pageSize })}
           >
             {pageSizeOptions.map((size) => (
@@ -109,7 +110,7 @@ export const Pagination = ({
                 {t('common.perPage', { count: size })}
               </option>
             ))}
-          </select>
+          </SelectInput>
         )}
         <span className="text-xs font-medium text-neutral-400 dark:text-neutral-500">
           {safePage} / {safeTotalPages}

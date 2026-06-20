@@ -38,6 +38,11 @@ test('common UI primitives centralize professional surface, form, and action sty
   assert.match(pageHeader, /eyebrow/);
   assert.match(formControls, /TextInput/);
   assert.match(formControls, /SelectInput/);
+  assert.match(formControls, /role="combobox"/);
+  assert.match(formControls, /role="listbox"/);
+  assert.match(formControls, /ChevronDown/);
+  assert.match(formControls, /Check/);
+  assert.doesNotMatch(formControls, /<select\b/);
   assert.match(formControls, /TextArea/);
   assert.match(formControls, /dark:bg-neutral-900/);
   assert.match(dataTable, /DataTableHeaderCell/);

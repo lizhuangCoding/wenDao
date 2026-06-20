@@ -46,8 +46,14 @@ test('admin lazy child routes keep the admin shell mounted while children load',
 
 test('router renders unknown routes through a shared not-found page', async () => {
   const source = await loadRouterSource();
+  const notFoundSource = await readFile(new URL('./components/common/NotFoundPage.tsx', import.meta.url), 'utf8');
 
   assert.match(source, /NotFoundPage/);
   assert.doesNotMatch(source, /<a href="\/"/);
   assert.doesNotMatch(source, /text-neutral-700 mb-4/);
+  assert.match(notFoundSource, /articleApi\.getArticles/);
+  assert.match(notFoundSource, /recommendedArticles/);
+  assert.match(notFoundSource, /handleRandomArticle/);
+  assert.match(notFoundSource, /Sparkles/);
+  assert.match(notFoundSource, /也许你可以读这些|notFound\.recommendedTitle/);
 });
