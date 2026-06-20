@@ -74,6 +74,14 @@ test('admin settings and category management expose configurable site and catego
   assert.match(categories, /admin\.sortOrder/);
 });
 
+test('admin comments default to normal comments while keeping all-status access', async () => {
+  const comments = await loadAdminSource('comments/CommentList.tsx');
+
+  assert.match(comments, /useState<CommentStatusFilter>\('normal'\)/);
+  assert.match(comments, /setStatus\('normal'\)/);
+  assert.match(comments, /<option value="">\{t\('admin\.allStatus'\)\}<\/option>/);
+});
+
 test('admin data tables protect utility columns from long primary text', async () => {
   const [dataTable, articles, categories, comments, documents, users, collections, aiObservability] = await Promise.all([
     readFile(new URL('../../components/common/DataTable.tsx', import.meta.url), 'utf8'),

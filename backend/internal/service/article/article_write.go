@@ -148,9 +148,10 @@ func (s *articleService) Delete(id int64) error {
 	return nil
 }
 
-// DeleteBatch 批量删除文章，复用单条删除的依赖清理和计数逻辑
+// DeleteBatch 批量删除文章，批量清理依赖数据并刷新相关缓存。
 func (s *articleService) DeleteBatch(ids []int64) error {
 	seen := make(map[int64]struct{}, len(ids))
+	uniqueIDs := make([]int64, 0, len(ids))
 	for _, id := range ids {
 		if id <= 0 {
 			return fmt.Errorf("invalid article id: %d", id)
@@ -159,10 +160,22 @@ func (s *articleService) DeleteBatch(ids []int64) error {
 			continue
 		}
 		seen[id] = struct{}{}
-		if err := s.Delete(id); err != nil {
-			return fmt.Errorf("failed to delete article %d: %w", id, err)
-		}
+		uniqueIDs = append(uniqueIDs, id)
 	}
+	if len(uniqueIDs) == 0 {
+		return nil
+	}
+
+	articles, err := s.articleRepo.DeleteBatch(uniqueIDs)
+	if err != nil {
+		return fmt.Errorf("failed to delete articles: %w", err)
+	}
+
+	for _, article := range articles {
+		s.deleteArticleFromCache(article)
+		s.deleteArticleVectorAsync(article.ID)
+	}
+	s.invalidateArticleCollections()
 	return nil
 }
 

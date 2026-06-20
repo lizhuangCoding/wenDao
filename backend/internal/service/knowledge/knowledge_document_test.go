@@ -117,6 +117,10 @@ func (r *stubKnowledgeArticleRepository) Delete(id int64) error {
 	return nil
 }
 
+func (r *stubKnowledgeArticleRepository) DeleteBatch(ids []int64) ([]*model.Article, error) {
+	return nil, nil
+}
+
 func (r *stubKnowledgeArticleRepository) UpdateSlug(id int64, slug string) error {
 	if len(r.created) > 0 && r.created[len(r.created)-1].ID == id {
 		r.created[len(r.created)-1].Slug = slug
@@ -135,6 +139,9 @@ func (r *stubKnowledgeArticleRepository) IncrementLikeCount(id int64) error    {
 func (r *stubKnowledgeArticleRepository) DecrementLikeCount(id int64) error    { return nil }
 func (r *stubKnowledgeArticleRepository) UpdateTop(id int64, isTop bool) error { return nil }
 func (r *stubKnowledgeArticleRepository) UpdatePopularity(id int64, popularity float64) error {
+	return nil
+}
+func (r *stubKnowledgeArticleRepository) UpdatePopularityScores(now time.Time) error {
 	return nil
 }
 func (r *stubKnowledgeArticleRepository) GetAllPublished() ([]*model.Article, error) {

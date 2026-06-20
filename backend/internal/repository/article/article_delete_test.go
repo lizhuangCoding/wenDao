@@ -147,3 +147,44 @@ func TestArticleRepositoryDelete_RemovesDependentRowsBeforeArticle(t *testing.T)
 		lastIndex = idx
 	}
 }
+
+func TestArticleRepositoryDeleteBatch_RemovesDependentRowsWithInClauses(t *testing.T) {
+	capture := &sqlCaptureLogger{Interface: logger.Discard}
+	db, err := gorm.Open(mysql.New(mysql.Config{
+		Conn:                      sql.OpenDB(noopConnector{}),
+		SkipInitializeWithVersion: true,
+	}), &gorm.Config{
+		DryRun: true,
+		Logger: capture,
+	})
+	if err != nil {
+		t.Fatalf("expected dry-run database to open, got %v", err)
+	}
+
+	repo := NewArticleRepository(db)
+	if _, err := repo.DeleteBatch([]int64{3, 5}); err != nil {
+		t.Fatalf("expected batch delete dry-run to succeed, got %v", err)
+	}
+
+	joined := strings.Join(capture.statements, "\n")
+	expected := []string{
+		"SELECT * FROM `articles` WHERE id IN (3,5)",
+		"DELETE FROM `comments` WHERE article_id IN (3,5) AND parent_id IS NOT NULL",
+		"DELETE FROM `comments` WHERE article_id IN (3,5)",
+		"DELETE FROM `article_stats` WHERE article_id IN (3,5)",
+		"DELETE FROM `article_interactions` WHERE article_id IN (3,5)",
+		"DELETE FROM `article_collections` WHERE article_id IN (3,5)",
+		"DELETE FROM `article_tags` WHERE article_id IN (3,5)",
+		"UPDATE `knowledge_documents` SET `article_id`=NULL",
+		"DELETE FROM `articles` WHERE id IN (3,5)",
+	}
+	for _, sql := range expected {
+		if !strings.Contains(joined, sql) {
+			t.Fatalf("expected SQL %q in statements:\n%s", sql, joined)
+		}
+	}
+
+	if strings.Contains(joined, "WHERE article_id = 3") || strings.Contains(joined, "WHERE article_id = 5") {
+		t.Fatalf("expected batch delete to avoid per-article cleanup statements:\n%s", joined)
+	}
+}

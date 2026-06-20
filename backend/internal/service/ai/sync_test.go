@@ -3,6 +3,7 @@ package ai
 import (
 	"reflect"
 	"testing"
+	"time"
 
 	"go.uber.org/zap"
 
@@ -63,7 +64,10 @@ func (r *vectorSyncArticleRepoStub) Search(filter articlerepo.ArticleSearchFilte
 func (r *vectorSyncArticleRepoStub) ListOrbitArticles() ([]*model.Article, error) { return nil, nil }
 func (r *vectorSyncArticleRepoStub) Update(article *model.Article) error          { return nil }
 func (r *vectorSyncArticleRepoStub) Delete(id int64) error                        { return nil }
-func (r *vectorSyncArticleRepoStub) UpdateSlug(id int64, slug string) error       { return nil }
+func (r *vectorSyncArticleRepoStub) DeleteBatch(ids []int64) ([]*model.Article, error) {
+	return nil, nil
+}
+func (r *vectorSyncArticleRepoStub) UpdateSlug(id int64, slug string) error { return nil }
 func (r *vectorSyncArticleRepoStub) UpdateAIIndexStatus(id int64, status string) error {
 	if r.updatedStatus == nil {
 		r.updatedStatus = make(map[int64]string)
@@ -84,6 +88,7 @@ func (r *vectorSyncArticleRepoStub) IncrementLikeCount(id int64) error          
 func (r *vectorSyncArticleRepoStub) DecrementLikeCount(id int64) error                   { return nil }
 func (r *vectorSyncArticleRepoStub) UpdateTop(id int64, isTop bool) error                { return nil }
 func (r *vectorSyncArticleRepoStub) UpdatePopularity(id int64, popularity float64) error { return nil }
+func (r *vectorSyncArticleRepoStub) UpdatePopularityScores(now time.Time) error          { return nil }
 func (r *vectorSyncArticleRepoStub) GetAllPublished() ([]*model.Article, error)          { return nil, nil }
 func (r *vectorSyncArticleRepoStub) GetDueScheduledArticles() ([]*model.Article, error) {
 	return nil, nil

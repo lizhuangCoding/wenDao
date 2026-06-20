@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 	"testing"
+	"time"
 
 	"wenDao/internal/model"
 	"wenDao/internal/repository"
@@ -120,6 +121,9 @@ func (r *replyNotificationArticleRepo) ListOrbitArticles() ([]*model.Article, er
 }
 func (r *replyNotificationArticleRepo) Update(article *model.Article) error { return nil }
 func (r *replyNotificationArticleRepo) Delete(id int64) error               { return nil }
+func (r *replyNotificationArticleRepo) DeleteBatch(ids []int64) ([]*model.Article, error) {
+	return nil, nil
+}
 func (r *replyNotificationArticleRepo) UpdateSlug(id int64, slug string) error {
 	return nil
 }
@@ -133,6 +137,9 @@ func (r *replyNotificationArticleRepo) IncrementLikeCount(id int64) error    { r
 func (r *replyNotificationArticleRepo) DecrementLikeCount(id int64) error    { return nil }
 func (r *replyNotificationArticleRepo) UpdateTop(id int64, isTop bool) error { return nil }
 func (r *replyNotificationArticleRepo) UpdatePopularity(id int64, popularity float64) error {
+	return nil
+}
+func (r *replyNotificationArticleRepo) UpdatePopularityScores(now time.Time) error {
 	return nil
 }
 func (r *replyNotificationArticleRepo) GetAllPublished() ([]*model.Article, error) {

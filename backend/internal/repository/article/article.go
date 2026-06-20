@@ -49,6 +49,7 @@ type ArticleRepository interface {
 	ListOrbitArticles() ([]*model.Article, error)
 	Update(article *model.Article) error
 	Delete(id int64) error
+	DeleteBatch(ids []int64) ([]*model.Article, error)
 	UpdateSlug(id int64, slug string) error
 	UpdateAIIndexStatus(id int64, status string) error
 	IncrementViewCount(id int64) error
@@ -58,6 +59,7 @@ type ArticleRepository interface {
 	DecrementLikeCount(id int64) error
 	UpdateTop(id int64, isTop bool) error
 	UpdatePopularity(id int64, popularity float64) error
+	UpdatePopularityScores(now time.Time) error
 	GetAllPublished() ([]*model.Article, error)
 	GetDueScheduledArticles() ([]*model.Article, error)
 	PublishScheduled(articleID int64) error
@@ -343,6 +345,101 @@ func (r *articleRepository) Delete(id int64) error {
 	})
 }
 
+// DeleteBatch 批量删除文章及其依赖数据。
+func (r *articleRepository) DeleteBatch(ids []int64) ([]*model.Article, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+
+	var articles []*model.Article
+	err := r.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("id IN ?", ids).Find(&articles).Error; err != nil {
+			return err
+		}
+		if !tx.DryRun && len(articles) != len(ids) {
+			return gorm.ErrRecordNotFound
+		}
+
+		if err := decrementBatchCategoryCounts(tx, articles); err != nil {
+			return err
+		}
+		if err := decrementBatchTagCounts(tx, ids); err != nil {
+			return err
+		}
+		if err := decrementBatchCollectionCounts(tx, ids); err != nil {
+			return err
+		}
+		if err := tx.Where("article_id IN ? AND parent_id IS NOT NULL", ids).Delete(&model.Comment{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("article_id IN ?", ids).Delete(&model.Comment{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("article_id IN ?", ids).Delete(&model.ArticleStat{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("article_id IN ?", ids).Delete(&model.ArticleInteraction{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("article_id IN ?", ids).Delete(&model.ArticleCollection{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("article_id IN ?", ids).Delete(&model.ArticleTag{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Model(&model.KnowledgeDocument{}).Where("article_id IN ?", ids).Update("article_id", nil).Error; err != nil {
+			return err
+		}
+		return tx.Where("id IN ?", ids).Delete(&model.Article{}).Error
+	})
+	if err != nil {
+		return nil, err
+	}
+	return articles, nil
+}
+
+func decrementBatchCategoryCounts(tx *gorm.DB, articles []*model.Article) error {
+	counts := make(map[int64]int64)
+	for _, article := range articles {
+		if article.Status == "published" {
+			counts[article.CategoryID]++
+		}
+	}
+	for categoryID, count := range counts {
+		if err := tx.Model(&model.Category{}).Where("id = ?", categoryID).
+			UpdateColumn("article_count", gorm.Expr("CASE WHEN article_count > ? THEN article_count - ? ELSE 0 END", count, count)).Error; err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func decrementBatchTagCounts(tx *gorm.DB, articleIDs []int64) error {
+	return tx.Exec(`
+UPDATE tags
+JOIN (
+	SELECT tag_id, COUNT(*) AS deleted_count
+	FROM article_tags
+	WHERE article_id IN ?
+	GROUP BY tag_id
+) deleted_tags ON deleted_tags.tag_id = tags.id
+SET tags.article_count = GREATEST(tags.article_count - deleted_tags.deleted_count, 0)
+`, articleIDs).Error
+}
+
+func decrementBatchCollectionCounts(tx *gorm.DB, articleIDs []int64) error {
+	return tx.Exec(`
+UPDATE collections
+JOIN (
+	SELECT collection_id, COUNT(*) AS deleted_count
+	FROM article_collections
+	WHERE article_id IN ?
+	GROUP BY collection_id
+) deleted_collections ON deleted_collections.collection_id = collections.id
+SET collections.article_count = GREATEST(collections.article_count - deleted_collections.deleted_count, 0)
+`, articleIDs).Error
+}
+
 // UpdateSlug 更新文章的 slug
 func (r *articleRepository) UpdateSlug(id int64, slug string) error {
 	return r.db.Model(&model.Article{}).Where("id = ?", id).Update("slug", slug).Error
@@ -391,6 +488,16 @@ func (r *articleRepository) UpdateTop(id int64, isTop bool) error {
 // UpdatePopularity 更新活跃度分数
 func (r *articleRepository) UpdatePopularity(id int64, popularity float64) error {
 	return r.db.Model(&model.Article{}).Where("id = ?", id).Update("popularity", popularity).Error
+}
+
+// UpdatePopularityScores 用一条 SQL 批量刷新已发布文章的活跃度分数。
+func (r *articleRepository) UpdatePopularityScores(now time.Time) error {
+	return r.db.Exec(`
+UPDATE articles
+SET popularity = ((view_count * 1.0) + (comment_count * 5.0) + (like_count * 2.0)) /
+	POW(GREATEST(TIMESTAMPDIFF(SECOND, COALESCE(published_at, created_at), ?) / 3600.0, 0) + 2, 1.5)
+WHERE status = ?
+`, now, "published").Error
 }
 
 // GetAllPublished 获取所有已发布的文章（用于批量计算分数和站点地图）

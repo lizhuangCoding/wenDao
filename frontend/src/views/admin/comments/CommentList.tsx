@@ -32,7 +32,7 @@ export const CommentList = () => {
   const { t } = useTranslation();
   const [pageSize, setPageSize] = useState(15);
   const [page, setPage] = useState(1);
-  const [status, setStatus] = useState<CommentStatusFilter>('');
+  const [status, setStatus] = useState<CommentStatusFilter>('normal');
   const [keyword, setKeyword] = useState('');
   const [keywordInput, setKeywordInput] = useState('');
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
@@ -123,7 +123,7 @@ export const CommentList = () => {
   };
 
   const resetFilters = () => {
-    setStatus('');
+    setStatus('normal');
     setKeyword('');
     setKeywordInput('');
     setPage(1);

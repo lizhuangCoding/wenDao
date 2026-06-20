@@ -127,6 +127,7 @@ func (r *cacheArticleRepoStub) Update(article *model.Article) error {
 	return nil
 }
 func (r *cacheArticleRepoStub) Delete(id int64) error                               { return nil }
+func (r *cacheArticleRepoStub) DeleteBatch(ids []int64) ([]*model.Article, error)   { return nil, nil }
 func (r *cacheArticleRepoStub) UpdateSlug(id int64, slug string) error              { return nil }
 func (r *cacheArticleRepoStub) UpdateAIIndexStatus(id int64, status string) error   { return nil }
 func (r *cacheArticleRepoStub) IncrementViewCount(id int64) error                   { return nil }
@@ -136,6 +137,7 @@ func (r *cacheArticleRepoStub) IncrementLikeCount(id int64) error               
 func (r *cacheArticleRepoStub) DecrementLikeCount(id int64) error                   { return nil }
 func (r *cacheArticleRepoStub) UpdateTop(id int64, isTop bool) error                { return nil }
 func (r *cacheArticleRepoStub) UpdatePopularity(id int64, popularity float64) error { return nil }
+func (r *cacheArticleRepoStub) UpdatePopularityScores(now time.Time) error          { return nil }
 func (r *cacheArticleRepoStub) GetAllPublished() ([]*model.Article, error)          { return nil, nil }
 func (r *cacheArticleRepoStub) GetDueScheduledArticles() ([]*model.Article, error)  { return nil, nil }
 func (r *cacheArticleRepoStub) PublishScheduled(articleID int64) error              { return nil }
