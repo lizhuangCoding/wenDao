@@ -19,6 +19,21 @@ export const getApiUrl = (path: string) => {
   return new URL(normalizedPath, baseURL).toString();
 };
 
+const readCookie = (name: string) => {
+  if (typeof document === 'undefined') return '';
+  const prefix = `${name}=`;
+  return document.cookie
+    .split(';')
+    .map((part) => part.trim())
+    .find((part) => part.startsWith(prefix))
+    ?.slice(prefix.length) || '';
+};
+
+const shouldAttachCSRFToken = (method?: string) => {
+  const normalized = (method || 'get').toLowerCase();
+  return !['get', 'head', 'options'].includes(normalized);
+};
+
 // 创建 axios 实例
 const apiClient: AxiosInstance = axios.create({
   baseURL: API_BASE_URL,
@@ -32,10 +47,17 @@ const apiClient: AxiosInstance = axios.create({
 // 请求拦截器
 apiClient.interceptors.request.use(
   (config) => {
+    config.headers = config.headers || {};
     // 从 localStorage 获取 Access Token
     const token = localStorage.getItem('access_token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+    }
+    if (shouldAttachCSRFToken(config.method)) {
+      const csrfToken = readCookie('csrf_token');
+      if (csrfToken) {
+        config.headers['X-CSRF-Token'] = csrfToken;
+      }
     }
     return config;
   },

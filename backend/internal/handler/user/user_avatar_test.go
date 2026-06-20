@@ -314,12 +314,31 @@ func TestUserHandlerRegister_ReturnsAuthTokensAndSetsCookies(t *testing.T) {
 	if !tokenCookie.Secure {
 		t.Fatalf("expected token cookie to be secure in release mode")
 	}
+	if tokenCookie.SameSite != http.SameSiteLaxMode {
+		t.Fatalf("expected token cookie SameSite=Lax, got %v", tokenCookie.SameSite)
+	}
 	refreshCookie := findCookieByName(t, w.Result(), "refresh_token")
 	if refreshCookie.Value != "refresh-token-value" {
 		t.Fatalf("expected refresh token cookie value to be set")
 	}
 	if !refreshCookie.Secure {
 		t.Fatalf("expected refresh token cookie to be secure in release mode")
+	}
+	if refreshCookie.SameSite != http.SameSiteLaxMode {
+		t.Fatalf("expected refresh token cookie SameSite=Lax, got %v", refreshCookie.SameSite)
+	}
+	csrfCookie := findCookieByName(t, w.Result(), "csrf_token")
+	if csrfCookie.Value == "" {
+		t.Fatalf("expected csrf token cookie value to be set")
+	}
+	if csrfCookie.HttpOnly {
+		t.Fatalf("expected csrf token cookie to be readable by the frontend")
+	}
+	if !csrfCookie.Secure {
+		t.Fatalf("expected csrf token cookie to be secure in release mode")
+	}
+	if csrfCookie.SameSite != http.SameSiteLaxMode {
+		t.Fatalf("expected csrf token cookie SameSite=Lax, got %v", csrfCookie.SameSite)
 	}
 }
 

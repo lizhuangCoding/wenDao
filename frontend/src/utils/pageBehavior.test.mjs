@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { rm } from 'node:fs/promises';
+import { readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -80,4 +80,12 @@ test('getArticlePrimaryActionLabel matches the submitted article status', async 
   assert.equal(getArticlePrimaryActionLabel({ isEdit: false, status: 'draft' }), 'Save Draft');
   assert.equal(getArticlePrimaryActionLabel({ isEdit: false, status: 'published' }), 'Publish Article');
   assert.equal(getArticlePrimaryActionLabel({ isEdit: true, status: 'draft' }), 'Update Article');
+});
+
+test('api client attaches CSRF header for unsafe cookie-backed requests', async () => {
+  const source = await readFile(new URL('../api/client.ts', import.meta.url), 'utf8');
+
+  assert.match(source, /readCookie\('csrf_token'\)/);
+  assert.match(source, /config\.headers\['X-CSRF-Token'\] = csrfToken/);
+  assert.match(source, /!\['get', 'head', 'options'\]\.includes\(normalized\)/);
 });

@@ -1,6 +1,8 @@
 package httpcookie
 
 import (
+	"crypto/rand"
+	"encoding/base64"
 	"net/http"
 	"net/url"
 	"strings"
@@ -9,6 +11,8 @@ import (
 
 	"wenDao/config"
 )
+
+const CSRFTokenCookieName = "csrf_token"
 
 func ShouldUseSecureCookies(cfg *config.Config) bool {
 	if cfg == nil {
@@ -33,6 +37,7 @@ func SetAuthCookies(c *gin.Context, cfg *config.Config, token, refreshToken stri
 	c.SetSameSite(http.SameSiteLaxMode)
 	c.SetCookie("token", token, cfg.JWT.AccessExpireHours*3600, "/", "", secure, true)
 	c.SetCookie("refresh_token", refreshToken, cfg.JWT.RefreshExpireDays*24*3600, "/", "", secure, true)
+	SetCSRFCookie(c, cfg)
 }
 
 // ClearAuthCookies clears both access_token and refresh_token cookies.
@@ -41,6 +46,15 @@ func ClearAuthCookies(c *gin.Context, cfg *config.Config) {
 	c.SetSameSite(http.SameSiteLaxMode)
 	c.SetCookie("token", "", -1, "/", "", secure, true)
 	c.SetCookie("refresh_token", "", -1, "/", "", secure, true)
+	c.SetCookie(CSRFTokenCookieName, "", -1, "/", "", secure, false)
+}
+
+func SetCSRFCookie(c *gin.Context, cfg *config.Config) string {
+	token := generateCSRFToken()
+	secure := ShouldUseSecureCookies(cfg)
+	c.SetSameSite(http.SameSiteLaxMode)
+	c.SetCookie(CSRFTokenCookieName, token, cfg.JWT.RefreshExpireDays*24*3600, "/", "", secure, false)
+	return token
 }
 
 // SetOAuthStateCookie sets the oauth_state cookie for CSRF protection during OAuth flows.
@@ -54,4 +68,12 @@ func SetOAuthStateCookie(c *gin.Context, cfg *config.Config, state string) {
 func ClearOAuthStateCookie(c *gin.Context) {
 	c.SetSameSite(http.SameSiteLaxMode)
 	c.SetCookie("oauth_state", "", -1, "/", "", false, true)
+}
+
+func generateCSRFToken() string {
+	var token [32]byte
+	if _, err := rand.Read(token[:]); err != nil {
+		return ""
+	}
+	return base64.RawURLEncoding.EncodeToString(token[:])
 }

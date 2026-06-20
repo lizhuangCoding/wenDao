@@ -13,6 +13,7 @@ func SecurityHeaders() gin.HandlerFunc {
 		headers.Set("X-Frame-Options", "DENY")
 		headers.Set("Referrer-Policy", "strict-origin-when-cross-origin")
 		headers.Set("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+		headers.Set("Content-Security-Policy", contentSecurityPolicy())
 
 		if isHTTPS(c) {
 			headers.Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
@@ -20,6 +21,21 @@ func SecurityHeaders() gin.HandlerFunc {
 
 		c.Next()
 	}
+}
+
+func contentSecurityPolicy() string {
+	return strings.Join([]string{
+		"default-src 'self'",
+		"script-src 'self'",
+		"style-src 'self' 'unsafe-inline'",
+		"img-src 'self' data: blob: https:",
+		"font-src 'self' data:",
+		"connect-src 'self'",
+		"object-src 'none'",
+		"base-uri 'self'",
+		"form-action 'self'",
+		"frame-ancestors 'none'",
+	}, "; ")
 }
 
 func isHTTPS(c *gin.Context) bool {

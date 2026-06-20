@@ -3,6 +3,7 @@ package middleware
 import (
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/gin-gonic/gin"
@@ -33,5 +34,20 @@ func TestSecurityHeadersAddsBrowserProtectionHeaders(t *testing.T) {
 	}
 	if headers.Get("Permissions-Policy") == "" {
 		t.Fatalf("expected permissions policy header")
+	}
+	csp := headers.Get("Content-Security-Policy")
+	if csp == "" {
+		t.Fatalf("expected content security policy header")
+	}
+	for _, directive := range []string{
+		"default-src 'self'",
+		"script-src 'self'",
+		"object-src 'none'",
+		"frame-ancestors 'none'",
+		"base-uri 'self'",
+	} {
+		if !strings.Contains(csp, directive) {
+			t.Fatalf("expected CSP to contain %q, got %q", directive, csp)
+		}
 	}
 }

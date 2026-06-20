@@ -70,3 +70,107 @@ func TestAuthOptionalAllowsAnonymousRequests(t *testing.T) {
 		t.Fatalf("expected status 200, got %d", resp.Code)
 	}
 }
+
+func TestAuthRequiredRecordsCookieTokenSource(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	token, err := pkgjwt.GenerateAccessToken(42, "user", "secret", 1)
+	if err != nil {
+		t.Fatalf("failed to generate token: %v", err)
+	}
+
+	rdb := redis.NewClient(&redis.Options{Addr: "127.0.0.1:6379"})
+	defer func() { _ = rdb.Close() }()
+
+	router := gin.New()
+	router.Use(AuthRequired("secret", rdb))
+	router.POST("/write", func(c *gin.Context) {
+		source, exists := c.Get("auth_source")
+		if !exists || source != "cookie" {
+			t.Fatalf("expected cookie auth source, got exists=%v source=%#v", exists, source)
+		}
+		c.Status(http.StatusNoContent)
+	})
+
+	req := httptest.NewRequest(http.MethodPost, "/write", nil)
+	req.AddCookie(&http.Cookie{Name: "token", Value: token})
+	resp := httptest.NewRecorder()
+
+	router.ServeHTTP(resp, req)
+
+	if resp.Code != http.StatusNoContent {
+		t.Fatalf("expected status 204, got %d", resp.Code)
+	}
+}
+
+func TestCSRFProtectionRequiresMatchingTokenForCookieAuthenticatedWrites(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	router := gin.New()
+	router.Use(func(c *gin.Context) {
+		c.Set("auth_source", "cookie")
+		c.Next()
+	})
+	router.Use(CSRFProtection())
+	router.POST("/write", func(c *gin.Context) {
+		c.Status(http.StatusNoContent)
+	})
+
+	req := httptest.NewRequest(http.MethodPost, "/write", nil)
+	req.AddCookie(&http.Cookie{Name: "csrf_token", Value: "csrf-value"})
+	resp := httptest.NewRecorder()
+
+	router.ServeHTTP(resp, req)
+
+	if resp.Code != http.StatusForbidden {
+		t.Fatalf("expected status 403 for missing CSRF header, got %d", resp.Code)
+	}
+}
+
+func TestCSRFProtectionAllowsMatchingTokenForCookieAuthenticatedWrites(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	router := gin.New()
+	router.Use(func(c *gin.Context) {
+		c.Set("auth_source", "cookie")
+		c.Next()
+	})
+	router.Use(CSRFProtection())
+	router.POST("/write", func(c *gin.Context) {
+		c.Status(http.StatusNoContent)
+	})
+
+	req := httptest.NewRequest(http.MethodPost, "/write", nil)
+	req.AddCookie(&http.Cookie{Name: "csrf_token", Value: "csrf-value"})
+	req.Header.Set("X-CSRF-Token", "csrf-value")
+	resp := httptest.NewRecorder()
+
+	router.ServeHTTP(resp, req)
+
+	if resp.Code != http.StatusNoContent {
+		t.Fatalf("expected status 204, got %d", resp.Code)
+	}
+}
+
+func TestCSRFProtectionSkipsBearerAuthenticatedWrites(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	router := gin.New()
+	router.Use(func(c *gin.Context) {
+		c.Set("auth_source", "header")
+		c.Next()
+	})
+	router.Use(CSRFProtection())
+	router.POST("/write", func(c *gin.Context) {
+		c.Status(http.StatusNoContent)
+	})
+
+	req := httptest.NewRequest(http.MethodPost, "/write", nil)
+	resp := httptest.NewRecorder()
+
+	router.ServeHTTP(resp, req)
+
+	if resp.Code != http.StatusNoContent {
+		t.Fatalf("expected status 204, got %d", resp.Code)
+	}
+}

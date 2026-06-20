@@ -1,6 +1,8 @@
 package middleware
 
 import (
+	"crypto/subtle"
+	"net/http"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -10,11 +12,19 @@ import (
 	"wenDao/internal/pkg/response"
 )
 
+const (
+	authSourceContextKey = "auth_source"
+	authSourceHeader     = "header"
+	authSourceCookie     = "cookie"
+	csrfHeaderName       = "X-CSRF-Token"
+	csrfCookieName       = "csrf_token"
+)
+
 // AuthRequired 验证登录
 func AuthRequired(jwtSecret string, rdb *redis.Client) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// 从 Header 或 Cookie 中提取 token
-		token := extractToken(c)
+		token, source := extractToken(c)
 		if token == "" {
 			response.Unauthorized(c, "Missing authorization token")
 			c.Abort()
@@ -44,6 +54,7 @@ func AuthRequired(jwtSecret string, rdb *redis.Client) gin.HandlerFunc {
 		c.Set("user_id", claims.UserID)
 		c.Set("user_role", claims.Role)
 		c.Set("token", token)
+		c.Set(authSourceContextKey, source)
 
 		c.Next()
 	}
@@ -52,7 +63,7 @@ func AuthRequired(jwtSecret string, rdb *redis.Client) gin.HandlerFunc {
 // AuthOptional 在 token 合法时注入用户上下文，不要求请求必须登录。
 func AuthOptional(jwtSecret string, rdb *redis.Client) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		token := extractToken(c)
+		token, source := extractToken(c)
 		if token == "" {
 			c.Next()
 			return
@@ -73,6 +84,7 @@ func AuthOptional(jwtSecret string, rdb *redis.Client) gin.HandlerFunc {
 		c.Set("user_id", claims.UserID)
 		c.Set("user_role", claims.Role)
 		c.Set("token", token)
+		c.Set(authSourceContextKey, source)
 		c.Next()
 	}
 }
@@ -81,7 +93,7 @@ func AuthOptional(jwtSecret string, rdb *redis.Client) gin.HandlerFunc {
 func AdminRequired(jwtSecret string, rdb *redis.Client) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// 先验证登录
-		token := extractToken(c)
+		token, source := extractToken(c)
 		if token == "" {
 			response.Unauthorized(c, "Missing authorization token")
 			c.Abort()
@@ -114,28 +126,63 @@ func AdminRequired(jwtSecret string, rdb *redis.Client) gin.HandlerFunc {
 		c.Set("user_id", claims.UserID)
 		c.Set("user_role", claims.Role)
 		c.Set("token", token)
+		c.Set(authSourceContextKey, source)
 
 		c.Next()
 	}
 }
 
 // extractToken 从请求中提取 token
-func extractToken(c *gin.Context) string {
+func extractToken(c *gin.Context) (string, string) {
 	// 1. 从 Authorization Header 提取（优先）
 	// 格式：Authorization: Bearer <token>
 	authHeader := c.GetHeader("Authorization")
 	if authHeader != "" {
 		parts := strings.SplitN(authHeader, " ", 2)
 		if len(parts) == 2 && parts[0] == "Bearer" {
-			return parts[1]
+			return parts[1], authSourceHeader
 		}
 	}
 
 	// 2. 从 Cookie 中提取
 	token, err := c.Cookie("token")
 	if err == nil && token != "" {
-		return token
+		return token, authSourceCookie
 	}
 
-	return ""
+	return "", ""
+}
+
+func CSRFProtection() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if isSafeMethod(c.Request.Method) {
+			c.Next()
+			return
+		}
+
+		source, _ := c.Get(authSourceContextKey)
+		if source != authSourceCookie {
+			c.Next()
+			return
+		}
+
+		cookieToken, err := c.Cookie(csrfCookieName)
+		headerToken := c.GetHeader(csrfHeaderName)
+		if err != nil || cookieToken == "" || headerToken == "" || subtle.ConstantTimeCompare([]byte(cookieToken), []byte(headerToken)) != 1 {
+			response.Forbidden(c, "Invalid CSRF token")
+			c.Abort()
+			return
+		}
+
+		c.Next()
+	}
+}
+
+func isSafeMethod(method string) bool {
+	switch method {
+	case http.MethodGet, http.MethodHead, http.MethodOptions, http.MethodTrace:
+		return true
+	default:
+		return false
+	}
 }

@@ -87,6 +87,7 @@ func (h *AuthHandler) Refresh(c *gin.Context) {
 	secure := httpcookie.ShouldUseSecureCookies(h.cfg)
 	c.SetSameSite(http.SameSiteLaxMode)
 	c.SetCookie("refresh_token", newRefreshToken, h.cfg.JWT.RefreshExpireDays*24*3600, "/", "", secure, true)
+	httpcookie.SetCSRFCookie(c, h.cfg)
 
 	response.Success(c, gin.H{
 		"access_token":  accessToken,

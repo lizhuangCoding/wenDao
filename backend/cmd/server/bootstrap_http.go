@@ -182,7 +182,7 @@ func registerRoutes(
 		api.GET("/categories/:id/articles", articleHandler.List)
 		api.GET("/comments/article/:id", commentHandler.GetByArticleID)
 		commentVotes := api.Group("")
-		commentVotes.Use(middleware.AuthOptional(cfg.JWT.Secret, rdb))
+		commentVotes.Use(middleware.AuthOptional(cfg.JWT.Secret, rdb), middleware.CSRFProtection())
 		commentVotes.POST("/comments/:id/like", commentHandler.Like)
 		commentVotes.DELETE("/comments/:id/like", commentHandler.Unlike)
 		commentVotes.POST("/comments/:id/dislike", commentHandler.Dislike)
@@ -193,7 +193,7 @@ func registerRoutes(
 		api.GET("/models", aiHandler.GetModels)
 
 		authRequired := api.Group("")
-		authRequired.Use(middleware.AuthRequired(cfg.JWT.Secret, rdb))
+		authRequired.Use(middleware.AuthRequired(cfg.JWT.Secret, rdb), middleware.CSRFProtection())
 		{
 			authRequired.POST("/auth/logout", authHandler.Logout)
 			authRequired.GET("/auth/me", authHandler.GetUserInfo)
@@ -221,7 +221,7 @@ func registerRoutes(
 		}
 
 		ai := api.Group("/ai")
-		ai.Use(middleware.AuthRequired(cfg.JWT.Secret, rdb))
+		ai.Use(middleware.AuthRequired(cfg.JWT.Secret, rdb), middleware.CSRFProtection())
 		{
 			ai.POST("/chat", middleware.RateLimit(rdb, middleware.RateLimitConfig{
 				Name:   "ai-chat",
@@ -251,7 +251,7 @@ func registerRoutes(
 		}
 
 		conversations := api.Group("/chat/conversations")
-		conversations.Use(middleware.AuthRequired(cfg.JWT.Secret, rdb))
+		conversations.Use(middleware.AuthRequired(cfg.JWT.Secret, rdb), middleware.CSRFProtection())
 		{
 			conversations.GET("", chatHandler.List)
 			conversations.POST("", chatHandler.Create)
@@ -266,7 +266,7 @@ func registerRoutes(
 		api.GET("/shared/conversations/:token", chatHandler.GetShared)
 
 		admin := api.Group("/admin")
-		admin.Use(middleware.AuthRequired(cfg.JWT.Secret, rdb), middleware.AdminRequired(cfg.JWT.Secret, rdb))
+		admin.Use(middleware.AuthRequired(cfg.JWT.Secret, rdb), middleware.AdminRequired(cfg.JWT.Secret, rdb), middleware.CSRFProtection())
 		{
 			// 用户管理
 			users := admin.Group("/users")
