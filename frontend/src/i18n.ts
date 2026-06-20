@@ -61,6 +61,8 @@ const resources = {
         sloganFallback: 'I am no longer fixated on getting the result. I enjoy the journey more than the destination.',
       },
       codeBlock: {
+        copy: 'Copy code',
+        copied: 'Copied',
         expand: 'Expand full code',
         collapse: 'Collapse code',
       },
@@ -729,6 +731,8 @@ const resources = {
         sloganFallback: '我不再执着于得到，而是更享受前行的过程。',
       },
       codeBlock: {
+        copy: '复制代码',
+        copied: '已复制',
         expand: '展开完整代码',
         collapse: '收起代码',
       },

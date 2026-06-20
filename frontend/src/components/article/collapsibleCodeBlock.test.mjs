@@ -29,12 +29,37 @@ test('collapsible code blocks expose an explicit expand and collapse affordance'
   assert.match(source, /codeBlock\.collapse/);
   assert.match(source, /aria-expanded/);
   assert.match(source, /ChevronDown|ChevronUp/);
+  assert.match(source, /absolute inset-x-0 bottom-2/);
+  assert.doesNotMatch(source, /justify-center border-t/);
+  assert.doesNotMatch(source, /absolute bottom-4 left-1\/2/);
 });
 
 test('collapsible code blocks render visible line numbers', async () => {
   const source = await loadSourceFile('article/CollapsibleCodeBlock.tsx');
 
   assert.match(source, /lineNumbers/);
-  assert.match(source, /grid-cols-\[3\.5rem_minmax\(0,1fr\)\]/);
+  assert.match(source, /grid-cols-\[2\.25rem_minmax\(0,1fr\)\]/);
   assert.match(source, /text-\[11px\]/);
+  assert.match(source, /!px-2 !py-2/);
+  assert.match(source, /!leading-5/);
+  assert.doesNotMatch(source, /!p-5/);
+  assert.doesNotMatch(source, /leading-7/);
+});
+
+test('collapsible code blocks expose a standard copy-to-clipboard control', async () => {
+  const source = await loadSourceFile('article/CollapsibleCodeBlock.tsx');
+  const translations = await loadSourceFile('../i18n.ts');
+
+  assert.match(source, /navigator\.clipboard\.writeText\(codeText\)/);
+  assert.match(source, /codeBlock\.copy/);
+  assert.match(source, /codeBlock\.copied/);
+  assert.match(source, /aria-label=\{copyLabel\}/);
+  assert.match(source, /Copy/);
+  assert.match(source, /Check/);
+  assert.match(source, /top-2 right-2/);
+  assert.doesNotMatch(source, /!pr-\d+/);
+  assert.match(translations, /copy: 'Copy code'/);
+  assert.match(translations, /copied: 'Copied'/);
+  assert.match(translations, /copy: '复制代码'/);
+  assert.match(translations, /copied: '已复制'/);
 });
