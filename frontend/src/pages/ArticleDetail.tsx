@@ -12,7 +12,7 @@ import { formatDate } from '@/utils';
 import { toAbsoluteSeoUrl } from '@/utils/seo';
 import { useAuth } from '@/hooks';
 import { useUIStore } from '@/store';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Helmet } from 'react-helmet-async';
 import type { Article, ArticleInteractionState } from '@/types';
@@ -26,6 +26,7 @@ export const ArticleDetail = () => {
   const queryClient = useQueryClient();
   const { showToast } = useUIStore();
   const { isAdmin, isAuthenticated } = useAuth();
+  const [readingProgress, setReadingProgress] = useState(0);
 
   const { data: article, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['article', slug],
@@ -35,6 +36,35 @@ export const ArticleDetail = () => {
 
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+    setReadingProgress(0);
+  }, [slug]);
+
+  useEffect(() => {
+    let animationFrame = 0;
+
+    const updateReadingProgress = () => {
+      if (animationFrame) return;
+      animationFrame = window.requestAnimationFrame(() => {
+        const scrollTop = window.scrollY || document.documentElement.scrollTop;
+        const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
+        const scrollableHeight = Math.max(1, document.documentElement.scrollHeight - viewportHeight);
+        const nextProgress = Math.min(100, Math.max(0, (scrollTop / scrollableHeight) * 100));
+        setReadingProgress(nextProgress);
+        animationFrame = 0;
+      });
+    };
+
+    updateReadingProgress();
+    window.addEventListener('scroll', updateReadingProgress, { passive: true });
+    window.addEventListener('resize', updateReadingProgress);
+
+    return () => {
+      if (animationFrame) {
+        window.cancelAnimationFrame(animationFrame);
+      }
+      window.removeEventListener('scroll', updateReadingProgress);
+      window.removeEventListener('resize', updateReadingProgress);
+    };
   }, [slug]);
 
   const interactionQuery = useQuery({
@@ -211,6 +241,12 @@ export const ArticleDetail = () => {
           {JSON.stringify(jsonLd)}
         </script>
       </Helmet>
+      <div className="article-reading-progress article-print-hidden fixed left-0 right-0 top-20 z-40 h-[3px] bg-transparent" aria-hidden="true">
+        <div
+          className="h-full origin-left bg-primary-500 shadow-[0_0_12px_rgba(16,185,129,0.45)] transition-transform duration-150 ease-out dark:bg-primary-400"
+          style={{ transform: `scaleX(${readingProgress / 100})` }}
+        />
+      </div>
       <div className="relative z-10 max-w-display mx-auto px-6 sm:px-10 lg:px-12 py-20">
         <div className="flex flex-col lg:flex-row justify-center gap-16">
           <aside className="article-print-hidden hidden lg:fixed lg:left-[max(1.5rem,calc((100vw-1400px)/2+3rem))] lg:top-32 lg:z-20 lg:block lg:w-64 lg:max-h-[calc(100vh-8rem)] lg:overflow-y-auto lg:scrollbar-hide">

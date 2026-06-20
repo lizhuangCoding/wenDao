@@ -54,6 +54,19 @@ test('article detail resets window scroll when navigating between article slugs'
   assert.match(source, /\}, \[slug\]\)/);
 });
 
+test('article detail renders a scroll-based reading progress bar', async () => {
+  const source = await loadSourceFile('pages/ArticleDetail.tsx');
+
+  assert.match(source, /readingProgress/);
+  assert.match(source, /window\.scrollY|document\.documentElement\.scrollTop/);
+  assert.match(source, /document\.documentElement\.scrollHeight/);
+  assert.match(source, /window\.innerHeight|document\.documentElement\.clientHeight/);
+  assert.match(source, /addEventListener\('scroll'/);
+  assert.match(source, /addEventListener\('resize'/);
+  assert.match(source, /article-reading-progress/);
+  assert.match(source, /article-print-hidden/);
+});
+
 test('article detail exposes export actions beside like and favorite controls', async () => {
   const source = await loadSourceFile('pages/ArticleDetail.tsx');
   const styles = await loadSourceFile('styles/index.css');
