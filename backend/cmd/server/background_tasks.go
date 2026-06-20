@@ -7,6 +7,7 @@ import (
 	"go.uber.org/zap"
 
 	"wenDao/config"
+	"wenDao/internal/pkg/async"
 	"wenDao/internal/service"
 )
 
@@ -40,7 +41,7 @@ func startUploadCleanupScheduler(cfg *config.Config, logger *zap.Logger, uploadS
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	go func() {
+	async.Go(ctx, logger, "upload cleanup scheduler", func(ctx context.Context) error {
 		ticker := time.NewTicker(interval)
 		defer ticker.Stop()
 
@@ -57,10 +58,10 @@ func startUploadCleanupScheduler(cfg *config.Config, logger *zap.Logger, uploadS
 				runUploadCleanup(logger, uploadService)
 			case <-ctx.Done():
 				logger.Info("Upload cleanup scheduler stopped")
-				return
+				return nil
 			}
 		}
-	}()
+	})
 
 	return cancel
 }
@@ -83,7 +84,7 @@ func startStatFlushScheduler(logger *zap.Logger, statService *service.StatServic
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	go func() {
+	async.Go(ctx, logger, "stat flush scheduler", func(ctx context.Context) error {
 		ticker := time.NewTicker(time.Minute)
 		defer ticker.Stop()
 
@@ -97,10 +98,10 @@ func startStatFlushScheduler(logger *zap.Logger, statService *service.StatServic
 			case <-ctx.Done():
 				runStatFlush(logger, statService)
 				logger.Info("Stat flush scheduler stopped")
-				return
+				return nil
 			}
 		}
-	}()
+	})
 
 	return cancel
 }
@@ -111,7 +112,7 @@ func startArticleScheduler(logger *zap.Logger, articleService service.ArticleSer
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	go func() {
+	async.Go(ctx, logger, "article scheduler", func(ctx context.Context) error {
 		ticker := time.NewTicker(30 * time.Second)
 		defer ticker.Stop()
 
@@ -122,12 +123,12 @@ func startArticleScheduler(logger *zap.Logger, articleService service.ArticleSer
 			select {
 			case <-ctx.Done():
 				logger.Info("Article scheduler stopped")
-				return
+				return nil
 			case <-ticker.C:
 				runArticleSchedulerOnce(logger, articleService)
 			}
 		}
-	}()
+	})
 
 	return cancel
 }
@@ -173,7 +174,7 @@ func startLogCleanupScheduler(cfg *config.Config, logger *zap.Logger) func() {
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	go func() {
+	async.Go(ctx, logger, "log cleanup scheduler", func(ctx context.Context) error {
 		const cleanupInterval = 24 * time.Hour
 		ticker := time.NewTicker(cleanupInterval)
 		defer ticker.Stop()
@@ -188,10 +189,10 @@ func startLogCleanupScheduler(cfg *config.Config, logger *zap.Logger) func() {
 				runLogCleanup(logger, cfg.Log)
 			case <-ctx.Done():
 				logger.Info("Log cleanup scheduler stopped")
-				return
+				return nil
 			}
 		}
-	}()
+	})
 
 	return cancel
 }

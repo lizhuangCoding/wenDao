@@ -1,11 +1,14 @@
 package comment
 
 import (
+	"context"
 	"errors"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 
+	"wenDao/internal/pkg/async"
 	"wenDao/internal/pkg/pagination"
 	"wenDao/internal/pkg/response"
 	"wenDao/internal/repository"
@@ -72,7 +75,8 @@ func (h *CommentHandler) Create(c *gin.Context) {
 
 	// 记录评论数统计（异步）
 	if h.statService != nil {
-		go h.statService.RecordCommentCount()
+		ctx := context.WithoutCancel(c.Request.Context())
+		async.Go(ctx, zap.L(), "record comment count", h.statService.RecordCommentCountContext)
 	}
 
 	response.Success(c, comment)

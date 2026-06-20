@@ -1,12 +1,14 @@
 package article
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
 	"gorm.io/gorm"
 
 	"wenDao/internal/model"
+	"wenDao/internal/pkg/async"
 	"wenDao/internal/repository"
 	"wenDao/internal/svcerrors"
 )
@@ -26,7 +28,10 @@ func (s *articleService) GetByID(id int64) (*model.Article, error) {
 		return nil, fmt.Errorf("failed to get article: %w", err)
 	}
 
-	go s.setArticleToCache(article)
+	async.Go(context.Background(), s.logger, "cache article by id", func(ctx context.Context) error {
+		s.setArticleToCache(article)
+		return nil
+	})
 	return article, nil
 }
 
@@ -45,7 +50,10 @@ func (s *articleService) GetBySlug(slug string) (*model.Article, error) {
 		return nil, fmt.Errorf("failed to get article: %w", err)
 	}
 
-	go s.setArticleToCache(article)
+	async.Go(context.Background(), s.logger, "cache article by slug", func(ctx context.Context) error {
+		s.setArticleToCache(article)
+		return nil
+	})
 	return article, nil
 }
 

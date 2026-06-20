@@ -142,9 +142,14 @@ func (s *StatService) GetArticleStats(articleID int64, days int) ([]model.Articl
 
 // RecordPV 记录页面浏览
 func (s *StatService) RecordPV() error {
+	return s.RecordPVContext(context.Background())
+}
+
+// RecordPVContext 记录页面浏览。
+func (s *StatService) RecordPVContext(ctx context.Context) error {
 	date := time.Now().Format("2006-01-02")
 	if s.counter != nil {
-		if err := s.counter.IncrementPV(context.Background(), date); err == nil {
+		if err := s.counter.IncrementPV(ctx, date); err == nil {
 			return nil
 		} else {
 			log.Printf("[Stat] RecordPV: counter error: %v", err)
@@ -155,10 +160,15 @@ func (s *StatService) RecordPV() error {
 
 // RecordUV 记录独立访客（基于IP地址，Redis去重）
 func (s *StatService) RecordUV(ip string) error {
+	return s.RecordUVContext(context.Background(), ip)
+}
+
+// RecordUVContext 记录独立访客（基于IP地址，Redis去重）。
+func (s *StatService) RecordUVContext(ctx context.Context, ip string) error {
 	date := time.Now().Format("2006-01-02")
 	visitor := normalizeVisitorID(ip)
 	if s.counter != nil {
-		if _, err := s.counter.AddUV(context.Background(), date, visitor); err == nil {
+		if _, err := s.counter.AddUV(ctx, date, visitor); err == nil {
 			return nil
 		} else {
 			log.Printf("[Stat] RecordUV: counter error: %v", err)
@@ -169,9 +179,14 @@ func (s *StatService) RecordUV(ip string) error {
 
 // RecordCommentCount 记录评论数
 func (s *StatService) RecordCommentCount() error {
+	return s.RecordCommentCountContext(context.Background())
+}
+
+// RecordCommentCountContext 记录评论数。
+func (s *StatService) RecordCommentCountContext(ctx context.Context) error {
 	date := time.Now().Format("2006-01-02")
 	if s.counter != nil {
-		if err := s.counter.IncrementComment(context.Background(), date); err == nil {
+		if err := s.counter.IncrementComment(ctx, date); err == nil {
 			return nil
 		} else {
 			log.Printf("[Stat] RecordCommentCount: counter error: %v", err)

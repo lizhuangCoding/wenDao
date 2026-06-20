@@ -1,13 +1,16 @@
 package article
 
 import (
+	"context"
 	"errors"
 	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 
 	"wenDao/internal/model"
+	"wenDao/internal/pkg/async"
 	"wenDao/internal/pkg/pagination"
 	"wenDao/internal/pkg/response"
 	"wenDao/internal/service"
@@ -310,10 +313,13 @@ func (h *ArticleHandler) GetBySlug(c *gin.Context) {
 
 	if h.statService != nil {
 		ip := c.ClientIP()
-		go func(clientIP string) {
-			_ = h.statService.RecordPV()
-			_ = h.statService.RecordUV(clientIP)
-		}(ip)
+		ctx := context.WithoutCancel(c.Request.Context())
+		async.Go(ctx, zap.L(), "record article view stats", func(ctx context.Context) error {
+			if err := h.statService.RecordPVContext(ctx); err != nil {
+				return err
+			}
+			return h.statService.RecordUVContext(ctx, ip)
+		})
 	}
 
 	if !h.hydrateArticleCollection(c, article) {
