@@ -1,11 +1,12 @@
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, ArrowRight, Bookmark, Heart } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Bookmark, Download, FileText, Heart, Printer } from 'lucide-react';
 import { articleApi } from '@/api';
 import { Layout, ErrorState } from '@/components/common';
 import { ArticleContent, ArticleDetailSkeleton, TableOfContents } from '@/components/article';
 import { estimateReadingTime, extractHeadings } from '@/utils/markdown';
+import { downloadArticleMarkdown } from '@/utils/articleExport';
 import { CommentList } from '@/components/comment';
 import { formatDate } from '@/utils';
 import { toAbsoluteSeoUrl } from '@/utils/seo';
@@ -158,6 +159,14 @@ export const ArticleDetail = () => {
     interactionMutation.mutate(interactionState.favorited ? 'unfavorite' : 'favorite');
   };
 
+  const handleExportMarkdown = () => {
+    downloadArticleMarkdown(article);
+  };
+
+  const handleExportPdf = () => {
+    window.print();
+  };
+
   const jsonLd = {
     '@context': 'https://schema.org',
     '@type': 'Article',
@@ -204,11 +213,11 @@ export const ArticleDetail = () => {
       </Helmet>
       <div className="relative z-10 max-w-display mx-auto px-6 sm:px-10 lg:px-12 py-20">
         <div className="flex flex-col lg:flex-row justify-center gap-16">
-          <aside className="hidden lg:fixed lg:left-[max(1.5rem,calc((100vw-1400px)/2+3rem))] lg:top-32 lg:z-20 lg:block lg:w-64 lg:max-h-[calc(100vh-8rem)] lg:overflow-y-auto lg:scrollbar-hide">
+          <aside className="article-print-hidden hidden lg:fixed lg:left-[max(1.5rem,calc((100vw-1400px)/2+3rem))] lg:top-32 lg:z-20 lg:block lg:w-64 lg:max-h-[calc(100vh-8rem)] lg:overflow-y-auto lg:scrollbar-hide">
             <TableOfContents headings={headings} />
           </aside>
 
-          <div className="hidden lg:block w-64 shrink-0" aria-hidden="true" />
+          <div className="article-print-hidden hidden lg:block w-64 shrink-0" aria-hidden="true" />
 
           <motion.article
             initial={{ opacity: 0, y: 20 }}
@@ -269,7 +278,7 @@ export const ArticleDetail = () => {
               )}
 
               {isAdmin && (
-                <div className="flex gap-4 mb-8">
+                <div className="article-print-hidden flex gap-4 mb-8">
                   <Link to={`/admin/articles/edit/${article.id}`} className="bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900 text-[10px] font-black tracking-widest px-6 py-3 rounded-full hover:bg-primary-600 dark:hover:bg-primary-500 dark:hover:text-white transition-all uppercase">
                     {t('article.editPiece')}
                   </Link>
@@ -311,10 +320,29 @@ export const ArticleDetail = () => {
                 <Bookmark size={18} fill={interactionState.favorited ? 'currentColor' : 'none'} />
                 <span>{interactionState.favorited ? t('article.favorited') : t('article.favorite')}</span>
               </button>
+              <div className="article-export-actions flex flex-wrap items-center justify-center gap-3">
+                <button
+                  type="button"
+                  onClick={handleExportMarkdown}
+                  className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-4 py-2 text-sm font-bold text-neutral-600 transition-all hover:border-primary-200 hover:text-primary-600 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300 dark:hover:border-primary-500/40 dark:hover:text-primary-300"
+                >
+                  <Download size={18} />
+                  <FileText size={16} />
+                  <span>导出 Markdown</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleExportPdf}
+                  className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-4 py-2 text-sm font-bold text-neutral-600 transition-all hover:border-primary-200 hover:text-primary-600 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300 dark:hover:border-primary-500/40 dark:hover:text-primary-300"
+                >
+                  <Printer size={18} />
+                  <span>导出 PDF</span>
+                </button>
+              </div>
             </div>
 
             {article.collection_navigation && (
-              <nav className="mt-12 rounded-xl border border-neutral-200 bg-white p-5 shadow-sm dark:border-neutral-700 dark:bg-neutral-900" aria-label="合集导航">
+              <nav className="article-print-hidden mt-12 rounded-xl border border-neutral-200 bg-white p-5 shadow-sm dark:border-neutral-700 dark:bg-neutral-900" aria-label="合集导航">
                 <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-neutral-200 pb-4 dark:border-neutral-700">
                   <div>
                     <p className="text-[10px] font-black uppercase tracking-[0.24em] text-primary-600 dark:text-primary-400">Collection</p>
@@ -367,12 +395,12 @@ export const ArticleDetail = () => {
               </nav>
             )}
 
-            <div className="mt-24 pt-16 border-t border-neutral-200 dark:border-neutral-700">
+            <div className="article-print-hidden mt-24 pt-16 border-t border-neutral-200 dark:border-neutral-700">
               <CommentList articleId={article.id} totalCommentCount={article.comment_count} />
             </div>
           </motion.article>
 
-          <div className="hidden xl:block w-64 shrink-0"></div>
+          <div className="article-print-hidden hidden xl:block w-64 shrink-0"></div>
         </div>
       </div>
     </Layout>

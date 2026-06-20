@@ -119,3 +119,36 @@
     box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
   }
 }
+
+@media print {
+  @page {
+    margin: 18mm;
+  }
+
+  html,
+  body {
+    background: #ffffff !important;
+    color: #111827 !important;
+  }
+
+  .site-header,
+  .site-footer,
+  .article-print-hidden,
+  .article-interaction-actions {
+    display: none !important;
+  }
+
+  .max-w-display,
+  .max-w-reading {
+    max-width: none !important;
+  }
+
+  .article-reading-body {
+    color: #111827 !important;
+  }
+
+  .article-reading-body a {
+    color: #047857 !important;
+    text-decoration: underline;
+  }
+}

@@ -49,6 +49,7 @@ export const Header = () => {
     <>
       <header
         className={cn(
+          'site-header',
           'fixed top-0 left-0 right-0 z-50 transition-all duration-500 ease-in-out',
           'bg-white/70 dark:bg-[#07111a]/80 backdrop-blur-xl border-b border-neutral-200/70 dark:border-neutral-700/80 shadow-sm',
           scrollDirection === 'down' && !isMobileMenuOpen ? '-translate-y-full' : 'translate-y-0'

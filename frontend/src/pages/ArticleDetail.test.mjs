@@ -53,3 +53,18 @@ test('article detail resets window scroll when navigating between article slugs'
   assert.match(source, /window\.scrollTo\(\{\s*top:\s*0,\s*left:\s*0,\s*behavior:\s*'auto'\s*\}\)/);
   assert.match(source, /\}, \[slug\]\)/);
 });
+
+test('article detail exposes export actions beside like and favorite controls', async () => {
+  const source = await loadSourceFile('pages/ArticleDetail.tsx');
+  const styles = await loadSourceFile('styles/index.css');
+
+  assert.match(source, /downloadArticleMarkdown\(article\)/);
+  assert.match(source, /window\.print\(\)/);
+  assert.match(source, /article-export-actions/);
+  assert.match(source, /article-interaction-actions[\s\S]*article-export-actions/);
+  assert.match(styles, /@media print/);
+  assert.match(styles, /\.article-print-hidden/);
+  assert.match(styles, /\.article-interaction-actions/);
+  assert.match(styles, /\.site-header/);
+  assert.doesNotMatch(styles, /header,\s*\n\s*footer,/);
+});
