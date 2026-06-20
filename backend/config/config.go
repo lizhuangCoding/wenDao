@@ -151,6 +151,7 @@ type RateLimitConfig struct {
 	PasswordReset    int `mapstructure:"password_reset"`
 	Refresh          int `mapstructure:"refresh"`
 	AIChat           int `mapstructure:"ai_chat"`
+	CommentCreate    int `mapstructure:"comment_create"`
 }
 
 // EmailConfig 邮件发送配置
@@ -203,6 +204,7 @@ func LoadConfig() (*Config, error) {
 	viper.SetDefault("ratelimit.register", 5)
 	viper.SetDefault("ratelimit.login", 10)
 	viper.SetDefault("ratelimit.ai_chat", 10)
+	viper.SetDefault("ratelimit.comment_create", 5)
 	viper.SetDefault("email.smtp_port", 587)
 	viper.SetDefault("email.from_name", "WenDao Blog")
 	viper.SetDefault("verification.code_ttl_minutes", 10)
@@ -261,6 +263,7 @@ func LoadConfig() (*Config, error) {
 	_ = viper.BindEnv("ratelimit.register", "RATELIMIT_REGISTER")
 	_ = viper.BindEnv("ratelimit.login", "RATELIMIT_LOGIN")
 	_ = viper.BindEnv("ratelimit.ai_chat", "RATELIMIT_AI_CHAT")
+	_ = viper.BindEnv("ratelimit.comment_create", "RATELIMIT_COMMENT_CREATE")
 	_ = viper.BindEnv("site.url", "SITE_URL")
 	_ = viper.BindEnv("log.level", "LOG_LEVEL")
 	_ = viper.BindEnv("log.format", "LOG_FORMAT")

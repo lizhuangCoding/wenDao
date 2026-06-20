@@ -115,7 +115,7 @@ type AIObservabilityBatchDeleteRequest struct {
 
 func (h *AIObservabilityHandler) ListRuns(c *gin.Context) {
 	if h.runRepo == nil || h.runStepRepo == nil {
-		response.InternalError(c, "AI observability is not configured")
+		response.InternalError(c, "AI 运行观测功能未完成配置，请联系管理员检查服务配置")
 		return
 	}
 
@@ -127,7 +127,7 @@ func (h *AIObservabilityHandler) ListRuns(c *gin.Context) {
 		PageSize: p.PageSize,
 	})
 	if err != nil {
-		response.InternalErrorWithErr(c, "Failed to get AI run records", err)
+		response.InternalErrorWithErr(c, "AI 运行记录加载失败，请稍后重试", err)
 		return
 	}
 
@@ -137,7 +137,7 @@ func (h *AIObservabilityHandler) ListRuns(c *gin.Context) {
 	}
 	steps, err := h.runStepRepo.GetByRunIDs(runIDs)
 	if err != nil {
-		response.InternalErrorWithErr(c, "Failed to get AI run steps", err)
+		response.InternalErrorWithErr(c, "AI 运行步骤加载失败，请稍后重试", err)
 		return
 	}
 
@@ -162,7 +162,7 @@ func (h *AIObservabilityHandler) ListRuns(c *gin.Context) {
 
 func (h *AIObservabilityHandler) BatchDeleteRuns(c *gin.Context) {
 	if h.runRepo == nil || h.runStepRepo == nil {
-		response.InternalError(c, "AI observability is not configured")
+		response.InternalError(c, "AI 运行观测功能未完成配置，请联系管理员检查服务配置")
 		return
 	}
 
@@ -178,15 +178,15 @@ func (h *AIObservabilityHandler) BatchDeleteRuns(c *gin.Context) {
 	}
 
 	if err := h.runStepRepo.DeleteByRunIDs(ids); err != nil {
-		response.InternalErrorWithErr(c, "Failed to delete AI run steps", err)
+		response.InternalErrorWithErr(c, "删除 AI 运行步骤失败，请稍后重试", err)
 		return
 	}
 	if err := h.runRepo.DeleteBatch(ids); err != nil {
-		response.InternalErrorWithErr(c, "Failed to delete AI run records", err)
+		response.InternalErrorWithErr(c, "删除 AI 运行记录失败，请稍后重试", err)
 		return
 	}
 
-	response.Success(c, gin.H{"message": "AI run records deleted successfully", "deleted_count": len(ids)})
+	response.Success(c, gin.H{"message": "AI 运行记录批量删除成功", "deleted_count": len(ids)})
 }
 
 func buildAIObservabilityRunResponse(run model.ConversationRun, steps []model.ConversationRunStep) AIObservabilityRunResponse {

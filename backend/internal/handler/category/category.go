@@ -56,10 +56,10 @@ func (h *CategoryHandler) Create(c *gin.Context) {
 	category, err := h.categoryService.Create(req.Name, req.Slug, req.Description, req.SortOrder)
 	if err != nil {
 		if errors.Is(err, svcerrors.ErrSlugAlreadyExists) {
-			response.Error(c, response.CodeInvalidParams, "Slug already exists")
+			response.Error(c, response.CodeInvalidParams, "分类别名已存在，请更换 slug")
 			return
 		}
-		response.InternalErrorWithErr(c, "Failed to create category", err)
+		response.InternalErrorWithErr(c, "创建分类失败，请稍后重试", err)
 		return
 	}
 
@@ -71,17 +71,17 @@ func (h *CategoryHandler) GetByID(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
-		response.InvalidParams(c, "Invalid category ID")
+		response.InvalidParams(c, "分类 ID 无效，请刷新页面后重试")
 		return
 	}
 
 	category, err := h.categoryService.GetByID(id)
 	if err != nil {
 		if errors.Is(err, svcerrors.ErrCategoryNotFound) {
-			response.NotFound(c, "Category not found")
+			response.NotFound(c, "分类不存在或已被删除")
 			return
 		}
-		response.InternalErrorWithErr(c, "Failed to get category", err)
+		response.InternalErrorWithErr(c, "加载分类详情失败，请稍后重试", err)
 		return
 	}
 
@@ -95,10 +95,10 @@ func (h *CategoryHandler) GetBySlug(c *gin.Context) {
 	category, err := h.categoryService.GetBySlug(slug)
 	if err != nil {
 		if errors.Is(err, svcerrors.ErrCategoryNotFound) {
-			response.NotFound(c, "Category not found")
+			response.NotFound(c, "分类不存在或已被删除")
 			return
 		}
-		response.InternalErrorWithErr(c, "Failed to get category", err)
+		response.InternalErrorWithErr(c, "加载分类详情失败，请稍后重试", err)
 		return
 	}
 
@@ -109,7 +109,7 @@ func (h *CategoryHandler) GetBySlug(c *gin.Context) {
 func (h *CategoryHandler) List(c *gin.Context) {
 	categories, err := h.categoryService.List()
 	if err != nil {
-		response.InternalErrorWithErr(c, "Failed to list categories", err)
+		response.InternalErrorWithErr(c, "分类列表加载失败，请稍后重试", err)
 		return
 	}
 
@@ -124,7 +124,7 @@ func (h *CategoryHandler) AdminList(c *gin.Context) {
 		PageSize: p.PageSize,
 	})
 	if err != nil {
-		response.InternalErrorWithErr(c, "Failed to list categories", err)
+		response.InternalErrorWithErr(c, "分类管理列表加载失败，请稍后重试", err)
 		return
 	}
 
@@ -142,7 +142,7 @@ func (h *CategoryHandler) Update(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
-		response.InvalidParams(c, "Invalid category ID")
+		response.InvalidParams(c, "分类 ID 无效，请刷新页面后重试")
 		return
 	}
 
@@ -155,14 +155,14 @@ func (h *CategoryHandler) Update(c *gin.Context) {
 	category, err := h.categoryService.Update(id, req.Name, req.Slug, req.Description, req.SortOrder)
 	if err != nil {
 		if errors.Is(err, svcerrors.ErrCategoryNotFound) {
-			response.NotFound(c, "Category not found")
+			response.NotFound(c, "分类不存在或已被删除，无法更新")
 			return
 		}
 		if errors.Is(err, svcerrors.ErrSlugAlreadyExists) {
-			response.Error(c, response.CodeInvalidParams, "Slug already exists")
+			response.Error(c, response.CodeInvalidParams, "分类别名已存在，请更换 slug")
 			return
 		}
-		response.InternalErrorWithErr(c, "Failed to update category", err)
+		response.InternalErrorWithErr(c, "更新分类失败，请稍后重试", err)
 		return
 	}
 
@@ -174,25 +174,25 @@ func (h *CategoryHandler) Delete(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
-		response.InvalidParams(c, "Invalid category ID")
+		response.InvalidParams(c, "分类 ID 无效，请刷新页面后重试")
 		return
 	}
 
 	if err := h.categoryService.Delete(id); err != nil {
 		if errors.Is(err, svcerrors.ErrCategoryNotFound) {
-			response.NotFound(c, "Category not found")
+			response.NotFound(c, "分类不存在或已被删除")
 			return
 		}
 		if errors.Is(err, svcerrors.ErrCannotDeleteCategoryWithArticles) {
-			response.Error(c, response.CodeInvalidParams, "Cannot delete category with articles")
+			response.Error(c, response.CodeInvalidParams, "该分类下仍有文章，不能删除")
 			return
 		}
-		response.InternalErrorWithErr(c, "Failed to delete category", err)
+		response.InternalErrorWithErr(c, "删除分类失败，请稍后重试", err)
 		return
 	}
 
 	response.Success(c, gin.H{
-		"message": "Category deleted successfully",
+		"message": "分类删除成功",
 	})
 }
 
@@ -210,13 +210,13 @@ func (h *CategoryHandler) BatchDelete(c *gin.Context) {
 	}
 	if err := h.categoryService.DeleteBatch(ids); err != nil {
 		if errors.Is(err, svcerrors.ErrCannotDeleteCategoryWithArticles) {
-			response.Error(c, response.CodeInvalidParams, "Cannot delete category with articles")
+			response.Error(c, response.CodeInvalidParams, "所选分类中有分类仍包含文章，不能删除")
 			return
 		}
-		response.InternalErrorWithErr(c, "批量删除分类失败", err)
+		response.InternalErrorWithErr(c, "批量删除分类失败：请确认所选分类仍存在且没有关联文章", err)
 		return
 	}
-	response.Success(c, gin.H{"message": "Categories deleted successfully", "deleted_count": len(ids)})
+	response.Success(c, gin.H{"message": "分类批量删除成功", "deleted_count": len(ids)})
 }
 
 func normalizeCategoryIDs(ids []int64) ([]int64, bool) {

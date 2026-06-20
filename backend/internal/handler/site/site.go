@@ -179,7 +179,7 @@ func (h *SiteHandler) defaultContactLinks() []setting.ContactLink {
 func (h *SiteHandler) SitemapXml(c *gin.Context) {
 	articles, err := h.articleService.GetAllPublished()
 	if err != nil {
-		response.InternalErrorWithErr(c, "Failed to generate sitemap", err)
+		response.InternalErrorWithErr(c, "生成站点地图失败，请稍后重试", err)
 		return
 	}
 

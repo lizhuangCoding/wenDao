@@ -34,8 +34,8 @@ export const CommentForm = ({
       showToast(t('common.success'), 'success');
       onSuccess?.();
     },
-    onError: () => {
-      showToast(t('common.failed'), 'error');
+    onError: (error: any) => {
+      showToast(error.message || t('common.failed'), 'error');
     },
   });
 

@@ -42,7 +42,7 @@ func (h *AuthHandler) Refresh(c *gin.Context) {
 		// 如果没有 body，尝试从 Cookie 获取
 		cookie, err := c.Cookie("refresh_token")
 		if err != nil {
-			response.Unauthorized(c, "Invalid request")
+			response.Unauthorized(c, "缺少刷新令牌，请重新登录")
 			return
 		}
 		req.RefreshToken = cookie
@@ -51,7 +51,7 @@ func (h *AuthHandler) Refresh(c *gin.Context) {
 	// 1. 验证 Refresh Token 有效性
 	claims, err := jwt.ValidateRefreshToken(req.RefreshToken, h.cfg.JWT.Secret)
 	if err != nil {
-		response.Unauthorized(c, "Invalid or expired refresh token")
+		response.Unauthorized(c, "刷新令牌无效或已过期，请重新登录")
 		return
 	}
 
@@ -59,7 +59,7 @@ func (h *AuthHandler) Refresh(c *gin.Context) {
 	if h.rdb != nil {
 		isBlacklisted, _ := jwt.IsTokenBlacklisted(h.rdb, req.RefreshToken)
 		if isBlacklisted {
-			response.Unauthorized(c, "Refresh token has been revoked")
+			response.Unauthorized(c, "刷新令牌已失效，请重新登录")
 			return
 		}
 	}
@@ -67,14 +67,14 @@ func (h *AuthHandler) Refresh(c *gin.Context) {
 	// 3. 生成新的 Access Token
 	accessToken, err := jwt.GenerateAccessToken(claims.UserID, claims.Role, h.cfg.JWT.Secret, h.cfg.JWT.AccessExpireHours)
 	if err != nil {
-		response.InternalError(c, "Failed to generate access token")
+		response.InternalError(c, "生成访问令牌失败，请稍后重试")
 		return
 	}
 
 	// 4. 实现 Token 旋转：生成新的 Refresh Token 并作废旧的
 	newRefreshToken, err := h.userService.GenerateRefreshToken(claims.UserID, claims.Role)
 	if err != nil {
-		response.InternalError(c, "Failed to generate refresh token")
+		response.InternalError(c, "生成刷新令牌失败，请稍后重试")
 		return
 	}
 
@@ -136,7 +136,7 @@ func (h *AuthHandler) Logout(c *gin.Context) {
 
 	httpcookie.ClearAuthCookies(c, h.cfg)
 
-	response.Success(c, gin.H{"message": "Logged out successfully"})
+	response.Success(c, gin.H{"message": "退出登录成功"})
 }
 
 // GetUserInfo 返回用户信息（包含 token 过期时间）
@@ -144,7 +144,7 @@ func (h *AuthHandler) GetUserInfo(c *gin.Context) {
 	userID, _ := c.Get("user_id")
 	user, err := h.userService.GetCurrentUser(userID.(int64))
 	if err != nil {
-		response.NotFound(c, "User not found")
+		response.NotFound(c, "当前用户不存在或已被禁用，请重新登录")
 		return
 	}
 

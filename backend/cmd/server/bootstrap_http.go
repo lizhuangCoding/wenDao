@@ -1,6 +1,7 @@
 package main
 
 import (
+	"strconv"
 	"strings"
 	"time"
 
@@ -101,6 +102,24 @@ func allowedCORSOrigins(cfg *config.Config) []string {
 	return origins
 }
 
+func rateLimitMessage(action string, limit int, window time.Duration) string {
+	if limit <= 0 {
+		return action + "，请稍后再试"
+	}
+	return action + "：" + rateLimitWindowMessage(limit, window) + "，请稍后再试"
+}
+
+func rateLimitWindowMessage(limit int, window time.Duration) string {
+	switch window {
+	case time.Second:
+		return "每秒最多 " + strconv.Itoa(limit) + " 次"
+	case time.Minute:
+		return "每分钟最多 " + strconv.Itoa(limit) + " 次"
+	default:
+		return "当前时间窗口内最多 " + strconv.Itoa(limit) + " 次"
+	}
+}
+
 func registerRoutes(
 	router *gin.Engine,
 	cfg *config.Config,
@@ -125,48 +144,55 @@ func registerRoutes(
 	{
 		auth := api.Group("/auth")
 		auth.Use(middleware.RateLimit(rdb, middleware.RateLimitConfig{
-			Name:   "auth-global",
-			Type:   middleware.IPLimit,
-			Limit:  cfg.RateLimit.Global,
-			Window: time.Second,
+			Name:    "auth-global",
+			Type:    middleware.IPLimit,
+			Limit:   cfg.RateLimit.Global,
+			Window:  time.Second,
+			Message: rateLimitMessage("认证接口访问过于频繁", cfg.RateLimit.Global, time.Second),
 		}))
 		{
 			auth.POST("/register/code", middleware.RateLimit(rdb, middleware.RateLimitConfig{
-				Name:   "auth-register-code",
-				Type:   middleware.IPLimit,
-				Limit:  cfg.RateLimit.VerificationCode,
-				Window: time.Minute,
+				Name:    "auth-register-code",
+				Type:    middleware.IPLimit,
+				Limit:   cfg.RateLimit.VerificationCode,
+				Window:  time.Minute,
+				Message: rateLimitMessage("注册验证码发送过于频繁", cfg.RateLimit.VerificationCode, time.Minute),
 			}), userHandler.RequestRegisterCode)
 			auth.POST("/register", middleware.RateLimit(rdb, middleware.RateLimitConfig{
-				Name:   "auth-register",
-				Type:   middleware.IPLimit,
-				Limit:  cfg.RateLimit.Register,
-				Window: time.Minute,
+				Name:    "auth-register",
+				Type:    middleware.IPLimit,
+				Limit:   cfg.RateLimit.Register,
+				Window:  time.Minute,
+				Message: rateLimitMessage("注册请求过于频繁", cfg.RateLimit.Register, time.Minute),
 			}), userHandler.Register)
 			auth.POST("/login", middleware.RateLimit(rdb, middleware.RateLimitConfig{
-				Name:   "auth-login",
-				Type:   middleware.IPLimit,
-				Limit:  cfg.RateLimit.Login,
-				Window: time.Minute,
+				Name:    "auth-login",
+				Type:    middleware.IPLimit,
+				Limit:   cfg.RateLimit.Login,
+				Window:  time.Minute,
+				Message: rateLimitMessage("登录尝试过于频繁", cfg.RateLimit.Login, time.Minute),
 			}), userHandler.Login)
 			auth.POST("/password-reset/code", middleware.RateLimit(rdb, middleware.RateLimitConfig{
-				Name:   "auth-password-reset-code",
-				Type:   middleware.IPLimit,
-				Limit:  cfg.RateLimit.PasswordReset,
-				Window: time.Minute,
+				Name:    "auth-password-reset-code",
+				Type:    middleware.IPLimit,
+				Limit:   cfg.RateLimit.PasswordReset,
+				Window:  time.Minute,
+				Message: rateLimitMessage("密码重置验证码发送过于频繁", cfg.RateLimit.PasswordReset, time.Minute),
 			}), userHandler.RequestPasswordResetCode)
 			auth.POST("/password-reset/confirm", middleware.RateLimit(rdb, middleware.RateLimitConfig{
-				Name:   "auth-password-reset-confirm",
-				Type:   middleware.IPLimit,
-				Limit:  cfg.RateLimit.PasswordReset,
-				Window: time.Minute,
+				Name:    "auth-password-reset-confirm",
+				Type:    middleware.IPLimit,
+				Limit:   cfg.RateLimit.PasswordReset,
+				Window:  time.Minute,
+				Message: rateLimitMessage("密码重置提交过于频繁", cfg.RateLimit.PasswordReset, time.Minute),
 			}), userHandler.ConfirmPasswordReset)
 			auth.GET("/github", userHandler.GitHubLogin)
 			auth.POST("/refresh", middleware.RateLimit(rdb, middleware.RateLimitConfig{
-				Name:   "auth-refresh",
-				Type:   middleware.IPLimit,
-				Limit:  cfg.RateLimit.Refresh,
-				Window: time.Minute,
+				Name:    "auth-refresh",
+				Type:    middleware.IPLimit,
+				Limit:   cfg.RateLimit.Refresh,
+				Window:  time.Minute,
+				Message: rateLimitMessage("登录状态刷新过于频繁", cfg.RateLimit.Refresh, time.Minute),
 			}), authHandler.Refresh)
 			auth.GET("/github/callback", userHandler.GitHubCallback)
 		}
@@ -207,7 +233,13 @@ func registerRoutes(
 			authRequired.DELETE("/articles/:id/like", articleHandler.Unlike)
 			authRequired.POST("/articles/:id/favorite", articleHandler.Favorite)
 			authRequired.DELETE("/articles/:id/favorite", articleHandler.Unfavorite)
-			authRequired.POST("/comments", commentHandler.Create)
+			authRequired.POST("/comments", middleware.RateLimit(rdb, middleware.RateLimitConfig{
+				Name:    "comment-create",
+				Type:    middleware.UserLimit,
+				Limit:   cfg.RateLimit.CommentCreate,
+				Window:  time.Minute,
+				Message: rateLimitMessage("评论发布过于频繁", cfg.RateLimit.CommentCreate, time.Minute),
+			}), commentHandler.Create)
 			authRequired.DELETE("/comments/:id", commentHandler.Delete)
 
 			// 通知相关
@@ -224,29 +256,33 @@ func registerRoutes(
 		ai.Use(middleware.AuthRequired(cfg.JWT.Secret, rdb), middleware.CSRFProtection())
 		{
 			ai.POST("/chat", middleware.RateLimit(rdb, middleware.RateLimitConfig{
-				Name:   "ai-chat",
-				Type:   middleware.UserLimit,
-				Limit:  cfg.RateLimit.AIChat,
-				Window: time.Minute,
+				Name:    "ai-chat",
+				Type:    middleware.UserLimit,
+				Limit:   cfg.RateLimit.AIChat,
+				Window:  time.Minute,
+				Message: rateLimitMessage("AI 对话请求过于频繁", cfg.RateLimit.AIChat, time.Minute),
 			}), aiHandler.Chat)
 			ai.POST("/chat/stream", middleware.RateLimit(rdb, middleware.RateLimitConfig{
-				Name:   "ai-chat-stream",
-				Type:   middleware.UserLimit,
-				Limit:  cfg.RateLimit.AIChat,
-				Window: time.Minute,
+				Name:    "ai-chat-stream",
+				Type:    middleware.UserLimit,
+				Limit:   cfg.RateLimit.AIChat,
+				Window:  time.Minute,
+				Message: rateLimitMessage("AI 流式对话请求过于频繁", cfg.RateLimit.AIChat, time.Minute),
 			}), aiHandler.ChatStream)
 			ai.POST("/chat/stream/resume", middleware.RateLimit(rdb, middleware.RateLimitConfig{
-				Name:   "ai-chat-stream-resume",
-				Type:   middleware.UserLimit,
-				Limit:  cfg.RateLimit.AIChat,
-				Window: time.Minute,
+				Name:    "ai-chat-stream-resume",
+				Type:    middleware.UserLimit,
+				Limit:   cfg.RateLimit.AIChat,
+				Window:  time.Minute,
+				Message: rateLimitMessage("AI 流式恢复请求过于频繁", cfg.RateLimit.AIChat, time.Minute),
 			}), aiHandler.ResumeChatStream)
 			ai.POST("/summary", middleware.AdminRequired(cfg.JWT.Secret, rdb), aiHandler.GenerateSummary)
 			ai.POST("/writing", middleware.AdminRequired(cfg.JWT.Secret, rdb), middleware.RateLimit(rdb, middleware.RateLimitConfig{
-				Name:   "ai-writing",
-				Type:   middleware.UserLimit,
-				Limit:  cfg.RateLimit.AIChat,
-				Window: time.Minute,
+				Name:    "ai-writing",
+				Type:    middleware.UserLimit,
+				Limit:   cfg.RateLimit.AIChat,
+				Window:  time.Minute,
+				Message: rateLimitMessage("AI 写作请求过于频繁", cfg.RateLimit.AIChat, time.Minute),
 			}), aiHandler.GenerateWriting)
 		}
 

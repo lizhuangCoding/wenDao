@@ -27,7 +27,7 @@ func (h *UploadHandler) UploadImage(c *gin.Context) {
 	// 获取上传的文件
 	file, header, err := c.Request.FormFile("file")
 	if err != nil {
-		response.InvalidParams(c, "Missing file parameter")
+		response.InvalidParams(c, "请选择要上传的图片文件")
 		return
 	}
 	defer file.Close()
@@ -35,7 +35,7 @@ func (h *UploadHandler) UploadImage(c *gin.Context) {
 	// 从 context 获取当前用户 ID
 	userID, exists := c.Get("user_id")
 	if !exists {
-		response.Unauthorized(c, "Missing user ID")
+		response.Unauthorized(c, "登录状态已失效，请重新登录后上传")
 		return
 	}
 
@@ -47,11 +47,11 @@ func (h *UploadHandler) UploadImage(c *gin.Context) {
 	upload, err := uploadFunc(file, header, userID.(int64))
 	if err != nil {
 		if errors.Is(err, svcerrors.ErrFileTypeNotAllowed) {
-			response.InvalidParams(c, "File type not allowed. Only jpg, png, gif, webp are supported.")
+			response.InvalidParams(c, "图片格式不支持，请上传 jpg、png、gif 或 webp 图片")
 		} else if errors.Is(err, svcerrors.ErrFileSizeExceedsLimit) {
 			response.InvalidParams(c, err.Error())
 		} else {
-			response.InternalError(c, "Failed to upload file")
+			response.InternalError(c, "图片上传失败，请稍后重试")
 		}
 		return
 	}

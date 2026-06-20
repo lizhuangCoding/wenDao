@@ -36,7 +36,7 @@ type BatchDeleteCollectionRequest struct {
 func (h *CollectionHandler) List(c *gin.Context) {
 	collections, err := h.collectionService.List()
 	if err != nil {
-		response.InternalErrorWithErr(c, "Failed to list collections", err)
+		response.InternalErrorWithErr(c, "合集列表加载失败，请稍后重试", err)
 		return
 	}
 	response.Success(c, collections)
@@ -49,7 +49,7 @@ func (h *CollectionHandler) AdminList(c *gin.Context) {
 		PageSize: p.PageSize,
 	})
 	if err != nil {
-		response.InternalErrorWithErr(c, "Failed to list collections", err)
+		response.InternalErrorWithErr(c, "合集管理列表加载失败，请稍后重试", err)
 		return
 	}
 	response.Success(c, gin.H{
@@ -64,12 +64,12 @@ func (h *CollectionHandler) AdminList(c *gin.Context) {
 func (h *CollectionHandler) Create(c *gin.Context) {
 	var req CollectionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.InvalidParams(c, err.Error())
+		response.InvalidParams(c, "合集参数不正确：名称和 slug 为必填项，状态只能为 active 或 hidden")
 		return
 	}
 	collection, err := h.collectionService.Create(req.Name, req.Slug, req.Description, req.SortOrder, req.Status)
 	if err != nil {
-		handleCollectionError(c, err, "Failed to create collection")
+		handleCollectionError(c, err, "创建合集失败，请稍后重试")
 		return
 	}
 	response.Success(c, collection)
@@ -82,12 +82,12 @@ func (h *CollectionHandler) Update(c *gin.Context) {
 	}
 	var req CollectionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.InvalidParams(c, err.Error())
+		response.InvalidParams(c, "合集参数不正确：名称和 slug 为必填项，状态只能为 active 或 hidden")
 		return
 	}
 	collection, err := h.collectionService.Update(id, req.Name, req.Slug, req.Description, req.SortOrder, req.Status)
 	if err != nil {
-		handleCollectionError(c, err, "Failed to update collection")
+		handleCollectionError(c, err, "更新合集失败，请稍后重试")
 		return
 	}
 	response.Success(c, collection)
@@ -99,10 +99,10 @@ func (h *CollectionHandler) Delete(c *gin.Context) {
 		return
 	}
 	if err := h.collectionService.Delete(id); err != nil {
-		handleCollectionError(c, err, "Failed to delete collection")
+		handleCollectionError(c, err, "删除合集失败，请稍后重试")
 		return
 	}
-	response.Success(c, gin.H{"message": "Collection deleted successfully"})
+	response.Success(c, gin.H{"message": "合集删除成功"})
 }
 
 func (h *CollectionHandler) BatchDelete(c *gin.Context) {
@@ -117,16 +117,16 @@ func (h *CollectionHandler) BatchDelete(c *gin.Context) {
 		return
 	}
 	if err := h.collectionService.DeleteBatch(ids); err != nil {
-		handleCollectionError(c, err, "批量删除合集失败")
+		handleCollectionError(c, err, "批量删除合集失败：请确认所选合集仍存在且没有关联文章")
 		return
 	}
-	response.Success(c, gin.H{"message": "Collections deleted successfully", "deleted_count": len(ids)})
+	response.Success(c, gin.H{"message": "合集批量删除成功", "deleted_count": len(ids)})
 }
 
 func parseCollectionID(c *gin.Context) (int64, bool) {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
-		response.InvalidParams(c, "Invalid collection ID")
+		response.InvalidParams(c, "合集 ID 无效，请刷新页面后重试")
 		return 0, false
 	}
 	return id, true
@@ -150,13 +150,13 @@ func normalizeCollectionIDs(ids []int64) ([]int64, bool) {
 
 func handleCollectionError(c *gin.Context, err error, fallback string) {
 	if errors.Is(err, svcerrors.ErrCollectionNotFound) {
-		response.NotFound(c, "Collection not found")
+		response.NotFound(c, "合集不存在或已被删除")
 	} else if errors.Is(err, svcerrors.ErrSlugAlreadyExists) {
-		response.Error(c, response.CodeInvalidParams, "Slug already exists")
+		response.Error(c, response.CodeInvalidParams, "合集别名已存在，请更换 slug")
 	} else if errors.Is(err, svcerrors.ErrInvalidCollectionStatus) {
-		response.InvalidParams(c, "Invalid collection status")
+		response.InvalidParams(c, "合集状态无效，只能设置为 active 或 hidden")
 	} else if errors.Is(err, svcerrors.ErrCannotDeleteCollectionWithArticles) {
-		response.Error(c, response.CodeInvalidParams, "Cannot delete collection with articles")
+		response.Error(c, response.CodeInvalidParams, "该合集下仍有关联文章，不能删除")
 	} else {
 		response.InternalErrorWithErr(c, fallback, err)
 	}

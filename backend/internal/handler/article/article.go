@@ -56,7 +56,7 @@ func currentUserID(c *gin.Context) (int64, bool) {
 func parseArticleIDParam(c *gin.Context) (int64, bool) {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
-		response.InvalidParams(c, "Invalid article ID")
+		response.InvalidParams(c, "文章 ID 无效，请刷新页面后重试")
 		return 0, false
 	}
 	return id, true
@@ -74,12 +74,12 @@ func (h *ArticleHandler) SetSortMode(c *gin.Context) {
 		Enabled bool `json:"enabled"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.InvalidParams(c, err.Error())
+		response.InvalidParams(c, "排序设置参数不正确：enabled 必须是布尔值")
 		return
 	}
 
 	if err := h.settingService.SetSortByPopularity(req.Enabled); err != nil {
-		response.InternalErrorWithErr(c, "Failed to set sort mode", err)
+		response.InternalErrorWithErr(c, "保存文章排序设置失败，请稍后重试", err)
 		return
 	}
 
@@ -134,10 +134,10 @@ func parseScheduledPublishAt(value *string) (*time.Time, bool, string) {
 
 	scheduledTime, err := time.Parse(time.RFC3339, *value)
 	if err != nil {
-		return nil, true, "Invalid scheduled_publish_at format, use RFC3339"
+		return nil, true, "定时发布时间格式不正确，请使用 RFC3339 格式"
 	}
 	if scheduledTime.Before(time.Now()) {
-		return nil, true, "scheduled_publish_at must be in the future"
+		return nil, true, "定时发布时间必须晚于当前时间"
 	}
 	return &scheduledTime, true, ""
 }
@@ -148,7 +148,7 @@ func (h *ArticleHandler) hydrateArticleCollection(c *gin.Context, article *model
 	}
 	includeNavigation := article.Status == "published" && !isAdminRequest(c)
 	if err := h.collectionService.HydrateArticleCollectionData(article, includeNavigation); err != nil {
-		response.InternalErrorWithErr(c, "Failed to get article collection data", err)
+		response.InternalErrorWithErr(c, "加载文章所属合集信息失败，请稍后重试", err)
 		return false
 	}
 	return true
@@ -163,11 +163,11 @@ func (h *ArticleHandler) setArticleCollectionPlacement(c *gin.Context, articleID
 	}
 	if err := h.collectionService.SetPrimaryArticlePlacement(articleID, collectionID, position); err != nil {
 		if errors.Is(err, svcerrors.ErrArticleNotFound) {
-			response.NotFound(c, "Article not found")
+			response.NotFound(c, "文章不存在或已被删除")
 		} else if errors.Is(err, svcerrors.ErrCollectionNotFound) {
-			response.NotFound(c, "Collection not found")
+			response.NotFound(c, "选择的合集不存在或已被删除")
 		} else {
-			response.InternalErrorWithErr(c, "Failed to set article collection", err)
+			response.InternalErrorWithErr(c, "保存文章合集设置失败，请稍后重试", err)
 		}
 		return false
 	}
@@ -181,11 +181,11 @@ func (h *ArticleHandler) setArticleTags(c *gin.Context, article *model.Article, 
 	updated, err := h.articleService.SetTags(article.ID, tagIDs)
 	if err != nil {
 		if errors.Is(err, svcerrors.ErrArticleNotFound) {
-			response.NotFound(c, "Article not found")
+			response.NotFound(c, "文章不存在或已被删除")
 		} else if errors.Is(err, svcerrors.ErrTagNotFound) {
-			response.NotFound(c, "Tag not found")
+			response.NotFound(c, "选择的标签不存在或已被删除")
 		} else {
-			response.InternalErrorWithErr(c, "Failed to set article tags", err)
+			response.InternalErrorWithErr(c, "保存文章标签失败，请稍后重试", err)
 		}
 		return nil, false
 	}
@@ -196,7 +196,7 @@ func (h *ArticleHandler) setArticleTags(c *gin.Context, article *model.Article, 
 func (h *ArticleHandler) Create(c *gin.Context) {
 	var req CreateArticleRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.InvalidParams(c, err.Error())
+		response.InvalidParams(c, "文章参数不正确：标题、正文、分类和状态为必填项，请检查后重试")
 		return
 	}
 
@@ -224,10 +224,10 @@ func (h *ArticleHandler) Create(c *gin.Context) {
 	)
 	if err != nil {
 		if errors.Is(err, svcerrors.ErrCategoryNotFound) {
-			response.NotFound(c, "Category not found")
+			response.NotFound(c, "选择的分类不存在或已被删除")
 			return
 		}
-		response.InternalErrorWithErr(c, "Failed to create article", err)
+		response.InternalErrorWithErr(c, "创建文章失败，请稍后重试", err)
 		return
 	}
 
@@ -260,22 +260,22 @@ func (h *ArticleHandler) GetByID(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
-		response.InvalidParams(c, "Invalid article ID")
+		response.InvalidParams(c, "文章 ID 无效，请刷新页面后重试")
 		return
 	}
 
 	article, err := h.articleService.GetByID(id)
 	if err != nil {
 		if errors.Is(err, svcerrors.ErrArticleNotFound) {
-			response.NotFound(c, "Article not found")
+			response.NotFound(c, "文章不存在或已被删除")
 			return
 		}
-		response.InternalErrorWithErr(c, "Failed to get article", err)
+		response.InternalErrorWithErr(c, "加载文章详情失败，请稍后重试", err)
 		return
 	}
 
 	if article.Status != "published" && !isAdminRequest(c) {
-		response.NotFound(c, "Article not found")
+		response.NotFound(c, "文章不存在、未发布或已被删除")
 		return
 	}
 
@@ -297,15 +297,15 @@ func (h *ArticleHandler) GetBySlug(c *gin.Context) {
 	article, err := h.articleService.GetBySlug(slug)
 	if err != nil {
 		if errors.Is(err, svcerrors.ErrArticleNotFound) {
-			response.NotFound(c, "Article not found")
+			response.NotFound(c, "文章不存在或已被删除")
 			return
 		}
-		response.InternalErrorWithErr(c, "Failed to get article", err)
+		response.InternalErrorWithErr(c, "加载文章详情失败，请稍后重试", err)
 		return
 	}
 
 	if article.Status != "published" {
-		response.NotFound(c, "Article not found")
+		response.NotFound(c, "文章不存在、未发布或已被删除")
 		return
 	}
 
@@ -352,7 +352,7 @@ func (h *ArticleHandler) List(c *gin.Context) {
 
 	articles, total, err := h.articleService.List(status, categoryID, tagID, keyword, sortByPopularity, p.Page, p.PageSize)
 	if err != nil {
-		response.InternalErrorWithErr(c, "Failed to list articles", err)
+		response.InternalErrorWithErr(c, "文章列表加载失败，请稍后重试", err)
 		return
 	}
 
@@ -374,7 +374,7 @@ func (h *ArticleHandler) Search(c *gin.Context) {
 
 	results, total, err := h.articleService.SearchArticles(keyword, categoryID, tagID, p.Page, p.PageSize)
 	if err != nil {
-		response.InternalErrorWithErr(c, "Failed to search articles", err)
+		response.InternalErrorWithErr(c, "文章搜索失败，请稍后重试", err)
 		return
 	}
 
@@ -406,7 +406,7 @@ func (h *ArticleHandler) AdminList(c *gin.Context) {
 
 	articles, total, err := h.articleService.List(status, categoryID, tagID, keyword, sortByPopularity, p.Page, p.PageSize)
 	if err != nil {
-		response.InternalErrorWithErr(c, "Failed to list articles", err)
+		response.InternalErrorWithErr(c, "文章管理列表加载失败，请稍后重试", err)
 		return
 	}
 
@@ -424,17 +424,17 @@ func (h *ArticleHandler) ToggleTop(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
-		response.InvalidParams(c, "Invalid article ID")
+		response.InvalidParams(c, "文章 ID 无效，请刷新页面后重试")
 		return
 	}
 
 	article, err := h.articleService.ToggleTop(id)
 	if err != nil {
 		if errors.Is(err, svcerrors.ErrArticleNotFound) {
-			response.NotFound(c, "Article not found")
+			response.NotFound(c, "文章不存在或已被删除，无法切换置顶状态")
 			return
 		}
-		response.InternalErrorWithErr(c, "Failed to toggle top status", err)
+		response.InternalErrorWithErr(c, "切换文章置顶状态失败，请稍后重试", err)
 		return
 	}
 
@@ -444,10 +444,10 @@ func (h *ArticleHandler) ToggleTop(c *gin.Context) {
 // UpdatePopularityScores 手动触发更新文章活跃度分数（管理员）
 func (h *ArticleHandler) UpdatePopularityScores(c *gin.Context) {
 	if err := h.articleService.UpdatePopularityScores(); err != nil {
-		response.InternalErrorWithErr(c, "Failed to update popularity scores", err)
+		response.InternalErrorWithErr(c, "更新文章热度分失败，请稍后重试", err)
 		return
 	}
-	response.Success(c, gin.H{"message": "Popularity scores updated successfully"})
+	response.Success(c, gin.H{"message": "文章热度分更新成功"})
 }
 
 // Update 更新文章（管理员）
@@ -455,13 +455,13 @@ func (h *ArticleHandler) Update(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
-		response.InvalidParams(c, "Invalid article ID")
+		response.InvalidParams(c, "文章 ID 无效，请刷新页面后重试")
 		return
 	}
 
 	var req UpdateArticleRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.InvalidParams(c, err.Error())
+		response.InvalidParams(c, "文章参数不正确：标题、正文和分类为必填项，请检查后重试")
 		return
 	}
 
@@ -481,26 +481,26 @@ func (h *ArticleHandler) Update(c *gin.Context) {
 	)
 	if err != nil {
 		if errors.Is(err, svcerrors.ErrArticleNotFound) {
-			response.NotFound(c, "Article not found")
+			response.NotFound(c, "文章不存在或已被删除，无法更新")
 			return
 		}
 		if errors.Is(err, svcerrors.ErrCategoryNotFound) {
-			response.NotFound(c, "Category not found")
+			response.NotFound(c, "选择的分类不存在或已被删除")
 			return
 		}
-		response.InternalErrorWithErr(c, "Failed to update article", err)
+		response.InternalErrorWithErr(c, "更新文章失败，请稍后重试", err)
 		return
 	}
 
 	if hasScheduledPublishAt {
 		if scheduledAt != nil && article.Status == "published" {
 			if err := h.articleService.Draft(id); err != nil {
-				response.InternalErrorWithErr(c, "Failed to draft article for scheduled publish", err)
+				response.InternalErrorWithErr(c, "设置定时发布前转为草稿失败，请稍后重试", err)
 				return
 			}
 		}
 		if err := h.articleService.SetScheduledPublishAt(id, scheduledAt); err != nil {
-			response.InternalErrorWithErr(c, "Failed to set scheduled publish time", err)
+			response.InternalErrorWithErr(c, "保存定时发布时间失败，请稍后重试", err)
 			return
 		}
 		article.ScheduledPublishAt = scheduledAt
@@ -530,21 +530,21 @@ func (h *ArticleHandler) Delete(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
-		response.InvalidParams(c, "Invalid article ID")
+		response.InvalidParams(c, "文章 ID 无效，请刷新页面后重试")
 		return
 	}
 
 	if err := h.articleService.Delete(id); err != nil {
 		if errors.Is(err, svcerrors.ErrArticleNotFound) {
-			response.NotFound(c, "Article not found")
+			response.NotFound(c, "文章不存在或已被删除")
 			return
 		}
-		response.InternalErrorWithErr(c, "Failed to delete article", err)
+		response.InternalErrorWithErr(c, "删除文章失败，请稍后重试", err)
 		return
 	}
 
 	response.Success(c, gin.H{
-		"message": "Article deleted successfully",
+		"message": "文章删除成功",
 	})
 }
 
@@ -561,10 +561,10 @@ func (h *ArticleHandler) BatchDelete(c *gin.Context) {
 		return
 	}
 	if err := h.articleService.DeleteBatch(ids); err != nil {
-		response.InternalErrorWithErr(c, "批量删除文章失败", err)
+		response.InternalErrorWithErr(c, "批量删除文章失败：请确认所选文章仍存在且没有关联约束异常", err)
 		return
 	}
-	response.Success(c, gin.H{"message": "Articles deleted successfully", "deleted_count": len(ids)})
+	response.Success(c, gin.H{"message": "文章批量删除成功", "deleted_count": len(ids)})
 }
 
 func normalizeIDs(ids []int64) ([]int64, bool) {
@@ -588,25 +588,25 @@ func (h *ArticleHandler) Publish(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
-		response.InvalidParams(c, "Invalid article ID")
+		response.InvalidParams(c, "文章 ID 无效，请刷新页面后重试")
 		return
 	}
 
 	if err := h.articleService.Publish(id); err != nil {
 		if errors.Is(err, svcerrors.ErrArticleNotFound) {
-			response.NotFound(c, "Article not found")
+			response.NotFound(c, "文章不存在或已被删除，无法发布")
 			return
 		}
 		if errors.Is(err, svcerrors.ErrArticleAlreadyPublished) {
-			response.Error(c, response.CodeInvalidParams, "Article is already published")
+			response.Error(c, response.CodeInvalidParams, "文章已经是发布状态，无需重复发布")
 			return
 		}
-		response.InternalErrorWithErr(c, "Failed to publish article", err)
+		response.InternalErrorWithErr(c, "发布文章失败，请稍后重试", err)
 		return
 	}
 
 	response.Success(c, gin.H{
-		"message": "Article published successfully",
+		"message": "文章发布成功",
 	})
 }
 
@@ -615,25 +615,25 @@ func (h *ArticleHandler) Draft(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
-		response.InvalidParams(c, "Invalid article ID")
+		response.InvalidParams(c, "文章 ID 无效，请刷新页面后重试")
 		return
 	}
 
 	if err := h.articleService.Draft(id); err != nil {
 		if errors.Is(err, svcerrors.ErrArticleNotFound) {
-			response.NotFound(c, "Article not found")
+			response.NotFound(c, "文章不存在或已被删除，无法转为草稿")
 			return
 		}
 		if errors.Is(err, svcerrors.ErrArticleAlreadyDraft) {
-			response.Error(c, response.CodeInvalidParams, "Article is already draft")
+			response.Error(c, response.CodeInvalidParams, "文章已经是草稿状态，无需重复操作")
 			return
 		}
-		response.InternalErrorWithErr(c, "Failed to draft article", err)
+		response.InternalErrorWithErr(c, "文章转为草稿失败，请稍后重试", err)
 		return
 	}
 
 	response.Success(c, gin.H{
-		"message": "Article drafted successfully",
+		"message": "文章已转为草稿",
 	})
 }
 
@@ -642,22 +642,22 @@ func (h *ArticleHandler) AutoSave(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
-		response.InvalidParams(c, "Invalid article ID")
+		response.InvalidParams(c, "文章 ID 无效，请刷新页面后重试")
 		return
 	}
 
 	var req AutoSaveRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.InvalidParams(c, err.Error())
+		response.InvalidParams(c, "自动保存参数不正确：标题和正文不能为空")
 		return
 	}
 
 	if err := h.articleService.AutoSave(id, req.Title, req.Content, req.Summary); err != nil {
 		if errors.Is(err, svcerrors.ErrArticleNotFound) {
-			response.NotFound(c, "Article not found")
+			response.NotFound(c, "文章不存在或已被删除，无法自动保存")
 			return
 		}
-		response.InternalErrorWithErr(c, "Failed to auto-save article", err)
+		response.InternalErrorWithErr(c, "自动保存文章失败，请检查网络后重试", err)
 		return
 	}
 

@@ -46,7 +46,7 @@ type BatchDeleteCommentRequest struct {
 func (h *CommentHandler) Create(c *gin.Context) {
 	var req CreateCommentRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.InvalidParams(c, err.Error())
+		response.InvalidParams(c, "评论参数不正确：文章 ID 和评论内容必填，内容长度需在 1-1000 字之间")
 		return
 	}
 
@@ -56,19 +56,19 @@ func (h *CommentHandler) Create(c *gin.Context) {
 	comment, err := h.commentService.Create(req.ArticleID, userID.(int64), req.Content, req.ParentID, req.ReplyToUserID)
 	if err != nil {
 		if errors.Is(err, svcerrors.ErrArticleNotFound) {
-			response.NotFound(c, "Article not found")
+			response.NotFound(c, "文章不存在或已被删除，无法发表评论")
 		} else if errors.Is(err, svcerrors.ErrCannotCommentOnUnpublishedArticle) {
-			response.Forbidden(c, "Cannot comment on unpublished article")
+			response.Forbidden(c, "文章尚未发布，不能发表评论")
 		} else if errors.Is(err, svcerrors.ErrParentCommentNotFound) {
-			response.NotFound(c, "Parent comment not found")
+			response.NotFound(c, "要回复的评论不存在或已被删除")
 		} else if errors.Is(err, svcerrors.ErrParentCommentNotBelongToArticle) {
-			response.InvalidParams(c, "Parent comment does not belong to this article")
+			response.InvalidParams(c, "要回复的评论不属于当前文章")
 		} else if errors.Is(err, svcerrors.ErrCannotReplyToDeletedComment) {
-			response.InvalidParams(c, "Cannot reply to deleted comment")
+			response.InvalidParams(c, "该评论已删除，不能继续回复")
 		} else if errors.Is(err, svcerrors.ErrCannotReplyToReplyComment) {
-			response.InvalidParams(c, "Cannot reply to a reply comment (only two levels allowed)")
+			response.InvalidParams(c, "当前只支持两级评论，不能继续回复子评论")
 		} else {
-			response.InternalErrorWithErr(c, "Failed to create comment", err)
+			response.InternalErrorWithErr(c, "发表评论失败，请稍后重试", err)
 		}
 		return
 	}
@@ -87,7 +87,7 @@ func (h *CommentHandler) GetByArticleID(c *gin.Context) {
 	articleIDStr := c.Param("id")
 	articleID, err := strconv.ParseInt(articleIDStr, 10, 64)
 	if err != nil {
-		response.InvalidParams(c, "Invalid article ID")
+		response.InvalidParams(c, "文章 ID 无效，请刷新页面后重试")
 		return
 	}
 
@@ -98,7 +98,7 @@ func (h *CommentHandler) GetByArticleID(c *gin.Context) {
 
 	comments, err := h.commentService.GetByArticleIDSorted(articleID, sort)
 	if err != nil {
-		response.InternalErrorWithErr(c, "Failed to get comments", err)
+		response.InternalErrorWithErr(c, "评论列表加载失败，请稍后重试", err)
 		return
 	}
 
@@ -116,7 +116,7 @@ func (h *CommentHandler) AdminList(c *gin.Context) {
 		PageSize: p.PageSize,
 	})
 	if err != nil {
-		response.InternalErrorWithErr(c, "Failed to get comments", err)
+		response.InternalErrorWithErr(c, "评论管理列表加载失败，请稍后重试", err)
 		return
 	}
 
@@ -134,7 +134,7 @@ func (h *CommentHandler) Delete(c *gin.Context) {
 	commentIDStr := c.Param("id")
 	commentID, err := strconv.ParseInt(commentIDStr, 10, 64)
 	if err != nil {
-		response.InvalidParams(c, "Invalid comment ID")
+		response.InvalidParams(c, "评论 ID 无效，请刷新页面后重试")
 		return
 	}
 
@@ -145,19 +145,19 @@ func (h *CommentHandler) Delete(c *gin.Context) {
 
 	if err := h.commentService.Delete(commentID, userID.(int64), isAdmin); err != nil {
 		if errors.Is(err, svcerrors.ErrCommentNotFound) {
-			response.NotFound(c, "Comment not found")
+			response.NotFound(c, "评论不存在或已被删除")
 		} else if errors.Is(err, svcerrors.ErrPermissionDenied) {
-			response.Forbidden(c, "Permission denied")
+			response.Forbidden(c, "你没有权限删除这条评论")
 		} else if errors.Is(err, svcerrors.ErrCommentAlreadyDeleted) {
-			response.InvalidParams(c, "Comment already deleted")
+			response.InvalidParams(c, "该评论已经删除，无需重复操作")
 		} else {
-			response.InternalErrorWithErr(c, "Failed to delete comment", err)
+			response.InternalErrorWithErr(c, "删除评论失败，请稍后重试", err)
 		}
 		return
 	}
 
 	response.Success(c, gin.H{
-		"message": "Comment deleted successfully",
+		"message": "评论删除成功",
 	})
 }
 
@@ -178,11 +178,11 @@ func (h *CommentHandler) BatchDelete(c *gin.Context) {
 	userRole, _ := c.Get("user_role")
 	isAdmin := userRole.(string) == "admin"
 	if err := h.commentService.DeleteBatch(ids, userID.(int64), isAdmin); err != nil {
-		response.InternalErrorWithErr(c, "批量删除评论失败", err)
+		response.InternalErrorWithErr(c, "批量删除评论失败：请确认所选评论仍存在且你有权限操作", err)
 		return
 	}
 
-	response.Success(c, gin.H{"message": "Comments deleted successfully", "deleted_count": len(ids)})
+	response.Success(c, gin.H{"message": "评论批量删除成功", "deleted_count": len(ids)})
 }
 
 func normalizeCommentIDs(ids []int64) ([]int64, bool) {
@@ -205,7 +205,7 @@ func normalizeCommentIDs(ids []int64) ([]int64, bool) {
 func (h *CommentHandler) Like(c *gin.Context) {
 	commentID, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
-		response.InvalidParams(c, "Invalid comment ID")
+		response.InvalidParams(c, "评论 ID 无效，请刷新页面后重试")
 		return
 	}
 
@@ -215,7 +215,7 @@ func (h *CommentHandler) Like(c *gin.Context) {
 	}
 
 	if err := h.commentService.Like(commentID, userID); err != nil {
-		response.InternalErrorWithErr(c, "Failed to like comment", err)
+		response.InternalErrorWithErr(c, "点赞评论失败，请稍后重试", err)
 		return
 	}
 
@@ -226,7 +226,7 @@ func (h *CommentHandler) Like(c *gin.Context) {
 func (h *CommentHandler) Unlike(c *gin.Context) {
 	commentID, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
-		response.InvalidParams(c, "Invalid comment ID")
+		response.InvalidParams(c, "评论 ID 无效，请刷新页面后重试")
 		return
 	}
 
@@ -236,7 +236,7 @@ func (h *CommentHandler) Unlike(c *gin.Context) {
 	}
 
 	if err := h.commentService.Unlike(commentID, userID); err != nil {
-		response.InternalErrorWithErr(c, "Failed to unlike comment", err)
+		response.InternalErrorWithErr(c, "取消评论点赞失败，请稍后重试", err)
 		return
 	}
 
@@ -247,7 +247,7 @@ func (h *CommentHandler) Unlike(c *gin.Context) {
 func (h *CommentHandler) Dislike(c *gin.Context) {
 	commentID, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
-		response.InvalidParams(c, "Invalid comment ID")
+		response.InvalidParams(c, "评论 ID 无效，请刷新页面后重试")
 		return
 	}
 
@@ -257,7 +257,7 @@ func (h *CommentHandler) Dislike(c *gin.Context) {
 	}
 
 	if err := h.commentService.Dislike(commentID, userID); err != nil {
-		response.InternalErrorWithErr(c, "Failed to dislike comment", err)
+		response.InternalErrorWithErr(c, "点踩评论失败，请稍后重试", err)
 		return
 	}
 
@@ -268,7 +268,7 @@ func (h *CommentHandler) Dislike(c *gin.Context) {
 func (h *CommentHandler) Undislike(c *gin.Context) {
 	commentID, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
-		response.InvalidParams(c, "Invalid comment ID")
+		response.InvalidParams(c, "评论 ID 无效，请刷新页面后重试")
 		return
 	}
 
@@ -278,7 +278,7 @@ func (h *CommentHandler) Undislike(c *gin.Context) {
 	}
 
 	if err := h.commentService.Undislike(commentID, userID); err != nil {
-		response.InternalErrorWithErr(c, "Failed to undislike comment", err)
+		response.InternalErrorWithErr(c, "取消评论点踩失败，请稍后重试", err)
 		return
 	}
 
@@ -290,22 +290,22 @@ func (h *CommentHandler) Restore(c *gin.Context) {
 	commentIDStr := c.Param("id")
 	commentID, err := strconv.ParseInt(commentIDStr, 10, 64)
 	if err != nil {
-		response.InvalidParams(c, "Invalid comment ID")
+		response.InvalidParams(c, "评论 ID 无效，请刷新页面后重试")
 		return
 	}
 
 	if err := h.commentService.Restore(commentID); err != nil {
 		if errors.Is(err, svcerrors.ErrCommentNotFound) {
-			response.NotFound(c, "Comment not found")
+			response.NotFound(c, "评论不存在，无法恢复")
 		} else if errors.Is(err, svcerrors.ErrCommentIsNotDeleted) {
-			response.InvalidParams(c, "Comment is not deleted")
+			response.InvalidParams(c, "该评论未被删除，无需恢复")
 		} else {
-			response.InternalErrorWithErr(c, "Failed to restore comment", err)
+			response.InternalErrorWithErr(c, "恢复评论失败，请稍后重试", err)
 		}
 		return
 	}
 
 	response.Success(c, gin.H{
-		"message": "Comment restored successfully",
+		"message": "评论恢复成功",
 	})
 }

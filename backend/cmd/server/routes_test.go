@@ -2,6 +2,7 @@ package main
 
 import (
 	"testing"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
@@ -89,6 +90,15 @@ func TestBuildRouter_RegistersRequiredRoutes(t *testing.T) {
 		if _, ok := routes[route]; !ok {
 			t.Fatalf("expected route %s to be registered", route)
 		}
+	}
+}
+
+func TestRateLimitMessageIncludesActionLimitAndWindow(t *testing.T) {
+	message := rateLimitMessage("评论发布过于频繁", 5, time.Minute)
+
+	expected := "评论发布过于频繁：每分钟最多 5 次，请稍后再试"
+	if message != expected {
+		t.Fatalf("expected %q, got %q", expected, message)
 	}
 }
 

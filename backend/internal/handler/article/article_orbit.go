@@ -107,7 +107,7 @@ func toArticleOrbitItem(article *model.Article) ArticleOrbitItem {
 func (h *ArticleHandler) ListOrbitArticles(c *gin.Context) {
 	articles, err := h.articleService.ListOrbitArticles()
 	if err != nil {
-		response.InternalErrorWithErr(c, "Failed to list orbit articles", err)
+		response.InternalErrorWithErr(c, "首页文章星球加载失败，请稍后重试", err)
 		return
 	}
 
@@ -118,7 +118,7 @@ func (h *ArticleHandler) ListOrbitArticles(c *gin.Context) {
 		}
 		if h.collectionService != nil {
 			if err := h.collectionService.HydrateArticleCollectionData(article, false); err != nil {
-				response.InternalErrorWithErr(c, "Failed to get article collection data", err)
+				response.InternalErrorWithErr(c, "加载文章星球合集信息失败，请稍后重试", err)
 				return
 			}
 		}

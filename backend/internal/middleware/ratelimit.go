@@ -27,6 +27,7 @@ type RateLimitConfig struct {
 	Type    RateLimitType             // 限流类型
 	Limit   int                       // 请求数
 	Window  time.Duration             // 时间窗口
+	Message string                    // 触发限流时返回给客户端的具体提示
 	KeyFunc func(*gin.Context) string // 自定义 key 生成函数（可选）
 }
 
@@ -52,13 +53,20 @@ func RateLimit(rdb *redis.Client, config RateLimitConfig) gin.HandlerFunc {
 		}
 
 		if !allowed {
-			response.TooManyRequests(c, "Too many requests, please try again later")
+			response.TooManyRequests(c, rateLimitExceededMessage(config))
 			c.Abort()
 			return
 		}
 
 		c.Next()
 	}
+}
+
+func rateLimitExceededMessage(config RateLimitConfig) string {
+	if message := strings.TrimSpace(config.Message); message != "" {
+		return message
+	}
+	return "请求过于频繁，请稍后再试"
 }
 
 // generateRateLimitKey 生成限流 key

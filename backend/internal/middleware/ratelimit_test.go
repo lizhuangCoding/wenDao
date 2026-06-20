@@ -48,3 +48,21 @@ func TestGenerateRateLimitKeyIncludesConfiguredName(t *testing.T) {
 		t.Fatalf("expected named IP key, got %q", key)
 	}
 }
+
+func TestRateLimitExceededMessageUsesConfiguredDetail(t *testing.T) {
+	message := rateLimitExceededMessage(RateLimitConfig{
+		Message: "评论发布过于频繁：每分钟最多 5 条，请稍后再试",
+	})
+
+	if message != "评论发布过于频繁：每分钟最多 5 条，请稍后再试" {
+		t.Fatalf("expected configured message, got %q", message)
+	}
+}
+
+func TestRateLimitExceededMessageFallsBackToClearDefault(t *testing.T) {
+	message := rateLimitExceededMessage(RateLimitConfig{})
+
+	if message == "" || message == "Too many requests, please try again later" {
+		t.Fatalf("expected localized non-empty fallback message, got %q", message)
+	}
+}

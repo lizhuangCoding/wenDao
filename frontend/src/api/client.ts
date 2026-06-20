@@ -34,6 +34,22 @@ const shouldAttachCSRFToken = (method?: string) => {
   return !['get', 'head', 'options'].includes(normalized);
 };
 
+const buildHttpErrorMessage = (error: AxiosError<ApiResponse>) => {
+  if (error.response?.data?.message) {
+    return error.response.data.message;
+  }
+
+  if (error.code === 'ECONNABORTED') {
+    return '请求超时：服务器响应时间过长，请稍后重试';
+  }
+
+  if (!error.response) {
+    return '网络连接失败：请检查网络连接或稍后重试';
+  }
+
+  return `请求失败：服务器返回 HTTP ${error.response.status}`;
+};
+
 // 创建 axios 实例
 const apiClient: AxiosInstance = axios.create({
   baseURL: API_BASE_URL,
@@ -148,7 +164,7 @@ apiClient.interceptors.response.use(
     // 处理 HTTP 错误
     const apiError: ApiError = {
       code: error.response?.status || -1,
-      message: error.response?.data?.message || error.message || '网络请求失败',
+      message: buildHttpErrorMessage(error),
     };
 
     // 401 未授权，清除 token 并跳转登录

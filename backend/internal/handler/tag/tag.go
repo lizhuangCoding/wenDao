@@ -45,10 +45,10 @@ func (h *TagHandler) Create(c *gin.Context) {
 	tag, err := h.tagService.Create(req.Name, req.Slug)
 	if err != nil {
 		if errors.Is(err, svcerrors.ErrSlugAlreadyExists) {
-			response.Error(c, response.CodeInvalidParams, "Slug already exists")
+			response.Error(c, response.CodeInvalidParams, "标签别名已存在，请更换 slug")
 			return
 		}
-		response.InternalErrorWithErr(c, "Failed to create tag", err)
+		response.InternalErrorWithErr(c, "创建标签失败，请稍后重试", err)
 		return
 	}
 	response.Success(c, tag)
@@ -57,16 +57,16 @@ func (h *TagHandler) Create(c *gin.Context) {
 func (h *TagHandler) GetByID(c *gin.Context) {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
-		response.InvalidParams(c, "Invalid tag ID")
+		response.InvalidParams(c, "标签 ID 无效，请刷新页面后重试")
 		return
 	}
 	tag, err := h.tagService.GetByID(id)
 	if err != nil {
 		if errors.Is(err, svcerrors.ErrTagNotFound) {
-			response.NotFound(c, "Tag not found")
+			response.NotFound(c, "标签不存在或已被删除")
 			return
 		}
-		response.InternalErrorWithErr(c, "Failed to get tag", err)
+		response.InternalErrorWithErr(c, "加载标签详情失败，请稍后重试", err)
 		return
 	}
 	response.Success(c, tag)
@@ -76,10 +76,10 @@ func (h *TagHandler) GetBySlug(c *gin.Context) {
 	tag, err := h.tagService.GetBySlug(c.Param("slug"))
 	if err != nil {
 		if errors.Is(err, svcerrors.ErrTagNotFound) {
-			response.NotFound(c, "Tag not found")
+			response.NotFound(c, "标签不存在或已被删除")
 			return
 		}
-		response.InternalErrorWithErr(c, "Failed to get tag", err)
+		response.InternalErrorWithErr(c, "加载标签详情失败，请稍后重试", err)
 		return
 	}
 	response.Success(c, tag)
@@ -88,7 +88,7 @@ func (h *TagHandler) GetBySlug(c *gin.Context) {
 func (h *TagHandler) List(c *gin.Context) {
 	tags, err := h.tagService.List()
 	if err != nil {
-		response.InternalErrorWithErr(c, "Failed to list tags", err)
+		response.InternalErrorWithErr(c, "标签列表加载失败，请稍后重试", err)
 		return
 	}
 	response.Success(c, tags)
@@ -101,7 +101,7 @@ func (h *TagHandler) AdminList(c *gin.Context) {
 		PageSize: p.PageSize,
 	})
 	if err != nil {
-		response.InternalErrorWithErr(c, "Failed to list tags", err)
+		response.InternalErrorWithErr(c, "标签管理列表加载失败，请稍后重试", err)
 		return
 	}
 	response.Success(c, gin.H{
@@ -116,7 +116,7 @@ func (h *TagHandler) AdminList(c *gin.Context) {
 func (h *TagHandler) Update(c *gin.Context) {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
-		response.InvalidParams(c, "Invalid tag ID")
+		response.InvalidParams(c, "标签 ID 无效，请刷新页面后重试")
 		return
 	}
 	var req UpdateTagRequest
@@ -127,14 +127,14 @@ func (h *TagHandler) Update(c *gin.Context) {
 	tag, err := h.tagService.Update(id, req.Name, req.Slug)
 	if err != nil {
 		if errors.Is(err, svcerrors.ErrTagNotFound) {
-			response.NotFound(c, "Tag not found")
+			response.NotFound(c, "标签不存在或已被删除，无法更新")
 			return
 		}
 		if errors.Is(err, svcerrors.ErrSlugAlreadyExists) {
-			response.Error(c, response.CodeInvalidParams, "Slug already exists")
+			response.Error(c, response.CodeInvalidParams, "标签别名已存在，请更换 slug")
 			return
 		}
-		response.InternalErrorWithErr(c, "Failed to update tag", err)
+		response.InternalErrorWithErr(c, "更新标签失败，请稍后重试", err)
 		return
 	}
 	response.Success(c, tag)
@@ -143,22 +143,22 @@ func (h *TagHandler) Update(c *gin.Context) {
 func (h *TagHandler) Delete(c *gin.Context) {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
-		response.InvalidParams(c, "Invalid tag ID")
+		response.InvalidParams(c, "标签 ID 无效，请刷新页面后重试")
 		return
 	}
 	if err := h.tagService.Delete(id); err != nil {
 		if errors.Is(err, svcerrors.ErrTagNotFound) {
-			response.NotFound(c, "Tag not found")
+			response.NotFound(c, "标签不存在或已被删除")
 			return
 		}
 		if errors.Is(err, svcerrors.ErrCannotDeleteTagWithArticles) {
-			response.Error(c, response.CodeInvalidParams, "Cannot delete tag with articles")
+			response.Error(c, response.CodeInvalidParams, "该标签下仍有关联文章，不能删除")
 			return
 		}
-		response.InternalErrorWithErr(c, "Failed to delete tag", err)
+		response.InternalErrorWithErr(c, "删除标签失败，请稍后重试", err)
 		return
 	}
-	response.Success(c, gin.H{"message": "Tag deleted successfully"})
+	response.Success(c, gin.H{"message": "标签删除成功"})
 }
 
 func (h *TagHandler) BatchDelete(c *gin.Context) {
@@ -174,13 +174,13 @@ func (h *TagHandler) BatchDelete(c *gin.Context) {
 	}
 	if err := h.tagService.DeleteBatch(ids); err != nil {
 		if errors.Is(err, svcerrors.ErrCannotDeleteTagWithArticles) {
-			response.Error(c, response.CodeInvalidParams, "Cannot delete tag with articles")
+			response.Error(c, response.CodeInvalidParams, "所选标签中有标签仍关联文章，不能删除")
 			return
 		}
-		response.InternalErrorWithErr(c, "批量删除标签失败", err)
+		response.InternalErrorWithErr(c, "批量删除标签失败：请确认所选标签仍存在且没有关联文章", err)
 		return
 	}
-	response.Success(c, gin.H{"message": "Tags deleted successfully", "deleted_count": len(ids)})
+	response.Success(c, gin.H{"message": "标签批量删除成功", "deleted_count": len(ids)})
 }
 
 func normalizeTagIDs(ids []int64) ([]int64, bool) {

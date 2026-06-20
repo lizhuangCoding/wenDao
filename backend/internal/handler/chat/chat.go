@@ -125,7 +125,7 @@ func parseConversationID(c *gin.Context) (int64, bool) {
 	convID := c.Param("id")
 	var convIDInt int64
 	if _, err := fmt.Sscanf(convID, "%d", &convIDInt); err != nil {
-		response.InvalidParams(c, "Invalid conversation ID")
+		response.InvalidParams(c, "会话 ID 无效，请刷新页面后重试")
 		return 0, false
 	}
 	return convIDInt, true
@@ -148,13 +148,13 @@ func buildConversationResponse(conv *model.Conversation) ConversationResponse {
 func (h *ChatHandler) List(c *gin.Context) {
 	userID, exists := c.Get("user_id")
 	if !exists {
-		response.Unauthorized(c, "Missing user ID")
+		response.Unauthorized(c, "登录状态已失效，请重新登录后操作")
 		return
 	}
 
 	convs, err := h.convRepo.GetByUserID(userID.(int64))
 	if err != nil {
-		response.InternalError(c, "Failed to get conversations")
+		response.InternalError(c, "会话列表加载失败，请稍后重试")
 		return
 	}
 
@@ -171,13 +171,13 @@ func (h *ChatHandler) List(c *gin.Context) {
 func (h *ChatHandler) Create(c *gin.Context) {
 	userID, exists := c.Get("user_id")
 	if !exists {
-		response.Unauthorized(c, "Missing user ID")
+		response.Unauthorized(c, "登录状态已失效，请重新登录后操作")
 		return
 	}
 
 	var req CreateConversationRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.InvalidParams(c, "Invalid request: title is required")
+		response.InvalidParams(c, "会话标题不能为空")
 		return
 	}
 
@@ -187,7 +187,7 @@ func (h *ChatHandler) Create(c *gin.Context) {
 	}
 
 	if err := h.convRepo.Create(conv); err != nil {
-		response.InternalError(c, "Failed to create conversation")
+		response.InternalError(c, "创建会话失败，请稍后重试")
 		return
 	}
 
@@ -199,7 +199,7 @@ func (h *ChatHandler) Create(c *gin.Context) {
 func (h *ChatHandler) Get(c *gin.Context) {
 	userID, exists := c.Get("user_id")
 	if !exists {
-		response.Unauthorized(c, "Missing user ID")
+		response.Unauthorized(c, "登录状态已失效，请重新登录后操作")
 		return
 	}
 
@@ -210,18 +210,18 @@ func (h *ChatHandler) Get(c *gin.Context) {
 
 	conv, err := h.convRepo.GetByID(convIDInt)
 	if err != nil {
-		response.NotFound(c, "Conversation not found")
+		response.NotFound(c, "会话不存在或已被删除")
 		return
 	}
 
 	if conv.UserID != userID.(int64) {
-		response.Forbidden(c, "Access denied")
+		response.Forbidden(c, "你没有权限查看这个会话")
 		return
 	}
 
 	msgs, err := h.msgRepo.GetByConversationID(convIDInt)
 	if err != nil {
-		response.InternalError(c, "Failed to get messages")
+		response.InternalError(c, "会话消息加载失败，请稍后重试")
 		return
 	}
 
@@ -315,7 +315,7 @@ func isResumableRun(run *model.ConversationRun, messages []model.ChatMessage) bo
 func (h *ChatHandler) Update(c *gin.Context) {
 	userID, exists := c.Get("user_id")
 	if !exists {
-		response.Unauthorized(c, "Missing user ID")
+		response.Unauthorized(c, "登录状态已失效，请重新登录后操作")
 		return
 	}
 
@@ -326,25 +326,25 @@ func (h *ChatHandler) Update(c *gin.Context) {
 
 	var req UpdateConversationRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.InvalidParams(c, "Invalid request: title is required")
+		response.InvalidParams(c, "会话标题不能为空")
 		return
 	}
 
 	conv, err := h.convRepo.GetByID(convIDInt)
 	if err != nil {
-		response.NotFound(c, "Conversation not found")
+		response.NotFound(c, "会话不存在或已被删除")
 		return
 	}
 
 	if conv.UserID != userID.(int64) {
-		response.Forbidden(c, "Access denied")
+		response.Forbidden(c, "你没有权限修改这个会话")
 		return
 	}
 
 	conv.Title = req.Title
 	conv.UpdatedAt = time.Now()
 	if err := h.convRepo.Update(conv); err != nil {
-		response.InternalError(c, "Failed to update conversation")
+		response.InternalError(c, "更新会话标题失败，请稍后重试")
 		return
 	}
 
@@ -356,7 +356,7 @@ func (h *ChatHandler) Update(c *gin.Context) {
 func (h *ChatHandler) Delete(c *gin.Context) {
 	userID, exists := c.Get("user_id")
 	if !exists {
-		response.Unauthorized(c, "Missing user ID")
+		response.Unauthorized(c, "登录状态已失效，请重新登录后操作")
 		return
 	}
 
@@ -367,47 +367,47 @@ func (h *ChatHandler) Delete(c *gin.Context) {
 
 	conv, err := h.convRepo.GetByID(convIDInt)
 	if err != nil {
-		response.NotFound(c, "Conversation not found")
+		response.NotFound(c, "会话不存在或已被删除")
 		return
 	}
 
 	if conv.UserID != userID.(int64) {
-		response.Forbidden(c, "Access denied")
+		response.Forbidden(c, "你没有权限删除这个会话")
 		return
 	}
 
 	if err := h.msgRepo.DeleteByConversationID(convIDInt); err != nil {
-		response.InternalError(c, "Failed to delete messages")
+		response.InternalError(c, "删除会话消息失败，请稍后重试")
 		return
 	}
 
 	if h.runStepRepo != nil {
 		if err := h.runStepRepo.DeleteByConversationID(convIDInt); err != nil {
-			response.InternalError(c, "Failed to delete conversation run steps")
+			response.InternalError(c, "删除会话运行步骤失败，请稍后重试")
 			return
 		}
 	}
 
 	if h.runRepo != nil {
 		if err := h.runRepo.DeleteByConversationID(convIDInt); err != nil {
-			response.InternalError(c, "Failed to delete conversation runs")
+			response.InternalError(c, "删除会话运行记录失败，请稍后重试")
 			return
 		}
 	}
 
 	if h.memoryRepo != nil {
 		if err := h.memoryRepo.DeleteByConversationID(convIDInt); err != nil {
-			response.InternalError(c, "Failed to delete conversation memories")
+			response.InternalError(c, "删除会话记忆失败，请稍后重试")
 			return
 		}
 	}
 
 	if err := h.convRepo.Delete(convIDInt); err != nil {
-		response.InternalError(c, "Failed to delete conversation")
+		response.InternalError(c, "删除会话失败，请稍后重试")
 		return
 	}
 
-	response.Success(c, gin.H{"message": "Conversation deleted successfully"})
+	response.Success(c, gin.H{"message": "会话删除成功"})
 }
 
 // Share 切换对话分享状态
@@ -415,7 +415,7 @@ func (h *ChatHandler) Delete(c *gin.Context) {
 func (h *ChatHandler) Share(c *gin.Context) {
 	userID, exists := c.Get("user_id")
 	if !exists {
-		response.Unauthorized(c, "Missing user ID")
+		response.Unauthorized(c, "登录状态已失效，请重新登录后操作")
 		return
 	}
 
@@ -426,12 +426,12 @@ func (h *ChatHandler) Share(c *gin.Context) {
 
 	conv, err := h.convRepo.GetByID(convIDInt)
 	if err != nil {
-		response.NotFound(c, "Conversation not found")
+		response.NotFound(c, "会话不存在或已被删除")
 		return
 	}
 
 	if conv.UserID != userID.(int64) {
-		response.Forbidden(c, "Access denied")
+		response.Forbidden(c, "你没有权限修改这个会话的分享状态")
 		return
 	}
 
@@ -439,7 +439,7 @@ func (h *ChatHandler) Share(c *gin.Context) {
 		Share bool `json:"share"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.InvalidParams(c, "Invalid request: share is required")
+		response.InvalidParams(c, "分享状态参数不正确：share 必须是布尔值")
 		return
 	}
 
@@ -452,7 +452,7 @@ func (h *ChatHandler) Share(c *gin.Context) {
 	}
 
 	if err := h.convRepo.UpdateShare(convIDInt, req.Share, token); err != nil {
-		response.InternalError(c, "Failed to update share status")
+		response.InternalError(c, "更新会话分享状态失败，请稍后重试")
 		return
 	}
 
@@ -467,19 +467,19 @@ func (h *ChatHandler) Share(c *gin.Context) {
 func (h *ChatHandler) GetShared(c *gin.Context) {
 	token := c.Param("token")
 	if token == "" {
-		response.InvalidParams(c, "Missing share token")
+		response.InvalidParams(c, "缺少分享令牌，请使用完整的分享链接")
 		return
 	}
 
 	conv, err := h.convRepo.GetByShareToken(token)
 	if err != nil {
-		response.NotFound(c, "Conversation not found or not shared")
+		response.NotFound(c, "分享会话不存在、已取消分享或链接无效")
 		return
 	}
 
 	msgs, err := h.msgRepo.GetByConversationID(conv.ID)
 	if err != nil {
-		response.InternalError(c, "Failed to get messages")
+		response.InternalError(c, "分享会话消息加载失败，请稍后重试")
 		return
 	}
 
@@ -531,7 +531,7 @@ func (h *ChatHandler) GetShared(c *gin.Context) {
 func (h *ChatHandler) Export(c *gin.Context) {
 	userID, exists := c.Get("user_id")
 	if !exists {
-		response.Unauthorized(c, "Missing user ID")
+		response.Unauthorized(c, "登录状态已失效，请重新登录后操作")
 		return
 	}
 
@@ -542,18 +542,18 @@ func (h *ChatHandler) Export(c *gin.Context) {
 
 	conv, err := h.convRepo.GetByID(convIDInt)
 	if err != nil {
-		response.NotFound(c, "Conversation not found")
+		response.NotFound(c, "会话不存在或已被删除")
 		return
 	}
 
 	if conv.UserID != userID.(int64) {
-		response.Forbidden(c, "Access denied")
+		response.Forbidden(c, "你没有权限导出这个会话")
 		return
 	}
 
 	msgs, err := h.msgRepo.GetByConversationID(convIDInt)
 	if err != nil {
-		response.InternalError(c, "Failed to get messages")
+		response.InternalError(c, "会话消息加载失败，无法导出")
 		return
 	}
 

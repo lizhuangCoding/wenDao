@@ -38,7 +38,7 @@ func (h *NotificationHandler) List(c *gin.Context) {
 
 	notifications, total, err := h.notifSvc.ListByUser(userID.(int64), notifType, p.Page, p.PageSize)
 	if err != nil {
-		response.InternalError(c, "Failed to list notifications")
+		response.InternalError(c, "通知列表加载失败，请稍后重试")
 		return
 	}
 
@@ -57,7 +57,7 @@ func (h *NotificationHandler) GetUnreadCount(c *gin.Context) {
 
 	count, err := h.notifSvc.GetUnreadCount(userID.(int64))
 	if err != nil {
-		response.InternalError(c, "Failed to get unread count")
+		response.InternalError(c, "未读通知数量加载失败，请稍后重试")
 		return
 	}
 
@@ -69,12 +69,12 @@ func (h *NotificationHandler) MarkRead(c *gin.Context) {
 	userID, _ := c.Get("user_id")
 	notifID, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
-		response.Error(c, response.CodeInvalidParams, "Invalid notification ID")
+		response.Error(c, response.CodeInvalidParams, "通知 ID 无效，请刷新页面后重试")
 		return
 	}
 
 	if err := h.notifSvc.MarkRead(userID.(int64), notifID); err != nil {
-		response.InternalError(c, "Failed to mark notification as read")
+		response.InternalError(c, "标记通知已读失败，请稍后重试")
 		return
 	}
 
@@ -86,7 +86,7 @@ func (h *NotificationHandler) MarkAllRead(c *gin.Context) {
 	userID, _ := c.Get("user_id")
 
 	if err := h.notifSvc.MarkAllRead(userID.(int64)); err != nil {
-		response.InternalError(c, "Failed to mark all notifications as read")
+		response.InternalError(c, "标记全部通知已读失败，请稍后重试")
 		return
 	}
 
@@ -103,20 +103,20 @@ type BroadcastRequest struct {
 // Broadcast 管理员发送广播通知
 func (h *NotificationHandler) Broadcast(c *gin.Context) {
 	if h.getUserIDs == nil {
-		response.InternalError(c, "Broadcast function not configured")
+		response.InternalError(c, "广播通知功能未完成配置，请联系管理员检查服务配置")
 		return
 	}
 
 	var req BroadcastRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Error(c, response.CodeInvalidParams, "Invalid request")
+		response.Error(c, response.CodeInvalidParams, "广播通知参数不正确：标题和内容不能为空")
 		return
 	}
 
 	if err := h.notifSvc.BroadcastToAllUsers(req.Title, req.Content, req.LinkURL, h.getUserIDs); err != nil {
-		response.InternalError(c, "Failed to broadcast notification")
+		response.InternalError(c, "发送广播通知失败，请稍后重试")
 		return
 	}
 
-	response.Success(c, gin.H{"message": "Broadcast sent successfully"})
+	response.Success(c, gin.H{"message": "广播通知发送成功"})
 }
