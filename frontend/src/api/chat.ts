@@ -85,20 +85,37 @@ const sanitizeConversationExportTitle = (title: string) => {
   return safeTitle || 'conversation';
 };
 
+const readCookie = (name: string) => {
+  if (typeof document === 'undefined') return '';
+  const prefix = `${name}=`;
+  return document.cookie
+    .split(';')
+    .map((part) => part.trim())
+    .find((part) => part.startsWith(prefix))
+    ?.slice(prefix.length) || '';
+};
+
+const buildStreamHeaders = () => {
+  const token = localStorage.getItem('access_token');
+  const csrfToken = readCookie('csrf_token');
+
+  return {
+    'Content-Type': 'application/json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...(csrfToken ? { 'X-CSRF-Token': csrfToken } : {}),
+  };
+};
+
 export const chatApi = {
   sendMessage: (data: ChatRequest) => {
     return request.post<ChatResponse>('/ai/chat', data);
   },
 
   streamMessage: async (data: ChatRequest, handlers: ChatStreamHandlers) => {
-    const token = localStorage.getItem('access_token');
     const response = await fetch(getApiUrl('/ai/chat/stream'), {
       method: 'POST',
       credentials: 'include',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
+      headers: buildStreamHeaders(),
       body: JSON.stringify(data),
     });
 
@@ -110,14 +127,10 @@ export const chatApi = {
   },
 
   resumeStream: async (conversationId: number, runId: number, handlers: ChatStreamHandlers) => {
-    const token = localStorage.getItem('access_token');
     const response = await fetch(getApiUrl('/ai/chat/stream/resume'), {
       method: 'POST',
       credentials: 'include',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
+      headers: buildStreamHeaders(),
       body: JSON.stringify({ conversation_id: conversationId, run_id: runId }),
     });
 

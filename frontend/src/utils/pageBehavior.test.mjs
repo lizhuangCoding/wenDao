@@ -89,3 +89,10 @@ test('api client attaches CSRF header for unsafe cookie-backed requests', async 
   assert.match(source, /config\.headers\['X-CSRF-Token'\] = csrfToken/);
   assert.match(source, /!\['get', 'head', 'options'\]\.includes\(normalized\)/);
 });
+
+test('chat stream fetch requests attach CSRF header for cookie auth fallback', async () => {
+  const source = await readFile(new URL('../api/chat.ts', import.meta.url), 'utf8');
+
+  assert.match(source, /readCookie\('csrf_token'\)/);
+  assert.match(source, /'X-CSRF-Token': csrfToken/);
+});
