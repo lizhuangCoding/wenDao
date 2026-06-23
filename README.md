@@ -1,89 +1,115 @@
-# WenDao 个人博客框架
+# WenDao 问道
 
-一个可以直接 fork、支持 GitHub Actions 自动部署、也支持本地 `docker compose` 一键启动的个人博客框架。
+WenDao 是一个前后端分离的个人技术博客平台，内置文章发布、合集管理、评论互动、用户认证、后台管理，以及基于 RAG 的多智能体 AI 助手能力。项目可以作为个人博客直接部署，也可以作为带 AI 问答和知识沉淀能力的内容平台继续扩展。
 
-`WenDao` 不是只给自己用的博客站点，它把博客前台、内容管理、评论系统、登录系统、可选 AI 能力和部署流程都打包好了。别人克隆仓库后，可以直接跑起一套自己的个人博客，再在现有视觉和组件基础上调整内容、品牌和样式。
+## AI 助手效果展示
 
-## 效果展示
-
-| AI 多 Agent 协作过程 | 效果展示 2 |
+| 多 Agent 协作过程 | AI 问答与参考文章 |
 | --- | --- |
-| ![AI 多 Agent 协作过程](./docs/screenshots/1.png) | ![效果展示 2](./docs/screenshots/2.png) |
+| ![多 Agent 协作过程](./docs/screenshots/1.png) | ![AI 问答与参考文章](./docs/screenshots/2.png) |
 
-| 效果展示 3 | 效果展示 4 |
+| 模型与对话体验 | 研究过程与结果沉淀 |
 | --- | --- |
-| ![效果展示 3](./docs/screenshots/3.png) | ![效果展示 4](./docs/screenshots/4.png) |
+| ![模型与对话体验](./docs/screenshots/3.png) | ![研究过程与结果沉淀](./docs/screenshots/4.png) |
 
-## 这套框架适合什么
+## 核心能力
 
-- 想快速搭一个能公开访问的个人博客
-- 想要现成的管理后台、文章编辑和评论系统
-- 想保留一个统一的视觉风格，再按自己的习惯改文案、头像、导航、主题色
-- 想保留 AI 助手、知识检索和多 Agent 能力作为增强模块，而不是从零自己拼
+- 文章系统：Markdown 文章、草稿/发布、分类、合集、封面图、正文图片上传。
+- 用户系统：邮箱注册登录、GitHub OAuth、个人资料、评论通知偏好。
+- 评论互动：两级评论、点赞/点踩、用户自删、管理员删除与恢复。
+- 站内通知：评论回复通知、管理员广播通知。
+- AI 助手：多智能体 ThinkTank 编排、RAG 知识召回、流式对话、历史记录、分享与导出。
+- AI 写作：文章润色、扩展、缩短、SEO 标题生成。
+- 知识文档：外部 URL 内容抓取、审核入库、转为发布文章。
+- 后台管理：文章、分类、合集、评论、用户、知识文档、统计和站点设置。
+- 3D 文章轨道：基于语义嵌入和 UMAP 降维的文章知识图谱展示。
 
-## 部署方式
+## 技术栈
 
-默认提供两种方式。
+### 后端
 
-### 方式一：GitHub Actions 自动部署
+- Go 1.24
+- Gin
+- GORM
+- Viper + godotenv
+- Zap + lumberjack
+- JWT Access Token + Refresh Token
+- MySQL 8+
+- Redis / Redis Stack / Redis Vector
+- CloudWeGo Eino，支持 Doubao、DeepSeek、OpenAI 兼容 Provider
 
-推荐给对外发布的正式站点。
+### 前端
 
-流程是：
+- React 18 + TypeScript
+- Vite 5
+- React Router
+- Zustand
+- TanStack React Query
+- Tailwind CSS
+- TDesign React
+- Framer Motion
+- Three.js / React Three Fiber
+- Axios
 
-1. Fork 或 clone 这个仓库
-2. 配好服务器、数据库、域名和各类密钥
-3. 推送到 `main`
-4. GitHub Actions 自动拉取最新代码
-5. 服务器端执行 `docker compose up -d --build`
+## 项目结构
 
-适合希望“推到 `main` 就完成部署”的个人博客站点。
-
-### 方式二：本地或服务器一键启动
-
-适合本地预览、内网部署或临时服务器启动。
-
-```bash
-docker compose --env-file .env.production -f docker-compose.prod.yml -f docker-compose.ip.yml up -d --build
+```text
+wenDao/
+├── backend/
+│   ├── cmd/server/          # 后端入口和依赖装配
+│   ├── config/              # 配置结构、YAML、.env 示例
+│   ├── internal/            # handler、middleware、model、repository、service、pkg
+│   ├── migrations/          # 版本化 SQL 迁移
+│   ├── uploads/             # 本地上传文件
+│   └── log/                 # 本地运行日志
+├── frontend/
+│   ├── src/api/             # API client
+│   ├── src/components/      # 通用组件和业务组件
+│   ├── src/pages/           # 前台页面
+│   ├── src/views/admin/     # 后台管理页面
+│   ├── src/store/           # Zustand store
+│   ├── src/hooks/           # 自定义 hooks
+│   └── src/styles/          # 全局样式
+└── docs/
+    ├── screenshots/         # README 展示图
+    ├── deployment.md        # 部署文档
+    └── 问道博客平台设计文档.md
 ```
 
-如果你要正式域名和自动 HTTPS，用 `docker-compose.prod.yml` 即可；如果只是 IP 访问，可以配合 `docker-compose.ip.yml`。
+## 本地开发
 
-## 克隆后，通常只需要改这些地方
+### 1. 准备后端配置
 
-这是框架化最重要的一层。你可以保持当前视觉风格，只替换自己的内容。
+```bash
+cd backend
+cp config/.env.example config/.env
+```
 
-- 站点标语和站点地址：`backend/config/config.yaml`、`.env.production`
-- 首页顶部文案：`frontend/src/components/home/ArticlePlanetOverlay.tsx`
-- 网站标题与导航品牌：`frontend/src/components/common/Header.tsx`
-- 页脚联系信息：`frontend/src/components/common/Footer.tsx`
-- 站点主题和交互细节：`frontend/src/styles/`、`frontend/tailwind.config.js`
-- 文章、分类、评论、个人资料和封面图：后台管理界面直接维护
-- AI / GitHub 登录 / 邮箱：通过环境变量配置即可启用，不需要改业务代码
+至少需要按本机环境调整数据库、Redis 和 JWT 配置：
 
-如果你只想做一个“自己的博客”，先改站点信息和联系方式就够了。AI 助手、多 Agent 和知识文档模块都可以保留，也可以先不配置。
+```env
+DB_HOST=localhost
+DB_PORT=3306
+DB_USER=root
+DB_PASSWORD=change-me
+DB_NAME=wendao
+REDIS_HOST=localhost
+REDIS_PORT=6379
+JWT_SECRET=change-me-to-a-long-random-secret
+```
 
-## 你会得到什么
+AI、GitHub OAuth、邮箱验证码等能力可以先留空；需要启用时再补充对应环境变量。
 
-- 博客前台：文章浏览、分类筛选、Markdown 渲染、评论互动
-- 内容后台：文章管理、分类管理、评论管理、知识文档审核
-- 个性化入口：网站标语、头像、用户名、联系方式、主题色、首页文案
-- 自动化部署：GitHub Actions + 服务器端 Docker 构建
-- 本地启动：`docker compose` 一条命令起服务
-- 可选增强：AI 对话、RAG 检索、研究型多 Agent 流程
-
-## 快速开始
-
-### 1. 启动后端
+### 2. 启动后端
 
 ```bash
 cd backend
 go run ./cmd/server
 ```
 
-默认端口：`8089`
+默认监听端口：`8089`。
 
-### 2. 启动前端
+### 3. 启动前端
 
 ```bash
 cd frontend
@@ -91,13 +117,11 @@ npm ci
 npm run dev
 ```
 
-默认地址：`http://localhost:3000`
+默认访问地址：`http://localhost:3000`。Vite 会将 `/api` 和 `/uploads` 代理到后端 `8089`。
 
-前端开发服务器会将 `/api` 与 `/uploads` 代理到后端。
+## 常用命令
 
-## 本地开发命令
-
-### Backend
+### 后端
 
 ```bash
 cd backend
@@ -106,7 +130,7 @@ go build ./cmd/server
 go fmt ./...
 ```
 
-### Frontend
+### 前端
 
 ```bash
 cd frontend
@@ -118,111 +142,78 @@ npm run preview
 
 ## 配置说明
 
-后端主要读取 `backend/config/config.yaml`，并支持使用 `backend/config/.env` 或环境变量覆盖。
+后端主要读取 `backend/config/config.yaml`，并支持通过 `backend/config/.env` 或环境变量覆盖。常用变量包括：
 
-常见环境变量包括：
-
-- `DB_HOST`
-- `DB_PORT`
-- `DB_USER`
-- `DB_PASSWORD`
-- `DB_NAME`
-- `MIGRATION_MODE`
-- `MIGRATION_PATH`
+- `DB_HOST`、`DB_PORT`、`DB_USER`、`DB_PASSWORD`、`DB_NAME`
+- `MIGRATION_MODE`、`MIGRATION_PATH`
+- `REDIS_HOST`、`REDIS_PORT`、`REDIS_PASSWORD`
+- `REDIS_VECTOR_HOST`、`REDIS_VECTOR_PORT`、`REDIS_VECTOR_PASSWORD`
 - `JWT_SECRET`
-- `AI_PROVIDER`
-- `AI_API_KEY`
-- `AI_ENDPOINT`
-- `AI_CHAT_MODEL`
-- `AI_DAILY_TOKEN_LIMIT`
-- `AI_DAILY_RUN_LIMIT`
-- `AI_PROMPT_PRICE_PER_1K`
-- `AI_COMPLETION_PRICE_PER_1K`
-- `AI_COST_CURRENCY`
-- `DOUBAO_API_KEY`
-- `DOUBAO_ENDPOINT`
-- `DOUBAO_CHAT_MODEL`
-- `DOUBAO_EMBEDDING_MODEL`
-- `GITHUB_CLIENT_ID`
-- `GITHUB_CLIENT_SECRET`
-- `GITHUB_CALLBACK_URL`
-- `REDIS_HOST`
-- `REDIS_VECTOR_HOST`
-- `EMAIL_SMTP_HOST`
-- `EMAIL_FROM_ADDRESS`
-- `EMAIL_USERNAME`
-- `EMAIL_PASSWORD`
 - `SITE_URL`
+- `GITHUB_CLIENT_ID`、`GITHUB_CLIENT_SECRET`、`GITHUB_CALLBACK_URL`
+- `EMAIL_SMTP_HOST`、`EMAIL_USERNAME`、`EMAIL_PASSWORD`、`EMAIL_FROM_ADDRESS`
+- `AI_PROVIDER`、`AI_API_KEY`、`AI_ENDPOINT`、`AI_CHAT_MODEL`
+- `DOUBAO_API_KEY`、`DOUBAO_ENDPOINT`、`DOUBAO_CHAT_MODEL`、`DOUBAO_EMBEDDING_MODEL`
+- `RESEARCH_ENDPOINT`、`RESEARCH_API_KEY`
 
-其中 `AI_PROVIDER` 用来切换聊天模型提供商，当前支持 `doubao`、`deepseek` 和 `openai-compatible`。向量模型仍然默认使用豆包，不需要为切换聊天模型额外改动知识库配置。
+生产环境默认使用 `MIGRATION_MODE=versioned`，按 `backend/migrations/*.sql` 执行版本化迁移。本地开发如需使用 GORM 自动建表，可以显式设置 `MIGRATION_MODE=auto`。
 
-数据库结构默认通过 `backend/migrations/*.sql` 版本化迁移维护，生产环境使用 `MIGRATION_MODE=versioned`。本地临时开发如需恢复旧的 GORM 自动建表行为，可以显式设置 `MIGRATION_MODE=auto`。
+## Docker 部署
 
-前端可通过 `frontend/.env` 指定：
+项目支持通过 Docker Compose 部署完整栈：
 
-```env
-VITE_API_BASE_URL=/api
+- Caddy：HTTPS 终止与反向代理
+- Nginx：托管 Vite 构建后的前端资源
+- Backend：Go API 服务
+- MySQL：关系数据
+- Redis Stack：缓存和向量检索
+
+准备生产环境变量：
+
+```bash
+cp .env.production.example .env.production
 ```
 
-## 如何把它改成你自己的博客
+域名部署：
 
-建议按这个顺序来：
-
-1. 先改 `backend/config/config.yaml` 和 `.env.production`
-2. 再改 `frontend/src/components/common/Header.tsx` 和 `Footer.tsx`
-3. 替换首页文案、社交链接和头像
-4. 发表几篇自己的文章，调整分类和封面图
-5. 确认 GitHub Actions 能在你的服务器上自动部署
-
-这样你会得到一套“保留现有风格，但内容完全属于你”的个人博客，而不是从零搭一个站。
-
-## 当前能力
-
-- 博客文章发布与展示
-- 分类与评论管理
-- 后台内容编辑
-- 用户注册、登录与 GitHub OAuth
-- AI 聊天与流式输出
-- 基于向量检索的知识召回
-- 多 Agent 研究过程展示
-- 知识文档审核与沉淀
-- 应用日志与 AI 聊天日志支持大小轮转、压缩和历史保留天数清理
-
-## 项目结构
-
-```text
-wenDao/
-├── backend/                    # Go 后端
-│   ├── cmd/server/             # 服务入口
-│   ├── config/                 # 配置文件与环境变量
-│   ├── internal/
-│   │   ├── handler/            # HTTP 处理层
-│   │   ├── middleware/         # 中间件
-│   │   ├── model/              # 数据模型
-│   │   ├── repository/         # 数据访问层
-│   │   ├── service/            # 业务逻辑与 AI 编排
-│   │   └── pkg/                # 公共基础能力
-│   ├── uploads/                # 本地上传目录
-│   └── migrations/             # 数据迁移相关
-├── frontend/                   # React 前端
-│   ├── src/api/                # API 请求封装
-│   ├── src/components/         # 通用与业务组件
-│   ├── src/pages/              # 页面级入口
-│   ├── src/views/              # 视图实现
-│   ├── src/store/              # Zustand 状态
-│   ├── src/hooks/              # 自定义 Hooks
-│   └── src/styles/             # 全局样式
-├── docs/                       # 核心设计文档与部署指南
-├── examples/                   # 实验性示例
-└── scripts/                    # 辅助脚本
+```bash
+docker compose --env-file .env.production -f docker-compose.prod.yml up -d --build
 ```
 
-## Notes
+仅 IP 访问部署：
 
-- 仓库中不应提交真实的 `.env`、日志、上传文件和本地构建产物
-- 前端子项目说明见 [frontend/README.md](./frontend/README.md)
-- 部署细节见 [docs/deployment.md](./docs/deployment.md)
+```bash
+docker compose --env-file .env.production -f docker-compose.prod.yml -f docker-compose.ip.yml up -d --build
+```
+
+更多部署、迁移、GitHub Actions 和备份说明见 [docs/deployment.md](./docs/deployment.md)。
+
+## 创建管理员
+
+生产部署后可在后端容器内运行管理员初始化命令。若 `.env.production` 已设置 `ADMIN_EMAIL`、`ADMIN_USERNAME`、`ADMIN_PASSWORD`：
+
+```bash
+docker compose --env-file .env.production -f docker-compose.prod.yml -f docker-compose.ip.yml exec \
+  backend /app/wendao-init-admin
+```
+
+也可以只在执行命令时传入管理员账号信息，避免把真实密码提交到仓库。
+
+## 开发约定
+
+- Go 代码使用标准 `gofmt`。
+- Handler 保持薄层，业务逻辑放在 `internal/service`，持久化放在 `internal/repository`。
+- 前端使用 TypeScript、React function components、Tailwind utilities 和 `@` 路径别名。
+- 后端测试使用 Go `testing`，测试文件与被测代码同目录。
+- 前端改动至少运行 `npm run build` 和 `npm run lint`。
+- 不提交真实 `.env`、密钥、日志、上传文件和本地构建产物。
+
+## 相关文档
+
+- [平台设计文档](./docs/问道博客平台设计文档.md)
+- [生产部署文档](./docs/deployment.md)
+- [前端说明](./frontend/README.md)
 
 ## License
 
-当前仓库尚未声明独立 License；如需开源发布，建议补充明确的许可证文件。
+当前仓库尚未声明独立 License。如需公开分发或商用，请先补充明确的许可证文件。
