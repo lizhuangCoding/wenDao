@@ -180,8 +180,8 @@ func NewThinkTankSynthesizer(llm eino.LLMClient) ThinkTankSynthesizer {
 func NewConversationMemorySummarizer(llm eino.LLMClient) ConversationMemorySummarizer {
 	return chatsvc.NewConversationMemorySummarizer(llm)
 }
-func NewThinkTankADKRunner(ctx context.Context, llm eino.LLMClient, librarian Librarian, knowledgeDocSvc KnowledgeDocumentService, researchCfg ResearchConfig) (any, error) {
-	return chatsvc.NewThinkTankADKRunner(ctx, llm, librarian, knowledgeDocSvc, researchCfg)
+func NewThinkTankADKRunner(ctx context.Context, llm eino.LLMClient, librarian Librarian, researchCfg ResearchConfig) (any, error) {
+	return chatsvc.NewThinkTankADKRunner(ctx, llm, librarian, researchCfg)
 }
 func NewRunMetricsConfig(cfg config.AIConfig) RunMetricsConfig {
 	return chatsvc.NewRunMetricsConfig(cfg)

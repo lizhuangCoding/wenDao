@@ -20,7 +20,7 @@ import (
 
 const thinkTankPlannerInstruction = `You are the Strategic Planner for ThinkTank Matrix.
 Create a complete plan for the user's research or writing objective before execution.
-The executor has these tools: LocalSearch, WebSearch, WebFetch, DocWriter, ask_for_clarification.
+The executor has these tools: LocalSearch, WebSearch, WebFetch, ask_for_clarification.
 Always include a Redis knowledge-base retrieval step using LocalSearch before any WebSearch/WebFetch step. In the generated plan, describe this step as "检索 Redis 知识库（LocalSearch）".
 If the objective is ambiguous, include a first step that asks the user for the missing information through ask_for_clarification, then include the Redis knowledge-base retrieval step immediately after the clarification step.
 Plan with the available tools and prefer WebFetch for absolute http:// or https:// URLs supplied by the user or returned by WebSearch.`
@@ -29,11 +29,10 @@ const thinkTankExecutorInstruction = `You are the executor in a Plan-Execute-Rep
 Execute only the first remaining plan step, then return a concise structured summary of what you did and what you learned.
 
 Tool policy:
-- The only available tools are: LocalSearch, WebSearch, WebFetch, DocWriter, ask_for_clarification.
+- The only available tools are: LocalSearch, WebSearch, WebFetch, ask_for_clarification.
 - Use LocalSearch for site knowledge and saved documents.
 - Use WebSearch for current external information.
 - Use WebFetch to read valid absolute http:// or https:// URLs returned by search or supplied by the user; when multiple candidate URLs are available, pass several URLs so the tool can skip failed pages.
-- Use DocWriter when the task requires saving research findings.
 - Use ask_for_clarification when required information is missing or the step cannot proceed without user input.
 
 When a plan step says "检索 Redis 知识库" or mentions Redis knowledge-base retrieval, execute it with the LocalSearch tool.
@@ -126,7 +125,6 @@ func NewThinkTankADKRunner(
 	ctx context.Context,
 	llm eino.LLMClient,
 	librarian Librarian,
-	knowledgeDocSvc KnowledgeDocumentService,
 	researchCfg ResearchConfig,
 ) (*thinkTankADKRunner, error) {
 	if llm == nil {
@@ -150,23 +148,7 @@ func NewThinkTankADKRunner(
 	// 1. 初始化 executor 可直接调用的 Eino tools。这里不再创建 supervisor，
 	// 因为 supervisor 会注入 transfer_to_agent，而本流程需要官方 PlanExecute
 	// 的 planner -> executor -> replanner 闭环。
-	localSearchTool, err := newLocalSearchTool(librarian)
-	if err != nil {
-		return nil, err
-	}
-	webSearchTool, err := newWebSearchTool(researchCfg)
-	if err != nil {
-		return nil, err
-	}
-	webFetchTool, err := newWebFetchTool(researchCfg)
-	if err != nil {
-		return nil, err
-	}
-	docWriterTool, err := newDocWriterTool(knowledgeDocSvc)
-	if err != nil {
-		return nil, err
-	}
-	askForClarificationTool, err := newAskForClarificationTool()
+	executorTools, err := newThinkTankExecutorTools(librarian, researchCfg)
 	if err != nil {
 		return nil, err
 	}
@@ -188,14 +170,8 @@ func NewThinkTankADKRunner(
 
 	// 3. Executor 使用 Eino 官方 planexecute.NewExecutor，每轮只执行当前计划第一步。
 	executor, err := planexecute.NewExecutor(ctx, &planexecute.ExecutorConfig{
-		Model: model,
-		ToolsConfig: adk.ToolsConfig{ToolsNodeConfig: compose.ToolsNodeConfig{Tools: []tool.BaseTool{
-			localSearchTool,
-			webSearchTool,
-			webFetchTool,
-			docWriterTool,
-			askForClarificationTool,
-		}}},
+		Model:         model,
+		ToolsConfig:   adk.ToolsConfig{ToolsNodeConfig: compose.ToolsNodeConfig{Tools: executorTools}},
 		MaxIterations: 8,
 		GenInputFn: func(ctx context.Context, in *planexecute.ExecutionContext) ([]adk.Message, error) {
 			planContent, err := in.Plan.MarshalJSON()
@@ -264,6 +240,31 @@ func NewThinkTankADKRunner(
 		checkpointStore: checkpointStore,
 		clarifier:       clarifier,
 		acceptance:      acceptance,
+	}, nil
+}
+
+func newThinkTankExecutorTools(librarian Librarian, researchCfg ResearchConfig) ([]tool.BaseTool, error) {
+	localSearchTool, err := newLocalSearchTool(librarian)
+	if err != nil {
+		return nil, err
+	}
+	webSearchTool, err := newWebSearchTool(researchCfg)
+	if err != nil {
+		return nil, err
+	}
+	webFetchTool, err := newWebFetchTool(researchCfg)
+	if err != nil {
+		return nil, err
+	}
+	askForClarificationTool, err := newAskForClarificationTool()
+	if err != nil {
+		return nil, err
+	}
+	return []tool.BaseTool{
+		localSearchTool,
+		webSearchTool,
+		webFetchTool,
+		askForClarificationTool,
 	}, nil
 }
 

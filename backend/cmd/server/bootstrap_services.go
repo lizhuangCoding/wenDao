@@ -80,7 +80,7 @@ func initServices(cfg *config.Config, logger *zap.Logger, repos *repositories, i
 		journalist := service.NewJournalist(&cfg.AI)
 		synthesizer := service.NewThinkTankSynthesizer(aiCore.llmClient)
 		memorySummarizer := service.NewConversationMemorySummarizer(aiCore.llmClient)
-		adkRunner, err := service.NewThinkTankADKRunner(context.Background(), aiCore.llmClient, librarian, knowledgeDocumentService, service.ResearchConfig{
+		adkRunner, err := service.NewThinkTankADKRunner(context.Background(), aiCore.llmClient, librarian, service.ResearchConfig{
 			Endpoint:       cfg.AI.ResearchEndpoint,
 			APIKey:         cfg.AI.ResearchAPIKey,
 			MaxResults:     cfg.AI.ResearchMaxResults,

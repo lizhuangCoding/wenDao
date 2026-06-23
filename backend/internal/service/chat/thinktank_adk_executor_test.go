@@ -50,7 +50,7 @@ func TestThinkTankExecutorInstruction_UsesDirectToolsWithoutSupervisorTransfer(t
 
 func TestThinkTankExecutorInstruction_DescribesAvailableToolsWithoutHardDenials(t *testing.T) {
 	required := []string{
-		"LocalSearch, WebSearch, WebFetch, DocWriter, ask_for_clarification",
+		"LocalSearch, WebSearch, WebFetch, ask_for_clarification",
 		"valid absolute http:// or https:// URL",
 		"Use LocalSearch",
 		"Use WebSearch",
@@ -61,10 +61,33 @@ func TestThinkTankExecutorInstruction_DescribesAvailableToolsWithoutHardDenials(
 			t.Fatalf("executor instruction must contain %q", text)
 		}
 	}
-	for _, forbidden := range []string{"DocParser", "transfer_to_agent", "Do not", "Never"} {
+	for _, forbidden := range []string{"DocWriter", "DocParser", "transfer_to_agent", "Do not", "Never"} {
 		if strings.Contains(thinkTankExecutorInstruction, forbidden) {
 			t.Fatalf("executor instruction should not carry hard business guard %q; enforce it in code, got %q", forbidden, thinkTankExecutorInstruction)
 		}
+	}
+}
+
+func TestThinkTankExecutorTools_DoNotExposeDocWriter(t *testing.T) {
+	tools, err := newThinkTankExecutorTools(&stubLibrarian{}, ResearchConfig{})
+	if err != nil {
+		t.Fatalf("expected executor tools to be created, got %v", err)
+	}
+	names := make([]string, 0, len(tools))
+	for _, baseTool := range tools {
+		info, err := baseTool.Info(context.Background())
+		if err != nil {
+			t.Fatalf("expected tool info, got %v", err)
+		}
+		names = append(names, info.Name)
+	}
+	for _, want := range []string{"LocalSearch", "WebSearch", "WebFetch", "ask_for_clarification"} {
+		if !containsString(names, want) {
+			t.Fatalf("expected executor tools to contain %s, got %#v", want, names)
+		}
+	}
+	if containsString(names, "DocWriter") {
+		t.Fatalf("executor answer tools must not expose DocWriter, got %#v", names)
 	}
 }
 
@@ -74,6 +97,9 @@ func TestThinkTankPlannerInstruction_RequiresRedisKnowledgeBaseRetrieval(t *test
 	}
 	if !strings.Contains(thinkTankPlannerInstruction, "LocalSearch") {
 		t.Fatalf("planner instruction must bind Redis knowledge-base retrieval to LocalSearch")
+	}
+	if strings.Contains(thinkTankPlannerInstruction, "DocWriter") {
+		t.Fatalf("planner instruction must not expose DocWriter to answer planning")
 	}
 }
 
