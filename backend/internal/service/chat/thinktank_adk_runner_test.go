@@ -11,7 +11,7 @@ import (
 func TestThinkTankService_ChatStream_AllowsInjectedADKRunner(t *testing.T) {
 	librarian := &stubLibrarian{result: LibrarianResult{CoverageStatus: "sufficient", Summary: "站内资料充足"}}
 	synthesizer := &stubSynthesizer{answer: "最终回答", sources: []string{"文章标题"}}
-	service := NewThinkTankService(librarian, nil, synthesizer, &stubConversationRunRepository{}, &stubConversationRunStepRepository{}, &stubConversationMemoryRepository{}, &stubConversationRepository{}, &stubChatMessageRepository{}, nil, &stubAILogger{}, &thinkTankADKRunner{}).(*thinkTankService)
+	service := NewThinkTankService(librarian, nil, synthesizer, &stubConversationRunRepository{}, &stubConversationRunStepRepository{}, &stubConversationMemoryRepository{}, &stubConversationRepository{}, &stubChatMessageRepository{}, nil, &stubAILogger{}, ThinkTankServiceOptions{ADKRunner: &thinkTankADKRunner{}}).(*thinkTankService)
 
 	eventCh, errCh := service.ChatStream(context.Background(), "调研一下李小龙", nil, nil)
 	var sawCompleted bool
@@ -58,7 +58,7 @@ func TestThinkTankOrchestrator_EffectiveQuestionCombinesADKPendingContext(t *tes
 		PendingQuestion:  &systemQuestion,
 		PendingContext:   marshalADKPendingContext("thinktank-52-123-8", originalQuestion, systemQuestion),
 	}
-	svc := NewThinkTankService(nil, nil, &stubSynthesizer{}, &stubConversationRunRepository{}, &stubConversationRunStepRepository{}, &stubConversationMemoryRepository{}, &stubConversationRepository{}, &stubChatMessageRepository{}, nil, &stubAILogger{}).(*thinkTankService)
+	svc := NewThinkTankService(nil, nil, &stubSynthesizer{}, &stubConversationRunRepository{}, &stubConversationRunStepRepository{}, &stubConversationMemoryRepository{}, &stubConversationRepository{}, &stubChatMessageRepository{}, nil, &stubAILogger{}, ThinkTankServiceOptions{}).(*thinkTankService)
 
 	effectiveQuestion, skipClarifier := svc.orchestrator.effectiveQuestionFromPending(userSupplement, run)
 

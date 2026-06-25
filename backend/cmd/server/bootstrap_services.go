@@ -86,11 +86,14 @@ func initServices(cfg *config.Config, logger *zap.Logger, repos *repositories, i
 			MaxResults:     cfg.AI.ResearchMaxResults,
 			TimeoutSeconds: cfg.AI.ResearchTimeoutSeconds,
 		})
-		options := []any{memorySummarizer, service.NewRunMetricsConfig(cfg.AI)}
+		options := service.ThinkTankServiceOptions{
+			MemorySummarizer: memorySummarizer,
+			Metrics:          service.NewRunMetricsConfig(cfg.AI),
+		}
 		if err != nil {
 			logger.Warn("ThinkTank runner unavailable, continuing with manual ThinkTank flow", zap.Error(err))
 		} else if adkRunner != nil {
-			options = append(options, adkRunner)
+			options.ADKRunner = adkRunner
 		}
 		thinkTankService := service.NewThinkTankService(
 			librarian,
@@ -103,7 +106,7 @@ func initServices(cfg *config.Config, logger *zap.Logger, repos *repositories, i
 			repos.chatMessage,
 			knowledgeDocumentService,
 			aiEventLogger,
-			options...,
+			options,
 		)
 		pluginRegistry := service.NewPluginRegistry()
 		if err := pluginRegistry.Register(service.NewThinkTankPlugin(thinkTankService), service.WithDefaultPlugin()); err != nil {

@@ -8,7 +8,7 @@ import (
 func TestThinkTankService_Chat_PrefersADKRunnerAnswerWhenAvailable(t *testing.T) {
 	librarian := &stubLibrarian{result: LibrarianResult{CoverageStatus: "sufficient", Summary: "站内资料充足"}}
 	synthesizer := &stubSynthesizer{answer: "手工汇总答案", sources: []string{"文章标题"}}
-	svc := NewThinkTankService(librarian, nil, synthesizer, &stubConversationRunRepository{}, &stubConversationRunStepRepository{}, &stubConversationMemoryRepository{}, &stubConversationRepository{}, &stubChatMessageRepository{}, nil, &stubAILogger{}).(*thinkTankService)
+	svc := NewThinkTankService(librarian, nil, synthesizer, &stubConversationRunRepository{}, &stubConversationRunStepRepository{}, &stubConversationMemoryRepository{}, &stubConversationRepository{}, &stubChatMessageRepository{}, nil, &stubAILogger{}, ThinkTankServiceOptions{}).(*thinkTankService)
 
 	svc.adkRunner = &thinkTankADKRunner{runner: nil, agent: nil}
 	svc.adkAnswerFetcher = func(ctx context.Context, question string) (string, error) {

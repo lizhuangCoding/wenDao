@@ -81,6 +81,7 @@ type Librarian = chatsvc.Librarian
 type Journalist = chatsvc.Journalist
 type ThinkTankSynthesizer = chatsvc.ThinkTankSynthesizer
 type RunMetricsConfig = chatsvc.RunMetricsConfig
+type ThinkTankServiceOptions = chatsvc.ThinkTankServiceOptions
 
 var ErrAIDisabled = aisvc.ErrAIDisabled
 var ErrUnsupportedWritingAction = aisvc.ErrUnsupportedWritingAction
@@ -197,9 +198,9 @@ func NewThinkTankService(
 	msgRepo chatrepo.ChatMessageRepository,
 	knowledgeSvc KnowledgeDocumentService,
 	logger AILogger,
-	options ...any,
+	options ThinkTankServiceOptions,
 ) ThinkTankService {
-	return chatsvc.NewThinkTankService(librarian, journalist, synthesizer, runRepo, runStepRepo, memoryRepo, convRepo, msgRepo, knowledgeSvc, logger, options...)
+	return chatsvc.NewThinkTankService(librarian, journalist, synthesizer, runRepo, runStepRepo, memoryRepo, convRepo, msgRepo, knowledgeSvc, logger, options)
 }
 
 const (

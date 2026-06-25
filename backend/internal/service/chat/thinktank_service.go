@@ -54,6 +54,14 @@ type thinkTankService struct {
 	maxReviewRevisions int
 }
 
+type ThinkTankServiceOptions struct {
+	ADKRunner          any
+	MemorySummarizer   ConversationMemorySummarizer
+	Clarifier          Clarifier
+	AcceptanceReviewer AcceptanceReviewer
+	Metrics            RunMetricsConfig
+}
+
 // NewThinkTankService 创建 ThinkTank 服务
 func NewThinkTankService(
 	librarian Librarian,
@@ -66,27 +74,14 @@ func NewThinkTankService(
 	msgRepo repository.ChatMessageRepository,
 	knowledgeSvc KnowledgeDocumentService,
 	logger AILogger,
-	options ...any,
+	options ThinkTankServiceOptions,
 ) ThinkTankService {
 	var runner *thinkTankADKRunner
-	var memorySummarizer ConversationMemorySummarizer
-	var clarifier Clarifier
-	var acceptanceReviewer AcceptanceReviewer
-	var metrics RunMetricsConfig
-	for _, option := range options {
-		switch v := option.(type) {
-		case *thinkTankADKRunner:
-			runner = v
-		case ConversationMemorySummarizer:
-			memorySummarizer = v
-		case Clarifier:
-			clarifier = v
-		case AcceptanceReviewer:
-			acceptanceReviewer = v
-		case RunMetricsConfig:
-			metrics = v
-		}
+	if typedRunner, ok := options.ADKRunner.(*thinkTankADKRunner); ok {
+		runner = typedRunner
 	}
+	clarifier := options.Clarifier
+	acceptanceReviewer := options.AcceptanceReviewer
 	if runner != nil {
 		if clarifier == nil {
 			clarifier = runner.clarifier
@@ -102,8 +97,8 @@ func NewThinkTankService(
 		synthesizer:        synthesizer,
 		logger:             logger,
 		conversations:      newThinkTankConversationManager(convRepo, msgRepo, logger),
-		memories:           newThinkTankMemoryManager(memoryRepo, memorySummarizer, logger),
-		runs:               newThinkTankRunRecorder(runRepo, runStepRepo, logger, metrics),
+		memories:           newThinkTankMemoryManager(memoryRepo, options.MemorySummarizer, logger),
+		runs:               newThinkTankRunRecorder(runRepo, runStepRepo, logger, options.Metrics),
 		streams:            newThinkTankStreamEmitter(),
 		researchDraft:      newThinkTankResearchDraftSink(knowledgeSvc),
 		runHub:             newChatRunHub(),

@@ -184,7 +184,7 @@ func TestThinkTankService_UsesConversationMemoryForFollowupQuestion(t *testing.T
 		{ID: 2, ConversationID: 33, Role: "assistant", Content: "博主认为李小龙不仅仅是一位武术家，更是一位哲学家。"},
 	}}
 	runRepo := &stubConversationRunRepository{}
-	svc := NewThinkTankService(librarian, nil, synthesizer, runRepo, &stubConversationRunStepRepository{}, &stubConversationMemoryRepository{}, convRepo, msgRepo, nil, &stubAILogger{})
+	svc := NewThinkTankService(librarian, nil, synthesizer, runRepo, &stubConversationRunStepRepository{}, &stubConversationMemoryRepository{}, convRepo, msgRepo, nil, &stubAILogger{}, ThinkTankServiceOptions{})
 
 	resp, err := svc.Chat(context.Background(), "博主提到的原文在哪里？", ptrInt64(33), ptrInt64(7))
 	if err != nil {
@@ -211,7 +211,7 @@ func TestThinkTankService_PersistsLongConversationSummaryMemory(t *testing.T) {
 		{ID: 6, ConversationID: 34, Role: "assistant", Content: "过程用折叠面板，结果用正文。"},
 	}}
 	memoryRepo := &stubConversationMemoryRepository{}
-	svc := NewThinkTankService(librarian, nil, synthesizer, &stubConversationRunRepository{}, &stubConversationRunStepRepository{}, memoryRepo, convRepo, msgRepo, nil, &stubAILogger{})
+	svc := NewThinkTankService(librarian, nil, synthesizer, &stubConversationRunRepository{}, &stubConversationRunStepRepository{}, memoryRepo, convRepo, msgRepo, nil, &stubAILogger{}, ThinkTankServiceOptions{})
 
 	_, err := svc.Chat(context.Background(), "继续优化记忆模块", ptrInt64(34), ptrInt64(7))
 	if err != nil {
@@ -246,7 +246,7 @@ func TestThinkTankService_PersistsStructuredDynamicMemories(t *testing.T) {
 		{Scope: ConversationMemoryScopePreference, Content: "用户偏好类似 Manus 的渐进式披露效果。", Importance: 3},
 		{Scope: ConversationMemoryScopeDecision, Content: "过程日志和最终回答必须区分样式并持久化。", Importance: 3},
 	}}
-	svc := NewThinkTankService(librarian, nil, synthesizer, &stubConversationRunRepository{}, &stubConversationRunStepRepository{}, memoryRepo, convRepo, msgRepo, nil, &stubAILogger{}, summarizer)
+	svc := NewThinkTankService(librarian, nil, synthesizer, &stubConversationRunRepository{}, &stubConversationRunStepRepository{}, memoryRepo, convRepo, msgRepo, nil, &stubAILogger{}, ThinkTankServiceOptions{MemorySummarizer: summarizer})
 
 	_, err := svc.Chat(context.Background(), "继续优化记忆模块", ptrInt64(35), ptrInt64(7))
 	if err != nil {
@@ -280,7 +280,7 @@ func TestThinkTankService_FallsBackWhenDynamicMemorySummarizerFails(t *testing.T
 	}}
 	memoryRepo := &stubConversationMemoryRepository{}
 	summarizer := &stubConversationMemorySummarizer{err: errors.New("llm unavailable")}
-	svc := NewThinkTankService(librarian, nil, synthesizer, &stubConversationRunRepository{}, &stubConversationRunStepRepository{}, memoryRepo, convRepo, msgRepo, nil, &stubAILogger{}, summarizer)
+	svc := NewThinkTankService(librarian, nil, synthesizer, &stubConversationRunRepository{}, &stubConversationRunStepRepository{}, memoryRepo, convRepo, msgRepo, nil, &stubAILogger{}, ThinkTankServiceOptions{MemorySummarizer: summarizer})
 
 	_, err := svc.Chat(context.Background(), "继续优化记忆模块", ptrInt64(36), ptrInt64(7))
 	if err != nil {

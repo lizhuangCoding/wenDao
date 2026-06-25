@@ -359,7 +359,7 @@ func TestThinkTankService_UsesLibrarianAndSynthesizerWhenLocalKnowledgeIsEnough(
 	convRepo := &stubConversationRepository{conversation: &model.Conversation{ID: 12, UserID: 9, Title: "新会话"}}
 	msgRepo := &stubChatMessageRepository{}
 	runRepo := &stubConversationRunRepository{}
-	svc := NewThinkTankService(librarian, nil, synthesizer, runRepo, &stubConversationRunStepRepository{}, &stubConversationMemoryRepository{}, convRepo, msgRepo, nil, &stubAILogger{})
+	svc := NewThinkTankService(librarian, nil, synthesizer, runRepo, &stubConversationRunStepRepository{}, &stubConversationMemoryRepository{}, convRepo, msgRepo, nil, &stubAILogger{}, ThinkTankServiceOptions{})
 
 	resp, err := svc.Chat(context.Background(), "站内文章讲了什么", ptrInt64(12), ptrInt64(9))
 	if err != nil {
@@ -391,7 +391,7 @@ func TestThinkTankServiceChat_PersistsConversationStateAfterADKAnswer(t *testing
 	}}
 	runRepo := &stubConversationRunRepository{}
 	memoryRepo := &stubConversationMemoryRepository{}
-	svc := NewThinkTankService(nil, nil, &stubSynthesizer{}, runRepo, &stubConversationRunStepRepository{}, memoryRepo, convRepo, msgRepo, nil, &stubAILogger{}).(*thinkTankService)
+	svc := NewThinkTankService(nil, nil, &stubSynthesizer{}, runRepo, &stubConversationRunStepRepository{}, memoryRepo, convRepo, msgRepo, nil, &stubAILogger{}, ThinkTankServiceOptions{}).(*thinkTankService)
 	svc.adkRunner = &thinkTankADKRunner{}
 	svc.adkAnswerFetcher = func(ctx context.Context, question string) (string, error) {
 		if !strings.Contains(question, "Redis 适合做共享计数器和短期状态") {
@@ -582,7 +582,7 @@ func TestAppendStepDetail_TruncatesLargeRawLogs(t *testing.T) {
 func TestThinkTankService_ChatStream_StreamsChunksInsteadOfSingleFinalPayload(t *testing.T) {
 	librarian := &stubLibrarian{result: LibrarianResult{CoverageStatus: "sufficient", Summary: "第一段\n第二段", Sources: []SourceRef{{Kind: "article", Title: "文章标题", URL: "/article/article-title"}}}}
 	synthesizer := &stubSynthesizer{answer: "第一段\n第二段\n\n参考文章\n- [文章标题](/article/article-title)", sources: []string{"文章标题"}}
-	svc := NewThinkTankService(librarian, nil, synthesizer, &stubConversationRunRepository{}, &stubConversationRunStepRepository{}, &stubConversationMemoryRepository{}, &stubConversationRepository{}, &stubChatMessageRepository{}, nil, &stubAILogger{})
+	svc := NewThinkTankService(librarian, nil, synthesizer, &stubConversationRunRepository{}, &stubConversationRunStepRepository{}, &stubConversationMemoryRepository{}, &stubConversationRepository{}, &stubChatMessageRepository{}, nil, &stubAILogger{}, ThinkTankServiceOptions{})
 
 	eventCh, errCh := svc.ChatStream(context.Background(), "站内文章讲了什么", nil, nil)
 	var chunkMessages []string
@@ -682,7 +682,7 @@ func TestThinkTankService_ChatStream_ContinuesAfterRequestContextIsCanceled(t *t
 		},
 	}
 	synthesizer := &stubSynthesizer{answer: "后台任务应该继续完成"}
-	svc := NewThinkTankService(librarian, nil, synthesizer, &stubConversationRunRepository{}, &stubConversationRunStepRepository{}, &stubConversationMemoryRepository{}, &stubConversationRepository{}, &stubChatMessageRepository{}, nil, &stubAILogger{})
+	svc := NewThinkTankService(librarian, nil, synthesizer, &stubConversationRunRepository{}, &stubConversationRunStepRepository{}, &stubConversationMemoryRepository{}, &stubConversationRepository{}, &stubChatMessageRepository{}, nil, &stubAILogger{}, ThinkTankServiceOptions{})
 
 	ctx, cancel := context.WithCancel(context.Background())
 	eventCh, errCh := svc.ChatStream(ctx, "刷新页面后继续回答", nil, nil)
@@ -715,7 +715,7 @@ func TestThinkTankService_RejectsNewQuestionWhenRunIsAlreadyRunning(t *testing.T
 		HeartbeatAt:    &now,
 	}}
 	convRepo := &stubConversationRepository{conversation: &model.Conversation{ID: 41, UserID: 12, Title: "研究会话"}}
-	svc := NewThinkTankService(&stubLibrarian{}, nil, &stubSynthesizer{answer: "不应该生成"}, runRepo, &stubConversationRunStepRepository{}, &stubConversationMemoryRepository{}, convRepo, &stubChatMessageRepository{}, nil, &stubAILogger{})
+	svc := NewThinkTankService(&stubLibrarian{}, nil, &stubSynthesizer{answer: "不应该生成"}, runRepo, &stubConversationRunStepRepository{}, &stubConversationMemoryRepository{}, convRepo, &stubChatMessageRepository{}, nil, &stubAILogger{}, ThinkTankServiceOptions{})
 
 	_, err := svc.Chat(context.Background(), "新问题", ptrInt64(41), ptrInt64(12))
 	if err == nil || !strings.Contains(err.Error(), "another answer is still running") {
@@ -735,7 +735,7 @@ func TestThinkTankService_AllowsNewQuestionAfterStaleRunningRun(t *testing.T) {
 	}}
 	convRepo := &stubConversationRepository{conversation: &model.Conversation{ID: 42, UserID: 12, Title: "研究会话"}}
 	synthesizer := &stubSynthesizer{answer: "新回答"}
-	svc := NewThinkTankService(&stubLibrarian{result: LibrarianResult{CoverageStatus: "sufficient", Summary: "站内资料"}}, nil, synthesizer, runRepo, &stubConversationRunStepRepository{}, &stubConversationMemoryRepository{}, convRepo, &stubChatMessageRepository{}, nil, &stubAILogger{})
+	svc := NewThinkTankService(&stubLibrarian{result: LibrarianResult{CoverageStatus: "sufficient", Summary: "站内资料"}}, nil, synthesizer, runRepo, &stubConversationRunStepRepository{}, &stubConversationMemoryRepository{}, convRepo, &stubChatMessageRepository{}, nil, &stubAILogger{}, ThinkTankServiceOptions{})
 
 	resp, err := svc.Chat(context.Background(), "新问题", ptrInt64(42), ptrInt64(12))
 	if err != nil {
@@ -764,7 +764,7 @@ func TestThinkTankService_ResumeChatStream_ReturnsErrorWhenRunningRunHasNoActive
 		Status:         "running",
 	}}}
 	convRepo := &stubConversationRepository{conversation: &model.Conversation{ID: 31, UserID: 11, Title: "研究会话"}}
-	svc := NewThinkTankService(&stubLibrarian{}, nil, &stubSynthesizer{}, runRepo, stepRepo, &stubConversationMemoryRepository{}, convRepo, &stubChatMessageRepository{}, nil, &stubAILogger{})
+	svc := NewThinkTankService(&stubLibrarian{}, nil, &stubSynthesizer{}, runRepo, stepRepo, &stubConversationMemoryRepository{}, convRepo, &stubChatMessageRepository{}, nil, &stubAILogger{}, ThinkTankServiceOptions{})
 
 	eventCh, errCh := svc.ResumeChatStream(context.Background(), 31, 7, ptrInt64(11))
 	sawSnapshot := false
@@ -798,7 +798,7 @@ func TestThinkTankService_ResumeChatStream_DoesNotWaitWhenHubSnapshotIsAlreadyCo
 		LastAnswer:     "最终答案",
 	}}
 	convRepo := &stubConversationRepository{conversation: &model.Conversation{ID: 32, UserID: 12, Title: "研究会话"}}
-	svc := NewThinkTankService(&stubLibrarian{}, nil, &stubSynthesizer{}, runRepo, &stubConversationRunStepRepository{}, &stubConversationMemoryRepository{}, convRepo, &stubChatMessageRepository{}, nil, &stubAILogger{}).(*thinkTankService)
+	svc := NewThinkTankService(&stubLibrarian{}, nil, &stubSynthesizer{}, runRepo, &stubConversationRunStepRepository{}, &stubConversationMemoryRepository{}, convRepo, &stubChatMessageRepository{}, nil, &stubAILogger{}, ThinkTankServiceOptions{}).(*thinkTankService)
 	svc.runHub.publish(8, 32, StreamEvent{Type: StreamEventDone, RunID: 8, Stage: "completed", Status: "completed"})
 
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
@@ -829,7 +829,7 @@ func TestThinkTankService_UsesJournalistWhenLocalKnowledgeIsInsufficient(t *test
 	msgRepo := &stubChatMessageRepository{}
 	runRepo := &stubConversationRunRepository{}
 	knowledgeSvc := &stubKnowledgeDocumentService{}
-	svc := NewThinkTankService(librarian, journalist, synthesizer, runRepo, &stubConversationRunStepRepository{}, &stubConversationMemoryRepository{}, convRepo, msgRepo, knowledgeSvc, &stubAILogger{})
+	svc := NewThinkTankService(librarian, journalist, synthesizer, runRepo, &stubConversationRunStepRepository{}, &stubConversationMemoryRepository{}, convRepo, msgRepo, knowledgeSvc, &stubAILogger{}, ThinkTankServiceOptions{})
 
 	resp, err := svc.Chat(context.Background(), "调研工业大模型落地", ptrInt64(13), ptrInt64(10))
 	if err != nil {
@@ -881,7 +881,7 @@ func TestThinkTankService_ChatStream_PersistsSummarizedRunEventsWithoutChunkSnap
 	runRepo := &stubConversationRunRepository{}
 	stepRepo := &stubConversationRunStepRepository{}
 	convRepo := &stubConversationRepository{conversation: &model.Conversation{ID: 31, UserID: 11, Title: "研究会话"}}
-	svc := NewThinkTankService(librarian, journalist, synthesizer, runRepo, stepRepo, &stubConversationMemoryRepository{}, convRepo, &stubChatMessageRepository{}, nil, &stubAILogger{})
+	svc := NewThinkTankService(librarian, journalist, synthesizer, runRepo, stepRepo, &stubConversationMemoryRepository{}, convRepo, &stubChatMessageRepository{}, nil, &stubAILogger{}, ThinkTankServiceOptions{})
 
 	eventCh, errCh := svc.ChatStream(context.Background(), "调研工业大模型落地", ptrInt64(31), ptrInt64(11))
 	for range eventCh {
@@ -925,7 +925,7 @@ func TestThinkTankService_ChatStream_PersistsAssistantMessageRunID(t *testing.T)
 	runRepo := &stubConversationRunRepository{}
 	msgRepo := &stubChatMessageRepository{}
 	convRepo := &stubConversationRepository{conversation: &model.Conversation{ID: 31, UserID: 11, Title: "研究会话"}}
-	svc := NewThinkTankService(librarian, nil, synthesizer, runRepo, &stubConversationRunStepRepository{}, &stubConversationMemoryRepository{}, convRepo, msgRepo, nil, &stubAILogger{})
+	svc := NewThinkTankService(librarian, nil, synthesizer, runRepo, &stubConversationRunStepRepository{}, &stubConversationMemoryRepository{}, convRepo, msgRepo, nil, &stubAILogger{}, ThinkTankServiceOptions{})
 
 	eventCh, errCh := svc.ChatStream(context.Background(), "调研工业大模型落地", ptrInt64(31), ptrInt64(11))
 	for range eventCh {
@@ -997,7 +997,7 @@ func (s *stubAcceptanceReviewer) Review(ctx context.Context, input AcceptanceRev
 func TestNewThinkTankService_UsesInjectedClarifierAndAcceptanceReviewer(t *testing.T) {
 	clarifier := &stubClarifier{decision: defaultClarifierDecision("问题")}
 	reviewer := &stubAcceptanceReviewer{reviews: []AcceptanceReview{defaultAcceptanceReview()}}
-	svc := NewThinkTankService(nil, nil, &stubSynthesizer{}, &stubConversationRunRepository{}, &stubConversationRunStepRepository{}, &stubConversationMemoryRepository{}, &stubConversationRepository{}, &stubChatMessageRepository{}, nil, &stubAILogger{}, clarifier, reviewer).(*thinkTankService)
+	svc := NewThinkTankService(nil, nil, &stubSynthesizer{}, &stubConversationRunRepository{}, &stubConversationRunStepRepository{}, &stubConversationMemoryRepository{}, &stubConversationRepository{}, &stubChatMessageRepository{}, nil, &stubAILogger{}, ThinkTankServiceOptions{Clarifier: clarifier, AcceptanceReviewer: reviewer}).(*thinkTankService)
 
 	if svc.clarifier != clarifier {
 		t.Fatalf("expected injected clarifier to be stored")
@@ -1010,6 +1010,51 @@ func TestNewThinkTankService_UsesInjectedClarifierAndAcceptanceReviewer(t *testi
 	}
 }
 
+func TestNewThinkTankService_UsesExplicitOptions(t *testing.T) {
+	clarifier := &stubClarifier{decision: defaultClarifierDecision("问题")}
+	reviewer := &stubAcceptanceReviewer{reviews: []AcceptanceReview{defaultAcceptanceReview()}}
+	runner := &thinkTankADKRunner{
+		clarifier:  clarifier,
+		acceptance: reviewer,
+	}
+	summarizer := &stubConversationMemorySummarizer{}
+	metrics := RunMetricsConfig{Provider: "doubao", ModelName: "chat-model"}
+
+	svc := NewThinkTankService(
+		nil,
+		nil,
+		&stubSynthesizer{},
+		&stubConversationRunRepository{},
+		&stubConversationRunStepRepository{},
+		&stubConversationMemoryRepository{},
+		&stubConversationRepository{},
+		&stubChatMessageRepository{},
+		nil,
+		&stubAILogger{},
+		ThinkTankServiceOptions{
+			ADKRunner:        runner,
+			MemorySummarizer: summarizer,
+			Metrics:          metrics,
+		},
+	).(*thinkTankService)
+
+	if svc.adkRunner != runner {
+		t.Fatalf("expected explicit ADK runner to be stored")
+	}
+	if svc.clarifier != clarifier {
+		t.Fatalf("expected clarifier to be derived from runner")
+	}
+	if svc.acceptanceReviewer != reviewer {
+		t.Fatalf("expected acceptance reviewer to be derived from runner")
+	}
+	if svc.memories.memorySummarizer != summarizer {
+		t.Fatalf("expected explicit memory summarizer to be stored")
+	}
+	if svc.runs.metrics.Provider != metrics.Provider || svc.runs.metrics.ModelName != metrics.ModelName {
+		t.Fatalf("expected explicit metrics to be stored")
+	}
+}
+
 func TestThinkTankServiceChat_ClarifierEnhancesADKQueryWithoutAsking(t *testing.T) {
 	clarifier := &stubClarifier{decision: ClarifierDecision{
 		NormalizedQuestion: "分析 AI Agent 的发展趋势",
@@ -1018,7 +1063,7 @@ func TestThinkTankServiceChat_ClarifierEnhancesADKQueryWithoutAsking(t *testing.
 		TargetDimensions:   []string{"技术演进", "商业落地"},
 	}}
 	reviewer := &stubAcceptanceReviewer{reviews: []AcceptanceReview{defaultAcceptanceReview()}}
-	svc := NewThinkTankService(nil, nil, &stubSynthesizer{}, &stubConversationRunRepository{}, &stubConversationRunStepRepository{}, &stubConversationMemoryRepository{}, &stubConversationRepository{}, &stubChatMessageRepository{}, nil, &stubAILogger{}, clarifier, reviewer).(*thinkTankService)
+	svc := NewThinkTankService(nil, nil, &stubSynthesizer{}, &stubConversationRunRepository{}, &stubConversationRunStepRepository{}, &stubConversationMemoryRepository{}, &stubConversationRepository{}, &stubChatMessageRepository{}, nil, &stubAILogger{}, ThinkTankServiceOptions{Clarifier: clarifier, AcceptanceReviewer: reviewer}).(*thinkTankService)
 	svc.adkRunner = &thinkTankADKRunner{}
 	svc.adkAnswerFetcher = func(ctx context.Context, question string) (string, error) {
 		if !strings.Contains(question, "技术演进") || !strings.Contains(question, "商业落地") {
@@ -1049,7 +1094,7 @@ func TestThinkTankServiceChat_ClarifierCanAskUser(t *testing.T) {
 		ShouldAskUser:         true,
 		ClarificationQuestion: "请把完整报错信息、触发操作和相关代码片段发我。",
 	}}
-	svc := NewThinkTankService(nil, nil, &stubSynthesizer{}, &stubConversationRunRepository{}, &stubConversationRunStepRepository{}, &stubConversationMemoryRepository{}, &stubConversationRepository{}, &stubChatMessageRepository{}, nil, &stubAILogger{}, clarifier).(*thinkTankService)
+	svc := NewThinkTankService(nil, nil, &stubSynthesizer{}, &stubConversationRunRepository{}, &stubConversationRunStepRepository{}, &stubConversationMemoryRepository{}, &stubConversationRepository{}, &stubChatMessageRepository{}, nil, &stubAILogger{}, ThinkTankServiceOptions{Clarifier: clarifier}).(*thinkTankService)
 	svc.adkRunner = &thinkTankADKRunner{}
 	svc.adkAnswerFetcher = func(ctx context.Context, question string) (string, error) {
 		t.Fatalf("ADK should not run when clarifier asks user, got %q", question)
@@ -1082,7 +1127,7 @@ func TestThinkTankServiceChat_ClarifierReturnsStructuredQuestion(t *testing.T) {
 		SuggestedReply:        "目标用户是中小企业，预算 5 万，周期 3 个月。",
 		ClarificationQuestion: "请补充目标用户、预算和周期。",
 	}}
-	svc := NewThinkTankService(nil, nil, &stubSynthesizer{}, &stubConversationRunRepository{}, &stubConversationRunStepRepository{}, &stubConversationMemoryRepository{}, &stubConversationRepository{}, &stubChatMessageRepository{}, nil, &stubAILogger{}, clarifier).(*thinkTankService)
+	svc := NewThinkTankService(nil, nil, &stubSynthesizer{}, &stubConversationRunRepository{}, &stubConversationRunStepRepository{}, &stubConversationMemoryRepository{}, &stubConversationRepository{}, &stubChatMessageRepository{}, nil, &stubAILogger{}, ThinkTankServiceOptions{Clarifier: clarifier}).(*thinkTankService)
 	svc.adkRunner = &thinkTankADKRunner{}
 	svc.adkAnswerFetcher = func(ctx context.Context, question string) (string, error) {
 		t.Fatalf("ADK should not run when clarifier asks user, got %q", question)
@@ -1123,7 +1168,7 @@ func TestThinkTankServiceChat_DoesNotExposeAcceptanceSummary(t *testing.T) {
 		Summary:           "覆盖了核心趋势和落地影响。",
 		MatchedDimensions: []string{"技术演进", "商业落地"},
 	}}}
-	svc := NewThinkTankService(nil, nil, &stubSynthesizer{}, &stubConversationRunRepository{}, &stubConversationRunStepRepository{}, &stubConversationMemoryRepository{}, &stubConversationRepository{}, &stubChatMessageRepository{}, nil, &stubAILogger{}, clarifier, reviewer).(*thinkTankService)
+	svc := NewThinkTankService(nil, nil, &stubSynthesizer{}, &stubConversationRunRepository{}, &stubConversationRunStepRepository{}, &stubConversationMemoryRepository{}, &stubConversationRepository{}, &stubChatMessageRepository{}, nil, &stubAILogger{}, ThinkTankServiceOptions{Clarifier: clarifier, AcceptanceReviewer: reviewer}).(*thinkTankService)
 	svc.adkRunner = &thinkTankADKRunner{}
 	svc.adkAnswerFetcher = func(ctx context.Context, question string) (string, error) {
 		return "AI Agent 趋势答案", nil
@@ -1154,7 +1199,7 @@ func TestThinkTankServiceChat_AcceptanceRevisionRunsOnce(t *testing.T) {
 		},
 		defaultAcceptanceReview(),
 	}}
-	svc := NewThinkTankService(nil, nil, &stubSynthesizer{}, &stubConversationRunRepository{}, &stubConversationRunStepRepository{}, &stubConversationMemoryRepository{}, &stubConversationRepository{}, &stubChatMessageRepository{}, nil, &stubAILogger{}, clarifier, reviewer).(*thinkTankService)
+	svc := NewThinkTankService(nil, nil, &stubSynthesizer{}, &stubConversationRunRepository{}, &stubConversationRunStepRepository{}, &stubConversationMemoryRepository{}, &stubConversationRepository{}, &stubChatMessageRepository{}, nil, &stubAILogger{}, ThinkTankServiceOptions{Clarifier: clarifier, AcceptanceReviewer: reviewer}).(*thinkTankService)
 	svc.adkRunner = &thinkTankADKRunner{}
 	var calls int
 	svc.adkAnswerFetcher = func(ctx context.Context, question string) (string, error) {
@@ -1198,7 +1243,7 @@ func TestThinkTankServiceChat_AcceptanceRevisionStillReviseDoesNotClaimSuccess(t
 			RevisionInstruction: "继续补充边界条件",
 		},
 	}}
-	svc := NewThinkTankService(nil, nil, &stubSynthesizer{}, &stubConversationRunRepository{}, &stubConversationRunStepRepository{}, &stubConversationMemoryRepository{}, &stubConversationRepository{}, &stubChatMessageRepository{}, nil, &stubAILogger{}, clarifier, reviewer).(*thinkTankService)
+	svc := NewThinkTankService(nil, nil, &stubSynthesizer{}, &stubConversationRunRepository{}, &stubConversationRunStepRepository{}, &stubConversationMemoryRepository{}, &stubConversationRepository{}, &stubChatMessageRepository{}, nil, &stubAILogger{}, ThinkTankServiceOptions{Clarifier: clarifier, AcceptanceReviewer: reviewer}).(*thinkTankService)
 	svc.adkRunner = &thinkTankADKRunner{}
 	var calls int
 	svc.adkAnswerFetcher = func(ctx context.Context, question string) (string, error) {
@@ -1269,8 +1314,7 @@ func TestThinkTankServiceChat_ManualAcceptanceRevisionStillReviseDoesNotClaimSuc
 		&stubChatMessageRepository{},
 		nil,
 		&stubAILogger{},
-		clarifier,
-		reviewer,
+		ThinkTankServiceOptions{Clarifier: clarifier, AcceptanceReviewer: reviewer},
 	).(*thinkTankService)
 	svc.adkRunner = &thinkTankADKRunner{}
 	var calls int
@@ -1324,7 +1368,7 @@ func TestThinkTankServiceChat_AcceptanceCanAskUserAndPersistWaitingRun(t *testin
 		UserQuestion: followUp,
 		Reason:       "缺少关键约束",
 	}}}
-	svc := NewThinkTankService(nil, nil, &stubSynthesizer{}, runRepo, &stubConversationRunStepRepository{}, &stubConversationMemoryRepository{}, convRepo, msgRepo, nil, &stubAILogger{}, clarifier, reviewer).(*thinkTankService)
+	svc := NewThinkTankService(nil, nil, &stubSynthesizer{}, runRepo, &stubConversationRunStepRepository{}, &stubConversationMemoryRepository{}, convRepo, msgRepo, nil, &stubAILogger{}, ThinkTankServiceOptions{Clarifier: clarifier, AcceptanceReviewer: reviewer}).(*thinkTankService)
 	svc.adkRunner = &thinkTankADKRunner{}
 	svc.adkAnswerFetcher = func(ctx context.Context, question string) (string, error) {
 		return "初版方案", nil
@@ -1379,7 +1423,7 @@ func TestThinkTankServiceChat_AcceptanceFollowUpUpdatesPendingRun(t *testing.T) 
 		UserQuestion: nextFollowUp,
 		Reason:       "还缺少数据规模",
 	}}}
-	svc := NewThinkTankService(nil, nil, &stubSynthesizer{}, runRepo, &stubConversationRunStepRepository{}, &stubConversationMemoryRepository{}, convRepo, &stubChatMessageRepository{}, nil, &stubAILogger{}, clarifier, reviewer).(*thinkTankService)
+	svc := NewThinkTankService(nil, nil, &stubSynthesizer{}, runRepo, &stubConversationRunStepRepository{}, &stubConversationMemoryRepository{}, convRepo, &stubChatMessageRepository{}, nil, &stubAILogger{}, ThinkTankServiceOptions{Clarifier: clarifier, AcceptanceReviewer: reviewer}).(*thinkTankService)
 	svc.adkRunner = &thinkTankADKRunner{}
 	svc.adkAnswerFetcher = func(ctx context.Context, question string) (string, error) {
 		for _, want := range []string{originalQuestion, systemQuestion, userSupplement} {
