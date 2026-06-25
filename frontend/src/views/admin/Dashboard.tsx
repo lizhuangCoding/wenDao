@@ -51,13 +51,15 @@ export const Dashboard = () => {
     enabled: queryType !== 'custom' || (dateRange[0] !== '' && dateRange[1] !== ''),
   });
 
+  const dailyStat = stats?.daily_stat;
+
   // 准备图表数据
-  const chartData: ChartDataPoint[] = stats?.daily_stat?.labels?.map((label: string, index: number) => ({
+  const chartData: ChartDataPoint[] = dailyStat?.labels?.map((label: string, index: number) => ({
     fullDate: label,
     date: dayjs(label).format('M.DD'),
     weekday: dayjs(label).format('ddd'),
-    pv: stats.daily_stat.pv[index] || 0,
-    uv: stats.daily_stat.uv[index] || 0,
+    pv: dailyStat.pv[index] || 0,
+    uv: dailyStat.uv[index] || 0,
   })) || [];
 
   const peakPV = chartData.reduce((max: number, item: ChartDataPoint) => Math.max(max, item.pv), 0);

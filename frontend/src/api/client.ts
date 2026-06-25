@@ -182,23 +182,23 @@ apiClient.interceptors.response.use(
 
 // 封装请求方法
 export const request = {
-  get: <T = any>(url: string, config?: RequestConfig): Promise<T> => {
+  get: <T = unknown>(url: string, config?: RequestConfig): Promise<T> => {
     return apiClient.get(url, config);
   },
 
-  post: <T = any>(url: string, data?: any, config?: RequestConfig): Promise<T> => {
+  post: <T = unknown, D = unknown>(url: string, data?: D, config?: RequestConfig): Promise<T> => {
     return apiClient.post(url, data, config);
   },
 
-  put: <T = any>(url: string, data?: any, config?: RequestConfig): Promise<T> => {
+  put: <T = unknown, D = unknown>(url: string, data?: D, config?: RequestConfig): Promise<T> => {
     return apiClient.put(url, data, config);
   },
 
-  delete: <T = any>(url: string, config?: RequestConfig): Promise<T> => {
+  delete: <T = unknown>(url: string, config?: RequestConfig): Promise<T> => {
     return apiClient.delete(url, config);
   },
 
-  patch: <T = any>(url: string, data?: any, config?: RequestConfig): Promise<T> => {
+  patch: <T = unknown, D = unknown>(url: string, data?: D, config?: RequestConfig): Promise<T> => {
     return apiClient.patch(url, data, config);
   },
 };

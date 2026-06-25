@@ -134,6 +134,26 @@ test('AIChat share and export paths use store actions and safe filenames', async
   assert.doesNotMatch(apiSource, /\\\|/);
 });
 
+test('AIChat chat API and store keep typed data boundaries', async () => {
+  const [apiSource, storeSource] = await Promise.all([
+    loadApiSource('chat'),
+    loadStoreSource('chatStore'),
+  ]);
+
+  assert.match(apiSource, /ChatConversationSummary/);
+  assert.match(apiSource, /ChatConversationMutationResponse/);
+  assert.match(apiSource, /request\.get<ChatConversationSummary\[]>/);
+  assert.match(apiSource, /request\.delete<void>/);
+  assert.doesNotMatch(apiSource, /request\.get<any\[]>/);
+  assert.doesNotMatch(apiSource, /request\.delete<any>/);
+
+  assert.doesNotMatch(storeSource, /normalizeStep = \(step: any\)/);
+  assert.doesNotMatch(storeSource, /mapSteps = \(steps: any\[\]/);
+  assert.doesNotMatch(storeSource, /mapMessages = \(messages: any\[\]/);
+  assert.match(storeSource, /normalizeStep = \(step: unknown\)/);
+  assert.match(storeSource, /mapMessages = \(messages: unknown\[] = \[], steps: unknown\[] = \[]\)/);
+});
+
 test('ModelSelector exposes full long model names instead of truncating menu items', async () => {
   const source = await loadChatComponentSource('ModelSelector');
 

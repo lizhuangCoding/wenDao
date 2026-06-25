@@ -14,3 +14,14 @@ test('api client releases queued auth retries when token refresh resolves or fai
   assert.match(source, /refreshQueue\.rejectAll\(refreshError\)/);
   assert.doesNotMatch(source, /let requests:\s*\(\(\)\s*=>\s*void\)\[\]/);
 });
+
+test('api request helpers default to unknown instead of any', async () => {
+  const source = await loadClientSource();
+
+  assert.match(source, /get:\s*<T = unknown>/);
+  assert.match(source, /post:\s*<T = unknown,\s*D = unknown>/);
+  assert.match(source, /put:\s*<T = unknown,\s*D = unknown>/);
+  assert.match(source, /patch:\s*<T = unknown,\s*D = unknown>/);
+  assert.doesNotMatch(source, /<T = any>/);
+  assert.doesNotMatch(source, /data\?: any/);
+});

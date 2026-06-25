@@ -423,6 +423,26 @@ export interface SharedConversationData {
   };
 }
 
+export interface ChatConversationSummary {
+  id: number;
+  title: string;
+  user_id: number;
+  is_shared?: boolean;
+  share_token?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ChatConversationMutationResponse {
+  id: number;
+  title: string;
+  user_id: number;
+  is_shared?: boolean;
+  share_token?: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface ChatConversationDetailResponse {
   conversation: {
     id: number;

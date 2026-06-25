@@ -42,18 +42,54 @@ interface ChatState {
   clearMessages: () => void;
 }
 
-const normalizeStep = (step: any): ChatStep => ({
-  id: Number(step.id ?? step.step_id ?? 0),
-  run_id: step.run_id ? Number(step.run_id) : undefined,
-  agent_name: step.agent_name ?? step.agentName ?? 'Agent',
-  type: step.type ?? 'thinking',
-  summary: step.summary ?? '',
-  detail: step.detail ?? '',
-  status: step.status ?? 'running',
-  created_at: step.created_at ?? new Date().toISOString(),
-});
+const isRecord = (value: unknown): value is Record<string, unknown> => {
+  return typeof value === 'object' && value !== null;
+};
 
-const mapSteps = (steps: any[] = []): ChatStep[] => steps.map(normalizeStep);
+const readString = (record: Record<string, unknown>, key: string, fallback = '') => {
+  const value = record[key];
+  return typeof value === 'string' ? value : fallback;
+};
+
+const readNumber = (record: Record<string, unknown>, key: string) => {
+  const value = record[key];
+  if (typeof value === 'number') return value;
+  if (typeof value === 'string' && value.trim() !== '') {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }
+  return undefined;
+};
+
+const readArray = (record: Record<string, unknown>, key: string): unknown[] | undefined => {
+  const value = record[key];
+  return Array.isArray(value) ? value : undefined;
+};
+
+const readChatRole = (record: Record<string, unknown>): ChatMessage['role'] => {
+  return record.role === 'assistant' ? 'assistant' : 'user';
+};
+
+const readStepStatus = (record: Record<string, unknown>): ChatStep['status'] => {
+  const status = record.status;
+  return status === 'completed' || status === 'failed' ? status : 'running';
+};
+
+const normalizeStep = (step: unknown): ChatStep => {
+  const record = isRecord(step) ? step : {};
+  return {
+    id: Number(readNumber(record, 'id') ?? readNumber(record, 'step_id') ?? 0),
+    run_id: readNumber(record, 'run_id'),
+    agent_name: readString(record, 'agent_name', readString(record, 'agentName', 'Agent')),
+    type: readString(record, 'type', 'thinking'),
+    summary: readString(record, 'summary'),
+    detail: readString(record, 'detail'),
+    status: readStepStatus(record),
+    created_at: readString(record, 'created_at', new Date().toISOString()),
+  };
+};
+
+const mapSteps = (steps: unknown[] = []): ChatStep[] => steps.map(normalizeStep);
 
 const parseChatTime = (value?: string) => {
   if (!value) return 0;
@@ -157,15 +193,19 @@ const attachStepsToAssistantMessages = (messages: ChatMessage[], steps: ChatStep
   });
 };
 
-const mapMessages = (messages: any[] = [], steps: any[] = []): ChatMessage[] => {
-  const mapped = messages.map((m: any) => ({
-    id: String(m.id),
-    role: m.role as 'user' | 'assistant',
-    content: m.content,
-    timestamp: parseChatTime(m.created_at),
-    runId: m.run_id ? Number(m.run_id) : undefined,
-    processSteps: Array.isArray(m.process_steps) ? mapSteps(m.process_steps) : undefined,
-  }));
+const mapMessages = (messages: unknown[] = [], steps: unknown[] = []): ChatMessage[] => {
+  const mapped = messages.map((message) => {
+    const record = isRecord(message) ? message : {};
+    const processStepValues = readArray(record, 'process_steps');
+    return {
+      id: String(record.id ?? ''),
+      role: readChatRole(record),
+      content: readString(record, 'content'),
+      timestamp: parseChatTime(readString(record, 'created_at')),
+      runId: readNumber(record, 'run_id'),
+      processSteps: processStepValues ? mapSteps(processStepValues) : undefined,
+    };
+  });
   return attachStepsToAssistantMessages(mapped, mapSteps(steps));
 };
 

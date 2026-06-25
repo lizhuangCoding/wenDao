@@ -1,6 +1,8 @@
 import { getApiUrl, request } from './client';
 import type {
   ChatHeartbeatEvent,
+  ChatConversationMutationResponse,
+  ChatConversationSummary,
   ChatConversationDetailResponse,
   ChatQuestionEvent,
   ChatRequest,
@@ -142,11 +144,11 @@ export const chatApi = {
   },
 
   getConversations: () => {
-    return request.get<any[]>('/chat/conversations');
+    return request.get<ChatConversationSummary[]>('/chat/conversations');
   },
 
   createConversation: (title: string) => {
-    return request.post<{ id: number; title: string; user_id: number; created_at: string; updated_at: string }>('/chat/conversations', { title });
+    return request.post<ChatConversationMutationResponse>('/chat/conversations', { title });
   },
 
   getConversation: (id: number) => {
@@ -154,11 +156,11 @@ export const chatApi = {
   },
 
   renameConversation: (id: number, title: string) => {
-    return request.patch<{ id: number; title: string; user_id: number; created_at: string; updated_at: string }>(`/chat/conversations/${id}`, { title });
+    return request.patch<ChatConversationMutationResponse>(`/chat/conversations/${id}`, { title });
   },
 
   deleteConversation: (id: number) => {
-    return request.delete<any>(`/chat/conversations/${id}`);
+    return request.delete<void>(`/chat/conversations/${id}`);
   },
 
   generateSummary: (content: string) => {
