@@ -135,9 +135,10 @@ test('AIChat share and export paths use store actions and safe filenames', async
 });
 
 test('AIChat chat API and store keep typed data boundaries', async () => {
-  const [apiSource, storeSource] = await Promise.all([
+  const [apiSource, storeSource, normalizerSource] = await Promise.all([
     loadApiSource('chat'),
     loadStoreSource('chatStore'),
+    loadStoreSource('chatNormalizers'),
   ]);
 
   assert.match(apiSource, /ChatConversationSummary/);
@@ -148,10 +149,31 @@ test('AIChat chat API and store keep typed data boundaries', async () => {
   assert.doesNotMatch(apiSource, /request\.delete<any>/);
 
   assert.doesNotMatch(storeSource, /normalizeStep = \(step: any\)/);
-  assert.doesNotMatch(storeSource, /mapSteps = \(steps: any\[\]/);
-  assert.doesNotMatch(storeSource, /mapMessages = \(messages: any\[\]/);
-  assert.match(storeSource, /normalizeStep = \(step: unknown\)/);
-  assert.match(storeSource, /mapMessages = \(messages: unknown\[] = \[], steps: unknown\[] = \[]\)/);
+  assert.doesNotMatch(normalizerSource, /normalizeStep = \(step: any\)/);
+  assert.doesNotMatch(normalizerSource, /mapSteps = \(steps: any\[\]/);
+  assert.doesNotMatch(normalizerSource, /mapMessages = \(messages: any\[\]/);
+  assert.match(normalizerSource, /normalizeStep = \(step: unknown\)/);
+  assert.match(normalizerSource, /mapMessages = \(messages: unknown\[] = \[], steps: unknown\[] = \[]\)/);
+});
+
+test('AIChat store delegates normalizers and persistence helpers to focused modules', async () => {
+  const [storeSource, normalizerSource, persistenceSource] = await Promise.all([
+    loadStoreSource('chatStore'),
+    loadStoreSource('chatNormalizers'),
+    loadStoreSource('chatPersistence'),
+  ]);
+
+  assert.match(storeSource, /from '\.\/chatNormalizers'/);
+  assert.match(storeSource, /from '\.\/chatPersistence'/);
+  assert.doesNotMatch(storeSource, /const mapConversationDetail =/);
+  assert.doesNotMatch(storeSource, /const ACTIVE_CHAT_STORAGE_KEY =/);
+
+  assert.match(normalizerSource, /export const mapConversationDetail/);
+  assert.match(normalizerSource, /export const preserveExistingProcessSteps/);
+  assert.match(normalizerSource, /export const stepEventToStep/);
+  assert.match(persistenceSource, /export const readStoredActiveId/);
+  assert.match(persistenceSource, /export const persistActiveChatId/);
+  assert.match(persistenceSource, /export const persistSelectedModel/);
 });
 
 test('ModelSelector exposes full long model names instead of truncating menu items', async () => {
