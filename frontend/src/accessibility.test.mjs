@@ -38,3 +38,13 @@ test('native button elements declare an explicit type', async () => {
   assert.deepEqual(missingType, []);
 });
 
+test('confirmation modal exposes dialog semantics and keyboard dismissal', async () => {
+  const source = await readFile(new URL('./components/common/ConfirmModal.tsx', import.meta.url), 'utf8');
+
+  assert.match(source, /role="dialog"/);
+  assert.match(source, /aria-modal="true"/);
+  assert.match(source, /aria-labelledby=\{titleId\}/);
+  assert.match(source, /aria-describedby=\{messageId\}/);
+  assert.match(source, /useId/);
+  assert.match(source, /Escape/);
+});

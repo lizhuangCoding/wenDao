@@ -1,3 +1,4 @@
+import { useEffect, useId } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 
@@ -25,6 +26,27 @@ export const ConfirmModal = ({
   isConfirming = false,
 }: ConfirmModalProps) => {
   const { t } = useTranslation();
+  const modalId = useId();
+  const titleId = `${modalId}-title`;
+  const messageId = `${modalId}-message`;
+
+  useEffect(() => {
+    if (!isOpen || isConfirming) {
+      return;
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        onCancel();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isConfirming, isOpen, onCancel]);
 
   return (
     <AnimatePresence>
@@ -40,6 +62,7 @@ export const ConfirmModal = ({
                 onCancel();
               }
             }}
+            aria-hidden="true"
             className="fixed inset-0 bg-neutral-900/40 backdrop-blur-sm z-[999]"
           />
 
@@ -49,13 +72,18 @@ export const ConfirmModal = ({
               initial={{ opacity: 0, scale: 0.9, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby={titleId}
+              aria-describedby={messageId}
+              tabIndex={-1}
               className="w-full max-w-sm bg-white dark:bg-neutral-800 rounded-[32px] shadow-elevated overflow-hidden border border-neutral-200 dark:border-neutral-700"
             >
               <div className="p-8">
-                <h3 className="text-xl font-serif font-black text-neutral-900 dark:text-neutral-100 mb-3">
+                <h3 id={titleId} className="text-xl font-serif font-black text-neutral-900 dark:text-neutral-100 mb-3">
                   {title}
                 </h3>
-                <p className="text-sm text-neutral-500 dark:text-neutral-400 font-medium leading-relaxed mb-8">
+                <p id={messageId} className="text-sm text-neutral-500 dark:text-neutral-400 font-medium leading-relaxed mb-8">
                   {message}
                 </p>
 
