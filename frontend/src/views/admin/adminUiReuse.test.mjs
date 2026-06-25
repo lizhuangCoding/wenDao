@@ -59,6 +59,32 @@ test('admin dashboard and knowledge document detail avoid rough browser defaults
   assert.match(detail, /StatusBadge/);
 });
 
+test('admin pages use a consistent management header treatment', async () => {
+  const [pageHeader, ...adminPages] = await Promise.all([
+    readFile(new URL('../../components/common/PageHeader.tsx', import.meta.url), 'utf8'),
+    loadAdminSource('Dashboard.tsx'),
+    loadAdminSource('Settings.tsx'),
+    loadAdminSource('AIObservability.tsx'),
+    loadAdminSource('articles/ArticleList.tsx'),
+    loadAdminSource('categories/CategoryList.tsx'),
+    loadAdminSource('comments/CommentList.tsx'),
+    loadAdminSource('knowledge-documents/KnowledgeDocumentList.tsx'),
+    loadAdminSource('knowledge-documents/KnowledgeDocumentDetail.tsx'),
+    loadAdminSource('users/UserManagement.tsx'),
+    loadAdminSource('tags/TagList.tsx'),
+    loadAdminSource('collections/CollectionList.tsx'),
+    readFile(new URL('../../pages/admin/Broadcast.tsx', import.meta.url), 'utf8'),
+  ]);
+
+  assert.match(pageHeader, /tone === 'admin' \? 'border-b border-neutral-200 pb-5/);
+  assert.match(pageHeader, /text-2xl sm:text-3xl tracking-normal font-sans/);
+  assert.match(pageHeader, /tone === 'admin' \? 'max-w-3xl'/);
+
+  for (const source of adminPages) {
+    assert.match(source, /<PageHeader[\s\S]*?tone="admin"/);
+  }
+});
+
 test('admin settings and category management expose configurable site and category ordering', async () => {
   const [settings, categories] = await Promise.all([
     loadAdminSource('Settings.tsx'),

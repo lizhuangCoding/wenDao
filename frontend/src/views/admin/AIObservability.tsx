@@ -153,6 +153,7 @@ export const AIObservability = () => {
       <PageHeader
         title="AI 观测"
         description="查看 ThinkTank 运行状态、工具调用、失败步骤和来源痕迹"
+        tone="admin"
       />
 
       <div className="grid gap-4 md:grid-cols-4">

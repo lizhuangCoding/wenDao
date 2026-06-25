@@ -139,7 +139,11 @@ export const KnowledgeDocumentList = () => {
 
   return (
     <div className="space-y-6">
-      <PageHeader title={t('knowledgeDocument.reviewTitle')} description={t('knowledgeDocument.reviewDescription')} />
+      <PageHeader
+        title={t('knowledgeDocument.reviewTitle')}
+        description={t('knowledgeDocument.reviewDescription')}
+        tone="admin"
+      />
 
       <Panel className="space-y-3">
         <form onSubmit={applySearch} className="grid gap-3 md:grid-cols-[1fr_auto_auto]">

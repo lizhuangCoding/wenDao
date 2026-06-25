@@ -15,7 +15,11 @@ export const PageHeader = ({ title, description, actions, className, eyebrow, to
   <motion.div
     initial={{ opacity: 0, y: -16 }}
     animate={{ opacity: 1, y: 0 }}
-    className={cn('flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between', className)}
+    className={cn(
+      'flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between',
+      tone === 'admin' ? 'border-b border-neutral-200 pb-5 dark:border-neutral-800' : '',
+      className
+    )}
   >
     <div className="min-w-0">
       {eyebrow ? (
@@ -25,14 +29,19 @@ export const PageHeader = ({ title, description, actions, className, eyebrow, to
       ) : null}
       <h1
         className={cn(
-          'text-3xl font-bold text-neutral-900 dark:text-neutral-100',
-          tone === 'default' ? 'font-serif sm:text-4xl' : 'font-sans tracking-normal'
+          'font-bold text-neutral-900 dark:text-neutral-100',
+          tone === 'admin' ? 'text-2xl sm:text-3xl tracking-normal font-sans' : 'font-serif text-3xl sm:text-4xl'
         )}
       >
         {title}
       </h1>
       {description ? (
-        <p className="mt-2 max-w-2xl text-sm leading-6 text-neutral-500 dark:text-neutral-400">
+        <p
+          className={cn(
+            'mt-2 text-sm leading-6 text-neutral-500 dark:text-neutral-400',
+            tone === 'admin' ? 'max-w-3xl' : 'max-w-2xl'
+          )}
+        >
           {description}
         </p>
       ) : null}

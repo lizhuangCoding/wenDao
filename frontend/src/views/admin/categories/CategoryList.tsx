@@ -150,6 +150,7 @@ export const CategoryList = () => {
     <div className="space-y-6">
       <PageHeader
         title={t('admin.categoryManagement')}
+        tone="admin"
         actions={
           <Button size="lg" onClick={() => setIsModalOpen(true)}>
             <Plus className="h-5 w-5" />

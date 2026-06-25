@@ -154,7 +154,7 @@ export const Settings = () => {
 
   return (
     <div className="space-y-6">
-      <PageHeader title={t('settings.title')} description={t('settings.description')} />
+      <PageHeader title={t('settings.title')} description={t('settings.description')} tone="admin" />
 
       <Panel className="space-y-6">
         <div>

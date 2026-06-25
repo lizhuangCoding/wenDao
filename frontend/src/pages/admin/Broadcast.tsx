@@ -77,6 +77,7 @@ export const Broadcast = () => {
       <PageHeader
         title={t('broadcast.title')}
         description={t('broadcast.description')}
+        tone="admin"
         actions={
           <button
             type="button"

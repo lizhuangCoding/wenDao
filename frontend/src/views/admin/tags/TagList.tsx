@@ -140,6 +140,7 @@ export const TagList = () => {
     <div className="space-y-6">
       <PageHeader
         title="标签管理"
+        tone="admin"
         actions={
           <Button size="lg" onClick={() => setIsModalOpen(true)}>
             <Plus className="h-5 w-5" />

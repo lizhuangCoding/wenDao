@@ -147,7 +147,7 @@ export const CommentList = () => {
 
   return (
     <div className="space-y-6">
-      <PageHeader title={t('admin.commentManagement')} />
+      <PageHeader title={t('admin.commentManagement')} tone="admin" />
 
       <Panel className="space-y-3">
         <form onSubmit={applySearch} className="grid gap-3 md:grid-cols-[1fr_auto_auto]">

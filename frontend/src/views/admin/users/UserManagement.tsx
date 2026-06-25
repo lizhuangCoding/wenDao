@@ -87,7 +87,7 @@ export const UserManagement = () => {
 
   return (
     <div className="space-y-6">
-      <PageHeader title={t('users.title')} />
+      <PageHeader title={t('users.title')} tone="admin" />
 
       <Panel className="space-y-3">
         <form onSubmit={applySearch} className="grid gap-3 md:grid-cols-[1fr_auto_auto_auto]">

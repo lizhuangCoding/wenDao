@@ -193,6 +193,7 @@ export const ArticleList = () => {
     <div className="space-y-6">
       <PageHeader
         title={t('admin.articleManagement')}
+        tone="admin"
         actions={
           <>
           <Panel padding="sm" className="flex flex-col gap-3 border-neutral-200 dark:border-neutral-700 sm:flex-row sm:items-center">

@@ -124,6 +124,7 @@ export const KnowledgeDocumentDetail = () => {
           </span>
         }
         description={data.document.article_id ? t('knowledgeDocument.generatedArticle', { id: data.document.article_id }) : undefined}
+        tone="admin"
         actions={
           <Button
             variant="danger"

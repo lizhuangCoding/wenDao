@@ -153,6 +153,7 @@ export const CollectionList = () => {
     <div className="space-y-6">
       <PageHeader
         title="合集管理"
+        tone="admin"
         actions={
           <Button size="lg" onClick={openCreateModal}>
             <Plus className="h-5 w-5" />
