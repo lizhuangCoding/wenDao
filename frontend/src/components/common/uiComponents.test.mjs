@@ -45,6 +45,10 @@ test('common UI primitives centralize professional surface, form, and action sty
   assert.doesNotMatch(formControls, /<select\b/);
   assert.match(formControls, /TextArea/);
   assert.match(formControls, /dark:bg-neutral-900/);
+  assert.match(formControls, /invalidControlClassName/);
+  assert.match(formControls, /ariaInvalid === true \|\| ariaInvalid === 'true'/);
+  assert.match(formControls, /aria-invalid=\{ariaInvalid\}/);
+  assert.match(formControls, /disabledControlClassName/);
   assert.match(dataTable, /DataTableHeaderCell/);
   assert.match(dataTable, /overflow-x-auto/);
   assert.match(statusBadge, /variantClassName/);

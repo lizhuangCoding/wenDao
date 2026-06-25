@@ -20,6 +20,9 @@ import { cn } from '@/utils';
 
 const controlClassName =
   'w-full rounded-xl border border-neutral-200 bg-white px-3 py-2.5 text-sm text-neutral-800 outline-none transition-colors placeholder:text-neutral-400 focus:border-primary-400 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100 dark:placeholder:text-neutral-500';
+const invalidControlClassName =
+  'border-red-300 bg-red-50/40 focus:border-red-400 focus:ring-4 focus:ring-red-500/10 dark:border-red-500/50 dark:bg-red-950/20';
+const disabledControlClassName = 'disabled:cursor-not-allowed disabled:bg-neutral-100 disabled:opacity-70 dark:disabled:bg-neutral-800';
 
 interface TextInputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'className'> {
   className?: string;
@@ -27,20 +30,26 @@ interface TextInputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'cl
 }
 
 export const TextInput = forwardRef<HTMLInputElement, TextInputProps>(
-  ({ className, leading, ...props }, ref) => (
-    <div className={cn('relative', className)}>
-      {leading ? (
-        <div className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 dark:text-neutral-500">
-          {leading}
-        </div>
-      ) : null}
-      <input
-        ref={ref}
-        className={cn(controlClassName, leading ? 'pl-9' : '')}
-        {...props}
-      />
-    </div>
-  )
+  ({ className, leading, disabled, 'aria-invalid': ariaInvalid, ...props }, ref) => {
+    const isInvalid = ariaInvalid === true || ariaInvalid === 'true';
+
+    return (
+      <div className={cn('relative', className)}>
+        {leading ? (
+          <div className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 dark:text-neutral-500">
+            {leading}
+          </div>
+        ) : null}
+        <input
+          ref={ref}
+          disabled={disabled}
+          aria-invalid={ariaInvalid}
+          className={cn(controlClassName, disabledControlClassName, leading ? 'pl-9' : '', isInvalid ? invalidControlClassName : '')}
+          {...props}
+        />
+      </div>
+    );
+  }
 );
 
 TextInput.displayName = 'TextInput';
@@ -63,13 +72,29 @@ const getOptionLabel = (children: ReactNode): string => {
 };
 
 export const SelectInput = forwardRef<HTMLButtonElement, SelectInputProps>(
-  ({ className, children, value, defaultValue, onChange, disabled, name, id, 'aria-label': ariaLabel }, ref) => {
+  (
+    {
+      className,
+      children,
+      value,
+      defaultValue,
+      onChange,
+      disabled,
+      name,
+      id,
+      'aria-label': ariaLabel,
+      'aria-invalid': ariaInvalid,
+      'aria-describedby': ariaDescribedBy,
+    },
+    ref
+  ) => {
     const generatedId = useId();
     const listboxId = `${id || generatedId}-listbox`;
     const rootRef = useRef<HTMLDivElement>(null);
     const [isOpen, setIsOpen] = useState(false);
     const [internalValue, setInternalValue] = useState(() => String(value ?? defaultValue ?? ''));
     const selectedValue = String(value ?? internalValue);
+    const isInvalid = ariaInvalid === true || ariaInvalid === 'true';
     const options = useMemo(() => {
       return Children.toArray(children)
         .filter(isValidElement)
@@ -132,12 +157,15 @@ export const SelectInput = forwardRef<HTMLButtonElement, SelectInputProps>(
           aria-controls={listboxId}
           aria-expanded={isOpen}
           aria-label={ariaLabel}
+          aria-invalid={ariaInvalid}
+          aria-describedby={ariaDescribedBy}
           disabled={disabled}
           onClick={() => setIsOpen((open) => !open)}
           onKeyDown={handleKeyDown}
           className={cn(
             controlClassName,
-            'flex min-h-10 items-center justify-between gap-3 pr-2.5 text-left shadow-sm hover:border-neutral-300 hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-60 dark:hover:border-neutral-600 dark:hover:bg-neutral-800'
+            'flex min-h-10 items-center justify-between gap-3 pr-2.5 text-left shadow-sm hover:border-neutral-300 hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-60 dark:hover:border-neutral-600 dark:hover:bg-neutral-800',
+            isInvalid ? invalidControlClassName : ''
           )}
         >
           <span className="truncate">{selectedOption?.label}</span>
@@ -187,13 +215,19 @@ interface TextAreaProps extends TextareaHTMLAttributes<HTMLTextAreaElement> {
 }
 
 export const TextArea = forwardRef<HTMLTextAreaElement, TextAreaProps>(
-  ({ className, ...props }, ref) => (
-    <textarea
-      ref={ref}
-      className={cn(controlClassName, 'min-h-28 resize-y', className)}
-      {...props}
-    />
-  )
+  ({ className, disabled, 'aria-invalid': ariaInvalid, ...props }, ref) => {
+    const isInvalid = ariaInvalid === true || ariaInvalid === 'true';
+
+    return (
+      <textarea
+        ref={ref}
+        disabled={disabled}
+        aria-invalid={ariaInvalid}
+        className={cn(controlClassName, disabledControlClassName, 'min-h-28 resize-y', isInvalid ? invalidControlClassName : '', className)}
+        {...props}
+      />
+    );
+  }
 );
 
 TextArea.displayName = 'TextArea';
