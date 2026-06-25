@@ -1,6 +1,5 @@
 import ReactMarkdown from 'react-markdown';
 import rehypeHighlight from 'rehype-highlight';
-import rehypeRaw from 'rehype-raw';
 import remarkGfm from 'remark-gfm';
 import { slugify } from '@/utils/markdown';
 import { CollapsibleCodeBlock } from './CollapsibleCodeBlock';
@@ -46,7 +45,7 @@ export const ArticleMarkdownRenderer = ({ content }: ArticleMarkdownRendererProp
   <div className="markdown-body">
     <ReactMarkdown
       remarkPlugins={[remarkGfm]}
-      rehypePlugins={[rehypeHighlight, rehypeRaw]}
+      rehypePlugins={[rehypeHighlight]}
       components={{ ...headingComponents, pre: CollapsibleCodeBlock }}
     >
       {content}

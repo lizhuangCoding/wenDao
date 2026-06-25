@@ -59,6 +59,21 @@ test('article reading styles visually distinguish nested unordered lists', async
   assert.match(deepNestedBulletBody, /w-3/);
 });
 
+test('article reading styles improve tables images and mobile rhythm', async () => {
+  const css = await loadMarkdownCss();
+  const tableBody = getRuleBody(css, '.article-reading-body table');
+  const imageBody = getRuleBody(css, '.article-reading-body img');
+
+  assert.match(tableBody, /min-width:\s*640px/);
+  assert.match(css, /\.article-reading-body \.markdown-body:has\(table\)/);
+  assert.match(css, /overflow-x:\s*auto/);
+  assert.match(imageBody, /mx-auto/);
+  assert.match(imageBody, /max-height:\s*72vh/);
+  assert.match(css, /@media \(max-width:\s*640px\)/);
+  assert.match(css, /\.article-reading-body h1[\s\S]*text-2xl/);
+  assert.match(css, /\.article-reading-body p[\s\S]*my-4/);
+});
+
 test('dark mode uses a deeper cool background and readable secondary text', async () => {
   const indexCss = await loadIndexCss();
   const layout = await loadSourceFile('components/common/Layout.tsx');

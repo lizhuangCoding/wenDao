@@ -320,6 +320,12 @@
 
 .article-reading-body table {
   @apply my-8 w-full border-collapse text-sm;
+  min-width: 640px;
+}
+
+.article-reading-body .markdown-body:has(table) {
+  overflow-x: auto;
+  scrollbar-width: thin;
 }
 
 .article-reading-body th,
@@ -336,7 +342,9 @@
 }
 
 .article-reading-body img {
-  @apply my-10 h-auto max-w-full rounded-2xl border border-neutral-200 shadow-soft dark:border-neutral-700;
+  @apply mx-auto my-10 h-auto max-w-full rounded-2xl border border-neutral-200 shadow-soft dark:border-neutral-700;
+  max-height: 72vh;
+  object-fit: contain;
 }
 
 .article-reading-body hr {
@@ -347,4 +355,35 @@
 
 .dark .article-reading-body hr {
   background: linear-gradient(90deg, transparent, rgb(38 38 38), transparent);
+}
+
+@media (max-width: 640px) {
+  .article-reading-body {
+    font-size: 15.5px;
+    line-height: 1.78;
+  }
+
+  .article-reading-body h1 {
+    @apply mb-4 mt-9 text-2xl;
+  }
+
+  .article-reading-body h2 {
+    @apply mb-3 mt-8 text-xl;
+  }
+
+  .article-reading-body h3 {
+    @apply mb-2 mt-7 text-lg;
+  }
+
+  .article-reading-body p {
+    @apply my-4;
+  }
+
+  .article-reading-body blockquote {
+    @apply my-6 rounded-r-xl py-3 pl-4 pr-4;
+  }
+
+  .article-reading-body pre {
+    @apply my-6 rounded-xl p-4 text-xs;
+  }
 }

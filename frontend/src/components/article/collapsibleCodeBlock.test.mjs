@@ -13,6 +13,15 @@ test('article renderer delegates pre blocks to the collapsible code block compon
   assert.match(source, /pre:\s*CollapsibleCodeBlock/);
 });
 
+test('article renderer keeps raw HTML disabled for public article content', async () => {
+  const source = await loadSourceFile('article/ArticleMarkdownRenderer.tsx');
+
+  assert.doesNotMatch(source, /rehypeRaw/);
+  assert.doesNotMatch(source, /allowDangerousHtml/);
+  assert.match(source, /remarkPlugins=\{\[remarkGfm\]\}/);
+  assert.match(source, /rehypePlugins=\{\[rehypeHighlight\]\}/);
+});
+
 test('collapsible code blocks default long snippets to collapsed state', async () => {
   const source = await loadSourceFile('article/CollapsibleCodeBlock.tsx');
 
