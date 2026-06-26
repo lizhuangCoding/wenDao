@@ -72,8 +72,7 @@ jobs:
           df -h || true
           echo "=== docker disk usage ==="
           docker system df || true
-          echo "=== prune docker build cache before deploy ==="
-          docker builder prune -af || true
+          echo "=== prune stopped containers and dangling images before deploy ==="
           docker container prune -f || true
           docker image prune -f || true
           echo "=== docker disk usage after prune ==="
@@ -81,6 +80,24 @@ jobs:
 
           export BUILDKIT_PROGRESS=plain
           export COMPOSE_PROGRESS=plain
+          retry() {
+            local attempts="$1"
+            local delay="$2"
+            shift 2
+
+            local attempt=1
+            until "$@"; do
+              local status="$?"
+              if [[ "$attempt" -ge "$attempts" ]]; then
+                return "$status"
+              fi
+
+              echo "Command failed with status ${status}; retrying in ${delay}s (${attempt}/${attempts})..."
+              sleep "$delay"
+              attempt=$((attempt + 1))
+            done
+          }
+
           dump_compose_debug() {
             status="$?"
             if [[ "$status" -ne 0 ]]; then
@@ -97,7 +114,9 @@ jobs:
           }
           trap dump_compose_debug EXIT
 
-          docker compose --env-file .env.production ${DEPLOY_COMPOSE_FILES} up -d --build
+          retry 3 20 docker compose --env-file .env.production ${DEPLOY_COMPOSE_FILES} build
+          docker compose --env-file .env.production ${DEPLOY_COMPOSE_FILES} up -d --no-build
           docker compose --env-file .env.production ${DEPLOY_COMPOSE_FILES} ps
-          docker image prune -f
+          docker builder prune -af || true
+          docker image prune -f || true
           REMOTE
