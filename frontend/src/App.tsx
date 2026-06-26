@@ -3,7 +3,7 @@ import { RouterProvider } from 'react-router-dom';
 import { HelmetProvider } from 'react-helmet-async';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { router } from './router';
-import { useAuthStore, useUIStore } from './store';
+import { useAuthStore, useThemeStore, useUIStore } from './store';
 import { shouldFetchCurrentUser } from './utils/pageBehavior';
 import './styles/index.css';
 import './styles/markdown.css';
@@ -51,7 +51,12 @@ const Toast = () => {
 
 function App() {
   const { token, fetchCurrentUser } = useAuthStore();
+  const initTheme = useThemeStore((state) => state.initTheme);
   const hasCheckedCookieAuthRef = useRef(false);
+
+  useEffect(() => {
+    initTheme();
+  }, [initTheme]);
 
   useEffect(() => {
     const hasCheckedCookieAuth = hasCheckedCookieAuthRef.current;

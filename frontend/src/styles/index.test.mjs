@@ -103,3 +103,17 @@ test('global button utilities include dark mode variants', async () => {
   assert.match(indexCss, /btn-secondary[\s\S]*dark:text-neutral-200/);
   assert.match(indexCss, /btn-secondary[\s\S]*dark:hover:bg-neutral-800/);
 });
+
+test('app initializes persisted theme before route pages render', async () => {
+  const app = await loadSourceFile('App.tsx');
+
+  assert.match(app, /useThemeStore/);
+  assert.match(app, /initTheme/);
+});
+
+test('theme store exposes dark mode to TDesign popup variables', async () => {
+  const themeStore = await loadSourceFile('store/themeStore.ts');
+
+  assert.match(themeStore, /setAttribute\('theme-mode', actualTheme\)/);
+  assert.match(themeStore, /classList\.toggle\('dark', actualTheme === 'dark'\)/);
+});

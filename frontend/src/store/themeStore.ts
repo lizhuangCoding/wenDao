@@ -20,6 +20,11 @@ const getAutoTheme = (): 'light' | 'dark' => {
   return hour >= 6 && hour < 18 ? 'light' : 'dark';
 };
 
+const applyThemeMode = (actualTheme: 'light' | 'dark') => {
+  document.documentElement.classList.toggle('dark', actualTheme === 'dark');
+  document.documentElement.setAttribute('theme-mode', actualTheme);
+};
+
 export const useThemeStore = create<ThemeState>()(
   persist(
     (set, get) => ({
@@ -52,11 +57,7 @@ export const useThemeStore = create<ThemeState>()(
           actualTheme = theme;
         }
 
-        if (actualTheme === 'dark') {
-          document.documentElement.classList.add('dark');
-        } else {
-          document.documentElement.classList.remove('dark');
-        }
+        applyThemeMode(actualTheme);
       },
     }),
     {
@@ -76,11 +77,7 @@ export const useThemeStore = create<ThemeState>()(
             } else {
               actualTheme = state.theme;
             }
-            if (actualTheme === 'dark') {
-              document.documentElement.classList.add('dark');
-            } else {
-              document.documentElement.classList.remove('dark');
-            }
+            applyThemeMode(actualTheme);
           }, 0);
         }
       },
