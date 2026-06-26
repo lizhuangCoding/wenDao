@@ -3,7 +3,7 @@ import { ArrowRight, Search, Sparkles, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import type { ArticleOrbitItem, Category, Tag } from '@/types';
-import { getArticlePlanetTimeLabel, type ArticlePlanetTimeMode } from './articlePlanetTime';
+import type { ArticlePlanetTimeMode } from './articlePlanetTime';
 import type { ArticlePlanetGravityRecommendation } from './articlePlanetGravity';
 
 interface ArticlePlanetOverlayProps {
@@ -52,6 +52,10 @@ export const ArticlePlanetOverlay = ({
   onTimeModeChange,
 }: ArticlePlanetOverlayProps) => {
   const { t } = useTranslation();
+  const timeLabel =
+    timeMode === 'all'
+      ? t('articlePlanet.allTime')
+      : t('articlePlanet.beforeYear', { year: timeMode });
 
   return (
     <div className="pointer-events-none absolute inset-0 z-10 flex flex-col justify-between overflow-y-auto overflow-x-hidden px-5 pb-8 pt-28 sm:justify-end sm:px-10 sm:pb-8 sm:pt-24 lg:px-12 lg:pb-14">
@@ -124,7 +128,7 @@ export const ArticlePlanetOverlay = ({
                     : 'border-white/15 bg-white/[0.04] text-white/60 hover:border-white/35 hover:text-white'
                 }`}
               >
-                全部标签
+                {t('articlePlanet.allTags')}
               </button>
               {tags.map((tag) => (
                 <button
@@ -146,10 +150,10 @@ export const ArticlePlanetOverlay = ({
           {planetYears.length > 0 && (
             <div className="pointer-events-auto mt-4 max-w-full sm:max-w-2xl">
               <div className="mb-2 flex items-center gap-3 text-[10px] font-black uppercase tracking-[0.22em] text-white/45">
-                <span>时间机器</span>
+                <span>{t('articlePlanet.timeMachine')}</span>
                 <span className="h-px w-8 bg-white/15" />
-                <span>{getArticlePlanetTimeLabel(timeMode)}</span>
-                <span>{visibleArticleCount}/{totalArticleCount} 篇</span>
+                <span>{timeLabel}</span>
+                <span>{t('articlePlanet.articleCountRatio', { visible: visibleArticleCount, total: totalArticleCount })}</span>
               </div>
               <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
                 <button
@@ -162,7 +166,7 @@ export const ArticlePlanetOverlay = ({
                       : 'border-white/15 bg-white/5 text-white/60 hover:border-white/35 hover:text-white'
                   }`}
                 >
-                  全部
+                  {t('articlePlanet.all')}
                 </button>
                 {planetYears.map((year) => (
                   <button
@@ -227,14 +231,14 @@ export const ArticlePlanetOverlay = ({
                 <div className="mb-3 flex items-center justify-between gap-3">
                   <div>
                     <p className="text-[10px] font-black uppercase tracking-[0.24em] text-cyan-200">
-                      引力推荐
+                      {t('articlePlanet.gravityRecommendations')}
                     </p>
                     <p className="mt-1 text-xs font-bold text-white/55">
-                      与当前星球语义相近
+                      {t('articlePlanet.gravityRecommendationHint')}
                     </p>
                   </div>
                   <span className="shrink-0 text-[10px] font-bold uppercase tracking-widest text-white/40">
-                    {activeGravityRecommendations.length} 篇
+                    {t('articlePlanet.articleCount', { count: activeGravityRecommendations.length })}
                   </span>
                 </div>
                 <div className="space-y-2">
@@ -259,14 +263,14 @@ export const ArticlePlanetOverlay = ({
                 <div className="mb-3 flex items-center justify-between gap-3">
                   <div>
                     <p className="text-[10px] font-black uppercase tracking-[0.24em] text-primary-300">
-                      星座路径
+                      {t('articlePlanet.constellationPath')}
                     </p>
                     <p className="mt-1 truncate text-sm font-bold text-white/85">
                       {activeArticle.collection.name}
                     </p>
                   </div>
                   <span className="shrink-0 text-[10px] font-bold uppercase tracking-widest text-white/40">
-                    {activeCollectionArticles.length} 篇
+                    {t('articlePlanet.articleCount', { count: activeCollectionArticles.length })}
                   </span>
                 </div>
                 <div className="space-y-2">

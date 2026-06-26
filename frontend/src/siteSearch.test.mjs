@@ -36,8 +36,8 @@ test('search page provides local search history without popular search shortcuts
   assert.match(source, /localStorage\.getItem\(SEARCH_HISTORY_KEY\)/);
   assert.match(source, /localStorage\.setItem\(SEARCH_HISTORY_KEY/);
   assert.match(source, /saveSearchHistory/);
-  assert.match(source, /搜索历史/);
-  assert.match(source, /清空历史/);
+  assert.match(source, /t\('searchPage\.history'\)/);
+  assert.match(source, /t\('searchPage\.clearHistory'\)/);
   assert.doesNotMatch(source, /POPULAR_SEARCH_TERMS/);
   assert.doesNotMatch(source, /热门搜索/);
 });

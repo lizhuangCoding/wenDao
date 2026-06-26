@@ -31,7 +31,7 @@ test('article summary card exposes the active collection reading path on mobile 
   const source = await readOverlaySource();
 
   assert.match(source, /activeCollectionArticles/);
-  assert.match(source, /星座路径/);
+  assert.match(source, /t\('articlePlanet\.constellationPath'\)/);
   assert.match(source, /activeArticle\.collection\.name/);
   assert.match(source, /activeCollectionArticles\.slice\(0, 5\)\.map/);
 });
@@ -41,8 +41,8 @@ test('article summary card exposes gravity recommendations on mobile and desktop
 
   assert.match(source, /activeGravityRecommendations/);
   assert.match(source, /ArticlePlanetGravityRecommendation/);
-  assert.match(source, /引力推荐/);
-  assert.match(source, /与当前星球语义相近/);
+  assert.match(source, /t\('articlePlanet\.gravityRecommendations'\)/);
+  assert.match(source, /t\('articlePlanet\.gravityRecommendationHint'\)/);
   assert.match(source, /Math\.round\(score \* 100\)/);
 });
 
@@ -52,7 +52,7 @@ test('article planet overlay exposes time machine controls', async () => {
   assert.match(source, /planetYears/);
   assert.match(source, /planetYears\.length > 0/);
   assert.doesNotMatch(source, /planetYears\.length > 1/);
-  assert.match(source, /时间机器/);
+  assert.match(source, /t\('articlePlanet\.timeMachine'\)/);
   assert.match(source, /onTimeModeChange\('all'\)/);
   assert.match(source, /onTimeModeChange\(year\)/);
   assert.match(source, /visibleArticleCount/);

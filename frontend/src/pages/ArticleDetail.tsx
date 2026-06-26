@@ -364,7 +364,7 @@ export const ArticleDetail = () => {
                 >
                   <Download size={18} />
                   <FileText size={16} />
-                  <span>导出 Markdown</span>
+                  <span>{t('article.exportMarkdown')}</span>
                 </button>
                 <button
                   type="button"
@@ -372,22 +372,25 @@ export const ArticleDetail = () => {
                   className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-4 py-2 text-sm font-bold text-neutral-600 transition-all hover:border-primary-200 hover:text-primary-600 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300 dark:hover:border-primary-500/40 dark:hover:text-primary-300"
                 >
                   <Printer size={18} />
-                  <span>导出 PDF</span>
+                  <span>{t('article.exportPdf')}</span>
                 </button>
               </div>
             </div>
 
             {article.collection_navigation && (
-              <nav className="article-print-hidden mt-12 rounded-xl border border-neutral-200 bg-white p-5 shadow-sm dark:border-neutral-700 dark:bg-neutral-900" aria-label="合集导航">
+              <nav className="article-print-hidden mt-12 rounded-xl border border-neutral-200 bg-white p-5 shadow-sm dark:border-neutral-700 dark:bg-neutral-900" aria-label={t('article.collectionNavigation')}>
                 <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-neutral-200 pb-4 dark:border-neutral-700">
                   <div>
-                    <p className="text-[10px] font-black uppercase tracking-[0.24em] text-primary-600 dark:text-primary-400">Collection</p>
+                    <p className="text-[10px] font-black uppercase tracking-[0.24em] text-primary-600 dark:text-primary-400">{t('article.collectionLabel')}</p>
                     <p className="mt-1 text-sm font-bold text-neutral-900 dark:text-neutral-100">
                       {article.collection_navigation.collection_name}
                     </p>
                   </div>
                   <span className="rounded-full bg-neutral-100 px-3 py-1 text-xs font-bold text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400">
-                    第 {article.collection_navigation.position} 篇 / 共 {article.collection_navigation.total} 篇
+                    {t('article.collectionPosition', {
+                      position: article.collection_navigation.position,
+                      total: article.collection_navigation.total,
+                    })}
                   </span>
                 </div>
                 <div className="grid gap-3 sm:grid-cols-2">
@@ -398,7 +401,7 @@ export const ArticleDetail = () => {
                     >
                       <span className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-[0.18em] text-neutral-400 group-hover:text-primary-600 dark:text-neutral-500 dark:group-hover:text-primary-300">
                         <ArrowLeft className="h-4 w-4" />
-                        上一篇
+                        {t('article.previousArticle')}
                       </span>
                       <span className="mt-3 line-clamp-2 text-sm font-bold leading-6 text-neutral-800 dark:text-neutral-200">
                         {article.collection_navigation.previous.title}
@@ -406,7 +409,7 @@ export const ArticleDetail = () => {
                     </Link>
                   ) : (
                     <div className="flex min-h-24 items-center rounded-lg border border-dashed border-neutral-200 p-4 text-sm font-medium text-neutral-400 dark:border-neutral-700 dark:text-neutral-600">
-                      已经是合集第一篇
+                      {t('article.firstInCollection')}
                     </div>
                   )}
                   {article.collection_navigation.next ? (
@@ -415,7 +418,7 @@ export const ArticleDetail = () => {
                       className="group flex min-h-24 flex-col justify-between rounded-lg border border-neutral-200 p-4 text-right transition-all hover:border-primary-200 hover:bg-primary-50/60 dark:border-neutral-700 dark:hover:border-primary-500/30 dark:hover:bg-primary-500/10"
                     >
                       <span className="inline-flex items-center justify-end gap-2 text-xs font-black uppercase tracking-[0.18em] text-neutral-400 group-hover:text-primary-600 dark:text-neutral-500 dark:group-hover:text-primary-300">
-                        下一篇
+                        {t('article.nextArticle')}
                         <ArrowRight className="h-4 w-4" />
                       </span>
                       <span className="mt-3 line-clamp-2 text-sm font-bold leading-6 text-neutral-800 dark:text-neutral-200">
@@ -424,7 +427,7 @@ export const ArticleDetail = () => {
                     </Link>
                   ) : (
                     <div className="flex min-h-24 items-center justify-end rounded-lg border border-dashed border-neutral-200 p-4 text-right text-sm font-medium text-neutral-400 dark:border-neutral-700 dark:text-neutral-600">
-                      已经是合集最后一篇
+                      {t('article.lastInCollection')}
                     </div>
                   )}
                 </div>

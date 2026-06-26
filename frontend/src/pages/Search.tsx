@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { Search as SearchIcon } from 'lucide-react';
 import { categoryApi, searchApi, tagApi } from '@/api';
 import {
@@ -56,6 +57,7 @@ const saveSearchHistory = (term: string) => {
 };
 
 export const Search = () => {
+  const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
   const query = searchParams.get('q')?.trim() ?? '';
   const categoryID = parsePositiveInt(searchParams.get('category_id'));
@@ -98,10 +100,10 @@ export const Search = () => {
 
   const totalPages = Math.max(1, searchData?.totalPages ?? 1);
   const resultSummary = useMemo(() => {
-    if (!hasSearchCriteria) return '输入关键词，或选择分类/标签开始搜索';
-    if (!searchData) return '正在搜索';
-    return `找到 ${searchData.total} 篇相关文章`;
-  }, [hasSearchCriteria, searchData]);
+    if (!hasSearchCriteria) return t('searchPage.summaryIdle');
+    if (!searchData) return t('searchPage.summaryLoading');
+    return t('searchPage.summaryFound', { count: searchData.total });
+  }, [hasSearchCriteria, searchData, t]);
 
   const updateParams = (next: { q?: string; category_id?: number; tag_id?: number; page?: number }) => {
     const params = new URLSearchParams(searchParams);
@@ -152,9 +154,9 @@ export const Search = () => {
     <Layout>
       <PageShell width="default" padding="lg">
         <PageHeader
-          eyebrow="Site Search"
-          title="站内搜索"
-          description="搜索文章标题、摘要、正文、分类和标签。"
+          eyebrow={t('searchPage.eyebrow')}
+          title={t('searchPage.title')}
+          description={t('searchPage.description')}
           className="mb-8"
         />
 
@@ -163,10 +165,10 @@ export const Search = () => {
             <TextInput
               value={inputValue}
               onChange={(event) => setInputValue(event.target.value)}
-              placeholder="搜索文章、主题或关键词"
+              placeholder={t('searchPage.placeholder')}
               leading={<SearchIcon className="h-4 w-4" />}
             />
-            <Button type="submit">搜索</Button>
+            <Button type="submit">{t('common.search')}</Button>
           </form>
 
           <div className="grid gap-3 sm:grid-cols-2">
@@ -179,7 +181,7 @@ export const Search = () => {
                 })
               }
             >
-              <option value="">全部分类</option>
+              <option value="">{t('searchPage.allCategories')}</option>
               {categories?.map((category) => (
                 <option key={category.id} value={category.id}>
                   {category.name}
@@ -195,7 +197,7 @@ export const Search = () => {
                 })
               }
             >
-              <option value="">全部标签</option>
+              <option value="">{t('searchPage.allTags')}</option>
               {tags?.map((tag) => (
                 <option key={tag.id} value={tag.id}>
                   {tag.name}
@@ -207,7 +209,7 @@ export const Search = () => {
           {!hasSearchCriteria && (
             <section className="border-t border-neutral-200 pt-4 dark:border-neutral-700">
               <div className="mb-3 flex items-center justify-between gap-3">
-                <h2 className="text-sm font-black text-neutral-800 dark:text-neutral-100">搜索历史</h2>
+                <h2 className="text-sm font-black text-neutral-800 dark:text-neutral-100">{t('searchPage.history')}</h2>
                 {searchHistory.length > 0 && (
                   <Button
                     type="button"
@@ -218,7 +220,7 @@ export const Search = () => {
                       setSearchHistory([]);
                     }}
                   >
-                    清空历史
+                    {t('searchPage.clearHistory')}
                   </Button>
                 )}
               </div>
@@ -237,7 +239,7 @@ export const Search = () => {
                 </div>
               ) : (
                 <p className="text-sm font-medium text-neutral-400 dark:text-neutral-500">
-                  暂无搜索历史
+                  {t('searchPage.noHistory')}
                 </p>
               )}
             </section>
@@ -256,21 +258,21 @@ export const Search = () => {
                 setSearchParams(new URLSearchParams());
               }}
             >
-              清空
+              {t('searchPage.clear')}
             </Button>
           )}
         </div>
 
         {!hasSearchCriteria ? (
-          <EmptyState title="开始一次站内搜索" description="输入关键词，或者选择分类/标签查看相关文章。" className="py-24" />
+          <EmptyState title={t('searchPage.emptyTitle')} description={t('searchPage.emptyDescription')} className="py-24" />
         ) : isLoading ? (
           <div className="flex justify-center py-20">
             <Loading />
           </div>
         ) : isError ? (
-          <ErrorState message={(error as any)?.message || '搜索失败'} onRetry={() => refetch()} className="mt-10" />
+          <ErrorState message={(error as any)?.message || t('searchPage.failed')} onRetry={() => refetch()} className="mt-10" />
         ) : searchData?.data?.length === 0 ? (
-          <EmptyState title="没有找到相关文章" description="换一个关键词，或放宽分类/标签筛选。" className="py-24" />
+          <EmptyState title={t('searchPage.noResultsTitle')} description={t('searchPage.noResultsDescription')} className="py-24" />
         ) : (
           <div className="divide-y divide-neutral-200 dark:divide-neutral-700">
             {searchData?.data.map((result) => {
@@ -322,8 +324,8 @@ export const Search = () => {
             total={searchData.total}
             pageSize={10}
             onChange={(page) => updateParams({ page })}
-            previousLabel="上一页"
-            nextLabel="下一页"
+            previousLabel={t('admin.previous')}
+            nextLabel={t('admin.next')}
             className="mt-10 border-t border-neutral-200 pt-8 dark:border-neutral-700"
           />
         )}
