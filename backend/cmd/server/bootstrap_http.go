@@ -38,14 +38,18 @@ func initHandlers(cfg *config.Config, repos *repositories, services *appServices
 	notificationHandler.SetUserIDProvider(func() ([]int64, error) {
 		return services.user.GetAllActiveUserIDs()
 	})
+	articleHandler := handler.NewArticleHandler(services.article, services.stat, services.setting, services.collection)
+	articleHandler.SetTaskRunner(services.taskRunner)
+	commentHandler := handler.NewCommentHandler(services.comment, services.stat)
+	commentHandler.SetTaskRunner(services.taskRunner)
 	return &appHandlers{
 		user:              handler.NewUserHandler(services.user, services.upload, services.oauth, services.verification, cfg),
 		auth:              handler.NewAuthHandler(services.user, cfg, rdb),
 		category:          handler.NewCategoryHandler(services.category),
 		tag:               handler.NewTagHandler(services.tag),
 		collection:        handler.NewCollectionHandler(services.collection),
-		article:           handler.NewArticleHandler(services.article, services.stat, services.setting, services.collection),
-		comment:           handler.NewCommentHandler(services.comment, services.stat),
+		article:           articleHandler,
+		comment:           commentHandler,
 		upload:            handler.NewUploadHandler(services.upload),
 		ai:                handler.NewAIHandler(services.ai, cfg, repos.conversationRun),
 		site:              handler.NewSiteHandler(cfg, services.article, services.setting),

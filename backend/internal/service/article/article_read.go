@@ -8,7 +8,6 @@ import (
 	"gorm.io/gorm"
 
 	"wenDao/internal/model"
-	"wenDao/internal/pkg/async"
 	"wenDao/internal/repository"
 	"wenDao/internal/svcerrors"
 )
@@ -28,10 +27,14 @@ func (s *articleService) GetByID(id int64) (*model.Article, error) {
 		return nil, fmt.Errorf("failed to get article: %w", err)
 	}
 
-	async.Go(context.Background(), s.logger, "cache article by id", func(ctx context.Context) error {
+	if s.taskRunner != nil {
+		_ = s.taskRunner.Submit(nil, "cache article by id", func(ctx context.Context) error {
+			s.setArticleToCache(article)
+			return nil
+		})
+	} else {
 		s.setArticleToCache(article)
-		return nil
-	})
+	}
 	return article, nil
 }
 
@@ -50,10 +53,14 @@ func (s *articleService) GetBySlug(slug string) (*model.Article, error) {
 		return nil, fmt.Errorf("failed to get article: %w", err)
 	}
 
-	async.Go(context.Background(), s.logger, "cache article by slug", func(ctx context.Context) error {
+	if s.taskRunner != nil {
+		_ = s.taskRunner.Submit(nil, "cache article by slug", func(ctx context.Context) error {
+			s.setArticleToCache(article)
+			return nil
+		})
+	} else {
 		s.setArticleToCache(article)
-		return nil
-	})
+	}
 	return article, nil
 }
 

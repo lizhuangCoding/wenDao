@@ -3,11 +3,13 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"time"
 
 	"go.uber.org/zap"
 
 	"wenDao/config"
 	"wenDao/internal/model"
+	"wenDao/internal/pkg/async"
 	"wenDao/internal/pkg/eino"
 	"wenDao/internal/service"
 	aisvc "wenDao/internal/service/ai"
@@ -32,6 +34,7 @@ type appServices struct {
 	stat              *service.StatService
 	notification      service.NotificationService
 	asyncJob          service.AsyncJobService
+	taskRunner        async.Runner
 }
 
 func initServices(cfg *config.Config, logger *zap.Logger, repos *repositories, infra *infrastructure, aiCore *aiComponents) (*appServices, func(), error) {
@@ -42,6 +45,7 @@ func initServices(cfg *config.Config, logger *zap.Logger, repos *repositories, i
 	userService := service.NewUserService(repos.user, oauthService, cfg, rdb)
 	commentReplyEmailSender := service.NewSMTPCommentReplyEmailSender(cfg.Email, cfg.Site.URL)
 	notifSvc := service.NewNotificationService(repos.notification)
+	taskRunner := async.NewTaskRunner(context.Background(), logger, async.WithDefaultTimeout(5*time.Second))
 	var vectorService service.VectorService
 	asyncJobService := service.NewAsyncJobService(
 		repos.asyncJob,
@@ -199,12 +203,13 @@ func initServices(cfg *config.Config, logger *zap.Logger, repos *repositories, i
 			vector:            vectorService,
 			knowledgeDocument: knowledgeDocumentService,
 			ai:                aiService,
-			article:           service.NewArticleService(repos.article, repos.category, infra.rdb, vectorService, logger, repos.articleSemanticProfile, repos.tag, service.WithArticleWriteTransactionRunner(service.NewArticleWriteTransactionRunner(infra.db))),
+			article:           service.NewArticleService(repos.article, repos.category, infra.rdb, vectorService, logger, repos.articleSemanticProfile, repos.tag, service.WithArticleWriteTransactionRunner(service.NewArticleWriteTransactionRunner(infra.db)), service.WithArticleTaskRunner(taskRunner)),
 			comment:           service.NewCommentService(repos.comment, repos.article, service.WithReplyNotificationSender(commentReplyEmailSender), service.WithCommentNotificationService(notifSvc), service.WithCommentUserRepository(repos.user), service.WithArticleCacheInvalidation(infra.rdb), service.WithCommentWriteTransactionRunner(service.NewCommentWriteTransactionRunner(infra.db))),
 			upload:            service.NewUploadService(repos.upload, cfg),
 			stat:              service.NewStatService(repos.stat, infra.rdb),
 			notification:      notifSvc,
 			asyncJob:          asyncJobService,
+			taskRunner:        taskRunner,
 		}, cleanup, nil
 	}
 
@@ -219,12 +224,13 @@ func initServices(cfg *config.Config, logger *zap.Logger, repos *repositories, i
 		vector:            nil,
 		knowledgeDocument: knowledgeDocumentService,
 		ai:                aiService,
-		article:           service.NewArticleService(repos.article, repos.category, infra.rdb, nil, logger, repos.articleSemanticProfile, repos.tag, service.WithArticleWriteTransactionRunner(service.NewArticleWriteTransactionRunner(infra.db))),
+		article:           service.NewArticleService(repos.article, repos.category, infra.rdb, nil, logger, repos.articleSemanticProfile, repos.tag, service.WithArticleWriteTransactionRunner(service.NewArticleWriteTransactionRunner(infra.db)), service.WithArticleTaskRunner(taskRunner)),
 		comment:           service.NewCommentService(repos.comment, repos.article, service.WithReplyNotificationSender(commentReplyEmailSender), service.WithCommentNotificationService(notifSvc), service.WithCommentUserRepository(repos.user), service.WithArticleCacheInvalidation(infra.rdb), service.WithCommentWriteTransactionRunner(service.NewCommentWriteTransactionRunner(infra.db))),
 		upload:            service.NewUploadService(repos.upload, cfg),
 		stat:              service.NewStatService(repos.stat, infra.rdb),
 		notification:      notifSvc,
 		asyncJob:          asyncJobService,
+		taskRunner:        taskRunner,
 	}, cleanup, nil
 }
 

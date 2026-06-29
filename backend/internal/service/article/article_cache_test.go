@@ -11,6 +11,7 @@ import (
 	"github.com/redis/go-redis/v9"
 
 	"wenDao/internal/model"
+	"wenDao/internal/pkg/async"
 	"wenDao/internal/repository"
 )
 
@@ -195,6 +196,18 @@ func (r *cacheCategoryRepoStub) Delete(id int64) error                 { return 
 func (r *cacheCategoryRepoStub) IncrementArticleCount(id int64) error  { return nil }
 func (r *cacheCategoryRepoStub) DecrementArticleCount(id int64) error  { return nil }
 
+type articleCacheTaskRunnerStub struct {
+	submitted []string
+}
+
+func (r *articleCacheTaskRunnerStub) Submit(ctx context.Context, task string, fn func(context.Context) error, opts ...async.TaskOption) error {
+	r.submitted = append(r.submitted, task)
+	return fn(ctx)
+}
+
+func (r *articleCacheTaskRunnerStub) Shutdown(ctx context.Context) error { return nil }
+func (r *articleCacheTaskRunnerStub) Stats() async.TaskRunnerStats       { return async.TaskRunnerStats{} }
+
 func TestArticleServiceGetBySlug_UsesCachedDetail(t *testing.T) {
 	repo := &cacheArticleRepoStub{
 		article: &model.Article{ID: 7, Title: "cached", Slug: "cached", Status: "published"},
@@ -218,6 +231,26 @@ func TestArticleServiceGetBySlug_UsesCachedDetail(t *testing.T) {
 	}
 	if article == nil || article.ID != 7 || article.Slug != "cached" {
 		t.Fatalf("unexpected cached article: %#v", article)
+	}
+}
+
+func TestArticleServiceGetBySlug_SubmitsCacheWarmupToTaskRunner(t *testing.T) {
+	repo := &cacheArticleRepoStub{
+		article: &model.Article{ID: 7, Title: "cached", Slug: "cached", Status: "published"},
+	}
+	cache := newMemoryArticleCacheStore()
+	runner := &articleCacheTaskRunnerStub{}
+	svc := newArticleServiceWithCacheStore(repo, &cacheCategoryRepoStub{}, cache, nil, nil, WithTaskRunner(runner))
+
+	article, err := svc.GetBySlug("cached")
+	if err != nil {
+		t.Fatalf("expected lookup success, got %v", err)
+	}
+	if article == nil || article.ID != 7 {
+		t.Fatalf("unexpected article: %#v", article)
+	}
+	if len(runner.submitted) != 1 || runner.submitted[0] != "cache article by slug" {
+		t.Fatalf("expected cache warmup task submission, got %#v", runner.submitted)
 	}
 }
 

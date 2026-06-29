@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"mime/multipart"
 	"testing"
 	"time"
@@ -9,6 +10,7 @@ import (
 
 	"wenDao/config"
 	"wenDao/internal/model"
+	"wenDao/internal/pkg/async"
 	"wenDao/internal/service"
 )
 
@@ -39,12 +41,13 @@ func (s *immediateCleanupUploadService) CleanupUnreferenced(now time.Time) (serv
 
 func TestStartUploadCleanupScheduler_RunsCleanupImmediately(t *testing.T) {
 	uploadService := &immediateCleanupUploadService{called: make(chan time.Time, 1)}
+	runner := async.NewTaskRunner(context.Background(), zap.NewNop())
 	stop := startUploadCleanupScheduler(&config.Config{
 		Upload: config.UploadConfig{
 			CleanupEnabled:       true,
 			CleanupIntervalHours: 24,
 		},
-	}, zap.NewNop(), uploadService)
+	}, zap.NewNop(), runner, uploadService)
 	defer stop()
 
 	select {
@@ -131,7 +134,8 @@ func (s *immediateArticleSchedulerService) SetScheduledPublishAt(articleID int64
 
 func TestStartArticleScheduler_RunsImmediately(t *testing.T) {
 	articleService := &immediateArticleSchedulerService{published: make(chan int64, 1)}
-	stop := startArticleScheduler(zap.NewNop(), articleService)
+	runner := async.NewTaskRunner(context.Background(), zap.NewNop())
+	stop := startArticleScheduler(zap.NewNop(), runner, articleService)
 	defer stop()
 
 	select {
@@ -141,5 +145,19 @@ func TestStartArticleScheduler_RunsImmediately(t *testing.T) {
 		}
 	case <-time.After(250 * time.Millisecond):
 		t.Fatal("expected article scheduler to process due articles immediately after start")
+	}
+}
+
+func TestStartBackgroundTasks_ShutsDownTaskRunner(t *testing.T) {
+	runner := async.NewTaskRunner(context.Background(), zap.NewNop())
+	services := &appServices{taskRunner: runner}
+
+	stop := startBackgroundTasks(&config.Config{}, zap.NewNop(), services)
+	stop()
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	if err := runner.Shutdown(shutdownCtx); err == nil {
+		t.Fatal("expected second shutdown to fail after startBackgroundTasks stop")
 	}
 }

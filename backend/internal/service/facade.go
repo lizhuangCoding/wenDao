@@ -8,6 +8,7 @@ import (
 	"gorm.io/gorm"
 
 	"wenDao/config"
+	"wenDao/internal/pkg/async"
 	"wenDao/internal/pkg/eino"
 	articlerepo "wenDao/internal/repository/article"
 	asyncjobrepo "wenDao/internal/repository/asyncjob"
@@ -71,6 +72,7 @@ type ArticleWriteTransactionRunner = articlesvc.WriteTransactionRunner
 type CommentReplyNotificationSender = commentsvc.CommentReplyNotificationSender
 type NotificationService = notifsvc.NotificationService
 type AsyncJobService = asyncjobsvc.Service
+type TaskRunner = async.Runner
 type UploadService = uploadsvc.UploadService
 type UploadCleanupResult = uploadsvc.UploadCleanupResult
 type StatService = statsvc.StatService
@@ -153,6 +155,9 @@ func NewArticleService(articleRepo articlerepo.ArticleRepository, categoryRepo c
 }
 func WithArticleWriteTransactionRunner(runner ArticleWriteTransactionRunner) ArticleServiceOption {
 	return articlesvc.WithWriteTransactionRunner(runner)
+}
+func WithArticleTaskRunner(runner TaskRunner) ArticleServiceOption {
+	return articlesvc.WithTaskRunner(runner)
 }
 func NewArticleWriteTransactionRunner(db *gorm.DB) ArticleWriteTransactionRunner {
 	return articlesvc.NewGormWriteTransactionRunner(db)

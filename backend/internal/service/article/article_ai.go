@@ -26,17 +26,28 @@ func (s *articleService) vectorizeArticleAsync(id int64, title, content, slug st
 	}
 
 	s.updateAIIndexStatus(id, "pending")
-	async.Go(context.Background(), s.logger, "vectorize article", func(ctx context.Context) error {
-		if err := s.vectorService.VectorizeArticle(id, title, content, slug); err != nil {
-			s.logger.Error("Failed to vectorize article",
-				zap.Int64("article_id", id),
-				zap.Error(err))
-			s.updateAIIndexStatus(id, "failed")
+	if s.taskRunner != nil {
+		_ = s.taskRunner.Submit(nil, "vectorize article", func(ctx context.Context) error {
+			if err := s.vectorService.VectorizeArticle(id, title, content, slug); err != nil {
+				s.logger.Error("Failed to vectorize article",
+					zap.Int64("article_id", id),
+					zap.Error(err))
+				s.updateAIIndexStatus(id, "failed")
+				return nil
+			}
+			s.updateAIIndexStatus(id, "success")
 			return nil
-		}
-		s.updateAIIndexStatus(id, "success")
-		return nil
-	})
+		}, async.WithTimeout(0))
+		return
+	}
+	if err := s.vectorService.VectorizeArticle(id, title, content, slug); err != nil {
+		s.logger.Error("Failed to vectorize article",
+			zap.Int64("article_id", id),
+			zap.Error(err))
+		s.updateAIIndexStatus(id, "failed")
+		return
+	}
+	s.updateAIIndexStatus(id, "success")
 }
 
 func (s *articleService) deleteArticleVectorAsync(id int64) {
@@ -44,14 +55,22 @@ func (s *articleService) deleteArticleVectorAsync(id int64) {
 		return
 	}
 
-	async.Go(context.Background(), s.logger, "delete article vectors", func(ctx context.Context) error {
-		if err := s.vectorService.DeleteArticleVector(id); err != nil {
-			s.logger.Error("Failed to delete article vectors",
-				zap.Int64("article_id", id),
-				zap.Error(err))
-		}
-		return nil
-	})
+	if s.taskRunner != nil {
+		_ = s.taskRunner.Submit(nil, "delete article vectors", func(ctx context.Context) error {
+			if err := s.vectorService.DeleteArticleVector(id); err != nil {
+				s.logger.Error("Failed to delete article vectors",
+					zap.Int64("article_id", id),
+					zap.Error(err))
+			}
+			return nil
+		}, async.WithTimeout(0))
+		return
+	}
+	if err := s.vectorService.DeleteArticleVector(id); err != nil {
+		s.logger.Error("Failed to delete article vectors",
+			zap.Int64("article_id", id),
+			zap.Error(err))
+	}
 }
 
 func (s *articleService) enqueueVectorizeJob(jobRepo asyncjobrepo.AsyncJobRepository, id int64, title, content, slug string) error {

@@ -7,7 +7,8 @@ import (
 	"go.uber.org/zap"
 )
 
-// Go starts a fire-and-forget task with panic recovery and structured logging.
+// Go starts a legacy fire-and-forget task with panic recovery and structured logging.
+// Prefer TaskRunner for application code that needs lifecycle control.
 func Go(ctx context.Context, logger *zap.Logger, task string, fn func(context.Context) error) {
 	if ctx == nil {
 		ctx = context.Background()

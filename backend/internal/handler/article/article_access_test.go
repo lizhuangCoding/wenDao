@@ -2,6 +2,7 @@ package article
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -11,6 +12,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"wenDao/internal/model"
+	"wenDao/internal/pkg/async"
 	"wenDao/internal/service"
 	"wenDao/internal/service/setting"
 )
@@ -35,6 +37,35 @@ type stubArticleService struct {
 	stateArticleID     int64
 	listUserID         int64
 	listType           string
+}
+
+type recordingTaskRunner struct {
+	submitted []string
+}
+
+func (r *recordingTaskRunner) Submit(ctx context.Context, task string, fn func(context.Context) error, opts ...async.TaskOption) error {
+	r.submitted = append(r.submitted, task)
+	return fn(ctx)
+}
+
+func (r *recordingTaskRunner) Shutdown(ctx context.Context) error { return nil }
+func (r *recordingTaskRunner) Stats() async.TaskRunnerStats       { return async.TaskRunnerStats{} }
+
+type stubArticleStatRecorder struct {
+	pvCalls int
+	uvCalls int
+	lastIP  string
+}
+
+func (s *stubArticleStatRecorder) RecordPVContext(ctx context.Context) error {
+	s.pvCalls++
+	return nil
+}
+
+func (s *stubArticleStatRecorder) RecordUVContext(ctx context.Context, ip string) error {
+	s.uvCalls++
+	s.lastIP = ip
+	return nil
 }
 
 func (s *stubArticleService) Create(title, content, summary string, categoryID, authorID int64, coverImage *string, status string) (*model.Article, error) {
@@ -180,6 +211,35 @@ func TestArticleHandlerGetByID_AllowsAdminToReadDraft(t *testing.T) {
 	}
 	if len(articleSvc.incrViewCountIDs) != 0 {
 		t.Fatalf("expected admin article fetch to avoid public view increments, got %v", articleSvc.incrViewCountIDs)
+	}
+}
+
+func TestArticleHandlerGetBySlug_SubmitsViewStatTaskToRunner(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	articleSvc := &stubArticleService{
+		articleBySlug: &model.Article{ID: 7, Slug: "hello", Status: "published", Title: "hello"},
+	}
+	statRecorder := &stubArticleStatRecorder{}
+	runner := &recordingTaskRunner{}
+	h := NewArticleHandler(articleSvc, statRecorder, &stubSettingService{})
+	h.SetTaskRunner(runner)
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest(http.MethodGet, "/api/articles/slug/hello", nil)
+	c.Request.RemoteAddr = "127.0.0.1:12345"
+	c.Params = gin.Params{{Key: "slug", Value: "hello"}}
+
+	h.GetBySlug(c)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d body=%s", w.Code, w.Body.String())
+	}
+	if len(runner.submitted) != 1 || runner.submitted[0] != "record article view stats" {
+		t.Fatalf("expected one stat task submission, got %#v", runner.submitted)
+	}
+	if statRecorder.pvCalls != 1 || statRecorder.uvCalls != 1 {
+		t.Fatalf("expected pv/uv calls once, got pv=%d uv=%d", statRecorder.pvCalls, statRecorder.uvCalls)
 	}
 }
 

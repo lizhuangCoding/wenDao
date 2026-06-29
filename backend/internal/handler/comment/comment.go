@@ -4,9 +4,9 @@ import (
 	"context"
 	"errors"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
-	"go.uber.org/zap"
 
 	"wenDao/internal/pkg/async"
 	"wenDao/internal/pkg/pagination"
@@ -19,14 +19,25 @@ import (
 // CommentHandler 评论处理器
 type CommentHandler struct {
 	commentService service.CommentService
-	statService    *service.StatService
+	statService    commentStatRecorder
+	taskRunner     async.Runner
+}
+
+type commentStatRecorder interface {
+	RecordCommentCountContext(ctx context.Context) error
 }
 
 // NewCommentHandler 创建评论处理器实例
-func NewCommentHandler(commentService service.CommentService, statService *service.StatService) *CommentHandler {
+func NewCommentHandler(commentService service.CommentService, statService commentStatRecorder) *CommentHandler {
 	return &CommentHandler{
 		commentService: commentService,
 		statService:    statService,
+	}
+}
+
+func (h *CommentHandler) SetTaskRunner(runner async.Runner) {
+	if h != nil {
+		h.taskRunner = runner
 	}
 }
 
@@ -76,7 +87,18 @@ func (h *CommentHandler) Create(c *gin.Context) {
 	// 记录评论数统计（异步）
 	if h.statService != nil {
 		ctx := context.WithoutCancel(c.Request.Context())
-		async.Go(ctx, zap.L(), "record comment count", h.statService.RecordCommentCountContext)
+		if h.taskRunner != nil {
+			_ = h.taskRunner.Submit(
+				ctx,
+				"record comment count",
+				h.statService.RecordCommentCountContext,
+				async.WithTimeout(3*time.Second),
+				async.WithRetries(1),
+				async.WithRetryDelay(func(attempt int) time.Duration { return 100 * time.Millisecond }),
+			)
+		} else {
+			_ = h.statService.RecordCommentCountContext(ctx)
+		}
 	}
 
 	response.Success(c, comment)

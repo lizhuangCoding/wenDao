@@ -11,6 +11,7 @@ import (
 	"gorm.io/gorm"
 
 	"wenDao/internal/model"
+	"wenDao/internal/pkg/async"
 	"wenDao/internal/repository"
 	"wenDao/internal/svcerrors"
 )
@@ -58,6 +59,7 @@ type articleService struct {
 	logger        *zap.Logger
 	cacheGroup    singleflight.Group
 	writeTxRunner WriteTransactionRunner
+	taskRunner    async.Runner
 }
 
 // NewArticleService 创建文章服务实例

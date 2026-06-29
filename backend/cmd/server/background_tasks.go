@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"go.uber.org/zap"
@@ -12,16 +13,18 @@ import (
 )
 
 func startBackgroundTasks(cfg *config.Config, logger *zap.Logger, services *appServices) func() {
+	var runner async.Runner
 	stopLogCleanup := startLogCleanupScheduler(cfg, logger)
 	stopUploadCleanup := func() {}
 	stopStatFlush := func() {}
 	stopArticleScheduler := func() {}
 	stopAsyncJobWorker := func() {}
 	if services != nil {
-		stopUploadCleanup = startUploadCleanupScheduler(cfg, logger, services.upload)
-		stopStatFlush = startStatFlushScheduler(logger, services.stat)
-		stopArticleScheduler = startArticleScheduler(logger, services.article)
-		stopAsyncJobWorker = startAsyncJobWorker(logger, services.asyncJob)
+		runner = services.taskRunner
+		stopUploadCleanup = startUploadCleanupScheduler(cfg, logger, runner, services.upload)
+		stopStatFlush = startStatFlushScheduler(logger, runner, services.stat)
+		stopArticleScheduler = startArticleScheduler(logger, runner, services.article)
+		stopAsyncJobWorker = startAsyncJobWorker(logger, runner, services.asyncJob)
 	}
 
 	return func() {
@@ -30,11 +33,18 @@ func startBackgroundTasks(cfg *config.Config, logger *zap.Logger, services *appS
 		stopStatFlush()
 		stopArticleScheduler()
 		stopAsyncJobWorker()
+		if runner != nil {
+			shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			if err := runner.Shutdown(shutdownCtx); err != nil && !errors.Is(err, async.ErrTaskRunnerClosed) {
+				logger.Warn("Task runner shutdown failed", zap.Error(err))
+			}
+		}
 	}
 }
 
-func startUploadCleanupScheduler(cfg *config.Config, logger *zap.Logger, uploadService service.UploadService) func() {
-	if cfg == nil || logger == nil || uploadService == nil || !cfg.Upload.CleanupEnabled {
+func startUploadCleanupScheduler(cfg *config.Config, logger *zap.Logger, runner async.Runner, uploadService service.UploadService) func() {
+	if cfg == nil || logger == nil || runner == nil || uploadService == nil || !cfg.Upload.CleanupEnabled {
 		return func() {}
 	}
 
@@ -44,7 +54,7 @@ func startUploadCleanupScheduler(cfg *config.Config, logger *zap.Logger, uploadS
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	async.Go(ctx, logger, "upload cleanup scheduler", func(ctx context.Context) error {
+	if err := runner.Submit(ctx, "upload cleanup scheduler", func(ctx context.Context) error {
 		ticker := time.NewTicker(interval)
 		defer ticker.Stop()
 
@@ -64,7 +74,11 @@ func startUploadCleanupScheduler(cfg *config.Config, logger *zap.Logger, uploadS
 				return nil
 			}
 		}
-	})
+	}, async.WithTimeout(0)); err != nil {
+		logger.Warn("Failed to start upload cleanup scheduler", zap.Error(err))
+		cancel()
+		return func() {}
+	}
 
 	return cancel
 }
@@ -81,13 +95,13 @@ func runUploadCleanup(logger *zap.Logger, uploadService service.UploadService) {
 		zap.Int("skipped", result.Skipped))
 }
 
-func startStatFlushScheduler(logger *zap.Logger, statService *service.StatService) func() {
-	if logger == nil || statService == nil {
+func startStatFlushScheduler(logger *zap.Logger, runner async.Runner, statService *service.StatService) func() {
+	if logger == nil || runner == nil || statService == nil {
 		return func() {}
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	async.Go(ctx, logger, "stat flush scheduler", func(ctx context.Context) error {
+	if err := runner.Submit(ctx, "stat flush scheduler", func(ctx context.Context) error {
 		ticker := time.NewTicker(time.Minute)
 		defer ticker.Stop()
 
@@ -104,18 +118,22 @@ func startStatFlushScheduler(logger *zap.Logger, statService *service.StatServic
 				return nil
 			}
 		}
-	})
+	}, async.WithTimeout(0)); err != nil {
+		logger.Warn("Failed to start stat flush scheduler", zap.Error(err))
+		cancel()
+		return func() {}
+	}
 
 	return cancel
 }
 
-func startArticleScheduler(logger *zap.Logger, articleService service.ArticleService) func() {
-	if logger == nil || articleService == nil {
+func startArticleScheduler(logger *zap.Logger, runner async.Runner, articleService service.ArticleService) func() {
+	if logger == nil || runner == nil || articleService == nil {
 		return func() {}
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	async.Go(ctx, logger, "article scheduler", func(ctx context.Context) error {
+	if err := runner.Submit(ctx, "article scheduler", func(ctx context.Context) error {
 		ticker := time.NewTicker(30 * time.Second)
 		defer ticker.Stop()
 
@@ -131,7 +149,11 @@ func startArticleScheduler(logger *zap.Logger, articleService service.ArticleSer
 				runArticleSchedulerOnce(logger, articleService)
 			}
 		}
-	})
+	}, async.WithTimeout(0)); err != nil {
+		logger.Warn("Failed to start article scheduler", zap.Error(err))
+		cancel()
+		return func() {}
+	}
 
 	return cancel
 }
@@ -169,13 +191,13 @@ func runStatFlush(logger *zap.Logger, statService *service.StatService) {
 	}
 }
 
-func startAsyncJobWorker(logger *zap.Logger, asyncJobService service.AsyncJobService) func() {
-	if logger == nil || asyncJobService == nil {
+func startAsyncJobWorker(logger *zap.Logger, runner async.Runner, asyncJobService service.AsyncJobService) func() {
+	if logger == nil || runner == nil || asyncJobService == nil {
 		return func() {}
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	async.Go(ctx, logger, "async job worker", func(ctx context.Context) error {
+	if err := runner.Submit(ctx, "async job worker", func(ctx context.Context) error {
 		ticker := time.NewTicker(5 * time.Second)
 		defer ticker.Stop()
 
@@ -191,7 +213,11 @@ func startAsyncJobWorker(logger *zap.Logger, asyncJobService service.AsyncJobSer
 				runAsyncJobsOnce(ctx, logger, asyncJobService)
 			}
 		}
-	})
+	}, async.WithTimeout(0)); err != nil {
+		logger.Warn("Failed to start async job worker", zap.Error(err))
+		cancel()
+		return func() {}
+	}
 
 	return cancel
 }
@@ -210,7 +236,8 @@ func startLogCleanupScheduler(cfg *config.Config, logger *zap.Logger) func() {
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	async.Go(ctx, logger, "log cleanup scheduler", func(ctx context.Context) error {
+	runner := async.NewTaskRunner(context.Background(), logger, async.WithDefaultTimeout(0))
+	if err := runner.Submit(ctx, "log cleanup scheduler", func(ctx context.Context) error {
 		const cleanupInterval = 24 * time.Hour
 		ticker := time.NewTicker(cleanupInterval)
 		defer ticker.Stop()
@@ -228,9 +255,17 @@ func startLogCleanupScheduler(cfg *config.Config, logger *zap.Logger) func() {
 				return nil
 			}
 		}
-	})
+	}, async.WithTimeout(0)); err != nil {
+		cancel()
+		return func() {}
+	}
 
-	return cancel
+	return func() {
+		cancel()
+		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer shutdownCancel()
+		_ = runner.Shutdown(shutdownCtx)
+	}
 }
 
 func runLogCleanup(logger *zap.Logger, cfg config.LogConfig) {

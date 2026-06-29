@@ -2,6 +2,7 @@ package comment
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -10,26 +11,31 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"wenDao/internal/model"
+	"wenDao/internal/pkg/async"
 	"wenDao/internal/repository"
 )
 
 type stubCommentService struct {
-	listPage      int
-	listPageSize  int
-	listStatus    string
-	listKeyword   string
-	total         int64
-	batchIDs      []int64
-	unlikeID      int64
-	undislikeID   int64
-	likeUserID    int64
-	likeID        int64
-	dislikeID     int64
-	dislikeUserID int64
+	createdComment *model.Comment
+	listPage       int
+	listPageSize   int
+	listStatus     string
+	listKeyword    string
+	total          int64
+	batchIDs       []int64
+	unlikeID       int64
+	undislikeID    int64
+	likeUserID     int64
+	likeID         int64
+	dislikeID      int64
+	dislikeUserID  int64
 }
 
 func (s *stubCommentService) Create(articleID, userID int64, content string, parentID, replyToUserID *int64) (*model.Comment, error) {
-	return nil, nil
+	if s.createdComment != nil {
+		return s.createdComment, nil
+	}
+	return &model.Comment{ID: 1, ArticleID: articleID, UserID: userID, Content: content}, nil
 }
 
 func (s *stubCommentService) GetByArticleID(articleID int64) ([]*model.Comment, error) {
@@ -80,6 +86,27 @@ func (s *stubCommentService) Unlike(commentID, userID int64) error {
 
 func (s *stubCommentService) Undislike(commentID, userID int64) error {
 	s.undislikeID = commentID
+	return nil
+}
+
+type recordingTaskRunner struct {
+	submitted []string
+}
+
+func (r *recordingTaskRunner) Submit(ctx context.Context, task string, fn func(context.Context) error, opts ...async.TaskOption) error {
+	r.submitted = append(r.submitted, task)
+	return fn(ctx)
+}
+
+func (r *recordingTaskRunner) Shutdown(ctx context.Context) error { return nil }
+func (r *recordingTaskRunner) Stats() async.TaskRunnerStats       { return async.TaskRunnerStats{} }
+
+type stubCommentStatRecorder struct {
+	recordCommentCountCalls int
+}
+
+func (s *stubCommentStatRecorder) RecordCommentCountContext(ctx context.Context) error {
+	s.recordCommentCountCalls++
 	return nil
 }
 
@@ -229,5 +256,32 @@ func TestCommentHandlerDislike_UsesAuthenticatedUserID(t *testing.T) {
 	}
 	if commentSvc.dislikeID != 90 || commentSvc.dislikeUserID != 11 {
 		t.Fatalf("expected dislike comment 90 by user 11, got id=%d user=%d", commentSvc.dislikeID, commentSvc.dislikeUserID)
+	}
+}
+
+func TestCommentHandlerCreate_SubmitsCommentStatTaskToRunner(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	commentSvc := &stubCommentService{createdComment: &model.Comment{ID: 7, ArticleID: 5, UserID: 9, Content: "hello"}}
+	statRecorder := &stubCommentStatRecorder{}
+	runner := &recordingTaskRunner{}
+	h := NewCommentHandler(commentSvc, statRecorder)
+	h.SetTaskRunner(runner)
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest(http.MethodPost, "/api/comments", bytes.NewBufferString(`{"article_id":5,"content":"hello"}`))
+	c.Request.Header.Set("Content-Type", "application/json")
+	c.Set("user_id", int64(9))
+
+	h.Create(c)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d body=%s", w.Code, w.Body.String())
+	}
+	if len(runner.submitted) != 1 || runner.submitted[0] != "record comment count" {
+		t.Fatalf("expected comment stat task submission, got %#v", runner.submitted)
+	}
+	if statRecorder.recordCommentCountCalls != 1 {
+		t.Fatalf("expected stat recorder to run once, got %d", statRecorder.recordCommentCountCalls)
 	}
 }

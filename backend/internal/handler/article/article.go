@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"go.uber.org/zap"
 
 	"wenDao/internal/model"
 	"wenDao/internal/pkg/async"
@@ -21,12 +20,18 @@ import (
 type ArticleHandler struct {
 	articleService    service.ArticleService
 	collectionService service.CollectionService
-	statService       *service.StatService
+	statService       articleStatRecorder
 	settingService    service.SettingService
+	taskRunner        async.Runner
+}
+
+type articleStatRecorder interface {
+	RecordPVContext(ctx context.Context) error
+	RecordUVContext(ctx context.Context, ip string) error
 }
 
 // NewArticleHandler 创建文章处理器实例
-func NewArticleHandler(articleService service.ArticleService, statService *service.StatService, settingService service.SettingService, collectionServices ...service.CollectionService) *ArticleHandler {
+func NewArticleHandler(articleService service.ArticleService, statService articleStatRecorder, settingService service.SettingService, collectionServices ...service.CollectionService) *ArticleHandler {
 	var collectionService service.CollectionService
 	if len(collectionServices) > 0 {
 		collectionService = collectionServices[0]
@@ -36,6 +41,12 @@ func NewArticleHandler(articleService service.ArticleService, statService *servi
 		collectionService: collectionService,
 		statService:       statService,
 		settingService:    settingService,
+	}
+}
+
+func (h *ArticleHandler) SetTaskRunner(runner async.Runner) {
+	if h != nil {
+		h.taskRunner = runner
 	}
 }
 
@@ -314,12 +325,24 @@ func (h *ArticleHandler) GetBySlug(c *gin.Context) {
 	if h.statService != nil {
 		ip := c.ClientIP()
 		ctx := context.WithoutCancel(c.Request.Context())
-		async.Go(ctx, zap.L(), "record article view stats", func(ctx context.Context) error {
+		recordStats := func(ctx context.Context) error {
 			if err := h.statService.RecordPVContext(ctx); err != nil {
 				return err
 			}
 			return h.statService.RecordUVContext(ctx, ip)
-		})
+		}
+		if h.taskRunner != nil {
+			_ = h.taskRunner.Submit(
+				ctx,
+				"record article view stats",
+				recordStats,
+				async.WithTimeout(3*time.Second),
+				async.WithRetries(1),
+				async.WithRetryDelay(func(attempt int) time.Duration { return 100 * time.Millisecond }),
+			)
+		} else {
+			_ = recordStats(ctx)
+		}
 	}
 
 	if !h.hydrateArticleCollection(c, article) {
