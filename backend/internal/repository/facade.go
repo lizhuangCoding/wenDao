@@ -4,6 +4,7 @@ import (
 	"gorm.io/gorm"
 
 	articlerepo "wenDao/internal/repository/article"
+	asyncjobrepo "wenDao/internal/repository/asyncjob"
 	categoryrepo "wenDao/internal/repository/category"
 	chatrepo "wenDao/internal/repository/chat"
 	collectionrepo "wenDao/internal/repository/collection"
@@ -44,6 +45,7 @@ type KnowledgeDocumentFilter = knowledgerepo.KnowledgeDocumentFilter
 type UploadRepository = uploadrepo.UploadRepository
 type SettingRepository = settingrepo.SettingRepository
 type NotificationRepository = notifrepo.NotificationRepository
+type AsyncJobRepository = asyncjobrepo.AsyncJobRepository
 type StatRepository = statrepo.StatRepository
 
 func NewUserRepository(db *gorm.DB) UserRepository       { return userrepo.NewUserRepository(db) }
@@ -86,5 +88,8 @@ func NewUploadRepository(db *gorm.DB) UploadRepository   { return uploadrepo.New
 func NewSettingRepository(db *gorm.DB) SettingRepository { return settingrepo.NewSettingRepository(db) }
 func NewNotificationRepository(db *gorm.DB) NotificationRepository {
 	return notifrepo.NewNotificationRepository(db)
+}
+func NewAsyncJobRepository(db *gorm.DB) AsyncJobRepository {
+	return asyncjobrepo.NewAsyncJobRepository(db)
 }
 func NewStatRepository(db *gorm.DB) *StatRepository { return statrepo.NewStatRepository(db) }

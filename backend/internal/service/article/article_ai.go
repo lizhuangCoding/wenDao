@@ -2,10 +2,13 @@ package article
 
 import (
 	"context"
+	"fmt"
 
 	"go.uber.org/zap"
 
 	"wenDao/internal/pkg/async"
+	asyncjobrepo "wenDao/internal/repository/asyncjob"
+	asyncjobsvc "wenDao/internal/service/asyncjob"
 )
 
 func (s *articleService) updateAIIndexStatus(id int64, status string) {
@@ -49,4 +52,41 @@ func (s *articleService) deleteArticleVectorAsync(id int64) {
 		}
 		return nil
 	})
+}
+
+func (s *articleService) enqueueVectorizeJob(jobRepo asyncjobrepo.AsyncJobRepository, id int64, title, content, slug string) error {
+	if jobRepo == nil || s.vectorService == nil {
+		return nil
+	}
+	job, err := asyncjobsvc.NewJob(asyncjobsvc.JobTypeArticleVectorize, asyncjobsvc.ArticleVectorizePayload{
+		ArticleID: id,
+		Title:     title,
+		Content:   content,
+		Slug:      slug,
+	})
+	if err != nil {
+		return err
+	}
+	return jobRepo.Enqueue(job)
+}
+
+func (s *articleService) enqueueVectorDeleteJob(jobRepo asyncjobrepo.AsyncJobRepository, id int64) error {
+	if jobRepo == nil || s.vectorService == nil {
+		return nil
+	}
+	job, err := asyncjobsvc.NewJob(asyncjobsvc.JobTypeArticleVectorDelete, asyncjobsvc.ArticleVectorDeletePayload{
+		ArticleID: id,
+	})
+	if err != nil {
+		return err
+	}
+	return jobRepo.Enqueue(job)
+}
+
+func (s *articleService) enqueueOrVectorize(id int64, title, content, slug string) error {
+	if s.writeTxRunner == nil {
+		s.vectorizeArticleAsync(id, title, content, slug)
+		return nil
+	}
+	return fmt.Errorf("vector enqueue must happen inside write transaction")
 }

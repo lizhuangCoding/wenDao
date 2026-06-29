@@ -11,7 +11,9 @@ import (
 
 	"wenDao/internal/model"
 	"wenDao/internal/repository"
+	asyncjobrepo "wenDao/internal/repository/asyncjob"
 	articlesvc "wenDao/internal/service/article"
+	asyncjobsvc "wenDao/internal/service/asyncjob"
 	"wenDao/internal/svcerrors"
 )
 
@@ -38,6 +40,7 @@ type commentService struct {
 	replyNotificationSender CommentReplyNotificationSender
 	notificationService     NotificationService
 	articleCacheRdb         *redis.Client
+	writeTxRunner           WriteTransactionRunner
 }
 
 // NotificationService 站内通知服务接口（用于评论回复时创建通知）
@@ -68,6 +71,12 @@ func WithUserRepository(userRepo repository.UserRepository) CommentServiceOption
 func WithArticleCacheInvalidation(rdb *redis.Client) CommentServiceOption {
 	return func(s *commentService) {
 		s.articleCacheRdb = rdb
+	}
+}
+
+func WithWriteTransactionRunner(runner WriteTransactionRunner) CommentServiceOption {
+	return func(s *commentService) {
+		s.writeTxRunner = runner
 	}
 }
 
@@ -159,14 +168,18 @@ func (s *commentService) Create(articleID, userID int64, content string, parentI
 		Status:        "normal",
 	}
 
-	if err := s.commentRepo.Create(comment); err != nil {
-		return nil, fmt.Errorf("failed to create comment: %w", err)
+	if s.writeTxRunner != nil {
+		if err := s.createWithTransaction(article, comment, parentComment); err != nil {
+			return nil, err
+		}
+	} else {
+		if err := s.commentRepo.Create(comment); err != nil {
+			return nil, fmt.Errorf("failed to create comment: %w", err)
+		}
+		s.articleRepo.IncrementCommentCount(articleID)
+		articlesvc.InvalidateArticleCaches(s.articleCacheRdb, article.ID, article.Slug)
+		articlesvc.BumpArticleCollectionCacheVersions(s.articleCacheRdb)
 	}
-
-	// 增加文章的评论数
-	s.articleRepo.IncrementCommentCount(articleID)
-	articlesvc.InvalidateArticleCaches(s.articleCacheRdb, article.ID, article.Slug)
-	articlesvc.BumpArticleCollectionCacheVersions(s.articleCacheRdb)
 
 	// 重新查询以获取关联的用户信息（包括被回复人的信息）
 	comment, err = s.commentRepo.GetByID(comment.ID)
@@ -175,7 +188,9 @@ func (s *commentService) Create(articleID, userID int64, content string, parentI
 		return comment, nil
 	}
 
-	s.notifyReplyRecipient(context.Background(), article, comment, parentComment)
+	if s.writeTxRunner == nil {
+		s.notifyReplyRecipient(context.Background(), article, comment, parentComment)
+	}
 
 	return comment, nil
 }
@@ -388,10 +403,20 @@ func (s *commentService) Like(commentID, userID int64) error {
 		return svcerrors.ErrCommentNotFound
 	}
 
+	if s.writeTxRunner != nil {
+		if err := s.writeTxRunner.Run(func(commentRepo repository.CommentRepository, _ repository.ArticleRepository, jobRepo asyncjobrepo.AsyncJobRepository) error {
+			if err := commentRepo.IncrementLike(commentID); err != nil {
+				return fmt.Errorf("failed to like comment: %w", err)
+			}
+			return s.enqueueCommentReactionJob(jobRepo, comment, userID, model.NotificationTypeCommentLike, "点赞了你的评论", "点赞了你的评论")
+		}); err != nil {
+			return err
+		}
+		return nil
+	}
 	if err := s.commentRepo.IncrementLike(commentID); err != nil {
 		return fmt.Errorf("failed to like comment: %w", err)
 	}
-
 	s.notifyCommentReaction(context.Background(), comment, userID, model.NotificationTypeCommentLike, "点赞了你的评论", "点赞了你的评论")
 	return nil
 }
@@ -409,10 +434,20 @@ func (s *commentService) Unlike(commentID, userID int64) error {
 		return svcerrors.ErrCommentNotFound
 	}
 
+	if s.writeTxRunner != nil {
+		if err := s.writeTxRunner.Run(func(commentRepo repository.CommentRepository, _ repository.ArticleRepository, jobRepo asyncjobrepo.AsyncJobRepository) error {
+			if err := commentRepo.DecrementLike(commentID); err != nil {
+				return fmt.Errorf("failed to unlike comment: %w", err)
+			}
+			return s.enqueueCommentReactionJob(jobRepo, comment, userID, model.NotificationTypeCommentLike, "取消了对你评论的点赞", "取消了对你评论的点赞")
+		}); err != nil {
+			return err
+		}
+		return nil
+	}
 	if err := s.commentRepo.DecrementLike(commentID); err != nil {
 		return fmt.Errorf("failed to unlike comment: %w", err)
 	}
-
 	s.notifyCommentReaction(context.Background(), comment, userID, model.NotificationTypeCommentLike, "取消了对你评论的点赞", "取消了对你评论的点赞")
 	return nil
 }
@@ -430,10 +465,20 @@ func (s *commentService) Dislike(commentID, userID int64) error {
 		return svcerrors.ErrCommentNotFound
 	}
 
+	if s.writeTxRunner != nil {
+		if err := s.writeTxRunner.Run(func(commentRepo repository.CommentRepository, _ repository.ArticleRepository, jobRepo asyncjobrepo.AsyncJobRepository) error {
+			if err := commentRepo.IncrementDislike(commentID); err != nil {
+				return fmt.Errorf("failed to dislike comment: %w", err)
+			}
+			return s.enqueueCommentReactionJob(jobRepo, comment, userID, model.NotificationTypeCommentLike, "点踩了你的评论", "点踩了你的评论")
+		}); err != nil {
+			return err
+		}
+		return nil
+	}
 	if err := s.commentRepo.IncrementDislike(commentID); err != nil {
 		return fmt.Errorf("failed to dislike comment: %w", err)
 	}
-
 	s.notifyCommentReaction(context.Background(), comment, userID, model.NotificationTypeCommentLike, "点踩了你的评论", "点踩了你的评论")
 	return nil
 }
@@ -451,12 +496,154 @@ func (s *commentService) Undislike(commentID, userID int64) error {
 		return svcerrors.ErrCommentNotFound
 	}
 
+	if s.writeTxRunner != nil {
+		if err := s.writeTxRunner.Run(func(commentRepo repository.CommentRepository, _ repository.ArticleRepository, jobRepo asyncjobrepo.AsyncJobRepository) error {
+			if err := commentRepo.DecrementDislike(commentID); err != nil {
+				return fmt.Errorf("failed to undislike comment: %w", err)
+			}
+			return s.enqueueCommentReactionJob(jobRepo, comment, userID, model.NotificationTypeCommentLike, "取消了对你评论的点踩", "取消了对你评论的点踩")
+		}); err != nil {
+			return err
+		}
+		return nil
+	}
 	if err := s.commentRepo.DecrementDislike(commentID); err != nil {
 		return fmt.Errorf("failed to undislike comment: %w", err)
 	}
-
 	s.notifyCommentReaction(context.Background(), comment, userID, model.NotificationTypeCommentLike, "取消了对你评论的点踩", "取消了对你评论的点踩")
 	return nil
+}
+
+func (s *commentService) createWithTransaction(
+	article *model.Article,
+	comment *model.Comment,
+	parentComment *model.Comment,
+) error {
+	if s.writeTxRunner == nil {
+		return nil
+	}
+	return s.writeTxRunner.Run(func(commentRepo repository.CommentRepository, articleRepo repository.ArticleRepository, jobRepo asyncjobrepo.AsyncJobRepository) error {
+		if err := commentRepo.Create(comment); err != nil {
+			return fmt.Errorf("failed to create comment: %w", err)
+		}
+		if err := articleRepo.IncrementCommentCount(comment.ArticleID); err != nil {
+			return fmt.Errorf("failed to increment comment count: %w", err)
+		}
+		if err := s.enqueueArticleCacheJob(jobRepo, article, true); err != nil {
+			return err
+		}
+		if err := s.enqueueReplyNotificationJobs(jobRepo, article, comment, parentComment); err != nil {
+			return err
+		}
+		return nil
+	})
+}
+
+func (s *commentService) enqueueArticleCacheJob(jobRepo asyncjobrepo.AsyncJobRepository, article *model.Article, bumpCollections bool) error {
+	if jobRepo == nil || article == nil {
+		return nil
+	}
+	job, err := asyncjobsvc.NewJob(asyncjobsvc.JobTypeArticleCacheInvalidation, asyncjobsvc.ArticleCacheInvalidationPayload{
+		ArticleID:              article.ID,
+		ArticleSlug:            article.Slug,
+		BumpCollectionVersions: bumpCollections,
+	})
+	if err != nil {
+		return err
+	}
+	return jobRepo.Enqueue(job)
+}
+
+func (s *commentService) enqueueReplyNotificationJobs(jobRepo asyncjobrepo.AsyncJobRepository, article *model.Article, comment *model.Comment, parentComment *model.Comment) error {
+	if s == nil || jobRepo == nil || article == nil || comment == nil || comment.ReplyToUserID == nil {
+		return nil
+	}
+
+	recipient := s.resolveReplyRecipient(comment.ReplyToUserID, parentComment)
+	if recipient == nil || recipient.ID == comment.UserID {
+		return nil
+	}
+
+	replyAuthor := s.resolveActorName(comment.UserID)
+	notifJob, err := asyncjobsvc.NewJob(asyncjobsvc.JobTypeNotificationCreate, asyncjobsvc.NotificationCreatePayload{
+		UserID:           recipient.ID,
+		NotificationType: model.NotificationTypeCommentReply,
+		Title:            fmt.Sprintf("%s 回复了你的评论", replyAuthor),
+		Content:          fmt.Sprintf("在《%s》中，%s 回复了你的评论：%s", article.Title, replyAuthor, commentPreview(comment.Content)),
+		LinkURL:          fmt.Sprintf("/article/%s", article.Slug),
+	})
+	if err != nil {
+		return err
+	}
+	if err := jobRepo.Enqueue(notifJob); err != nil {
+		return err
+	}
+
+	if !recipient.CommentReplyEmailEnabled || strings.TrimSpace(recipient.Email) == "" {
+		return nil
+	}
+
+	emailJob, err := asyncjobsvc.NewJob(asyncjobsvc.JobTypeCommentReplyEmail, asyncjobsvc.CommentReplyEmailPayload{
+		RecipientEmail:      recipient.Email,
+		RecipientUsername:   recipient.Username,
+		ReplyAuthorUsername: replyAuthor,
+		ArticleTitle:        article.Title,
+		ArticleSlug:         article.Slug,
+		CommentPreview:      commentPreview(comment.Content),
+	})
+	if err != nil {
+		return err
+	}
+	return jobRepo.Enqueue(emailJob)
+}
+
+func (s *commentService) resolveReplyRecipient(replyToUserID *int64, parentComment *model.Comment) *model.User {
+	if s == nil || replyToUserID == nil || *replyToUserID == 0 {
+		return nil
+	}
+	if parentComment != nil && parentComment.User != nil && parentComment.UserID == *replyToUserID {
+		return parentComment.User
+	}
+	if s.userRepo == nil {
+		return nil
+	}
+	user, err := s.userRepo.GetByID(*replyToUserID)
+	if err != nil {
+		return nil
+	}
+	return user
+}
+
+func (s *commentService) enqueueCommentReactionJob(jobRepo asyncjobrepo.AsyncJobRepository, comment *model.Comment, actorID int64, notifType, titleText, actionText string) error {
+	if s == nil || jobRepo == nil || comment == nil || comment.UserID == 0 || actorID == 0 || actorID == comment.UserID {
+		return nil
+	}
+
+	articleTitle := "你的评论"
+	articleLink := fmt.Sprintf("/article/%d", comment.ArticleID)
+	if article, err := s.articleRepo.GetByID(comment.ArticleID); err == nil && article != nil {
+		articleTitle = article.Title
+		if strings.TrimSpace(article.Slug) != "" {
+			articleLink = fmt.Sprintf("/article/%s", article.Slug)
+		}
+	}
+
+	preview := commentPreview(comment.Content)
+	if preview == "" {
+		preview = "你的评论"
+	}
+	actorName := s.resolveActorName(actorID)
+	job, err := asyncjobsvc.NewJob(asyncjobsvc.JobTypeNotificationCreate, asyncjobsvc.NotificationCreatePayload{
+		UserID:           comment.UserID,
+		NotificationType: notifType,
+		Title:            fmt.Sprintf("%s%s", actorName, titleText),
+		Content:          fmt.Sprintf("在《%s》中，%s%s：%s", articleTitle, actorName, actionText, preview),
+		LinkURL:          articleLink,
+	})
+	if err != nil {
+		return err
+	}
+	return jobRepo.Enqueue(job)
 }
 
 func (s *commentService) notifyCommentReaction(ctx context.Context, comment *model.Comment, actorID int64, notifType, titleText, actionText string) {

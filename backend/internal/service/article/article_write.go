@@ -9,6 +9,8 @@ import (
 
 	"wenDao/internal/model"
 	"wenDao/internal/pkg/hash"
+	"wenDao/internal/repository"
+	asyncjobrepo "wenDao/internal/repository/asyncjob"
 	"wenDao/internal/svcerrors"
 )
 
@@ -36,19 +38,41 @@ func (s *articleService) Create(title, content, summary string, categoryID, auth
 		article.PublishedAt = &now
 	}
 
-	if err := s.articleRepo.Create(article); err != nil {
-		return nil, fmt.Errorf("failed to create article: %w", err)
-	}
-
-	slug := hash.GenerateSlug(article.ID)
-	if err := s.articleRepo.UpdateSlug(article.ID, slug); err != nil {
-		return nil, fmt.Errorf("failed to update slug: %w", err)
-	}
-	article.Slug = slug
-
-	if status == "published" {
-		s.categoryRepo.IncrementArticleCount(categoryID)
-		s.vectorizeArticleAsync(article.ID, article.Title, article.Content, article.Slug)
+	if s.writeTxRunner != nil {
+		if err := s.writeTxRunner.Run(func(articleRepo repository.ArticleRepository, categoryRepo repository.CategoryRepository, jobRepo asyncjobrepo.AsyncJobRepository) error {
+			if err := articleRepo.Create(article); err != nil {
+				return fmt.Errorf("failed to create article: %w", err)
+			}
+			slug := hash.GenerateSlug(article.ID)
+			if err := articleRepo.UpdateSlug(article.ID, slug); err != nil {
+				return fmt.Errorf("failed to update slug: %w", err)
+			}
+			article.Slug = slug
+			if status == "published" {
+				if err := categoryRepo.IncrementArticleCount(categoryID); err != nil {
+					return fmt.Errorf("failed to increment category article count: %w", err)
+				}
+				if err := s.enqueueVectorizeJob(jobRepo, article.ID, article.Title, article.Content, article.Slug); err != nil {
+					return err
+				}
+			}
+			return nil
+		}); err != nil {
+			return nil, err
+		}
+	} else {
+		if err := s.articleRepo.Create(article); err != nil {
+			return nil, fmt.Errorf("failed to create article: %w", err)
+		}
+		slug := hash.GenerateSlug(article.ID)
+		if err := s.articleRepo.UpdateSlug(article.ID, slug); err != nil {
+			return nil, fmt.Errorf("failed to update slug: %w", err)
+		}
+		article.Slug = slug
+		if status == "published" {
+			s.categoryRepo.IncrementArticleCount(categoryID)
+			s.vectorizeArticleAsync(article.ID, article.Title, article.Content, article.Slug)
+		}
 	}
 
 	article.Category = category
@@ -87,18 +111,40 @@ func (s *articleService) Update(id int64, title, content, summary string, catego
 		article.AIIndexStatus = "pending"
 	}
 
-	if err := s.articleRepo.Update(article); err != nil {
-		return nil, fmt.Errorf("failed to update article: %w", err)
+	if s.writeTxRunner != nil {
+		if err := s.writeTxRunner.Run(func(articleRepo repository.ArticleRepository, categoryRepo repository.CategoryRepository, jobRepo asyncjobrepo.AsyncJobRepository) error {
+			if categoryID != oldCategoryID && article.Status == "published" {
+				if err := categoryRepo.DecrementArticleCount(oldCategoryID); err != nil {
+					return fmt.Errorf("failed to decrement old category article count: %w", err)
+				}
+				if err := categoryRepo.IncrementArticleCount(categoryID); err != nil {
+					return fmt.Errorf("failed to increment new category article count: %w", err)
+				}
+			}
+			if err := articleRepo.Update(article); err != nil {
+				return fmt.Errorf("failed to update article: %w", err)
+			}
+			if article.Status == "published" {
+				if err := s.enqueueVectorizeJob(jobRepo, article.ID, article.Title, article.Content, article.Slug); err != nil {
+					return err
+				}
+			}
+			return nil
+		}); err != nil {
+			return nil, err
+		}
+	} else {
+		if err := s.articleRepo.Update(article); err != nil {
+			return nil, fmt.Errorf("failed to update article: %w", err)
+		}
+		if article.Status == "published" {
+			s.vectorizeArticleAsync(article.ID, article.Title, article.Content, article.Slug)
+		}
 	}
 
 	s.deleteArticleFromCache(article)
 	s.setArticleToCache(article)
 	s.invalidateArticleCollections()
-
-	if article.Status == "published" {
-		s.vectorizeArticleAsync(article.ID, article.Title, article.Content, article.Slug)
-	}
-
 	return article, nil
 }
 
@@ -134,17 +180,32 @@ func (s *articleService) Delete(id int64) error {
 		return err
 	}
 
-	if err := s.articleRepo.Delete(id); err != nil {
-		return fmt.Errorf("failed to delete article: %w", err)
-	}
-
-	if article.Status == "published" {
-		s.categoryRepo.DecrementArticleCount(article.CategoryID)
+	if s.writeTxRunner != nil {
+		if err := s.writeTxRunner.Run(func(articleRepo repository.ArticleRepository, categoryRepo repository.CategoryRepository, jobRepo asyncjobrepo.AsyncJobRepository) error {
+			if err := articleRepo.Delete(id); err != nil {
+				return fmt.Errorf("failed to delete article: %w", err)
+			}
+			if article.Status == "published" {
+				if err := categoryRepo.DecrementArticleCount(article.CategoryID); err != nil {
+					return fmt.Errorf("failed to decrement category article count: %w", err)
+				}
+			}
+			return s.enqueueVectorDeleteJob(jobRepo, id)
+		}); err != nil {
+			return err
+		}
+	} else {
+		if err := s.articleRepo.Delete(id); err != nil {
+			return fmt.Errorf("failed to delete article: %w", err)
+		}
+		if article.Status == "published" {
+			s.categoryRepo.DecrementArticleCount(article.CategoryID)
+		}
+		s.deleteArticleVectorAsync(id)
 	}
 
 	s.deleteArticleFromCache(article)
 	s.invalidateArticleCollections()
-	s.deleteArticleVectorAsync(id)
 	return nil
 }
 
@@ -166,14 +227,36 @@ func (s *articleService) DeleteBatch(ids []int64) error {
 		return nil
 	}
 
-	articles, err := s.articleRepo.DeleteBatch(uniqueIDs)
-	if err != nil {
-		return fmt.Errorf("failed to delete articles: %w", err)
+	var articles []*model.Article
+	if s.writeTxRunner != nil {
+		if err := s.writeTxRunner.Run(func(articleRepo repository.ArticleRepository, _ repository.CategoryRepository, jobRepo asyncjobrepo.AsyncJobRepository) error {
+			var txErr error
+			articles, txErr = articleRepo.DeleteBatch(uniqueIDs)
+			if txErr != nil {
+				return fmt.Errorf("failed to delete articles: %w", txErr)
+			}
+			for _, article := range articles {
+				if err := s.enqueueVectorDeleteJob(jobRepo, article.ID); err != nil {
+					return err
+				}
+			}
+			return nil
+		}); err != nil {
+			return err
+		}
+	} else {
+		var err error
+		articles, err = s.articleRepo.DeleteBatch(uniqueIDs)
+		if err != nil {
+			return fmt.Errorf("failed to delete articles: %w", err)
+		}
+		for _, article := range articles {
+			s.deleteArticleVectorAsync(article.ID)
+		}
 	}
 
 	for _, article := range articles {
 		s.deleteArticleFromCache(article)
-		s.deleteArticleVectorAsync(article.ID)
 	}
 	s.invalidateArticleCollections()
 	return nil
@@ -192,13 +275,24 @@ func (s *articleService) AutoSave(id int64, title, content, summary string) erro
 	article.Status = "draft"
 	article.AIIndexStatus = "pending"
 
-	if err := s.articleRepo.Update(article); err != nil {
-		return fmt.Errorf("failed to auto-save article: %w", err)
+	if s.writeTxRunner != nil {
+		if err := s.writeTxRunner.Run(func(articleRepo repository.ArticleRepository, _ repository.CategoryRepository, jobRepo asyncjobrepo.AsyncJobRepository) error {
+			if err := articleRepo.Update(article); err != nil {
+				return fmt.Errorf("failed to auto-save article: %w", err)
+			}
+			return s.enqueueVectorDeleteJob(jobRepo, id)
+		}); err != nil {
+			return err
+		}
+	} else {
+		if err := s.articleRepo.Update(article); err != nil {
+			return fmt.Errorf("failed to auto-save article: %w", err)
+		}
+		s.deleteArticleVectorAsync(id)
 	}
 
 	s.deleteArticleFromCache(article)
 	s.invalidateArticleCollections()
-	s.deleteArticleVectorAsync(id)
 	return nil
 }
 

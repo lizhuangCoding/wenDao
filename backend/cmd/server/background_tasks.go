@@ -16,10 +16,12 @@ func startBackgroundTasks(cfg *config.Config, logger *zap.Logger, services *appS
 	stopUploadCleanup := func() {}
 	stopStatFlush := func() {}
 	stopArticleScheduler := func() {}
+	stopAsyncJobWorker := func() {}
 	if services != nil {
 		stopUploadCleanup = startUploadCleanupScheduler(cfg, logger, services.upload)
 		stopStatFlush = startStatFlushScheduler(logger, services.stat)
 		stopArticleScheduler = startArticleScheduler(logger, services.article)
+		stopAsyncJobWorker = startAsyncJobWorker(logger, services.asyncJob)
 	}
 
 	return func() {
@@ -27,6 +29,7 @@ func startBackgroundTasks(cfg *config.Config, logger *zap.Logger, services *appS
 		stopUploadCleanup()
 		stopStatFlush()
 		stopArticleScheduler()
+		stopAsyncJobWorker()
 	}
 }
 
@@ -163,6 +166,39 @@ func runArticleSchedulerOnce(logger *zap.Logger, articleService service.ArticleS
 func runStatFlush(logger *zap.Logger, statService *service.StatService) {
 	if err := statService.FlushRecentDailyStatCounters(); err != nil {
 		logger.Warn("Stat flush failed", zap.Error(err))
+	}
+}
+
+func startAsyncJobWorker(logger *zap.Logger, asyncJobService service.AsyncJobService) func() {
+	if logger == nil || asyncJobService == nil {
+		return func() {}
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	async.Go(ctx, logger, "async job worker", func(ctx context.Context) error {
+		ticker := time.NewTicker(5 * time.Second)
+		defer ticker.Stop()
+
+		logger.Info("Async job worker started", zap.Duration("interval", 5*time.Second))
+		runAsyncJobsOnce(ctx, logger, asyncJobService)
+
+		for {
+			select {
+			case <-ctx.Done():
+				logger.Info("Async job worker stopped")
+				return nil
+			case <-ticker.C:
+				runAsyncJobsOnce(ctx, logger, asyncJobService)
+			}
+		}
+	})
+
+	return cancel
+}
+
+func runAsyncJobsOnce(ctx context.Context, logger *zap.Logger, asyncJobService service.AsyncJobService) {
+	if err := asyncJobService.ProcessPending(ctx, 20); err != nil {
+		logger.Warn("Async job worker failed", zap.Error(err))
 	}
 }
 

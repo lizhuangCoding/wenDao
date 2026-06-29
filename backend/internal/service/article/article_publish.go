@@ -5,6 +5,8 @@ import (
 	"time"
 
 	"wenDao/internal/model"
+	"wenDao/internal/repository"
+	asyncjobrepo "wenDao/internal/repository/asyncjob"
 	"wenDao/internal/svcerrors"
 )
 
@@ -24,15 +26,29 @@ func (s *articleService) Publish(id int64) error {
 	now := time.Now()
 	article.PublishedAt = &now
 
-	if err := s.articleRepo.Update(article); err != nil {
-		return fmt.Errorf("failed to publish article: %w", err)
+	if s.writeTxRunner != nil {
+		if err := s.writeTxRunner.Run(func(articleRepo repository.ArticleRepository, categoryRepo repository.CategoryRepository, jobRepo asyncjobrepo.AsyncJobRepository) error {
+			if err := articleRepo.Update(article); err != nil {
+				return fmt.Errorf("failed to publish article: %w", err)
+			}
+			if err := categoryRepo.IncrementArticleCount(article.CategoryID); err != nil {
+				return fmt.Errorf("failed to increment category article count: %w", err)
+			}
+			return s.enqueueVectorizeJob(jobRepo, article.ID, article.Title, article.Content, article.Slug)
+		}); err != nil {
+			return err
+		}
+	} else {
+		if err := s.articleRepo.Update(article); err != nil {
+			return fmt.Errorf("failed to publish article: %w", err)
+		}
+		s.categoryRepo.IncrementArticleCount(article.CategoryID)
+		s.vectorizeArticleAsync(article.ID, article.Title, article.Content, article.Slug)
 	}
 
-	s.categoryRepo.IncrementArticleCount(article.CategoryID)
 	s.deleteArticleFromCache(article)
 	s.setArticleToCache(article)
 	s.invalidateArticleCollections()
-	s.vectorizeArticleAsync(article.ID, article.Title, article.Content, article.Slug)
 	return nil
 }
 
@@ -62,15 +78,29 @@ func (s *articleService) PublishScheduled(articleID int64) error {
 	article.PublishedAt = &now
 	article.ScheduledPublishAt = nil
 
-	if err := s.articleRepo.Update(article); err != nil {
-		return fmt.Errorf("failed to publish scheduled article: %w", err)
+	if s.writeTxRunner != nil {
+		if err := s.writeTxRunner.Run(func(articleRepo repository.ArticleRepository, categoryRepo repository.CategoryRepository, jobRepo asyncjobrepo.AsyncJobRepository) error {
+			if err := articleRepo.Update(article); err != nil {
+				return fmt.Errorf("failed to publish scheduled article: %w", err)
+			}
+			if err := categoryRepo.IncrementArticleCount(article.CategoryID); err != nil {
+				return fmt.Errorf("failed to increment category article count: %w", err)
+			}
+			return s.enqueueVectorizeJob(jobRepo, article.ID, article.Title, article.Content, article.Slug)
+		}); err != nil {
+			return err
+		}
+	} else {
+		if err := s.articleRepo.Update(article); err != nil {
+			return fmt.Errorf("failed to publish scheduled article: %w", err)
+		}
+		s.categoryRepo.IncrementArticleCount(article.CategoryID)
+		s.vectorizeArticleAsync(article.ID, article.Title, article.Content, article.Slug)
 	}
 
-	s.categoryRepo.IncrementArticleCount(article.CategoryID)
 	s.deleteArticleFromCache(article)
 	s.setArticleToCache(article)
 	s.invalidateArticleCollections()
-	s.vectorizeArticleAsync(article.ID, article.Title, article.Content, article.Slug)
 	return nil
 }
 
@@ -88,14 +118,28 @@ func (s *articleService) Draft(id int64) error {
 	article.Status = "draft"
 	article.AIIndexStatus = "pending"
 
-	if err := s.articleRepo.Update(article); err != nil {
-		return fmt.Errorf("failed to draft article: %w", err)
+	if s.writeTxRunner != nil {
+		if err := s.writeTxRunner.Run(func(articleRepo repository.ArticleRepository, categoryRepo repository.CategoryRepository, jobRepo asyncjobrepo.AsyncJobRepository) error {
+			if err := articleRepo.Update(article); err != nil {
+				return fmt.Errorf("failed to draft article: %w", err)
+			}
+			if err := categoryRepo.DecrementArticleCount(article.CategoryID); err != nil {
+				return fmt.Errorf("failed to decrement category article count: %w", err)
+			}
+			return s.enqueueVectorDeleteJob(jobRepo, id)
+		}); err != nil {
+			return err
+		}
+	} else {
+		if err := s.articleRepo.Update(article); err != nil {
+			return fmt.Errorf("failed to draft article: %w", err)
+		}
+		s.categoryRepo.DecrementArticleCount(article.CategoryID)
+		s.deleteArticleVectorAsync(id)
 	}
 
-	s.categoryRepo.DecrementArticleCount(article.CategoryID)
 	s.deleteArticleFromCache(article)
 	s.setArticleToCache(article)
 	s.invalidateArticleCollections()
-	s.deleteArticleVectorAsync(id)
 	return nil
 }

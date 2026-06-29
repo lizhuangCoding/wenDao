@@ -47,6 +47,7 @@ type repositories struct {
 	setting                 repository.SettingRepository
 	stat                    *repository.StatRepository
 	notification            repository.NotificationRepository
+	asyncJob                repository.AsyncJobRepository
 }
 
 type aiComponents struct {
@@ -122,6 +123,7 @@ func initRepositories(db *gorm.DB) *repositories {
 		setting:                 repository.NewSettingRepository(db),
 		stat:                    repository.NewStatRepository(db),
 		notification:            repository.NewNotificationRepository(db),
+		asyncJob:                repository.NewAsyncJobRepository(db),
 	}
 }
 

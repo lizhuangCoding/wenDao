@@ -57,6 +57,7 @@ type articleService struct {
 	vectorService VectorService
 	logger        *zap.Logger
 	cacheGroup    singleflight.Group
+	writeTxRunner WriteTransactionRunner
 }
 
 // NewArticleService 创建文章服务实例
@@ -68,8 +69,8 @@ func NewArticleService(
 	logger *zap.Logger,
 	extras ...any,
 ) ArticleService {
-	semanticRepo, tagRepo := parseArticleServiceExtras(extras...)
-	return &articleService{
+	semanticRepo, tagRepo, options := parseArticleServiceExtras(extras...)
+	svc := &articleService{
 		articleRepo:   articleRepo,
 		semanticRepo:  semanticRepo,
 		categoryRepo:  categoryRepo,
@@ -78,6 +79,12 @@ func NewArticleService(
 		vectorService: vectorService,
 		logger:        logger,
 	}
+	for _, option := range options {
+		if option != nil {
+			option(svc)
+		}
+	}
+	return svc
 }
 
 func newArticleServiceWithCacheStore(
@@ -88,8 +95,8 @@ func newArticleServiceWithCacheStore(
 	logger *zap.Logger,
 	extras ...any,
 ) *articleService {
-	semanticRepo, tagRepo := parseArticleServiceExtras(extras...)
-	return &articleService{
+	semanticRepo, tagRepo, options := parseArticleServiceExtras(extras...)
+	svc := &articleService{
 		articleRepo:   articleRepo,
 		semanticRepo:  semanticRepo,
 		categoryRepo:  categoryRepo,
@@ -98,11 +105,18 @@ func newArticleServiceWithCacheStore(
 		vectorService: vectorService,
 		logger:        logger,
 	}
+	for _, option := range options {
+		if option != nil {
+			option(svc)
+		}
+	}
+	return svc
 }
 
-func parseArticleServiceExtras(extras ...any) (repository.ArticleSemanticProfileRepository, repository.TagRepository) {
+func parseArticleServiceExtras(extras ...any) (repository.ArticleSemanticProfileRepository, repository.TagRepository, []ArticleServiceOption) {
 	var semanticRepo repository.ArticleSemanticProfileRepository
 	var tagRepo repository.TagRepository
+	var options []ArticleServiceOption
 	for _, extra := range extras {
 		switch repo := extra.(type) {
 		case repository.ArticleSemanticProfileRepository:
@@ -113,9 +127,11 @@ func parseArticleServiceExtras(extras ...any) (repository.ArticleSemanticProfile
 			if tagRepo == nil {
 				tagRepo = repo
 			}
+		case ArticleServiceOption:
+			options = append(options, repo)
 		}
 	}
-	return semanticRepo, tagRepo
+	return semanticRepo, tagRepo, options
 }
 
 func (s *articleService) getArticleByIDOrNotFound(id int64) (*model.Article, error) {

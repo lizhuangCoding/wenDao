@@ -48,6 +48,7 @@ func autoMigrateModels() []any {
 		&model.KnowledgeDocument{},
 		&model.KnowledgeDocumentSource{},
 		&model.Notification{},
+		&model.AsyncJob{},
 	}
 }
 

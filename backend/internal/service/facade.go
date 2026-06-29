@@ -5,10 +5,12 @@ import (
 
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
+	"gorm.io/gorm"
 
 	"wenDao/config"
 	"wenDao/internal/pkg/eino"
 	articlerepo "wenDao/internal/repository/article"
+	asyncjobrepo "wenDao/internal/repository/asyncjob"
 	categoryrepo "wenDao/internal/repository/category"
 	chatrepo "wenDao/internal/repository/chat"
 	collectionrepo "wenDao/internal/repository/collection"
@@ -22,6 +24,7 @@ import (
 	userrepo "wenDao/internal/repository/user"
 	aisvc "wenDao/internal/service/ai"
 	articlesvc "wenDao/internal/service/article"
+	asyncjobsvc "wenDao/internal/service/asyncjob"
 	authsvc "wenDao/internal/service/auth"
 	categorysvc "wenDao/internal/service/category"
 	chatsvc "wenDao/internal/service/chat"
@@ -58,11 +61,16 @@ type WritingAction = aisvc.WritingAction
 type WritingRequest = aisvc.WritingRequest
 type WritingResult = aisvc.WritingResult
 type ArticleService = articlesvc.ArticleService
+type ArticleServiceOption = articlesvc.ArticleServiceOption
 type ArticleSearchResult = articlesvc.ArticleSearchResult
 type CommentService = commentsvc.CommentService
 type CommentServiceOption = commentsvc.CommentServiceOption
+type CommentReplyNotification = commentsvc.CommentReplyNotification
+type CommentWriteTransactionRunner = commentsvc.WriteTransactionRunner
+type ArticleWriteTransactionRunner = articlesvc.WriteTransactionRunner
 type CommentReplyNotificationSender = commentsvc.CommentReplyNotificationSender
 type NotificationService = notifsvc.NotificationService
+type AsyncJobService = asyncjobsvc.Service
 type UploadService = uploadsvc.UploadService
 type UploadCleanupResult = uploadsvc.UploadCleanupResult
 type StatService = statsvc.StatService
@@ -143,6 +151,12 @@ func WithDefaultPlugin() RegisterOption { return chatcore.WithDefaultPlugin() }
 func NewArticleService(articleRepo articlerepo.ArticleRepository, categoryRepo categoryrepo.CategoryRepository, rdb *redis.Client, vector VectorService, logger *zap.Logger, extras ...any) ArticleService {
 	return articlesvc.NewArticleService(articleRepo, categoryRepo, rdb, vector, logger, extras...)
 }
+func WithArticleWriteTransactionRunner(runner ArticleWriteTransactionRunner) ArticleServiceOption {
+	return articlesvc.WithWriteTransactionRunner(runner)
+}
+func NewArticleWriteTransactionRunner(db *gorm.DB) ArticleWriteTransactionRunner {
+	return articlesvc.NewGormWriteTransactionRunner(db)
+}
 func NewCommentService(commentRepo commentrepo.CommentRepository, articleRepo articlerepo.ArticleRepository, options ...CommentServiceOption) CommentService {
 	return commentsvc.NewCommentService(commentRepo, articleRepo, options...)
 }
@@ -161,8 +175,17 @@ func WithCommentUserRepository(userRepo userrepo.UserRepository) CommentServiceO
 func WithArticleCacheInvalidation(rdb *redis.Client) CommentServiceOption {
 	return commentsvc.WithArticleCacheInvalidation(rdb)
 }
+func WithCommentWriteTransactionRunner(runner CommentWriteTransactionRunner) CommentServiceOption {
+	return commentsvc.WithWriteTransactionRunner(runner)
+}
+func NewCommentWriteTransactionRunner(db *gorm.DB) CommentWriteTransactionRunner {
+	return commentsvc.NewGormWriteTransactionRunner(db)
+}
 func NewNotificationService(repo notifrepo.NotificationRepository) NotificationService {
 	return notifsvc.NewNotificationService(repo)
+}
+func NewAsyncJobService(repo asyncjobrepo.AsyncJobRepository, logger *zap.Logger, options ...asyncjobsvc.Option) AsyncJobService {
+	return asyncjobsvc.NewService(repo, logger, options...)
 }
 func NewUploadService(repo uploadrepo.UploadRepository, cfg *config.Config) UploadService {
 	return uploadsvc.NewUploadService(repo, cfg)

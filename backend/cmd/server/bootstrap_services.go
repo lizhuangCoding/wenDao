@@ -2,13 +2,17 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 
 	"go.uber.org/zap"
 
 	"wenDao/config"
+	"wenDao/internal/model"
 	"wenDao/internal/pkg/eino"
 	"wenDao/internal/service"
 	aisvc "wenDao/internal/service/ai"
+	articlesvc "wenDao/internal/service/article"
+	asyncjobsvc "wenDao/internal/service/asyncjob"
 )
 
 type appServices struct {
@@ -27,6 +31,7 @@ type appServices struct {
 	upload            service.UploadService
 	stat              *service.StatService
 	notification      service.NotificationService
+	asyncJob          service.AsyncJobService
 }
 
 func initServices(cfg *config.Config, logger *zap.Logger, repos *repositories, infra *infrastructure, aiCore *aiComponents) (*appServices, func(), error) {
@@ -37,6 +42,73 @@ func initServices(cfg *config.Config, logger *zap.Logger, repos *repositories, i
 	userService := service.NewUserService(repos.user, oauthService, cfg, rdb)
 	commentReplyEmailSender := service.NewSMTPCommentReplyEmailSender(cfg.Email, cfg.Site.URL)
 	notifSvc := service.NewNotificationService(repos.notification)
+	var vectorService service.VectorService
+	asyncJobService := service.NewAsyncJobService(
+		repos.asyncJob,
+		logger,
+		asyncjobsvc.WithJobHandler(asyncjobsvc.JobTypeNotificationCreate, func(ctx context.Context, job *model.AsyncJob) error {
+			var payload asyncjobsvc.NotificationCreatePayload
+			if err := json.Unmarshal(job.Payload, &payload); err != nil {
+				return err
+			}
+			return notifSvc.Create(payload.UserID, payload.NotificationType, payload.Title, payload.Content, payload.LinkURL)
+		}),
+		asyncjobsvc.WithJobHandler(asyncjobsvc.JobTypeCommentReplyEmail, func(ctx context.Context, job *model.AsyncJob) error {
+			var payload asyncjobsvc.CommentReplyEmailPayload
+			if err := json.Unmarshal(job.Payload, &payload); err != nil {
+				return err
+			}
+			if commentReplyEmailSender == nil {
+				return nil
+			}
+			return commentReplyEmailSender.SendCommentReplyNotification(ctx, service.CommentReplyNotification{
+				RecipientEmail:      payload.RecipientEmail,
+				RecipientUsername:   payload.RecipientUsername,
+				ReplyAuthorUsername: payload.ReplyAuthorUsername,
+				ArticleTitle:        payload.ArticleTitle,
+				ArticleSlug:         payload.ArticleSlug,
+				CommentPreview:      payload.CommentPreview,
+			})
+		}),
+		asyncjobsvc.WithJobHandler(asyncjobsvc.JobTypeArticleCacheInvalidation, func(ctx context.Context, job *model.AsyncJob) error {
+			var payload asyncjobsvc.ArticleCacheInvalidationPayload
+			if err := json.Unmarshal(job.Payload, &payload); err != nil {
+				return err
+			}
+			articlesvc.InvalidateArticleCaches(infra.rdb, payload.ArticleID, payload.ArticleSlug)
+			if payload.BumpCollectionVersions {
+				articlesvc.BumpArticleCollectionCacheVersions(infra.rdb)
+			}
+			return nil
+		}),
+		asyncjobsvc.WithJobHandler(asyncjobsvc.JobTypeArticleVectorize, func(ctx context.Context, job *model.AsyncJob) error {
+			var payload asyncjobsvc.ArticleVectorizePayload
+			if err := json.Unmarshal(job.Payload, &payload); err != nil {
+				return err
+			}
+			if vectorService == nil {
+				return nil
+			}
+			if err := repos.article.UpdateAIIndexStatus(payload.ArticleID, "pending"); err != nil {
+				logger.Warn("Failed to mark article AI index pending", zap.Int64("article_id", payload.ArticleID), zap.Error(err))
+			}
+			if err := vectorService.VectorizeArticle(payload.ArticleID, payload.Title, payload.Content, payload.Slug); err != nil {
+				_ = repos.article.UpdateAIIndexStatus(payload.ArticleID, "failed")
+				return err
+			}
+			return repos.article.UpdateAIIndexStatus(payload.ArticleID, "success")
+		}),
+		asyncjobsvc.WithJobHandler(asyncjobsvc.JobTypeArticleVectorDelete, func(ctx context.Context, job *model.AsyncJob) error {
+			var payload asyncjobsvc.ArticleVectorDeletePayload
+			if err := json.Unmarshal(job.Payload, &payload); err != nil {
+				return err
+			}
+			if vectorService == nil {
+				return nil
+			}
+			return vectorService.DeleteArticleVector(payload.ArticleID)
+		}),
+	)
 	categoryService := service.NewCategoryService(repos.category)
 	tagService := service.NewTagService(repos.tag)
 	collectionService := service.NewCollectionService(repos.collection, repos.article)
@@ -46,7 +118,6 @@ func initServices(cfg *config.Config, logger *zap.Logger, repos *repositories, i
 	cleanup := func() {}
 
 	if aiCore != nil && aiCore.llmClient != nil {
-		var vectorService service.VectorService
 		var librarian service.Librarian
 		if aiCore.vectorStore != nil && aiCore.embedder != nil {
 			vectorService = service.NewVectorService(aiCore.vectorStore, aiCore.embedder, logger, repos.articleSemanticProfile)
@@ -128,11 +199,12 @@ func initServices(cfg *config.Config, logger *zap.Logger, repos *repositories, i
 			vector:            vectorService,
 			knowledgeDocument: knowledgeDocumentService,
 			ai:                aiService,
-			article:           service.NewArticleService(repos.article, repos.category, infra.rdb, vectorService, logger, repos.articleSemanticProfile, repos.tag),
-			comment:           service.NewCommentService(repos.comment, repos.article, service.WithReplyNotificationSender(commentReplyEmailSender), service.WithCommentNotificationService(notifSvc), service.WithCommentUserRepository(repos.user), service.WithArticleCacheInvalidation(infra.rdb)),
+			article:           service.NewArticleService(repos.article, repos.category, infra.rdb, vectorService, logger, repos.articleSemanticProfile, repos.tag, service.WithArticleWriteTransactionRunner(service.NewArticleWriteTransactionRunner(infra.db))),
+			comment:           service.NewCommentService(repos.comment, repos.article, service.WithReplyNotificationSender(commentReplyEmailSender), service.WithCommentNotificationService(notifSvc), service.WithCommentUserRepository(repos.user), service.WithArticleCacheInvalidation(infra.rdb), service.WithCommentWriteTransactionRunner(service.NewCommentWriteTransactionRunner(infra.db))),
 			upload:            service.NewUploadService(repos.upload, cfg),
 			stat:              service.NewStatService(repos.stat, infra.rdb),
 			notification:      notifSvc,
+			asyncJob:          asyncJobService,
 		}, cleanup, nil
 	}
 
@@ -147,11 +219,12 @@ func initServices(cfg *config.Config, logger *zap.Logger, repos *repositories, i
 		vector:            nil,
 		knowledgeDocument: knowledgeDocumentService,
 		ai:                aiService,
-		article:           service.NewArticleService(repos.article, repos.category, infra.rdb, nil, logger, repos.articleSemanticProfile, repos.tag),
-		comment:           service.NewCommentService(repos.comment, repos.article, service.WithReplyNotificationSender(commentReplyEmailSender), service.WithCommentNotificationService(notifSvc), service.WithCommentUserRepository(repos.user), service.WithArticleCacheInvalidation(infra.rdb)),
+		article:           service.NewArticleService(repos.article, repos.category, infra.rdb, nil, logger, repos.articleSemanticProfile, repos.tag, service.WithArticleWriteTransactionRunner(service.NewArticleWriteTransactionRunner(infra.db))),
+		comment:           service.NewCommentService(repos.comment, repos.article, service.WithReplyNotificationSender(commentReplyEmailSender), service.WithCommentNotificationService(notifSvc), service.WithCommentUserRepository(repos.user), service.WithArticleCacheInvalidation(infra.rdb), service.WithCommentWriteTransactionRunner(service.NewCommentWriteTransactionRunner(infra.db))),
 		upload:            service.NewUploadService(repos.upload, cfg),
 		stat:              service.NewStatService(repos.stat, infra.rdb),
 		notification:      notifSvc,
+		asyncJob:          asyncJobService,
 	}, cleanup, nil
 }
 
