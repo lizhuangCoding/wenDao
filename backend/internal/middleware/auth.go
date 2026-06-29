@@ -132,6 +132,19 @@ func AdminRequired(jwtSecret string, rdb *redis.Client) gin.HandlerFunc {
 	}
 }
 
+// AdminOnly 要求请求上下文中已经存在管理员角色。
+func AdminOnly() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		role, _ := c.Get("user_role")
+		if role != "admin" {
+			response.Forbidden(c, "Admin permission required")
+			c.Abort()
+			return
+		}
+		c.Next()
+	}
+}
+
 // extractToken 从请求中提取 token
 func extractToken(c *gin.Context) (string, string) {
 	// 1. 从 Authorization Header 提取（优先）

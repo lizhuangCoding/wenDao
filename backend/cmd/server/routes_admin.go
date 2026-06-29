@@ -1,18 +1,11 @@
 package main
 
 import (
-	"github.com/gin-gonic/gin"
-	"github.com/redis/go-redis/v9"
-
-	"wenDao/config"
 	"wenDao/internal/handler"
-	"wenDao/internal/middleware"
 )
 
 func registerAdminRoutes(
-	api *gin.RouterGroup,
-	cfg *config.Config,
-	rdb *redis.Client,
+	access routeAccessGroups,
 	userHandler *handler.UserHandler,
 	categoryHandler *handler.CategoryHandler,
 	tagHandler *handler.TagHandler,
@@ -26,12 +19,7 @@ func registerAdminRoutes(
 	knowledgeDocumentHandler *handler.KnowledgeDocumentHandler,
 	notificationHandler *handler.NotificationHandler,
 ) {
-	admin := api.Group("/admin")
-	admin.Use(
-		middleware.AuthRequired(cfg.JWT.Secret, rdb),
-		middleware.AdminRequired(cfg.JWT.Secret, rdb),
-		middleware.CSRFProtection(),
-	)
+	admin := access.admin.Group("/admin")
 
 	users := admin.Group("/users")
 	users.GET("", userHandler.ListUsers)

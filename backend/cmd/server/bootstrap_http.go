@@ -145,27 +145,45 @@ func registerRoutes(
 	notificationHandler *handler.NotificationHandler,
 ) {
 	api := router.Group("/api")
-	registerAuthRoutes(api, cfg, rdb, userHandler, authHandler)
-	registerPublicRoutes(
-		api,
-		cfg,
-		rdb,
-		userHandler,
-		authHandler,
+	access := newRouteAccessGroups(api, cfg, rdb)
+	rateLimits := newRouteRateLimitFactory()
+
+	registerAuthRoutes(api, cfg, rdb, rateLimits, userHandler, authHandler)
+	registerArticleRoutes(
+		access,
 		categoryHandler,
 		tagHandler,
 		collectionHandler,
 		articleHandler,
-		commentHandler,
-		aiHandler,
-		siteHandler,
-		notificationHandler,
 	)
-	registerAIRoutes(api, cfg, rdb, aiHandler, chatHandler)
-	registerAdminRoutes(
-		api,
+	registerCommentRoutes(
+		access,
 		cfg,
 		rdb,
+		rateLimits,
+		commentHandler,
+	)
+	registerUserSelfRoutes(
+		access,
+		userHandler,
+		authHandler,
+		notificationHandler,
+	)
+	registerSiteRoutes(
+		access,
+		siteHandler,
+		articleHandler,
+	)
+	registerChatRoutes(
+		access,
+		cfg,
+		rdb,
+		rateLimits,
+		aiHandler,
+		chatHandler,
+	)
+	registerAdminRoutes(
+		access,
 		userHandler,
 		categoryHandler,
 		tagHandler,
