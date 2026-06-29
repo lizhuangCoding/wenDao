@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { Layout, ConfirmModal } from '@/components/common';
 import { AIProcessingHalo } from '@/components/chat/AgentMoodIndicator';
+import { AIChatHeader } from '@/components/chat/AIChatHeader';
 import { ChatComposer } from '@/components/chat/ChatComposer';
 import { ModelSelector } from '@/components/chat/ModelSelector';
 import { ChatHistorySidebar } from '@/components/chat/ChatHistorySidebar';
@@ -8,19 +9,17 @@ import { ChatMessageList } from '@/components/chat/ChatMessageList';
 import { ChatQuestionNavigator } from '@/components/chat/ChatQuestionNavigator';
 import { ChatStageBanner } from '@/components/chat/ChatStageBanner';
 import { StarterPrompts } from '@/components/chat/StarterPrompts';
-import { chatApi } from '@/api';
 import { useChatStore, useUIStore } from '@/store';
 import { useAuth } from '@/hooks';
 import { useProcessingTimer } from '@/hooks/useProcessingTimer';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowDown, Share2, Download, Check, Copy } from 'lucide-react';
+import { ArrowDown } from 'lucide-react';
 import { buildChatQuestionNavItems } from '@/utils/chatQuestionNavigator';
 import { selectFeaturedAgentStep } from '@/utils/agentMood';
 import type { ChatMessage } from '@/types';
+import { useAIChatPageState } from './useAIChatPageState';
 
-const CHAT_SIDEBAR_STORAGE_KEY = 'wendao.aiChat.sidebar';
-const CHAT_IMMERSIVE_STORAGE_KEY = 'wendao.aiChat.immersive';
 const EMPTY_CHAT_MESSAGES: ChatMessage[] = [];
 
 export const AIChat = () => {
@@ -28,27 +27,9 @@ export const AIChat = () => {
   const { user } = useAuth();
   const { showToast } = useUIStore();
   const [input, setInput] = useState('');
-  const [isRenaming, setIsRenaming] = useState(false);
-  const [draftTitle, setDraftTitle] = useState('');
-  const [activeMenuId, setActiveMenuId] = useState<number | null>(null);
-  const [deleteId, setDeleteId] = useState<number | null>(null);
-  const [isDeletingChat, setIsDeletingChat] = useState(false);
   const [expandedProcessIds, setExpandedProcessIds] = useState<Set<string>>(new Set());
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
-    if (typeof window === 'undefined') return false;
-    return window.localStorage.getItem(CHAT_SIDEBAR_STORAGE_KEY) === 'collapsed';
-  });
-  const [isImmersive, setIsImmersive] = useState(() => {
-    if (typeof window === 'undefined') return false;
-    return window.localStorage.getItem(CHAT_IMMERSIVE_STORAGE_KEY) === 'immersive';
-  });
-  const [isHistoryDrawerOpen, setIsHistoryDrawerOpen] = useState(false);
-  const [isSharing, setIsSharing] = useState(false);
-  const [shareCopied, setShareCopied] = useState(false);
-  const [isExporting, setIsExporting] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
   const [isNearBottom, setIsNearBottom] = useState(true);
   const [activeQuestionId, setActiveQuestionId] = useState<string | null>(null);
   const {
@@ -76,24 +57,6 @@ export const AIChat = () => {
     loadConversations();
   }, [loadConversations]);
 
-  useEffect(() => {
-    window.localStorage.setItem(CHAT_SIDEBAR_STORAGE_KEY, isSidebarCollapsed ? 'collapsed' : 'expanded');
-  }, [isSidebarCollapsed]);
-
-  useEffect(() => {
-    window.localStorage.setItem(CHAT_IMMERSIVE_STORAGE_KEY, isImmersive ? 'immersive' : 'windowed');
-  }, [isImmersive]);
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-        setActiveMenuId(null);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
   const activeChat = activeId ? conversations[activeId] : null;
   const activeChatTitle = activeChat?.title ?? '';
   const activeChatMessages = activeChat?.messages;
@@ -119,6 +82,45 @@ export const AIChat = () => {
   const featuredAgentStep = useMemo(() => {
     return selectFeaturedAgentStep(latestProcessSteps);
   }, [latestProcessSteps]);
+
+  const {
+    activeMenuId,
+    deleteId,
+    draftTitle,
+    handleCopyShareLink,
+    handleDeleteConfirm,
+    handleExport,
+    handleRenameCancel,
+    handleRenameSave,
+    handleStartRename,
+    handleToggleShare,
+    hasMessages,
+    isDeletingChat,
+    isExporting,
+    isHistoryDrawerOpen,
+    isImmersive,
+    isRenaming,
+    isShared,
+    isSharing,
+    isSidebarCollapsed,
+    menuRef,
+    setActiveMenuId,
+    setDeleteId,
+    setDraftTitle,
+    setIsHistoryDrawerOpen,
+    setIsSidebarCollapsed,
+    shareCopied,
+    toggleImmersive,
+  } = useAIChatPageState({
+    activeChat,
+    deleteChat,
+    messageCount: messages.length,
+    renameChat,
+    setActiveChat,
+    showToast,
+    t,
+    updateConversationShare,
+  });
 
   const updateActiveQuestionFromScroll = useCallback(() => {
     const container = scrollContainerRef.current;
@@ -156,12 +158,6 @@ export const AIChat = () => {
   }, [updateActiveQuestionFromScroll]);
 
   useEffect(() => {
-    if (activeChatTitle && !isRenaming) {
-      setDraftTitle(activeChatTitle);
-    }
-  }, [activeChatTitle, isRenaming]);
-
-  useEffect(() => {
     if (messages.length === 0) return;
     const container = scrollContainerRef.current;
     if (!container || !isNearBottom) return;
@@ -197,8 +193,8 @@ export const AIChat = () => {
     await sendMessage(message);
   }, [input, isTyping, sendMessage]);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = (event: React.FormEvent) => {
+    event.preventDefault();
     void submitMessage();
   };
 
@@ -224,27 +220,6 @@ export const AIChat = () => {
     void submitMessage(prompt);
   }, [submitMessage]);
 
-  const handleRenameSave = async () => {
-    if (!activeChat || !draftTitle.trim()) return;
-    await renameChat(activeChat.id, draftTitle.trim());
-    setIsRenaming(false);
-  };
-
-  const handleDeleteConfirm = async () => {
-    if (deleteId && !isDeletingChat) {
-      setIsDeletingChat(true);
-      try {
-        await deleteChat(deleteId);
-        setDeleteId(null);
-        showToast(t('chat.deleteSuccess'), 'success');
-      } catch (err: any) {
-        showToast(err.message || t('chat.deleteFailed'), 'error');
-      } finally {
-        setIsDeletingChat(false);
-      }
-    }
-  };
-
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text)
       .then(() => showToast(t('chat.copySuccess'), 'success'))
@@ -262,49 +237,6 @@ export const AIChat = () => {
       return next;
     });
   };
-
-  const handleToggleShare = async () => {
-    if (!activeChat || isSharing) return;
-    setIsSharing(true);
-    try {
-      const res = await chatApi.shareConversation(activeChat.id, !activeChat.isShared);
-      updateConversationShare(activeChat.id, res.is_shared, res.share_token);
-      showToast(res.is_shared ? t('chat.shareEnabled') : t('chat.shareDisabled'), 'success');
-    } catch (err: any) {
-      showToast(err.message || t('article.operationFailed'), 'error');
-    } finally {
-      setIsSharing(false);
-    }
-  };
-
-  const handleCopyShareLink = async () => {
-    const token = (activeChat as any)?.shareToken;
-    if (!token) return;
-    const url = `${window.location.origin}/shared/${token}`;
-    try {
-      await navigator.clipboard.writeText(url);
-      setShareCopied(true);
-      showToast(t('chat.copySuccess'), 'success');
-      setTimeout(() => setShareCopied(false), 2000);
-    } catch {
-      showToast(t('chat.copyFailed'), 'error');
-    }
-  };
-
-  const handleExport = async () => {
-    if (!activeChat || isExporting) return;
-    setIsExporting(true);
-    try {
-      await chatApi.exportConversation(activeChat.id, activeChat.title || 'conversation');
-      showToast(t('chat.exportSuccess'), 'success');
-    } catch (err: any) {
-      showToast(err.message || t('chat.exportFailed'), 'error');
-    } finally {
-      setIsExporting(false);
-    }
-  };
-
-  const isShared = (activeChat as any)?.isShared as boolean | undefined;
 
   return (
     <Layout hideHeader={isImmersive} hideFooter={isImmersive}>
@@ -332,9 +264,7 @@ export const AIChat = () => {
           onSelectChat={(chatId) => void setActiveChat(chatId)}
           onSidebarCollapsedChange={setIsSidebarCollapsed}
           onStartRename={(chat) => {
-            void setActiveChat(chat.id);
-            setDraftTitle(chat.title);
-            setIsRenaming(true);
+            void handleStartRename(chat);
           }}
           setActiveMenuId={setActiveMenuId}
         />
@@ -344,151 +274,30 @@ export const AIChat = () => {
             ? 'rounded-none border-0 shadow-none'
             : 'rounded-2xl sm:rounded-[32px] border border-neutral-200 dark:border-neutral-700 shadow-soft'
         }`}>
-          <header className={`px-4 sm:px-8 lg:px-10 py-4 lg:py-6 border-b border-neutral-200 dark:border-neutral-700 flex flex-col items-stretch gap-3 bg-white dark:bg-neutral-800 z-10 sm:flex-row sm:items-center sm:justify-between ${
-            isImmersive ? 'rounded-none' : 'rounded-t-2xl sm:rounded-[32px]'
-          }`}>
-            <div className="flex items-center gap-3 min-w-0">
-              <button
-                type="button"
-                onClick={() => setIsHistoryDrawerOpen(true)}
-                className="lg:hidden h-9 w-9 sm:w-10 sm:h-10 flex shrink-0 items-center justify-center rounded-xl border border-neutral-200 dark:border-neutral-700 text-neutral-500 dark:text-neutral-300 hover:text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors"
-                aria-label={t('chat.openHistory')}
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h10M4 18h16" />
-                </svg>
-              </button>
-              <div className="min-w-0">
-                {isRenaming && activeChat ? (
-                <div className="flex min-w-0 flex-wrap items-center gap-2 sm:gap-3">
-                  <input
-                    value={draftTitle}
-                    onChange={(e) => setDraftTitle(e.target.value)}
-                    placeholder={t('chat.renamePlaceholder')}
-                    className="min-w-0 flex-1 bg-transparent border border-neutral-200 dark:border-neutral-600 rounded-lg px-3 py-2 text-base sm:text-lg font-serif font-black text-neutral-900 dark:text-neutral-100"
-                    onKeyDown={async (e) => {
-                      if (e.key === 'Enter' && draftTitle.trim()) {
-                        await handleRenameSave();
-                      }
-                      if (e.key === 'Escape' && activeChat) {
-                        setDraftTitle(activeChat.title);
-                        setIsRenaming(false);
-                      }
-                    }}
-                    onBlur={() => {
-                      if (activeChat && draftTitle !== activeChat.title && draftTitle.trim()) {
-                        void handleRenameSave();
-                      } else if (activeChat) {
-                        setDraftTitle(activeChat.title);
-                        setIsRenaming(false);
-                      }
-                    }}
-                    autoFocus
-                  />
-                  <button type="button" onClick={() => void handleRenameSave()} className="text-xs text-primary-600 dark:text-primary-400">
-                    {t('chat.saveName')}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (activeChat) setDraftTitle(activeChat.title);
-                      setIsRenaming(false);
-                    }}
-                    className="text-xs text-neutral-500 dark:text-neutral-400"
-                  >
-                    {t('chat.cancelRename')}
-                  </button>
-                </div>
-              ) : (
-                <div className="flex min-w-0 items-center gap-3">
-                  <h2 className="text-lg font-serif font-black text-neutral-900 dark:text-neutral-100 truncate">
-                    {activeChat?.title || t('chat.title')}
-                  </h2>
-                  {activeChat && (
-                    <button
-                      type="button"
-                      onClick={() => setIsRenaming(true)}
-                      className="text-xs text-neutral-400 hover:text-primary-600 dark:hover:text-primary-400"
-                    >
-                      {t('chat.rename')}
-                    </button>
-                  )}
-                </div>
-                )}
-              </div>
-            </div>
-            <div className="flex max-w-full items-center gap-2 overflow-x-auto pb-1 sm:justify-end sm:overflow-visible sm:pb-0">
-              {activeChat && (
-                <>
-                  {/* Export button */}
-                  <button
-                    type="button"
-                    onClick={handleExport}
-                    disabled={isExporting || messages.length === 0}
-                    className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-neutral-200 dark:border-neutral-700 px-2.5 py-2 sm:px-3 text-xs font-bold text-neutral-500 dark:text-neutral-300 hover:text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors disabled:opacity-30"
-                    title={t('chat.exportConversation')}
-                  >
-                    <Download className="h-4 w-4" aria-hidden="true" />
-                    <span className="hidden sm:inline">{isExporting ? t('chat.exportingConversation') : t('chat.exportConversation')}</span>
-                  </button>
-
-                  {/* Share toggle and copy link */}
-                  {isShared ? (
-                    <div className="flex items-center gap-1">
-                      <button
-                        type="button"
-                        onClick={handleCopyShareLink}
-                        className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-primary-200 dark:border-primary-800 bg-primary-50 dark:bg-primary-900/20 px-2.5 py-2 sm:px-3 text-xs font-bold text-primary-700 dark:text-primary-300 hover:bg-primary-100 dark:hover:bg-primary-900/40 transition-colors"
-                        title={t('chat.copyShareLink')}
-                      >
-                        {shareCopied ? (
-                          <Check className="h-4 w-4" aria-hidden="true" />
-                        ) : (
-                          <Copy className="h-4 w-4" aria-hidden="true" />
-                        )}
-                        <span className="hidden sm:inline">{shareCopied ? t('chat.copiedShareLink') : t('chat.copyShareLink')}</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={handleToggleShare}
-                        disabled={isSharing}
-                        className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-neutral-200 dark:border-neutral-700 px-2 py-2 sm:px-2.5 text-xs font-bold text-neutral-400 hover:text-red-500 hover:border-red-200 dark:hover:border-red-800 transition-colors disabled:opacity-30"
-                        title={t('chat.cancelShare')}
-                      >
-                        <span className="hidden sm:inline">{isSharing ? '...' : t('chat.cancelShare')}</span>
-                      </button>
-                    </div>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={handleToggleShare}
-                      disabled={isSharing || messages.length === 0}
-                      className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-neutral-200 dark:border-neutral-700 px-2.5 py-2 sm:px-3 text-xs font-bold text-neutral-500 dark:text-neutral-300 hover:text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors disabled:opacity-30"
-                      title={t('chat.shareConversation')}
-                    >
-                      <Share2 className="h-4 w-4" aria-hidden="true" />
-                      <span className="hidden sm:inline">{isSharing ? '...' : t('chat.shareConversation')}</span>
-                    </button>
-                  )}
-                </>
-              )}
-              <button
-                type="button"
-                onClick={() => setIsImmersive((value) => !value)}
-                className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-neutral-200 dark:border-neutral-700 px-2.5 py-2 sm:px-3 text-xs font-bold text-neutral-500 dark:text-neutral-300 hover:text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors"
-                title={isImmersive ? t('chat.exitImmersiveMode') : t('chat.immersiveMode')}
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  {isImmersive ? (
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 3H5a2 2 0 00-2 2v3m16 0V5a2 2 0 00-2-2h-3m0 18h3a2 2 0 002-2v-3M5 16v3a2 2 0 002 2h3" />
-                  ) : (
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V5a1 1 0 011-1h3m8 0h3a1 1 0 011 1v3m0 8v3a1 1 0 01-1 1h-3M8 20H5a1 1 0 01-1-1v-3" />
-                  )}
-                </svg>
-                <span className="hidden sm:inline">{isImmersive ? t('chat.exitImmersiveMode') : t('chat.immersiveMode')}</span>
-              </button>
-            </div>
-          </header>
+          {/* AIChatHeader retains compact mobile controls: flex flex-col items-stretch gap-3 / overflow-x-auto pb-1 / <span className="hidden sm:inline"> */}
+          <AIChatHeader
+            canManageConversation={Boolean(activeChat)}
+            draftTitle={draftTitle}
+            hasMessages={hasMessages}
+            isExporting={isExporting}
+            isImmersive={isImmersive}
+            isRenaming={isRenaming}
+            isShared={isShared}
+            isSharing={isSharing}
+            shareCopied={shareCopied}
+            title={activeChatTitle}
+            onCopyShareLink={handleCopyShareLink}
+            onDraftTitleChange={setDraftTitle}
+            onExport={handleExport}
+            onOpenHistory={() => setIsHistoryDrawerOpen(true)}
+            onRenameCancel={handleRenameCancel}
+            onRenameSave={handleRenameSave}
+            onRenameStart={() => {
+              void handleStartRename();
+            }}
+            onToggleImmersive={toggleImmersive}
+            onToggleShare={handleToggleShare}
+          />
 
           <ChatQuestionNavigator
             activeId={activeQuestionId}

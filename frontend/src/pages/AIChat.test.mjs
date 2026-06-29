@@ -117,6 +117,16 @@ test('AIChat delegates complex chat sections to focused modules', async () => {
   assert.doesNotMatch(source, /messages\.map/);
 });
 
+test('AIChat page delegates local UI state and header controls to focused modules', async () => {
+  const source = await loadAIChatSource();
+
+  assert.match(source, /useAIChatPageState/);
+  assert.match(source, /AIChatHeader/);
+  assert.doesNotMatch(source, /const \[isRenaming, setIsRenaming\]/);
+  assert.doesNotMatch(source, /const \[isSidebarCollapsed, setIsSidebarCollapsed\]/);
+  assert.doesNotMatch(source, /const handleToggleShare = async/);
+});
+
 test('AIChat share and export paths use store actions and safe filenames', async () => {
   const [source, apiSource, storeSource] = await Promise.all([
     loadAIChatSource(),
@@ -174,6 +184,15 @@ test('AIChat store delegates normalizers and persistence helpers to focused modu
   assert.match(persistenceSource, /export const readStoredActiveId/);
   assert.match(persistenceSource, /export const persistActiveChatId/);
   assert.match(persistenceSource, /export const persistSelectedModel/);
+});
+
+test('AIChat store delegates streaming workflows to a dedicated module', async () => {
+  const storeSource = await loadStoreSource('chatStore');
+
+  assert.match(storeSource, /from '\.\/chatStream'/);
+  assert.doesNotMatch(storeSource, /const resumeConversation = async/);
+  assert.doesNotMatch(storeSource, /await chatApi\.resumeStream/);
+  assert.doesNotMatch(storeSource, /await chatApi\.streamMessage/);
 });
 
 test('ModelSelector exposes full long model names instead of truncating menu items', async () => {
