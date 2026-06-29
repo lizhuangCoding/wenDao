@@ -1,6 +1,8 @@
 package main
 
 import (
+	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -116,6 +118,26 @@ func TestAllowedCORSOriginsIncludesSiteURLAndLocalDev(t *testing.T) {
 		}
 		if !found {
 			t.Fatalf("expected origin %q in %#v", expected, origins)
+		}
+	}
+}
+
+func TestBootstrapHTTPDelegatesRouteRegistrationToFocusedHelpers(t *testing.T) {
+	source, err := os.ReadFile("bootstrap_http.go")
+	if err != nil {
+		t.Fatalf("failed to read bootstrap_http.go: %v", err)
+	}
+
+	text := string(source)
+	required := []string{
+		"registerPublicRoutes(",
+		"registerAuthRoutes(",
+		"registerAIRoutes(",
+		"registerAdminRoutes(",
+	}
+	for _, token := range required {
+		if !strings.Contains(text, token) {
+			t.Fatalf("expected bootstrap_http.go to delegate via %q", token)
 		}
 	}
 }

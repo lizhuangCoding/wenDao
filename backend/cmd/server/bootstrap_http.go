@@ -145,242 +145,40 @@ func registerRoutes(
 	notificationHandler *handler.NotificationHandler,
 ) {
 	api := router.Group("/api")
-	{
-		auth := api.Group("/auth")
-		auth.Use(middleware.RateLimit(rdb, middleware.RateLimitConfig{
-			Name:    "auth-global",
-			Type:    middleware.IPLimit,
-			Limit:   cfg.RateLimit.Global,
-			Window:  time.Second,
-			Message: rateLimitMessage("认证接口访问过于频繁", cfg.RateLimit.Global, time.Second),
-		}))
-		{
-			auth.POST("/register/code", middleware.RateLimit(rdb, middleware.RateLimitConfig{
-				Name:    "auth-register-code",
-				Type:    middleware.IPLimit,
-				Limit:   cfg.RateLimit.VerificationCode,
-				Window:  time.Minute,
-				Message: rateLimitMessage("注册验证码发送过于频繁", cfg.RateLimit.VerificationCode, time.Minute),
-			}), userHandler.RequestRegisterCode)
-			auth.POST("/register", middleware.RateLimit(rdb, middleware.RateLimitConfig{
-				Name:    "auth-register",
-				Type:    middleware.IPLimit,
-				Limit:   cfg.RateLimit.Register,
-				Window:  time.Minute,
-				Message: rateLimitMessage("注册请求过于频繁", cfg.RateLimit.Register, time.Minute),
-			}), userHandler.Register)
-			auth.POST("/login", middleware.RateLimit(rdb, middleware.RateLimitConfig{
-				Name:    "auth-login",
-				Type:    middleware.IPLimit,
-				Limit:   cfg.RateLimit.Login,
-				Window:  time.Minute,
-				Message: rateLimitMessage("登录尝试过于频繁", cfg.RateLimit.Login, time.Minute),
-			}), userHandler.Login)
-			auth.POST("/password-reset/code", middleware.RateLimit(rdb, middleware.RateLimitConfig{
-				Name:    "auth-password-reset-code",
-				Type:    middleware.IPLimit,
-				Limit:   cfg.RateLimit.PasswordReset,
-				Window:  time.Minute,
-				Message: rateLimitMessage("密码重置验证码发送过于频繁", cfg.RateLimit.PasswordReset, time.Minute),
-			}), userHandler.RequestPasswordResetCode)
-			auth.POST("/password-reset/confirm", middleware.RateLimit(rdb, middleware.RateLimitConfig{
-				Name:    "auth-password-reset-confirm",
-				Type:    middleware.IPLimit,
-				Limit:   cfg.RateLimit.PasswordReset,
-				Window:  time.Minute,
-				Message: rateLimitMessage("密码重置提交过于频繁", cfg.RateLimit.PasswordReset, time.Minute),
-			}), userHandler.ConfirmPasswordReset)
-			auth.GET("/github", userHandler.GitHubLogin)
-			auth.POST("/refresh", middleware.RateLimit(rdb, middleware.RateLimitConfig{
-				Name:    "auth-refresh",
-				Type:    middleware.IPLimit,
-				Limit:   cfg.RateLimit.Refresh,
-				Window:  time.Minute,
-				Message: rateLimitMessage("登录状态刷新过于频繁", cfg.RateLimit.Refresh, time.Minute),
-			}), authHandler.Refresh)
-			auth.GET("/github/callback", userHandler.GitHubCallback)
-		}
-
-		api.GET("/articles", articleHandler.List)
-		api.GET("/articles/orbit", articleHandler.ListOrbitArticles)
-		api.GET("/articles/:id", articleHandler.GetByID)
-		api.GET("/articles/slug/:slug", articleHandler.GetBySlug)
-		api.GET("/search/articles", articleHandler.Search)
-		api.GET("/categories", categoryHandler.List)
-		api.GET("/tags", tagHandler.List)
-		api.GET("/collections", collectionHandler.List)
-		api.GET("/categories/:id/articles", articleHandler.List)
-		api.GET("/comments/article/:id", commentHandler.GetByArticleID)
-		commentVotes := api.Group("")
-		commentVotes.Use(middleware.AuthOptional(cfg.JWT.Secret, rdb), middleware.CSRFProtection())
-		commentVotes.POST("/comments/:id/like", commentHandler.Like)
-		commentVotes.DELETE("/comments/:id/like", commentHandler.Unlike)
-		commentVotes.POST("/comments/:id/dislike", commentHandler.Dislike)
-		commentVotes.DELETE("/comments/:id/dislike", commentHandler.Undislike)
-		api.GET("/slogan", siteHandler.GetSlogan)
-		api.GET("/contact-links", siteHandler.GetContactLinks)
-		api.GET("/settings/sort-mode", articleHandler.GetSortMode)
-		api.GET("/models", aiHandler.GetModels)
-
-		authRequired := api.Group("")
-		authRequired.Use(middleware.AuthRequired(cfg.JWT.Secret, rdb), middleware.CSRFProtection())
-		{
-			authRequired.POST("/auth/logout", authHandler.Logout)
-			authRequired.GET("/auth/me", authHandler.GetUserInfo)
-			authRequired.POST("/users/me/avatar", userHandler.UploadAvatar)
-			authRequired.PUT("/users/me/username", userHandler.UpdateUsername)
-			authRequired.PUT("/users/me/preferences", userHandler.UpdatePreferences)
-			authRequired.GET("/users/me/liked-articles", articleHandler.ListLikedArticles)
-			authRequired.GET("/users/me/favorite-articles", articleHandler.ListFavoriteArticles)
-			authRequired.GET("/articles/:id/interaction", articleHandler.GetInteraction)
-			authRequired.POST("/articles/:id/like", articleHandler.Like)
-			authRequired.DELETE("/articles/:id/like", articleHandler.Unlike)
-			authRequired.POST("/articles/:id/favorite", articleHandler.Favorite)
-			authRequired.DELETE("/articles/:id/favorite", articleHandler.Unfavorite)
-			authRequired.POST("/comments", middleware.RateLimit(rdb, middleware.RateLimitConfig{
-				Name:    "comment-create",
-				Type:    middleware.UserLimit,
-				Limit:   cfg.RateLimit.CommentCreate,
-				Window:  time.Minute,
-				Message: rateLimitMessage("评论发布过于频繁", cfg.RateLimit.CommentCreate, time.Minute),
-			}), commentHandler.Create)
-			authRequired.DELETE("/comments/:id", commentHandler.Delete)
-
-			// 通知相关
-			notifications := authRequired.Group("/notifications")
-			{
-				notifications.GET("", notificationHandler.List)
-				notifications.GET("/unread-count", notificationHandler.GetUnreadCount)
-				notifications.PUT("/:id/read", notificationHandler.MarkRead)
-				notifications.PUT("/read-all", notificationHandler.MarkAllRead)
-			}
-		}
-
-		ai := api.Group("/ai")
-		ai.Use(middleware.AuthRequired(cfg.JWT.Secret, rdb), middleware.CSRFProtection())
-		{
-			ai.POST("/chat", middleware.RateLimit(rdb, middleware.RateLimitConfig{
-				Name:    "ai-chat",
-				Type:    middleware.UserLimit,
-				Limit:   cfg.RateLimit.AIChat,
-				Window:  time.Minute,
-				Message: rateLimitMessage("AI 对话请求过于频繁", cfg.RateLimit.AIChat, time.Minute),
-			}), aiHandler.Chat)
-			ai.POST("/chat/stream", middleware.RateLimit(rdb, middleware.RateLimitConfig{
-				Name:    "ai-chat-stream",
-				Type:    middleware.UserLimit,
-				Limit:   cfg.RateLimit.AIChat,
-				Window:  time.Minute,
-				Message: rateLimitMessage("AI 流式对话请求过于频繁", cfg.RateLimit.AIChat, time.Minute),
-			}), aiHandler.ChatStream)
-			ai.POST("/chat/stream/resume", middleware.RateLimit(rdb, middleware.RateLimitConfig{
-				Name:    "ai-chat-stream-resume",
-				Type:    middleware.UserLimit,
-				Limit:   cfg.RateLimit.AIChat,
-				Window:  time.Minute,
-				Message: rateLimitMessage("AI 流式恢复请求过于频繁", cfg.RateLimit.AIChat, time.Minute),
-			}), aiHandler.ResumeChatStream)
-			ai.POST("/summary", middleware.AdminRequired(cfg.JWT.Secret, rdb), aiHandler.GenerateSummary)
-			ai.POST("/writing", middleware.AdminRequired(cfg.JWT.Secret, rdb), middleware.RateLimit(rdb, middleware.RateLimitConfig{
-				Name:    "ai-writing",
-				Type:    middleware.UserLimit,
-				Limit:   cfg.RateLimit.AIChat,
-				Window:  time.Minute,
-				Message: rateLimitMessage("AI 写作请求过于频繁", cfg.RateLimit.AIChat, time.Minute),
-			}), aiHandler.GenerateWriting)
-		}
-
-		conversations := api.Group("/chat/conversations")
-		conversations.Use(middleware.AuthRequired(cfg.JWT.Secret, rdb), middleware.CSRFProtection())
-		{
-			conversations.GET("", chatHandler.List)
-			conversations.POST("", chatHandler.Create)
-			conversations.GET("/:id", chatHandler.Get)
-			conversations.PATCH("/:id", chatHandler.Update)
-			conversations.DELETE("/:id", chatHandler.Delete)
-			conversations.POST("/:id/share", chatHandler.Share)
-			conversations.GET("/:id/export", chatHandler.Export)
-		}
-
-		// 公开分享的对话
-		api.GET("/shared/conversations/:token", chatHandler.GetShared)
-
-		admin := api.Group("/admin")
-		admin.Use(middleware.AuthRequired(cfg.JWT.Secret, rdb), middleware.AdminRequired(cfg.JWT.Secret, rdb), middleware.CSRFProtection())
-		{
-			// 用户管理
-			users := admin.Group("/users")
-			{
-				users.GET("", userHandler.ListUsers)
-				users.PUT("/:id/role", userHandler.UpdateUserRole)
-				users.PUT("/:id/status", userHandler.UpdateUserStatus)
-			}
-			articles := admin.Group("/articles")
-			{
-				articles.GET("", articleHandler.AdminList)
-				articles.POST("/batch-delete", articleHandler.BatchDelete)
-				articles.GET("/:id", articleHandler.GetByID)
-				articles.POST("", articleHandler.Create)
-				articles.PUT("/:id", articleHandler.Update)
-				articles.PUT("/:id/autosave", articleHandler.AutoSave)
-				articles.DELETE("/:id", articleHandler.Delete)
-				articles.PATCH("/:id/publish", articleHandler.Publish)
-				articles.PATCH("/:id/draft", articleHandler.Draft)
-				articles.PATCH("/:id/top", articleHandler.ToggleTop)
-				articles.POST("/refresh-scores", articleHandler.UpdatePopularityScores)
-			}
-			categories := admin.Group("/categories")
-			{
-				categories.GET("", categoryHandler.AdminList)
-				categories.POST("/batch-delete", categoryHandler.BatchDelete)
-				categories.POST("", categoryHandler.Create)
-				categories.PUT("/:id", categoryHandler.Update)
-				categories.DELETE("/:id", categoryHandler.Delete)
-			}
-			tags := admin.Group("/tags")
-			{
-				tags.GET("", tagHandler.AdminList)
-				tags.POST("/batch-delete", tagHandler.BatchDelete)
-				tags.POST("", tagHandler.Create)
-				tags.PUT("/:id", tagHandler.Update)
-				tags.DELETE("/:id", tagHandler.Delete)
-			}
-			collections := admin.Group("/collections")
-			{
-				collections.GET("", collectionHandler.AdminList)
-				collections.POST("/batch-delete", collectionHandler.BatchDelete)
-				collections.POST("", collectionHandler.Create)
-				collections.PUT("/:id", collectionHandler.Update)
-				collections.DELETE("/:id", collectionHandler.Delete)
-			}
-			comments := admin.Group("/comments")
-			{
-				comments.GET("", commentHandler.AdminList)
-				comments.POST("/batch-delete", commentHandler.BatchDelete)
-				comments.DELETE("/:id", commentHandler.Delete)
-				comments.POST("/:id/restore", commentHandler.Restore)
-			}
-			knowledgeDocs := admin.Group("/knowledge-documents")
-			{
-				knowledgeDocs.GET("", knowledgeDocumentHandler.List)
-				knowledgeDocs.POST("/batch-delete", knowledgeDocumentHandler.BatchDelete)
-				knowledgeDocs.GET("/:id", knowledgeDocumentHandler.Get)
-				knowledgeDocs.POST("/:id/approve", knowledgeDocumentHandler.Approve)
-				knowledgeDocs.POST("/:id/reject", knowledgeDocumentHandler.Reject)
-				knowledgeDocs.DELETE("/:id", knowledgeDocumentHandler.Delete)
-			}
-			admin.POST("/upload/image", uploadHandler.UploadImage)
-			admin.GET("/stats/dashboard", statHandler.GetDashboardStats)
-			admin.GET("/ai-observability/runs", aiObservabilityHandler.ListRuns)
-			admin.POST("/ai-observability/runs/batch-delete", aiObservabilityHandler.BatchDeleteRuns)
-			admin.PUT("/settings/sort-mode", articleHandler.SetSortMode)
-			admin.PUT("/settings/slogan", siteHandler.SetSlogan)
-			admin.PUT("/settings/contact-links", siteHandler.SetContactLinks)
-
-			// 消息广播
-			admin.POST("/notifications/broadcast", notificationHandler.Broadcast)
-		}
-	}
+	registerAuthRoutes(api, cfg, rdb, userHandler, authHandler)
+	registerPublicRoutes(
+		api,
+		cfg,
+		rdb,
+		userHandler,
+		authHandler,
+		categoryHandler,
+		tagHandler,
+		collectionHandler,
+		articleHandler,
+		commentHandler,
+		aiHandler,
+		siteHandler,
+		notificationHandler,
+	)
+	registerAIRoutes(api, cfg, rdb, aiHandler, chatHandler)
+	registerAdminRoutes(
+		api,
+		cfg,
+		rdb,
+		userHandler,
+		categoryHandler,
+		tagHandler,
+		collectionHandler,
+		articleHandler,
+		commentHandler,
+		uploadHandler,
+		siteHandler,
+		statHandler,
+		aiObservabilityHandler,
+		knowledgeDocumentHandler,
+		notificationHandler,
+	)
 
 	router.Static("/uploads", cfg.Upload.StoragePath)
 	router.GET("/health", func(c *gin.Context) {

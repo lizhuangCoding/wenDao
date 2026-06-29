@@ -47,12 +47,13 @@ test('AI chat uses mobile viewport-safe sizing and compact mobile controls', asy
 });
 
 test('admin surfaces keep mobile controls stacked and tables scroll instead of squeezing', async () => {
-  const [adminLayout, pageHeader, dataTable, articleEditor, markdownStudio] = await Promise.all([
+  const [adminLayout, pageHeader, dataTable, articleEditor, markdownStudio, markdownStudioToolbar] = await Promise.all([
     loadSourceFile('./components/admin/AdminLayout.tsx'),
     loadSourceFile('./components/common/PageHeader.tsx'),
     loadSourceFile('./components/common/DataTable.tsx'),
     loadSourceFile('./views/admin/articles/ArticleEditor.tsx'),
     loadSourceFile('./views/admin/articles/components/MarkdownWritingStudio.tsx'),
+    loadSourceFile('./views/admin/articles/components/markdownStudio/MarkdownStudioToolbar.tsx'),
   ]);
 
   assert.match(adminLayout, /py-6 sm:py-10/);
@@ -68,6 +69,7 @@ test('admin surfaces keep mobile controls stacked and tables scroll instead of s
   assert.match(articleEditor, /flex flex-col gap-3 sm:flex-row/);
   assert.match(articleEditor, /grid grid-cols-2 gap-2 sm:flex/);
   assert.match(articleEditor, /grid grid-cols-1 gap-4 sm:grid-cols-2/);
-  assert.match(markdownStudio, /flex w-full flex-wrap/);
-  assert.match(markdownStudio, /sm:ml-auto sm:w-auto/);
+  assert.match(markdownStudio, /flex-wrap items-center gap-2/);
+  assert.match(markdownStudioToolbar, /flex w-full flex-wrap/);
+  assert.match(markdownStudioToolbar, /sm:ml-auto sm:w-auto/);
 });
