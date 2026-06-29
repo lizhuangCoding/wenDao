@@ -241,7 +241,7 @@ func (h *CommentHandler) Like(c *gin.Context) {
 		return
 	}
 
-	response.Success(c, nil)
+	response.SuccessEmpty(c)
 }
 
 // Unlike 取消点赞评论
@@ -262,7 +262,7 @@ func (h *CommentHandler) Unlike(c *gin.Context) {
 		return
 	}
 
-	response.Success(c, nil)
+	response.SuccessEmpty(c)
 }
 
 // Dislike 点踩评论
@@ -283,7 +283,7 @@ func (h *CommentHandler) Dislike(c *gin.Context) {
 		return
 	}
 
-	response.Success(c, nil)
+	response.SuccessEmpty(c)
 }
 
 // Undislike 取消点踩评论
@@ -304,7 +304,7 @@ func (h *CommentHandler) Undislike(c *gin.Context) {
 		return
 	}
 
-	response.Success(c, nil)
+	response.SuccessEmpty(c)
 }
 
 // Restore 恢复评论（管理员）

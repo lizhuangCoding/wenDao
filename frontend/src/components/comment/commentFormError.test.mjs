@@ -8,6 +8,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const source = readFileSync(resolve(__dirname, 'CommentForm.tsx'), 'utf8');
 
 test('CommentForm shows the API error message when comment submission fails', () => {
-  assert.match(source, /onError:\s*\(\s*error:\s*any\s*\)\s*=>/);
-  assert.match(source, /showToast\(\s*error\.message\s*\|\|\s*t\('common\.failed'\)\s*,\s*'error'\s*\)/);
+  assert.doesNotMatch(source, /onError:\s*\(\s*error:\s*any\s*\)\s*=>/);
+  assert.match(source, /getApiErrorMessage/);
+  assert.match(source, /showToast\(\s*getApiErrorMessage\(error,\s*t\('common\.failed'\)\)\s*,\s*'error'\s*\)/);
 });

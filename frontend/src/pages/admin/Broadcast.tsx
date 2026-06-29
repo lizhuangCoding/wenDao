@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { notificationApi } from '@/api';
 import { PageHeader } from '@/components/common';
 import { useNotificationStore, useUIStore } from '@/store';
+import { getApiErrorMessage } from '@/utils/apiError';
 import { MarkdownWritingStudio } from '@/views/admin/articles/components/MarkdownWritingStudio';
 
 const getContentStats = (content: string) => {
@@ -46,8 +47,8 @@ export const Broadcast = () => {
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
       void fetchUnreadCount();
     },
-    onError: (error: any) => {
-      showToast(error.message || t('broadcast.failed'), 'error');
+    onError: (error) => {
+      showToast(getApiErrorMessage(error, t('broadcast.failed')), 'error');
     },
   });
 

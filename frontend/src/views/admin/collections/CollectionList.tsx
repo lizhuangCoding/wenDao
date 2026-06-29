@@ -23,6 +23,7 @@ import {
   TextInput,
 } from '@/components/common';
 import { useUIStore } from '@/store';
+import { getApiErrorMessage } from '@/utils/apiError';
 import { formatDate } from '@/utils';
 import type { Collection } from '@/types';
 
@@ -80,7 +81,7 @@ export const CollectionList = () => {
       closeModal();
       invalidateCollections();
     },
-    onError: (err: any) => showToast(err.message || '保存合集失败', 'error'),
+    onError: (err) => showToast(getApiErrorMessage(err, '保存合集失败'), 'error'),
   });
 
   const deleteMutation = useMutation({
@@ -93,7 +94,7 @@ export const CollectionList = () => {
         setPage((currentPage) => Math.max(1, currentPage - 1));
       }
     },
-    onError: (err: any) => showToast(err.message || '删除合集失败', 'error'),
+    onError: (err) => showToast(getApiErrorMessage(err, '删除合集失败'), 'error'),
   });
 
   const batchDeleteMutation = useMutation({
@@ -107,7 +108,7 @@ export const CollectionList = () => {
         setPage((currentPage) => Math.max(1, currentPage - 1));
       }
     },
-    onError: (err: any) => showToast(err.message || '批量删除合集失败', 'error'),
+    onError: (err) => showToast(getApiErrorMessage(err, '批量删除合集失败'), 'error'),
   });
 
   const openCreateModal = () => {
@@ -171,7 +172,7 @@ export const CollectionList = () => {
       />
 
       {isError ? (
-        <ErrorState message={(error as any)?.message || '合集列表加载失败'} onRetry={() => refetch()} />
+        <ErrorState message={getApiErrorMessage(error, '合集列表加载失败')} onRetry={() => refetch()} />
       ) : (
         <DataTable
           minWidth="920px"

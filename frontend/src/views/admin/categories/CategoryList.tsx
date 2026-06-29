@@ -23,6 +23,7 @@ import {
 } from '@/components/common';
 import { formatDate } from '@/utils';
 import { useUIStore } from '@/store';
+import { getApiErrorMessage } from '@/utils/apiError';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { Category } from '@/types';
 
@@ -78,8 +79,8 @@ export const CategoryList = () => {
       handleClose();
       invalidateCategories();
     },
-    onError: (err: any) => {
-      showToast(err.message || t('common.failed'), 'error');
+    onError: (err) => {
+      showToast(getApiErrorMessage(err, t('common.failed')), 'error');
     },
   });
 
@@ -93,8 +94,8 @@ export const CategoryList = () => {
         setPage((currentPage) => Math.max(1, currentPage - 1));
       }
     },
-    onError: (err: any) => {
-      showToast(err.message || t('admin.deleteCategoryFailed'), 'error');
+    onError: (err) => {
+      showToast(getApiErrorMessage(err, t('admin.deleteCategoryFailed')), 'error');
     },
   });
 
@@ -109,8 +110,8 @@ export const CategoryList = () => {
         setPage((currentPage) => Math.max(1, currentPage - 1));
       }
     },
-    onError: (err: any) => {
-      showToast(err.message || t('admin.batchDeleteCategoryFailed'), 'error');
+    onError: (err) => {
+      showToast(getApiErrorMessage(err, t('admin.batchDeleteCategoryFailed')), 'error');
     },
   });
 
@@ -168,7 +169,7 @@ export const CategoryList = () => {
       />
 
       {isError ? (
-        <ErrorState message={(error as any)?.message || t('admin.categoryListLoadingFailed')} onRetry={() => refetch()} />
+        <ErrorState message={getApiErrorMessage(error, t('admin.categoryListLoadingFailed'))} onRetry={() => refetch()} />
       ) : (
         <DataTable
           minWidth="860px"

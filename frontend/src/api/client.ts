@@ -1,7 +1,8 @@
-import axios, { AxiosError, AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
+import axios, { AxiosError, AxiosInstance, AxiosRequestConfig } from 'axios';
 import type { ApiResponse, ApiError } from '@/types';
 import { createAuthRefreshQueue } from '@/api/authRefreshQueue';
 import { shouldAttemptTokenRefresh } from '@/utils/pageBehavior';
+import { normalizeApiError } from '@/utils/apiError';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 
@@ -32,22 +33,6 @@ const readCookie = (name: string) => {
 const shouldAttachCSRFToken = (method?: string) => {
   const normalized = (method || 'get').toLowerCase();
   return !['get', 'head', 'options'].includes(normalized);
-};
-
-const buildHttpErrorMessage = (error: AxiosError<ApiResponse>) => {
-  if (error.response?.data?.message) {
-    return error.response.data.message;
-  }
-
-  if (error.code === 'ECONNABORTED') {
-    return '请求超时：服务器响应时间过长，请稍后重试';
-  }
-
-  if (!error.response) {
-    return '网络连接失败：请检查网络连接或稍后重试';
-  }
-
-  return `请求失败：服务器返回 HTTP ${error.response.status}`;
 };
 
 // 创建 axios 实例
@@ -89,7 +74,7 @@ const refreshQueue = createAuthRefreshQueue();
 
 // 响应拦截器
 apiClient.interceptors.response.use(
-  (response: AxiosResponse<ApiResponse>) => {
+  (response) => {
     const { data } = response;
 
     // 统一处理响应
@@ -103,7 +88,7 @@ apiClient.interceptors.response.use(
       message: data.message,
     } as ApiError);
   },
-  async (error: AxiosError<ApiResponse>) => {
+  async (error: AxiosError<ApiResponse<unknown>>) => {
     const originalRequest = error.config as RequestConfig & { _retry?: boolean };
 
     // 401 未授权，且不是刷新 token 请求，且不是重试请求
@@ -162,10 +147,7 @@ apiClient.interceptors.response.use(
     }
 
     // 处理 HTTP 错误
-    const apiError: ApiError = {
-      code: error.response?.status || -1,
-      message: buildHttpErrorMessage(error),
-    };
+    const apiError: ApiError = normalizeApiError(error);
 
     // 401 未授权，清除 token 并跳转登录
     if (error.response?.status === 401) {

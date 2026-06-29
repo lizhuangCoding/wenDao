@@ -33,7 +33,7 @@ test('API mutation error toasts preserve backend error messages before fallback 
     lines.forEach((line, index) => {
       if (!line.includes('showToast(') || !line.includes("'error'")) return;
       if (!line.includes('onError') && !lines[Math.max(index - 1, 0)].includes('onError')) return;
-      if (line.includes('.message')) return;
+      if (line.includes('.message') || line.includes('getApiErrorMessage(') || line.includes('normalizeApiError(')) return;
       violations.push(`${relativePath}:${index + 1}: ${line.trim()}`);
     });
   }

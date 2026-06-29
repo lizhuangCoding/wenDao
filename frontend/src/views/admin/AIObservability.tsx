@@ -23,6 +23,7 @@ import {
   TextInput,
 } from '@/components/common';
 import { useUIStore } from '@/store';
+import { getApiErrorMessage } from '@/utils/apiError';
 import type { AIObservabilityRun } from '@/types';
 
 type RunStatusFilter = '' | 'running' | 'completed' | 'failed' | 'waiting_user';
@@ -115,7 +116,7 @@ export const AIObservability = () => {
         setPage((currentPage) => Math.max(1, currentPage - 1));
       }
     },
-    onError: (err: any) => showToast(err.message || '删除 AI 运行记录失败', 'error'),
+    onError: (err) => showToast(getApiErrorMessage(err, '删除 AI 运行记录失败'), 'error'),
   });
 
   const applySearch = (event: React.FormEvent) => {
@@ -213,7 +214,7 @@ export const AIObservability = () => {
       />
 
       {isError ? (
-        <ErrorState message={(error as any)?.message || 'AI 运行记录加载失败'} onRetry={() => refetch()} />
+        <ErrorState message={getApiErrorMessage(error, 'AI 运行记录加载失败')} onRetry={() => refetch()} />
       ) : (
         <>
           <DataTable

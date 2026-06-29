@@ -6,6 +6,7 @@ import { siteApi } from '@/api';
 import { Button, PageHeader, Panel, SelectInput, TextInput, ToggleSwitch } from '@/components/common';
 import { defaultContactLinks } from '@/components/common/contactLinksData';
 import { useUIStore } from '@/store';
+import { getApiErrorMessage } from '@/utils/apiError';
 import type { ContactLink } from '@/types';
 
 const contactLinkTypeOptions = [
@@ -89,8 +90,8 @@ export const Settings = () => {
       queryClient.setQueryData(['admin-slogan'], result);
       queryClient.invalidateQueries({ queryKey: ['slogan'] });
     },
-    onError: (err: any) => {
-      showToast(err.message || t('settings.saveFailed'), 'error');
+    onError: (err) => {
+      showToast(getApiErrorMessage(err, t('settings.saveFailed')), 'error');
     },
   });
 
@@ -100,8 +101,8 @@ export const Settings = () => {
       showToast(t('settings.contactLinksUpdated'), 'success');
       queryClient.setQueryData(['contact-links'], result);
     },
-    onError: (err: any) => {
-      showToast(err.message || t('settings.saveFailed'), 'error');
+    onError: (err) => {
+      showToast(getApiErrorMessage(err, t('settings.saveFailed')), 'error');
     },
   });
 

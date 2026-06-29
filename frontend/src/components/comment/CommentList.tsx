@@ -5,6 +5,7 @@ import { commentApi } from '@/api';
 import { CommentForm } from './CommentForm';
 import { CommentItem } from './CommentItem';
 import { ErrorState, Loading } from '@/components/common';
+import { getApiErrorMessage } from '@/utils/apiError';
 
 interface CommentListProps {
   articleId: number;
@@ -70,7 +71,7 @@ export const CommentList = ({ articleId, totalCommentCount }: CommentListProps) 
       {isError ? (
         <ErrorState
           title={t('comment.loadFailed')}
-          message={(error as any)?.message || t('comment.loadFailedDescription')}
+          message={getApiErrorMessage(error, t('comment.loadFailedDescription'))}
           onRetry={() => refetch()}
         />
       ) : (

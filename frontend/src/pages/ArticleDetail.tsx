@@ -9,6 +9,7 @@ import { estimateReadingTime, extractHeadings } from '@/utils/markdown';
 import { downloadArticleMarkdown } from '@/utils/articleExport';
 import { CommentList } from '@/components/comment';
 import { formatDate } from '@/utils';
+import { getApiErrorMessage } from '@/utils/apiError';
 import { toAbsoluteSeoUrl } from '@/utils/seo';
 import { useAuth } from '@/hooks';
 import { useUIStore } from '@/store';
@@ -105,8 +106,8 @@ export const ArticleDetail = () => {
       if (action === 'unlike') updateArticleLikeCount(-1);
       queryClient.invalidateQueries({ queryKey: ['article', slug] });
     },
-    onError: (mutationError: any) => {
-      showToast(mutationError?.message || t('article.operationFailed'), 'error');
+    onError: (mutationError) => {
+      showToast(getApiErrorMessage(mutationError, t('article.operationFailed')), 'error');
     },
   });
 
@@ -139,7 +140,7 @@ export const ArticleDetail = () => {
       <Layout>
         <div className="relative z-10 max-w-reading mx-auto px-6 py-16">
           <ErrorState
-            message={(error as any)?.message || t('article.articleLoadFailed')}
+            message={getApiErrorMessage(error, t('article.articleLoadFailed'))}
             onRetry={() => refetch()}
           />
         </div>

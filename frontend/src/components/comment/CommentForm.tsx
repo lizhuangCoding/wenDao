@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/hooks';
 import { commentApi } from '@/api';
 import { useUIStore } from '@/store';
+import { getApiErrorMessage } from '@/utils/apiError';
 
 interface CommentFormProps {
   articleId: number;
@@ -34,8 +35,8 @@ export const CommentForm = ({
       showToast(t('common.success'), 'success');
       onSuccess?.();
     },
-    onError: (error: any) => {
-      showToast(error.message || t('common.failed'), 'error');
+    onError: (error) => {
+      showToast(getApiErrorMessage(error, t('common.failed')), 'error');
     },
   });
 

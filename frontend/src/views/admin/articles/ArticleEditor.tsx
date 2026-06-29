@@ -17,6 +17,7 @@ import { articleApi, categoryApi, collectionApi, tagApi, uploadApi, chatApi } fr
 import type { AIWritingAction } from '@/api/chat';
 import { Loading, ErrorState } from '@/components/common';
 import { useUIStore } from '@/store';
+import { getApiErrorMessage, normalizeApiError } from '@/utils/apiError';
 import { getArticlePrimaryActionLabel } from '@/utils/pageBehavior';
 import { MarkdownWritingStudio } from './components/MarkdownWritingStudio';
 import 'tdesign-react/es/style/index.css';
@@ -229,8 +230,8 @@ export const ArticleEditor = () => {
       showToast(isEdit ? t('articleEditor.articleUpdated') : t('articleEditor.articlePublished'), 'success');
       navigate('/admin/articles');
     },
-    onError: (error: any) => {
-      showToast(error.message || t('articleEditor.saveFailed'), 'error');
+    onError: (error) => {
+      showToast(normalizeApiError(error, t('articleEditor.saveFailed')).message, 'error');
     },
   });
 
@@ -260,8 +261,8 @@ export const ArticleEditor = () => {
         }
         showToast(t('articleEditor.contentImageUploadSuccess'), 'success');
       }
-    } catch (error: any) {
-      showToast(error.message || t('articleEditor.imageUploadFailed'), 'error');
+    } catch (error) {
+      showToast(getApiErrorMessage(error, t('articleEditor.imageUploadFailed')), 'error');
     }
   };
 
@@ -315,9 +316,9 @@ export const ArticleEditor = () => {
         result: res.summary,
       });
       showToast(t('articleEditor.summarySuccess'), 'success');
-    } catch (error: any) {
+    } catch (error) {
       setAISummaryPanel(null);
-      showToast(error.message || t('articleEditor.summaryFailed'), 'error');
+      showToast(getApiErrorMessage(error, t('articleEditor.summaryFailed')), 'error');
     }
   };
 
@@ -371,9 +372,9 @@ export const ArticleEditor = () => {
         selectedText,
       });
       showToast(t('articleEditor.aiWritingSuccess'), 'success');
-    } catch (error: any) {
+    } catch (error) {
       setAIWritingPanel(null);
-      showToast(error.message || t('articleEditor.aiWritingFailed'), 'error');
+      showToast(getApiErrorMessage(error, t('articleEditor.aiWritingFailed')), 'error');
     }
   };
 
@@ -436,7 +437,7 @@ export const ArticleEditor = () => {
     return (
       <div className="max-w-6xl mx-auto pb-12">
         <ErrorState
-          message={(articleError as any)?.message || t('articleEditor.articleLoadFailed')}
+          message={getApiErrorMessage(articleError, t('articleEditor.articleLoadFailed'))}
           onRetry={() => refetchArticle()}
         />
       </div>
@@ -447,7 +448,7 @@ export const ArticleEditor = () => {
     return (
       <div className="max-w-6xl mx-auto pb-12">
         <ErrorState
-          message={(categoriesError as any)?.message || t('articleEditor.categoryLoadFailed')}
+          message={getApiErrorMessage(categoriesError, t('articleEditor.categoryLoadFailed'))}
           onRetry={() => refetchCategories()}
         />
       </div>
@@ -458,7 +459,7 @@ export const ArticleEditor = () => {
     return (
       <div className="max-w-6xl mx-auto pb-12">
         <ErrorState
-          message={(collectionsError as any)?.message || '合集列表加载失败'}
+          message={getApiErrorMessage(collectionsError, '合集列表加载失败')}
           onRetry={() => refetchCollections()}
         />
       </div>
@@ -469,7 +470,7 @@ export const ArticleEditor = () => {
     return (
       <div className="max-w-6xl mx-auto pb-12">
         <ErrorState
-          message={(tagsError as any)?.message || '标签列表加载失败'}
+          message={getApiErrorMessage(tagsError, '标签列表加载失败')}
           onRetry={() => refetchTags()}
         />
       </div>

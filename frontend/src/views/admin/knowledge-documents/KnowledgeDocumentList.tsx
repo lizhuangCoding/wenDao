@@ -27,6 +27,7 @@ import {
   getButtonClassName,
 } from '@/components/common';
 import { useUIStore } from '@/store';
+import { getApiErrorMessage } from '@/utils/apiError';
 
 type KnowledgeDocumentStatusFilter = 'pending_review' | 'approved' | 'rejected' | '';
 
@@ -92,8 +93,8 @@ export const KnowledgeDocumentList = () => {
         setPage((currentPage) => Math.max(1, currentPage - 1));
       }
     },
-    onError: (err: any) => {
-      showToast(err.message || t('knowledgeDocument.deleteFailed'), 'error');
+    onError: (err) => {
+      showToast(getApiErrorMessage(err, t('knowledgeDocument.deleteFailed')), 'error');
     },
   });
 
@@ -181,7 +182,7 @@ export const KnowledgeDocumentList = () => {
       </Panel>
 
       {isError ? (
-        <ErrorState message={(error as any)?.message || t('knowledgeDocument.listLoadFailed')} onRetry={() => refetch()} />
+        <ErrorState message={getApiErrorMessage(error, t('knowledgeDocument.listLoadFailed'))} onRetry={() => refetch()} />
       ) : (
         <DataTable
           emptyState={

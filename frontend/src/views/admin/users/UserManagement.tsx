@@ -25,6 +25,7 @@ import {
 } from '@/components/common';
 import { useUIStore } from '@/store';
 import { formatDate } from '@/utils';
+import { getApiErrorMessage } from '@/utils/apiError';
 
 export const UserManagement = () => {
   const { t } = useTranslation();
@@ -53,7 +54,7 @@ export const UserManagement = () => {
       queryClient.invalidateQueries({ queryKey: ['admin-users'] });
       showToast(t('users.roleUpdated'), 'success');
     },
-    onError: (error: any) => showToast(error.message || t('users.updateFailed'), 'error'),
+    onError: (error) => showToast(getApiErrorMessage(error, t('users.updateFailed')), 'error'),
   });
 
   const statusMutation = useMutation({
@@ -63,7 +64,7 @@ export const UserManagement = () => {
       showToast(t('users.statusUpdated'), 'success');
       setBanConfirm(null);
     },
-    onError: (error: any) => showToast(error.message || t('users.updateFailed'), 'error'),
+    onError: (error) => showToast(getApiErrorMessage(error, t('users.updateFailed')), 'error'),
   });
 
   const roleLabel = { admin: t('users.admin'), user: t('users.user') } as Record<string, string>;
@@ -127,7 +128,7 @@ export const UserManagement = () => {
       </Panel>
 
       {isError ? (
-        <ErrorState message={(error as any)?.message || t('users.loadFailed')} onRetry={() => refetch()} />
+        <ErrorState message={getApiErrorMessage(error, t('users.loadFailed'))} onRetry={() => refetch()} />
       ) : (
         <DataTable
           emptyState={

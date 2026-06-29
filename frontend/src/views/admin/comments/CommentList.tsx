@@ -25,6 +25,7 @@ import {
 } from '@/components/common';
 import { formatDate } from '@/utils';
 import { useUIStore } from '@/store';
+import { getApiErrorMessage } from '@/utils/apiError';
 
 type CommentStatusFilter = '' | 'normal' | 'deleted';
 
@@ -82,8 +83,8 @@ export const CommentList = () => {
       setConfirmConfig({ isOpen: false, id: null, type: 'delete' });
       invalidateComments();
     },
-    onError: (err: any) => {
-      showToast(err.message || t('admin.deleteCommentFailed'), 'error');
+    onError: (err) => {
+      showToast(getApiErrorMessage(err, t('admin.deleteCommentFailed')), 'error');
     },
   });
 
@@ -98,8 +99,8 @@ export const CommentList = () => {
         setPage((currentPage) => Math.max(1, currentPage - 1));
       }
     },
-    onError: (err: any) => {
-      showToast(err.message || t('admin.batchDeleteCommentFailed'), 'error');
+    onError: (err) => {
+      showToast(getApiErrorMessage(err, t('admin.batchDeleteCommentFailed')), 'error');
     },
   });
 
@@ -110,8 +111,8 @@ export const CommentList = () => {
       setConfirmConfig({ isOpen: false, id: null, type: 'restore' });
       invalidateComments();
     },
-    onError: (err: any) => {
-      showToast(err.message || t('admin.restoreCommentFailed'), 'error');
+    onError: (err) => {
+      showToast(getApiErrorMessage(err, t('admin.restoreCommentFailed')), 'error');
     },
   });
 
@@ -188,7 +189,7 @@ export const CommentList = () => {
       </Panel>
 
       {isError ? (
-        <ErrorState message={(error as any)?.message || t('admin.commentListLoadingFailed')} onRetry={() => refetch()} />
+        <ErrorState message={getApiErrorMessage(error, t('admin.commentListLoadingFailed'))} onRetry={() => refetch()} />
       ) : (
         <DataTable
           emptyState={

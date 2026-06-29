@@ -57,7 +57,7 @@ func TestAIHandlerChat_ReturnsServiceUnavailableWhenAIDisabled(t *testing.T) {
 		t.Fatalf("expected 503, got %d with body %s", w.Code, w.Body.String())
 	}
 
-	var resp response.Response
+	var resp response.Response[map[string]any]
 	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("expected valid response body, got %v", err)
 	}

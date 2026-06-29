@@ -195,7 +195,7 @@ func (h *UserHandler) UpdateUsername(c *gin.Context) {
 		return
 	}
 
-	response.Success(c, nil)
+	response.SuccessEmpty(c)
 }
 
 func (h *UserHandler) UpdatePreferences(c *gin.Context) {
@@ -392,7 +392,7 @@ func (h *UserHandler) UpdateUserRole(c *gin.Context) {
 		return
 	}
 
-	response.Success(c, nil)
+	response.SuccessEmpty(c)
 }
 
 // UpdateUserStatus 更新用户状态（管理员：封禁/解封）
@@ -423,5 +423,5 @@ func (h *UserHandler) UpdateUserStatus(c *gin.Context) {
 		return
 	}
 
-	response.Success(c, nil)
+	response.SuccessEmpty(c)
 }

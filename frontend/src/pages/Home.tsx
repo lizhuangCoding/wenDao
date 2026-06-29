@@ -8,6 +8,7 @@ import { ArticleCard } from '@/components/article';
 import { ArticlePlanetHero } from '@/components/home';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { ArticlePlanetTimeMode } from '@/components/home/articlePlanetTime';
+import { getApiErrorMessage } from '@/utils/apiError';
 
 export const Home = () => {
   const { t } = useTranslation();
@@ -108,7 +109,10 @@ export const Home = () => {
         {isLoading ? (
           <div className="py-20 flex justify-center"><Loading /></div>
         ) : isError ? (
-          <ErrorState message={(error as any)?.message || t('home.articleListLoadFailed')} onRetry={() => refetch()} />
+          <ErrorState
+            message={getApiErrorMessage(error, t('home.articleListLoadFailed'))}
+            onRetry={() => refetch()}
+          />
         ) : (
           <>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-12 gap-y-16 sm:gap-y-24">

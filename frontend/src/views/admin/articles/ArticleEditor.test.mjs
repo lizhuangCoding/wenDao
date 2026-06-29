@@ -31,3 +31,12 @@ test('ArticleEditor wires click-triggered AI writing assistance into markdown se
   assert.doesNotMatch(source, /aiSelectTextPrompt/);
   assert.doesNotMatch(source, /aiWritingActions/);
 });
+
+test('ArticleEditor normalizes API errors without page-level any casts', async () => {
+  const source = await loadArticleEditor();
+
+  assert.match(source, /normalizeApiError/);
+  assert.match(source, /getApiErrorMessage/);
+  assert.doesNotMatch(source, /error:\s*any/);
+  assert.doesNotMatch(source, /as any/);
+});

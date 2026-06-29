@@ -16,6 +16,7 @@ import { uploadApi, authApi, articleApi } from '@/api';
 import { useAuth } from '@/hooks';
 import { useUIStore } from '@/store';
 import { useTranslation } from 'react-i18next';
+import { getApiErrorMessage } from '@/utils/apiError';
 
 type ArticleActivityTab = 'liked' | 'favorite';
 
@@ -81,8 +82,8 @@ export const Profile = () => {
       const updatedUser = await uploadApi.uploadAvatar(file);
       setUser(updatedUser);
       showToast(t('profile.avatarSuccess'), 'success');
-    } catch (error: any) {
-      showToast(error.message || t('profile.avatarError'), 'error');
+    } catch (error) {
+      showToast(getApiErrorMessage(error, t('profile.avatarError')), 'error');
     } finally {
       input.value = '';
       setIsUploading(false);
@@ -106,8 +107,8 @@ export const Profile = () => {
       setUser({ ...user, username: newUsername });
       showToast(t('profile.usernameSuccess'), 'success');
       setIsEditingUsername(false);
-    } catch (error: any) {
-      showToast(error.message || t('profile.usernameError'), 'error');
+    } catch (error) {
+      showToast(getApiErrorMessage(error, t('profile.usernameError')), 'error');
     } finally {
       setIsSaving(false);
     }
@@ -121,8 +122,8 @@ export const Profile = () => {
       });
       setUser(updatedUser);
       showToast(t('profile.preferencesSuccess'), 'success');
-    } catch (error: any) {
-      showToast(error.message || t('profile.preferencesError'), 'error');
+    } catch (error) {
+      showToast(getApiErrorMessage(error, t('profile.preferencesError')), 'error');
     } finally {
       setIsSavingPreferences(false);
     }

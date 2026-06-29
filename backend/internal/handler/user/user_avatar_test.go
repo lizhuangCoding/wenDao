@@ -282,14 +282,14 @@ func TestUserHandlerRegister_ReturnsAuthTokensAndSetsCookies(t *testing.T) {
 		t.Fatalf("expected refresh token role user, got %q", userService.refreshTokenRole)
 	}
 
-	var resp response.Response
+	var resp response.Response[map[string]any]
 	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("failed to decode response: %v", err)
 	}
-	data, ok := resp.Data.(map[string]interface{})
-	if !ok {
-		t.Fatalf("expected auth response object, got %T", resp.Data)
+	if resp.Data == nil {
+		t.Fatalf("expected auth response object, got nil")
 	}
+	data := *resp.Data
 	if got := data["access_token"]; got != "access-token-value" {
 		t.Fatalf("expected access_token %q, got %#v", "access-token-value", got)
 	}
@@ -299,7 +299,7 @@ func TestUserHandlerRegister_ReturnsAuthTokensAndSetsCookies(t *testing.T) {
 	if got := int(data["expires_in"].(float64)); got != 3600 {
 		t.Fatalf("expected expires_in 3600, got %d", got)
 	}
-	userData, ok := data["user"].(map[string]interface{})
+	userData, ok := data["user"].(map[string]any)
 	if !ok {
 		t.Fatalf("expected nested user object, got %T", data["user"])
 	}
@@ -373,21 +373,21 @@ func TestAuthHandlerGetUserInfo_IncludesAvatarURL(t *testing.T) {
 		t.Fatalf("expected status %d, got %d", http.StatusOK, w.Code)
 	}
 
-	var resp response.Response
+	var resp response.Response[map[string]any]
 	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("failed to decode response: %v", err)
 	}
 
-	data, ok := resp.Data.(map[string]interface{})
-	if !ok {
-		t.Fatalf("expected object data, got %T", resp.Data)
+	if resp.Data == nil {
+		t.Fatalf("expected object data, got nil")
 	}
+	data := *resp.Data
 
 	if got := int(data["expires_in"].(float64)); got != 7200 {
 		t.Fatalf("expected expires_in 7200, got %d", got)
 	}
 
-	userData, ok := data["user"].(map[string]interface{})
+	userData, ok := data["user"].(map[string]any)
 	if !ok {
 		t.Fatalf("expected nested user object, got %T", data["user"])
 	}
@@ -430,7 +430,7 @@ func TestAuthHandlerRefresh_ReturnsInternalErrorWhenRefreshRotationFails(t *test
 		t.Fatalf("expected status %d, got %d with body %s", http.StatusInternalServerError, w.Code, w.Body.String())
 	}
 
-	var resp response.Response
+	var resp response.Response[map[string]any]
 	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("failed to decode response: %v", err)
 	}
@@ -506,15 +506,15 @@ func TestUserHandlerUploadAvatar_UpdatesAvatarAndReturnsUser(t *testing.T) {
 		t.Fatalf("expected UpdateAvatar url %q, got %q", avatarURL, userService.updateAvatarURL)
 	}
 
-	var resp response.Response
+	var resp response.Response[map[string]any]
 	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("failed to decode response: %v", err)
 	}
 
-	data, ok := resp.Data.(map[string]interface{})
-	if !ok {
-		t.Fatalf("expected user object response, got %T", resp.Data)
+	if resp.Data == nil {
+		t.Fatalf("expected user object response, got nil")
 	}
+	data := *resp.Data
 
 	if got := data["avatar_url"]; got != avatarURL {
 		t.Fatalf("expected avatar_url %q, got %#v", avatarURL, got)
@@ -702,7 +702,7 @@ func TestUserHandlerGitHubLogin_ReturnsBadRequestWhenConfigMissing(t *testing.T)
 		t.Fatalf("expected status %d, got %d with body %s", http.StatusBadRequest, w.Code, w.Body.String())
 	}
 
-	var resp response.Response
+	var resp response.Response[map[string]any]
 	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("failed to decode response: %v", err)
 	}

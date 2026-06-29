@@ -18,6 +18,7 @@ import {
   TextInput,
 } from '@/components/common';
 import { formatDate } from '@/utils';
+import { getApiErrorMessage } from '@/utils/apiError';
 
 const parsePositiveInt = (value: string | null) => {
   if (!value) return undefined;
@@ -270,7 +271,11 @@ export const Search = () => {
             <Loading />
           </div>
         ) : isError ? (
-          <ErrorState message={(error as any)?.message || t('searchPage.failed')} onRetry={() => refetch()} className="mt-10" />
+          <ErrorState
+            message={getApiErrorMessage(error, t('searchPage.failed'))}
+            onRetry={() => refetch()}
+            className="mt-10"
+          />
         ) : searchData?.data?.length === 0 ? (
           <EmptyState title={t('searchPage.noResultsTitle')} description={t('searchPage.noResultsDescription')} className="py-24" />
         ) : (

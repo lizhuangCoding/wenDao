@@ -78,7 +78,7 @@ func (h *NotificationHandler) MarkRead(c *gin.Context) {
 		return
 	}
 
-	response.Success(c, nil)
+	response.SuccessEmpty(c)
 }
 
 // MarkAllRead 标记所有通知已读
@@ -90,7 +90,7 @@ func (h *NotificationHandler) MarkAllRead(c *gin.Context) {
 		return
 	}
 
-	response.Success(c, nil)
+	response.SuccessEmpty(c)
 }
 
 // BroadcastRequest 管理员广播请求

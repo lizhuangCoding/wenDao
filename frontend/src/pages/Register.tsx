@@ -7,6 +7,7 @@ import { AuthFormMessage, AuthTextField, VerificationCodeField } from '@/compone
 import { GitHubAuthButton } from '@/components/common';
 import { useAuth, useCountdown } from '@/hooks';
 import { useUIStore } from '@/store';
+import { normalizeApiError } from '@/utils/apiError';
 import {
   mapAuthErrorToForm,
   validateAuthEmail,
@@ -174,8 +175,11 @@ export const Register = () => {
       codeCooldown.start(60);
       showToast(t('auth.verificationCodeSent'), 'success');
       requestAnimationFrame(() => verificationCodeInputRef.current?.focus());
-    } catch (error: any) {
-      const feedback = mapAuthErrorToForm(error?.message, 'register');
+    } catch (error) {
+      const feedback = mapAuthErrorToForm(
+        normalizeApiError(error, t('auth.registerFailed')).message,
+        'register'
+      );
       const message = resolveMessage(feedback.messageKey, feedback.fallbackMessage);
 
       if (registerFieldOrder.includes(feedback.target as RegisterField)) {
@@ -224,8 +228,11 @@ export const Register = () => {
       );
       showToast(t('auth.registerSuccess'), 'success');
       navigate('/');
-    } catch (error: any) {
-      const feedback = mapAuthErrorToForm(error?.message, 'register');
+    } catch (error) {
+      const feedback = mapAuthErrorToForm(
+        normalizeApiError(error, t('auth.registerFailed')).message,
+        'register'
+      );
       const message = resolveMessage(feedback.messageKey, feedback.fallbackMessage);
 
       if (registerFieldOrder.includes(feedback.target as RegisterField)) {

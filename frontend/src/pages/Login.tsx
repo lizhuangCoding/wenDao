@@ -7,6 +7,7 @@ import { AuthFormMessage, AuthTextField, PasswordResetForm } from '@/components/
 import { GitHubAuthButton } from '@/components/common';
 import { useAuth } from '@/hooks';
 import { useUIStore } from '@/store';
+import { normalizeApiError } from '@/utils/apiError';
 import {
   mapAuthErrorToForm,
   validateLoginForm,
@@ -109,8 +110,11 @@ export const Login = () => {
       await login(validation.values.email, validation.values.password);
       showToast(t('auth.loginSuccess'), 'success');
       navigate('/');
-    } catch (error: any) {
-      const feedback = mapAuthErrorToForm(error?.message, 'login');
+    } catch (error) {
+      const feedback = mapAuthErrorToForm(
+        normalizeApiError(error, t('auth.loginFailed')).message,
+        'login'
+      );
       const message = resolveMessage(feedback.messageKey, feedback.fallbackMessage);
 
       if (feedback.target === 'email' || feedback.target === 'password') {

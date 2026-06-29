@@ -7,10 +7,10 @@ import (
 )
 
 // Response 统一响应格式
-type Response struct {
-	Code    int         `json:"code"` // 0=成功，非0=错误码
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
+type Response[T any] struct {
+	Code    int    `json:"code"` // 0=成功，非0=错误码
+	Message string `json:"message"`
+	Data    *T     `json:"data,omitempty"`
 }
 
 // 错误码定义
@@ -26,11 +26,19 @@ const (
 )
 
 // Success 成功响应
-func Success(c *gin.Context, data interface{}) {
-	c.JSON(http.StatusOK, Response{
+func Success[T any](c *gin.Context, data T) {
+	c.JSON(http.StatusOK, Response[T]{
 		Code:    CodeSuccess,
 		Message: "success",
-		Data:    data,
+		Data:    &data,
+	})
+}
+
+// SuccessEmpty 成功响应（无 data）
+func SuccessEmpty(c *gin.Context) {
+	c.JSON(http.StatusOK, Response[struct{}]{
+		Code:    CodeSuccess,
+		Message: "success",
 	})
 }
 
@@ -54,7 +62,7 @@ func Error(c *gin.Context, code int, message string) {
 		statusCode = http.StatusInternalServerError
 	}
 
-	c.JSON(statusCode, Response{
+	c.JSON(statusCode, Response[struct{}]{
 		Code:    code,
 		Message: message,
 	})

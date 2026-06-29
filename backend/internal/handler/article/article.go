@@ -94,7 +94,7 @@ func (h *ArticleHandler) SetSortMode(c *gin.Context) {
 		return
 	}
 
-	response.Success(c, nil)
+	response.SuccessEmpty(c)
 }
 
 // CreateArticleRequest 创建文章请求
@@ -684,5 +684,5 @@ func (h *ArticleHandler) AutoSave(c *gin.Context) {
 		return
 	}
 
-	response.Success(c, nil)
+	response.SuccessEmpty(c)
 }

@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 const loadClientSource = () => readFile(new URL('./client.ts', import.meta.url), 'utf8');
+const loadTypesSource = () => readFile(new URL('../types/index.ts', import.meta.url), 'utf8');
 
 test('api client releases queued auth retries when token refresh resolves or fails', async () => {
   const source = await loadClientSource();
@@ -16,12 +17,15 @@ test('api client releases queued auth retries when token refresh resolves or fai
 });
 
 test('api request helpers default to unknown instead of any', async () => {
-  const source = await loadClientSource();
+  const [source, typesSource] = await Promise.all([loadClientSource(), loadTypesSource()]);
 
   assert.match(source, /get:\s*<T = unknown>/);
   assert.match(source, /post:\s*<T = unknown,\s*D = unknown>/);
   assert.match(source, /put:\s*<T = unknown,\s*D = unknown>/);
   assert.match(source, /patch:\s*<T = unknown,\s*D = unknown>/);
+  assert.match(typesSource, /export interface ApiResponse<T = unknown>/);
+  assert.match(source, /normalizeApiError/);
   assert.doesNotMatch(source, /<T = any>/);
+  assert.doesNotMatch(typesSource, /ApiResponse<T = any>/);
   assert.doesNotMatch(source, /data\?: any/);
 });

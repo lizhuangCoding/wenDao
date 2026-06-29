@@ -22,6 +22,7 @@ import {
 } from '@/components/common';
 import { formatDate } from '@/utils';
 import { useUIStore } from '@/store';
+import { getApiErrorMessage } from '@/utils/apiError';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { Tag } from '@/types';
 
@@ -73,8 +74,8 @@ export const TagList = () => {
       handleClose();
       invalidateTags();
     },
-    onError: (err: any) => {
-      showToast(err.message || '保存标签失败', 'error');
+    onError: (err) => {
+      showToast(getApiErrorMessage(err, '保存标签失败'), 'error');
     },
   });
 
@@ -88,8 +89,8 @@ export const TagList = () => {
         setPage((currentPage) => Math.max(1, currentPage - 1));
       }
     },
-    onError: (err: any) => {
-      showToast(err.message || '删除标签失败', 'error');
+    onError: (err) => {
+      showToast(getApiErrorMessage(err, '删除标签失败'), 'error');
     },
   });
 
@@ -104,8 +105,8 @@ export const TagList = () => {
         setPage((currentPage) => Math.max(1, currentPage - 1));
       }
     },
-    onError: (err: any) => {
-      showToast(err.message || '批量删除标签失败', 'error');
+    onError: (err) => {
+      showToast(getApiErrorMessage(err, '批量删除标签失败'), 'error');
     },
   });
 
@@ -158,7 +159,7 @@ export const TagList = () => {
       />
 
       {isError ? (
-        <ErrorState message={(error as any)?.message || '标签列表加载失败'} onRetry={() => refetch()} />
+        <ErrorState message={getApiErrorMessage(error, '标签列表加载失败')} onRetry={() => refetch()} />
       ) : (
         <DataTable
           minWidth="760px"

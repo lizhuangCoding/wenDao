@@ -5,6 +5,7 @@ import { DateRangePicker } from 'tdesign-react';
 import { statApi } from '@/api';
 import { Button, ErrorState, Loading, PageHeader, Panel, SegmentedControl } from '@/components/common';
 import { useUIStore } from '@/store';
+import { getApiErrorMessage } from '@/utils/apiError';
 import dayjs from 'dayjs';
 import 'tdesign-react/es/style/index.css';
 
@@ -112,7 +113,7 @@ export const Dashboard = () => {
     return (
       <ErrorState
         title={t('dashboard.loadFailed')}
-        message={(error as any)?.message || t('dashboard.loadFailedDescription')}
+        message={getApiErrorMessage(error, t('dashboard.loadFailedDescription'))}
         onRetry={() => refetch()}
       />
     );

@@ -29,6 +29,7 @@ import {
 } from '@/components/common';
 import { formatDate } from '@/utils';
 import { useUIStore } from '@/store';
+import { getApiErrorMessage } from '@/utils/apiError';
 
 type ArticleStatusFilter = '' | 'published' | 'draft';
 
@@ -100,8 +101,8 @@ export const ArticleList = () => {
       queryClient.invalidateQueries({ queryKey: ['site-sort-mode'] });
       invalidateArticles();
     },
-    onError: (err: any) => {
-      showToast(err.message || t('admin.switchFailed'), 'error');
+    onError: (err) => {
+      showToast(getApiErrorMessage(err, t('admin.switchFailed')), 'error');
     },
   });
 
@@ -113,8 +114,8 @@ export const ArticleList = () => {
       setSelectedIds((ids) => ids.filter((id) => id !== deleteId));
       invalidateArticles();
     },
-    onError: (err: any) => {
-      showToast(err.message || t('admin.deleteFailed'), 'error');
+    onError: (err) => {
+      showToast(getApiErrorMessage(err, t('admin.deleteFailed')), 'error');
     },
   });
 
@@ -129,8 +130,8 @@ export const ArticleList = () => {
         setPage((currentPage) => Math.max(1, currentPage - 1));
       }
     },
-    onError: (err: any) => {
-      showToast(err.message || t('admin.batchDeleteFailed'), 'error');
+    onError: (err) => {
+      showToast(getApiErrorMessage(err, t('admin.batchDeleteFailed')), 'error');
     },
   });
 
@@ -141,8 +142,8 @@ export const ArticleList = () => {
       showToast(t('admin.statusUpdated'), 'success');
       invalidateArticles();
     },
-    onError: (err: any) => {
-      showToast(err.message || t('admin.switchFailed'), 'error');
+    onError: (err) => {
+      showToast(getApiErrorMessage(err, t('admin.switchFailed')), 'error');
     },
   });
 
@@ -152,8 +153,8 @@ export const ArticleList = () => {
       showToast(t('admin.topUpdated'), 'success');
       invalidateArticles();
     },
-    onError: (err: any) => {
-      showToast(err.message || t('admin.switchFailed'), 'error');
+    onError: (err) => {
+      showToast(getApiErrorMessage(err, t('admin.switchFailed')), 'error');
     },
   });
 
@@ -290,7 +291,7 @@ export const ArticleList = () => {
       </Panel>
 
       {isError ? (
-        <ErrorState message={(error as any)?.message || t('admin.articleListLoadingFailed')} onRetry={() => refetch()} />
+        <ErrorState message={getApiErrorMessage(error, t('admin.articleListLoadingFailed'))} onRetry={() => refetch()} />
       ) : (
         <DataTable
           emptyState={

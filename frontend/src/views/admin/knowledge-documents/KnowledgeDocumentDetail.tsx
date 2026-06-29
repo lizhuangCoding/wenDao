@@ -14,6 +14,7 @@ import {
   TextArea,
 } from '@/components/common';
 import { useUIStore } from '@/store';
+import { getApiErrorMessage } from '@/utils/apiError';
 
 const getKnowledgeDocumentStatusMeta = (
   status: string
@@ -62,8 +63,8 @@ export const KnowledgeDocumentDetail = () => {
       queryClient.invalidateQueries({ queryKey: ['articles'] });
       navigate('/admin/knowledge-documents');
     },
-    onError: (err: any) => {
-      showToast(err.message || t('knowledgeDocument.rejectFailed'), 'error');
+    onError: (err) => {
+      showToast(getApiErrorMessage(err, t('knowledgeDocument.rejectFailed')), 'error');
     },
   });
 
@@ -74,8 +75,8 @@ export const KnowledgeDocumentDetail = () => {
       queryClient.invalidateQueries({ queryKey: ['admin-knowledge-documents'] });
       navigate('/admin/knowledge-documents');
     },
-    onError: (err: any) => {
-      showToast(err.message || t('knowledgeDocument.rejectFailed'), 'error');
+    onError: (err) => {
+      showToast(getApiErrorMessage(err, t('knowledgeDocument.rejectFailed')), 'error');
     },
   });
 
@@ -87,8 +88,8 @@ export const KnowledgeDocumentDetail = () => {
       queryClient.invalidateQueries({ queryKey: ['articles'] });
       navigate('/admin/knowledge-documents');
     },
-    onError: (err: any) => {
-      showToast(err.message || t('common.failed'), 'error');
+    onError: (err) => {
+      showToast(getApiErrorMessage(err, t('common.failed')), 'error');
     },
   });
 
@@ -104,11 +105,11 @@ export const KnowledgeDocumentDetail = () => {
 
   if (isError || !data) {
     return (
-      <ErrorState
-        title={t('knowledgeDocument.loadFailed')}
-        message={(error as any)?.message || t('knowledgeDocument.loadFailedDescription')}
-        onRetry={() => refetch()}
-      />
+        <ErrorState
+          title={t('knowledgeDocument.loadFailed')}
+          message={getApiErrorMessage(error, t('knowledgeDocument.loadFailedDescription'))}
+          onRetry={() => refetch()}
+        />
     );
   }
 
