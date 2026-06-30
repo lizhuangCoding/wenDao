@@ -26,10 +26,18 @@ type RateLimitConfig struct {
 	Name    string                    // 限流场景名称，避免不同窗口共用同一个 Redis key
 	Type    RateLimitType             // 限流类型
 	Limit   int                       // 请求数
-	Window  time.Duration             // 时间窗口
+	Window  time.Duration             // 固定窗口大小
 	Message string                    // 触发限流时返回给客户端的具体提示
 	KeyFunc func(*gin.Context) string // 自定义 key 生成函数（可选）
 }
+
+var rateLimitFixedWindowScript = redis.NewScript(`
+local current = redis.call("INCR", KEYS[1])
+if current == 1 then
+  redis.call("PEXPIRE", KEYS[1], ARGV[1])
+end
+return current
+`)
 
 // RateLimit 创建限流中间件
 func RateLimit(rdb *redis.Client, config RateLimitConfig) gin.HandlerFunc {
@@ -113,18 +121,11 @@ func rateLimitTypeName(limitType RateLimitType) string {
 	}
 }
 
-// checkRateLimit 检查是否超过限流（滑动窗口算法）
+// checkRateLimit 检查是否超过限流（原子固定窗口计数器）。
 func checkRateLimit(ctx context.Context, rdb *redis.Client, key string, limit int, window time.Duration) (bool, error) {
-	// 使用 INCR + EXPIRE 实现简单的计数器
-	// 更精确的实现可以使用 Lua 脚本或 Redis 的 ZSET
-	current, err := rdb.Incr(ctx, key).Result()
+	current, err := rateLimitFixedWindowScript.Run(ctx, rdb, []string{key}, window.Milliseconds()).Int64()
 	if err != nil {
 		return false, err
-	}
-
-	// 第一次请求时设置过期时间
-	if current == 1 {
-		rdb.Expire(ctx, key, window)
 	}
 
 	return current <= int64(limit), nil

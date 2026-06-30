@@ -3,10 +3,14 @@ package middleware
 import (
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/alicebob/miniredis/v2"
 	"github.com/gin-gonic/gin"
+	"github.com/redis/go-redis/v9"
 )
 
 func TestRateLimit_AllowsRequestWhenRedisClientIsNil(t *testing.T) {
@@ -64,5 +68,62 @@ func TestRateLimitExceededMessageFallsBackToClearDefault(t *testing.T) {
 
 	if message == "" || message == "Too many requests, please try again later" {
 		t.Fatalf("expected localized non-empty fallback message, got %q", message)
+	}
+}
+
+func TestCheckRateLimit_UsesAtomicRedisScriptForFixedWindow(t *testing.T) {
+	source, err := os.ReadFile("ratelimit.go")
+	if err != nil {
+		t.Fatalf("failed to read ratelimit.go: %v", err)
+	}
+
+	text := string(source)
+	if !strings.Contains(text, "redis.NewScript") {
+		t.Fatalf("expected rate limiter to use a Redis script for atomic fixed-window counting")
+	}
+	if strings.Contains(text, "rdb.Incr(ctx, key)") {
+		t.Fatalf("expected checkRateLimit to avoid standalone INCR calls")
+	}
+	if strings.Contains(text, "rdb.Expire(ctx, key, window)") {
+		t.Fatalf("expected checkRateLimit to avoid standalone EXPIRE calls")
+	}
+}
+
+func TestCheckRateLimit_EnforcesFixedWindowWithRedisState(t *testing.T) {
+	srv, err := miniredis.Run()
+	if err != nil {
+		t.Fatalf("failed to start miniredis: %v", err)
+	}
+	defer srv.Close()
+
+	rdb := redis.NewClient(&redis.Options{Addr: srv.Addr()})
+	defer func() { _ = rdb.Close() }()
+
+	allowed, err := checkRateLimit(t.Context(), rdb, "ratelimit:test:key", 2, time.Minute)
+	if err != nil {
+		t.Fatalf("expected first request to succeed, got err=%v", err)
+	}
+	if !allowed {
+		t.Fatal("expected first request to be allowed")
+	}
+
+	allowed, err = checkRateLimit(t.Context(), rdb, "ratelimit:test:key", 2, time.Minute)
+	if err != nil {
+		t.Fatalf("expected second request to succeed, got err=%v", err)
+	}
+	if !allowed {
+		t.Fatal("expected second request to be allowed")
+	}
+
+	allowed, err = checkRateLimit(t.Context(), rdb, "ratelimit:test:key", 2, time.Minute)
+	if err != nil {
+		t.Fatalf("expected third request to return a decision, got err=%v", err)
+	}
+	if allowed {
+		t.Fatal("expected third request to be rate limited inside the same fixed window")
+	}
+
+	if ttl := srv.TTL("ratelimit:test:key"); ttl <= 0 {
+		t.Fatalf("expected rate limit key to have a positive TTL, got %v", ttl)
 	}
 }
