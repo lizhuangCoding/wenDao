@@ -82,8 +82,11 @@ jobs:
       - name: Run lint
         run: npm run lint
 
-      - name: Run tests
+      - name: Run node tests
         run: npm run test
+
+      - name: Run behavior tests
+        run: npm run test:behavior
 
       - name: Build
         run: npm run build
