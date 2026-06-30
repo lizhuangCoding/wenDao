@@ -3,20 +3,14 @@ import { notificationApi } from '@/api';
 
 interface NotificationState {
   unreadCount: number;
-  isPolling: boolean;
 
   setUnreadCount: (count: number) => void;
   decrementUnread: (by?: number) => void;
   fetchUnreadCount: () => Promise<void>;
-  startPolling: () => void;
-  stopPolling: () => void;
 }
 
-let pollingTimer: ReturnType<typeof setInterval> | null = null;
-
-export const useNotificationStore = create<NotificationState>((set, get) => ({
+export const useNotificationStore = create<NotificationState>((set) => ({
   unreadCount: 0,
-  isPolling: false,
 
   setUnreadCount: (count) => set({ unreadCount: count }),
 
@@ -29,23 +23,6 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
       set({ unreadCount: res.unread_count });
     } catch {
       // 静默失败
-    }
-  },
-
-  startPolling: () => {
-    if (get().isPolling) return;
-    set({ isPolling: true });
-    get().fetchUnreadCount();
-    pollingTimer = setInterval(() => {
-      get().fetchUnreadCount();
-    }, 30000);
-  },
-
-  stopPolling: () => {
-    set({ isPolling: false });
-    if (pollingTimer) {
-      clearInterval(pollingTimer);
-      pollingTimer = null;
     }
   },
 }));

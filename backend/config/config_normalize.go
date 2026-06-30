@@ -84,6 +84,10 @@ func normalizeLogConfig(cfg *LogConfig) {
 	if cfg == nil {
 		return
 	}
+	cfg.AccessLevel = strings.ToLower(strings.TrimSpace(cfg.AccessLevel))
+	if cfg.AccessLevel == "" {
+		cfg.AccessLevel = "warn"
+	}
 	if cfg.MaxSizeMB <= 0 {
 		cfg.MaxSizeMB = 100
 	}

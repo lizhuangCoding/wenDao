@@ -3,6 +3,7 @@ package middleware
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -10,7 +11,9 @@ import (
 )
 
 // Logger 创建日志记录中间件
-func Logger(logger *zap.Logger) gin.HandlerFunc {
+func Logger(logger *zap.Logger, accessLevel string) gin.HandlerFunc {
+	normalizedAccessLevel := normalizeAccessLogLevel(accessLevel)
+
 	return func(c *gin.Context) {
 		start := time.Now()
 		path := c.Request.URL.Path
@@ -69,8 +72,18 @@ func Logger(logger *zap.Logger) gin.HandlerFunc {
 			logger.Warn("Client error", fields...)
 		case latency > 500*time.Millisecond:
 			logger.Warn("Slow request", fields...)
-			// 默认不记录 INFO 日志，只记录错误和警告
+		case normalizedAccessLevel == "info":
+			logger.Info("Request completed", fields...)
 		}
+	}
+}
+
+func normalizeAccessLogLevel(level string) string {
+	switch strings.ToLower(strings.TrimSpace(level)) {
+	case "info":
+		return "info"
+	default:
+		return "warn"
 	}
 }
 

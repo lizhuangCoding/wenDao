@@ -94,13 +94,14 @@ type UploadConfig struct {
 
 // LogConfig 日志配置
 type LogConfig struct {
-	Level      string `mapstructure:"level"`
-	Format     string `mapstructure:"format"`
-	Output     string `mapstructure:"output"`
-	MaxSizeMB  int    `mapstructure:"max_size_mb"`
-	MaxBackups int    `mapstructure:"max_backups"`
-	MaxAgeDays int    `mapstructure:"max_age_days"`
-	Compress   bool   `mapstructure:"compress"`
+	Level       string `mapstructure:"level"`
+	AccessLevel string `mapstructure:"access_level"`
+	Format      string `mapstructure:"format"`
+	Output      string `mapstructure:"output"`
+	MaxSizeMB   int    `mapstructure:"max_size_mb"`
+	MaxBackups  int    `mapstructure:"max_backups"`
+	MaxAgeDays  int    `mapstructure:"max_age_days"`
+	Compress    bool   `mapstructure:"compress"`
 }
 
 // ModelConfig 单个模型配置

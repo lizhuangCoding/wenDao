@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { notificationApi } from '@/api';
+import { useNotificationPolling } from '@/hooks/useNotificationPolling';
 import { StatusBadge } from './StatusBadge';
 import { useAuthStore, useNotificationStore } from '@/store';
 import type { Notification } from '@/types';
@@ -31,8 +32,7 @@ export const NotificationBell = () => {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
-  const { unreadCount, decrementUnread, fetchUnreadCount, startPolling, stopPolling } =
-    useNotificationStore();
+  const { unreadCount, decrementUnread, fetchUnreadCount } = useNotificationStore();
   const [isOpen, setIsOpen] = useState(false);
 
   const { data: recentNotifs, isError } = useQuery({
@@ -42,13 +42,10 @@ export const NotificationBell = () => {
     staleTime: 30_000,
   });
 
-  useEffect(() => {
-    if (isAuthenticated) {
-      fetchUnreadCount();
-      startPolling();
-      return () => stopPolling();
-    }
-  }, [isAuthenticated, fetchUnreadCount, startPolling, stopPolling]);
+  useNotificationPolling({
+    enabled: isAuthenticated,
+    onPoll: fetchUnreadCount,
+  });
 
   const handleMarkRead = async (id: number) => {
     try {

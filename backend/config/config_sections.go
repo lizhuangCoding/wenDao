@@ -270,6 +270,7 @@ func logConfigSection() configSection {
 	return configSection{
 		name: "log",
 		defaults: map[string]any{
+			"log.access_level": "warn",
 			"log.max_size_mb":  100,
 			"log.max_backups":  7,
 			"log.max_age_days": 28,
@@ -277,6 +278,7 @@ func logConfigSection() configSection {
 		},
 		envBindings: map[string][]string{
 			"log.level":        {"LOG_LEVEL"},
+			"log.access_level": {"LOG_ACCESS_LEVEL"},
 			"log.format":       {"LOG_FORMAT"},
 			"log.output":       {"LOG_OUTPUT"},
 			"log.max_size_mb":  {"LOG_MAX_SIZE_MB"},

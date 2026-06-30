@@ -89,6 +89,7 @@ func TestLoadConfig_BindsServerAndLogSettingsFromEnv(t *testing.T) {
 	t.Setenv("SERVER_MODE", "release")
 	t.Setenv("LOG_FORMAT", "json")
 	t.Setenv("LOG_OUTPUT", "stdout")
+	t.Setenv("LOG_ACCESS_LEVEL", "info")
 	t.Setenv("LOG_MAX_SIZE_MB", "64")
 	t.Setenv("LOG_MAX_BACKUPS", "5")
 	t.Setenv("LOG_MAX_AGE_DAYS", "14")
@@ -109,6 +110,9 @@ func TestLoadConfig_BindsServerAndLogSettingsFromEnv(t *testing.T) {
 	}
 	if cfg.Log.Output != "stdout" {
 		t.Fatalf("expected log output from env binding, got %q", cfg.Log.Output)
+	}
+	if cfg.Log.AccessLevel != "info" {
+		t.Fatalf("expected log access level from env binding, got %q", cfg.Log.AccessLevel)
 	}
 	if cfg.Log.MaxSizeMB != 64 {
 		t.Fatalf("expected log max size from env binding, got %d", cfg.Log.MaxSizeMB)

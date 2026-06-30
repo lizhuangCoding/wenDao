@@ -177,6 +177,9 @@ func WithCommentNotificationService(notifSvc NotificationService) CommentService
 func WithCommentUserRepository(userRepo userrepo.UserRepository) CommentServiceOption {
 	return commentsvc.WithUserRepository(userRepo)
 }
+func WithCommentAsyncJobRepository(jobRepo asyncjobrepo.AsyncJobRepository) CommentServiceOption {
+	return commentsvc.WithAsyncJobRepository(jobRepo)
+}
 func WithArticleCacheInvalidation(rdb *redis.Client) CommentServiceOption {
 	return commentsvc.WithArticleCacheInvalidation(rdb)
 }

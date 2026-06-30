@@ -65,7 +65,7 @@ func buildRouter(cfg *config.Config, logger *zap.Logger, rdb *redis.Client, hand
 	gin.SetMode(cfg.Server.Mode)
 	router := gin.New()
 	router.Use(
-		middleware.Logger(logger),
+		middleware.Logger(logger, cfg.Log.AccessLevel),
 		middleware.Recovery(logger),
 		middleware.SecurityHeaders(),
 		middleware.CORS(allowedCORSOrigins(cfg)...),

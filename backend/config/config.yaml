@@ -125,6 +125,7 @@ verification:
 # 日志配置
 log:
   level: "info"          # 日志级别: debug, info, warn, error
+  access_level: "warn"   # 访问日志级别: warn(仅错误/慢请求), info(记录成功请求)
   format: "console"      # 日志格式: json (生产环境推荐), console (控制台友好)
   output: "log/"         # 日志输出目录，文件名会自动生成为 YYYY-MM-DD.log
   max_size_mb: 100       # 单个日志文件最大大小，超过后按大小轮转

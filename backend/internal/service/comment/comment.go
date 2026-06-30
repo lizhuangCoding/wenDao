@@ -37,6 +37,7 @@ type commentService struct {
 	commentRepo             repository.CommentRepository
 	articleRepo             repository.ArticleRepository
 	userRepo                repository.UserRepository
+	asyncJobRepo            asyncjobrepo.AsyncJobRepository
 	replyNotificationSender CommentReplyNotificationSender
 	notificationService     NotificationService
 	articleCacheRdb         *redis.Client
@@ -65,6 +66,12 @@ func WithNotificationService(notifSvc NotificationService) CommentServiceOption 
 func WithUserRepository(userRepo repository.UserRepository) CommentServiceOption {
 	return func(s *commentService) {
 		s.userRepo = userRepo
+	}
+}
+
+func WithAsyncJobRepository(jobRepo asyncjobrepo.AsyncJobRepository) CommentServiceOption {
+	return func(s *commentService) {
+		s.asyncJobRepo = jobRepo
 	}
 }
 
@@ -176,9 +183,17 @@ func (s *commentService) Create(articleID, userID int64, content string, parentI
 		if err := s.commentRepo.Create(comment); err != nil {
 			return nil, fmt.Errorf("failed to create comment: %w", err)
 		}
-		s.articleRepo.IncrementCommentCount(articleID)
-		articlesvc.InvalidateArticleCaches(s.articleCacheRdb, article.ID, article.Slug)
-		articlesvc.BumpArticleCollectionCacheVersions(s.articleCacheRdb)
+		if err := s.articleRepo.IncrementCommentCount(articleID); err != nil {
+			return nil, fmt.Errorf("failed to increment comment count: %w", err)
+		}
+		if s.asyncJobRepo != nil {
+			if err := s.enqueueArticleCacheJob(s.asyncJobRepo, article, true); err != nil {
+				return nil, err
+			}
+		} else {
+			articlesvc.InvalidateArticleCaches(s.articleCacheRdb, article.ID, article.Slug)
+			articlesvc.BumpArticleCollectionCacheVersions(s.articleCacheRdb)
+		}
 	}
 
 	// 重新查询以获取关联的用户信息（包括被回复人的信息）
@@ -188,8 +203,10 @@ func (s *commentService) Create(articleID, userID int64, content string, parentI
 		return comment, nil
 	}
 
-	if s.writeTxRunner == nil {
-		s.notifyReplyRecipient(context.Background(), article, comment, parentComment)
+	if s.writeTxRunner == nil && s.asyncJobRepo != nil {
+		if err := s.enqueueReplyNotificationJobs(s.asyncJobRepo, article, comment, parentComment); err != nil {
+			return comment, err
+		}
 	}
 
 	return comment, nil
@@ -417,7 +434,9 @@ func (s *commentService) Like(commentID, userID int64) error {
 	if err := s.commentRepo.IncrementLike(commentID); err != nil {
 		return fmt.Errorf("failed to like comment: %w", err)
 	}
-	s.notifyCommentReaction(context.Background(), comment, userID, model.NotificationTypeCommentLike, "点赞了你的评论", "点赞了你的评论")
+	if s.asyncJobRepo != nil {
+		return s.enqueueCommentReactionJob(s.asyncJobRepo, comment, userID, model.NotificationTypeCommentLike, "点赞了你的评论", "点赞了你的评论")
+	}
 	return nil
 }
 
@@ -448,7 +467,9 @@ func (s *commentService) Unlike(commentID, userID int64) error {
 	if err := s.commentRepo.DecrementLike(commentID); err != nil {
 		return fmt.Errorf("failed to unlike comment: %w", err)
 	}
-	s.notifyCommentReaction(context.Background(), comment, userID, model.NotificationTypeCommentLike, "取消了对你评论的点赞", "取消了对你评论的点赞")
+	if s.asyncJobRepo != nil {
+		return s.enqueueCommentReactionJob(s.asyncJobRepo, comment, userID, model.NotificationTypeCommentLike, "取消了对你评论的点赞", "取消了对你评论的点赞")
+	}
 	return nil
 }
 
@@ -479,7 +500,9 @@ func (s *commentService) Dislike(commentID, userID int64) error {
 	if err := s.commentRepo.IncrementDislike(commentID); err != nil {
 		return fmt.Errorf("failed to dislike comment: %w", err)
 	}
-	s.notifyCommentReaction(context.Background(), comment, userID, model.NotificationTypeCommentLike, "点踩了你的评论", "点踩了你的评论")
+	if s.asyncJobRepo != nil {
+		return s.enqueueCommentReactionJob(s.asyncJobRepo, comment, userID, model.NotificationTypeCommentLike, "点踩了你的评论", "点踩了你的评论")
+	}
 	return nil
 }
 
@@ -510,7 +533,9 @@ func (s *commentService) Undislike(commentID, userID int64) error {
 	if err := s.commentRepo.DecrementDislike(commentID); err != nil {
 		return fmt.Errorf("failed to undislike comment: %w", err)
 	}
-	s.notifyCommentReaction(context.Background(), comment, userID, model.NotificationTypeCommentLike, "取消了对你评论的点踩", "取消了对你评论的点踩")
+	if s.asyncJobRepo != nil {
+		return s.enqueueCommentReactionJob(s.asyncJobRepo, comment, userID, model.NotificationTypeCommentLike, "取消了对你评论的点踩", "取消了对你评论的点踩")
+	}
 	return nil
 }
 

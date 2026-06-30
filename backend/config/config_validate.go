@@ -17,6 +17,7 @@ func validateConfig(cfg *Config) error {
 		validateJWTConfig,
 		validateUploadConfig,
 		validateRateLimitConfig,
+		validateLogConfig,
 	}
 
 	for _, validate := range validators {
@@ -90,4 +91,13 @@ func validateRateLimitConfig(cfg *Config) error {
 		return fmt.Errorf("invalid ratelimit.ai_chat: must be greater than 0")
 	}
 	return nil
+}
+
+func validateLogConfig(cfg *Config) error {
+	switch cfg.Log.AccessLevel {
+	case "warn", "info":
+		return nil
+	default:
+		return fmt.Errorf("invalid log.access_level: must be warn or info")
+	}
 }

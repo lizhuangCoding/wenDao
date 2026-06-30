@@ -202,6 +202,88 @@ func TestCommentServiceLikeEnqueuesReactionNotificationJob(t *testing.T) {
 	}
 }
 
+func TestCommentServiceCreateEnqueuesAsyncJobsWithoutDirectNotificationFallback(t *testing.T) {
+	recipient := &model.User{
+		ID:                       12,
+		Username:                 "reader",
+		Email:                    "reader@example.com",
+		CommentReplyEmailEnabled: true,
+		Status:                   "active",
+	}
+	replyAuthor := &model.User{ID: 34, Username: "author", Email: "author@example.com", Status: "active"}
+	parentID := int64(56)
+	article := &model.Article{ID: 7, Title: "一篇文章", Slug: "essay", Status: "published"}
+	commentRepo := &replyNotificationCommentRepo{
+		parent: &model.Comment{
+			ID:        parentID,
+			ArticleID: article.ID,
+			UserID:    recipient.ID,
+			User:      recipient,
+			Status:    "normal",
+		},
+		replyAuthor: replyAuthor,
+		recipient:   recipient,
+	}
+	jobRepo := &commentAsyncJobRepoStub{}
+	notifSvc := &recordingNotificationService{}
+	sender := &recordingReplyNotificationSender{}
+	svc := NewCommentService(
+		commentRepo,
+		&replyNotificationArticleRepo{article: article},
+		WithAsyncJobRepository(jobRepo),
+		WithNotificationService(notifSvc),
+		WithReplyNotificationSender(sender),
+	)
+
+	if _, err := svc.Create(article.ID, replyAuthor.ID, "谢谢你的评论。", &parentID, nil); err != nil {
+		t.Fatalf("expected create to succeed, got %v", err)
+	}
+	if len(notifSvc.creates) != 0 {
+		t.Fatalf("expected no direct in-app notifications when async job repo is configured, got %d", len(notifSvc.creates))
+	}
+	if len(sender.notifications) != 0 {
+		t.Fatalf("expected no direct email notifications when async job repo is configured, got %d", len(sender.notifications))
+	}
+	if len(jobRepo.jobs) != 3 {
+		t.Fatalf("expected cache + in-app + email async jobs, got %d", len(jobRepo.jobs))
+	}
+}
+
+func TestCommentServiceLikeEnqueuesAsyncJobWithoutDirectNotificationFallback(t *testing.T) {
+	author := &model.User{ID: 88, Username: "writer", Status: "active"}
+	article := &model.Article{ID: 7, Title: "评论文章", Slug: "comment-article", Status: "published"}
+	commentRepo := &likeNotificationCommentRepo{
+		comment: &model.Comment{
+			ID:        42,
+			ArticleID: article.ID,
+			UserID:    author.ID,
+			User:      author,
+			Content:   "这是一条会收到点赞的评论",
+			Status:    "normal",
+		},
+	}
+	jobRepo := &commentAsyncJobRepoStub{}
+	notifSvc := &recordingNotificationService{}
+	userRepo := &actorUserRepo{users: map[int64]*model.User{7: {ID: 7, Username: "alice"}}}
+	svc := NewCommentService(
+		commentRepo,
+		&replyNotificationArticleRepo{article: article},
+		WithAsyncJobRepository(jobRepo),
+		WithNotificationService(notifSvc),
+		WithUserRepository(userRepo),
+	)
+
+	if err := svc.Like(42, 7); err != nil {
+		t.Fatalf("expected like to succeed, got %v", err)
+	}
+	if len(notifSvc.creates) != 0 {
+		t.Fatalf("expected no direct notifications when async job repo is configured, got %d", len(notifSvc.creates))
+	}
+	if len(jobRepo.jobs) != 1 || jobRepo.jobs[0].JobType != asyncjobsvc.JobTypeNotificationCreate {
+		t.Fatalf("expected one notification_create job, got %#v", jobRepo.jobs)
+	}
+}
+
 var errCommentCountFailed = repositoryErr("comment count failed")
 
 type repositoryErr string
