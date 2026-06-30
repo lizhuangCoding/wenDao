@@ -8,6 +8,7 @@
     "build": "tsc && vite build",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "test": "node --test \"src/**/*.test.mjs\"",
+    "test:behavior": "vitest run",
     "test:layout": "node --test src/components/home/articlePlanetLayout.test.mjs src/components/home/articlePlanetDependency.test.mjs src/components/home/articlePlanetOverlayEvents.test.mjs",
     "preview": "vite preview"
   },
@@ -36,6 +37,9 @@
     "zustand": "^4.5.0"
   },
   "devDependencies": {
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
     "@types/react": "^18.2.56",
     "@types/react-dom": "^18.2.19",
     "@types/three": "^0.184.1",
@@ -46,9 +50,11 @@
     "eslint": "^8.56.0",
     "eslint-plugin-react-hooks": "^4.6.0",
     "eslint-plugin-react-refresh": "^0.4.5",
+    "jsdom": "^27.0.1",
     "postcss": "^8.4.35",
     "tailwindcss": "^3.4.1",
     "typescript": "^5.2.2",
-    "vite": "^5.1.4"
+    "vite": "^5.1.4",
+    "vitest": "^3.2.6"
   }
 }

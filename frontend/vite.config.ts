@@ -5,6 +5,11 @@ import path from 'path'
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
+  test: {
+    environment: 'jsdom',
+    setupFiles: ['./src/test/setup.ts'],
+    include: ['src/**/*.behavior.test.ts', 'src/**/*.behavior.test.tsx'],
+  },
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
