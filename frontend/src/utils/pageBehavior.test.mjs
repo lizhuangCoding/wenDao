@@ -24,13 +24,13 @@ test.after(async () => {
   await rm(tempDir, { recursive: true, force: true });
 });
 
-test('shouldFetchCurrentUser probes once without token to recover cookie auth', async () => {
+test('shouldFetchCurrentUser only probes before cookie-backed auth has been resolved', async () => {
   const { shouldFetchCurrentUser } = await loadPageBehavior();
 
-  assert.equal(shouldFetchCurrentUser(null, false), true);
-  assert.equal(shouldFetchCurrentUser('', false), true);
-  assert.equal(shouldFetchCurrentUser(null, true), false);
-  assert.equal(shouldFetchCurrentUser('access-token'), true);
+  assert.equal(shouldFetchCurrentUser(false), true);
+  assert.equal(shouldFetchCurrentUser(null), true);
+  assert.equal(shouldFetchCurrentUser(undefined), true);
+  assert.equal(shouldFetchCurrentUser(true), false);
 });
 
 test('shouldAttemptTokenRefresh respects silent auth checks', async () => {
@@ -59,19 +59,19 @@ test('shouldAttemptTokenRefresh respects silent auth checks', async () => {
 test('current user failure does not clear auth created after the request started', async () => {
   const { shouldClearAuthAfterCurrentUserFailure } = await loadPageBehavior();
 
-  assert.equal(shouldClearAuthAfterCurrentUserFailure(null, 'new-login-token'), false);
-  assert.equal(shouldClearAuthAfterCurrentUserFailure('old-token', 'new-login-token'), false);
-  assert.equal(shouldClearAuthAfterCurrentUserFailure(null, null), true);
-  assert.equal(shouldClearAuthAfterCurrentUserFailure('expired-token', 'expired-token'), true);
+  assert.equal(shouldClearAuthAfterCurrentUserFailure(0, 1), false);
+  assert.equal(shouldClearAuthAfterCurrentUserFailure(3, 4), false);
+  assert.equal(shouldClearAuthAfterCurrentUserFailure(0, 0), true);
+  assert.equal(shouldClearAuthAfterCurrentUserFailure(7, 7), true);
 });
 
 test('current user response only applies to the auth state that requested it', async () => {
   const { shouldApplyCurrentUserResult } = await loadPageBehavior();
 
-  assert.equal(shouldApplyCurrentUserResult(null, null), true);
-  assert.equal(shouldApplyCurrentUserResult('same-token', 'same-token'), true);
-  assert.equal(shouldApplyCurrentUserResult(null, 'new-login-token'), false);
-  assert.equal(shouldApplyCurrentUserResult('old-token', 'new-login-token'), false);
+  assert.equal(shouldApplyCurrentUserResult(0, 0), true);
+  assert.equal(shouldApplyCurrentUserResult(2, 2), true);
+  assert.equal(shouldApplyCurrentUserResult(1, 2), false);
+  assert.equal(shouldApplyCurrentUserResult(9, 10), false);
 });
 
 test('getArticlePrimaryActionLabel matches the submitted article status', async () => {
@@ -88,6 +88,8 @@ test('api client attaches CSRF header for unsafe cookie-backed requests', async 
   assert.match(source, /readCookie\('csrf_token'\)/);
   assert.match(source, /config\.headers\['X-CSRF-Token'\] = csrfToken/);
   assert.match(source, /!\['get', 'head', 'options'\]\.includes\(normalized\)/);
+  assert.doesNotMatch(source, /localStorage\.getItem\('access_token'\)/);
+  assert.doesNotMatch(source, /Authorization = `Bearer/);
 });
 
 test('chat stream fetch requests attach CSRF header for cookie auth fallback', async () => {
@@ -95,4 +97,6 @@ test('chat stream fetch requests attach CSRF header for cookie auth fallback', a
 
   assert.match(source, /readCookie\('csrf_token'\)/);
   assert.match(source, /'X-CSRF-Token': csrfToken/);
+  assert.doesNotMatch(source, /localStorage\.getItem\('access_token'\)/);
+  assert.doesNotMatch(source, /Authorization: `Bearer/);
 });

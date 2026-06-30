@@ -1,5 +1,4 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
 import type { User } from '@/types';
 import { authApi } from '@/api';
 import {
@@ -9,12 +8,13 @@ import {
 
 interface AuthState {
   user: User | null;
-  token: string | null;
   isAuthenticated: boolean;
   isAdmin: boolean;
+  authChecked: boolean;
+  authVersion: number;
 
   // Actions
-  setAuth: (user: User, token: string) => void;
+  setAuth: (user: User) => void;
   setUser: (user: User) => void;
   clearAuth: () => void;
   login: (email: string, password: string) => Promise<void>;
@@ -28,94 +28,94 @@ interface AuthState {
   fetchCurrentUser: (options?: { silent?: boolean }) => Promise<boolean>;
 }
 
-export const useAuthStore = create<AuthState>()(
-  persist(
-    (set, get) => ({
+const buildAuthenticatedState = (user: User) => ({
+  user,
+  isAuthenticated: true,
+  isAdmin: user.role === 'admin',
+  authChecked: true,
+});
+
+export const useAuthStore = create<AuthState>()((set, get) => ({
+  user: null,
+  isAuthenticated: false,
+  isAdmin: false,
+  authChecked: false,
+  authVersion: 0,
+
+  setAuth: (user) => {
+    set((state) => ({
+      ...buildAuthenticatedState(user),
+      authVersion: state.authVersion + 1,
+    }));
+  },
+
+  setUser: (user) => {
+    set((state) => ({
+      ...buildAuthenticatedState(user),
+      authVersion: state.authVersion + 1,
+    }));
+  },
+
+  clearAuth: () => {
+    set((state) => ({
       user: null,
-      token: null,
       isAuthenticated: false,
       isAdmin: false,
+      authChecked: true,
+      authVersion: state.authVersion + 1,
+    }));
+  },
 
-      setAuth: (user, token) => {
-        localStorage.setItem('access_token', token);
-        set({
-          user,
-          token,
-          isAuthenticated: true,
-          isAdmin: user.role === 'admin',
-        });
-      },
+  login: async (email, password) => {
+    const response = await authApi.login({ email, password });
+    get().setAuth(response.user);
+  },
 
-      setUser: (user) => {
-        set({
-          user,
-          isAuthenticated: true,
-          isAdmin: user.role === 'admin',
-        });
-      },
+  register: async (username, email, password, verificationCode) => {
+    const response = await authApi.register({
+      username,
+      email,
+      password,
+      verification_code: verificationCode,
+    });
+    get().setAuth(response.user);
+  },
 
-      clearAuth: () => {
-        localStorage.removeItem('access_token');
-        set({
+  logout: async () => {
+    try {
+      await authApi.logout();
+    } catch (error) {
+      // 忽略错误，继续清除本地状态
+    } finally {
+      get().clearAuth();
+    }
+  },
+
+  fetchCurrentUser: async (options) => {
+    const requestVersion = get().authVersion;
+    try {
+      const response = await authApi.getCurrentUser({
+        skipAuthRedirect: options?.silent,
+      });
+      if (!shouldApplyCurrentUserResult(requestVersion, get().authVersion)) {
+        return false;
+      }
+      set((state) => ({
+        ...buildAuthenticatedState(response.user),
+        authVersion: state.authVersion + 1,
+      }));
+      return true;
+    } catch (error) {
+      if (shouldClearAuthAfterCurrentUserFailure(requestVersion, get().authVersion)) {
+        set((state) => ({
           user: null,
-          token: null,
           isAuthenticated: false,
           isAdmin: false,
-        });
-      },
-
-      login: async (email, password) => {
-        const response = await authApi.login({ email, password });
-        get().setAuth(response.user, response.access_token);
-      },
-
-      register: async (username, email, password, verificationCode) => {
-        const response = await authApi.register({
-          username,
-          email,
-          password,
-          verification_code: verificationCode,
-        });
-        get().setAuth(response.user, response.access_token);
-      },
-
-      logout: async () => {
-        try {
-          await authApi.logout();
-        } catch (error) {
-          // 忽略错误，继续清除本地状态
-        } finally {
-          get().clearAuth();
-        }
-      },
-
-      fetchCurrentUser: async (options) => {
-        const requestToken = get().token;
-        try {
-          const response = await authApi.getCurrentUser({
-            skipAuthRedirect: options?.silent,
-          });
-          if (!shouldApplyCurrentUserResult(requestToken, get().token)) {
-            return false;
-          }
-          get().setUser(response.user);
-          return true;
-        } catch (error) {
-          if (shouldClearAuthAfterCurrentUserFailure(requestToken, get().token)) {
-            get().clearAuth();
-          }
-          return false;
-        }
-      },
-    }),
-    {
-      name: 'auth-storage',
-      partialize: (state) => ({
-        token: state.token,
-        user: state.user,
-        isAuthenticated: state.isAuthenticated,
-        isAdmin: state.isAdmin,
-      }),
+          authChecked: true,
+          authVersion: state.authVersion + 1,
+        }));
+      }
+      return false;
     }
-  )
-);
+  },
+}));

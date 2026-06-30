@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import { RouterProvider } from 'react-router-dom';
 import { HelmetProvider } from 'react-helmet-async';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -50,23 +50,18 @@ const Toast = () => {
 };
 
 function App() {
-  const { token, fetchCurrentUser } = useAuthStore();
+  const { authChecked, fetchCurrentUser } = useAuthStore();
   const initTheme = useThemeStore((state) => state.initTheme);
-  const hasCheckedCookieAuthRef = useRef(false);
 
   useEffect(() => {
     initTheme();
   }, [initTheme]);
 
   useEffect(() => {
-    const hasCheckedCookieAuth = hasCheckedCookieAuthRef.current;
-    if (shouldFetchCurrentUser(token, hasCheckedCookieAuth)) {
-      if (!token) {
-        hasCheckedCookieAuthRef.current = true;
-      }
-      fetchCurrentUser({ silent: !token });
+    if (shouldFetchCurrentUser(authChecked)) {
+      fetchCurrentUser({ silent: true });
     }
-  }, [token, fetchCurrentUser]);
+  }, [authChecked, fetchCurrentUser]);
 
   return (
     <HelmetProvider>

@@ -1,7 +1,6 @@
 package auth
 
 import (
-	"net/http"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -84,10 +83,7 @@ func (h *AuthHandler) Refresh(c *gin.Context) {
 		_ = jwt.AddToBlacklist(h.rdb, req.RefreshToken, remainingTime)
 	}
 
-	secure := httpcookie.ShouldUseSecureCookies(h.cfg)
-	c.SetSameSite(http.SameSiteLaxMode)
-	c.SetCookie("refresh_token", newRefreshToken, h.cfg.JWT.RefreshExpireDays*24*3600, "/", "", secure, true)
-	httpcookie.SetCSRFCookie(c, h.cfg)
+	httpcookie.SetAuthCookies(c, h.cfg, accessToken, newRefreshToken)
 
 	response.Success(c, gin.H{
 		"access_token":  accessToken,

@@ -49,11 +49,6 @@ const apiClient: AxiosInstance = axios.create({
 apiClient.interceptors.request.use(
   (config) => {
     config.headers = config.headers || {};
-    // 从 localStorage 获取 Access Token
-    const token = localStorage.getItem('access_token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
     if (shouldAttachCSRFToken(config.method)) {
       const csrfToken = readCookie('csrf_token');
       if (csrfToken) {
@@ -116,26 +111,11 @@ apiClient.interceptors.response.use(
 
       try {
         // 调用刷新 token 接口（Cookie 会自动发送）
-        const response = await apiClient.post<
-          { access_token: string; expires_in: number },
-          { access_token: string; expires_in: number }
-        >('/auth/refresh', {});
-
-        const { access_token } = response;
-
-        // 更新 localStorage 中的 Access Token
-        localStorage.setItem('access_token', access_token);
-
-        // 重试原请求
-        if (originalRequest.headers) {
-          originalRequest.headers.Authorization = `Bearer ${access_token}`;
-        }
+        await apiClient.post('/auth/refresh', {});
         refreshQueue.resolveAll();
 
         return apiClient(originalRequest);
       } catch (refreshError) {
-        // 刷新失败，清除 token 并跳转登录
-        localStorage.removeItem('access_token');
         refreshQueue.rejectAll(refreshError);
         if (!originalRequest.skipAuthRedirect) {
           window.location.href = '/login';
@@ -149,10 +129,8 @@ apiClient.interceptors.response.use(
     // 处理 HTTP 错误
     const apiError: ApiError = normalizeApiError(error);
 
-    // 401 未授权，清除 token 并跳转登录
+    // 401 未授权，跳转登录页，让页面以新的 cookie 会话状态重新初始化
     if (error.response?.status === 401) {
-      localStorage.removeItem('access_token');
-      // 只有非刷新请求才跳转登录
       if (!originalRequest?.url?.includes('/auth/refresh') && !originalRequest?.skipAuthRedirect) {
         window.location.href = '/login';
       }

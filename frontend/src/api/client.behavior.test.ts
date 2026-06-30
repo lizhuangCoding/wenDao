@@ -38,9 +38,8 @@ describe('api client auth refresh behavior', () => {
     document.cookie = 'csrf_token=test-csrf';
   });
 
-  it('replays queued requests after a single token refresh', async () => {
+  it('replays queued requests after a single cookie-backed refresh without restoring bearer headers', async () => {
     localStorage.setItem('access_token', 'stale-token');
-
     let protectedAttempts = 0;
     let refreshAttempts = 0;
     let releaseRefresh!: () => void;
@@ -62,11 +61,10 @@ describe('api client auth refresh behavior', () => {
 
       if (config.url?.startsWith('/protected')) {
         protectedAttempts += 1;
-        const authHeader = String(config.headers?.Authorization || '');
-        if (authHeader === 'Bearer fresh-token') {
+        expect(config.headers?.Authorization).toBeUndefined();
+        if (refreshAttempts > 0) {
           return createSuccessResponse(config, {
             ok: true,
-            authorization: authHeader,
             url: config.url,
           });
         }
@@ -91,14 +89,12 @@ describe('api client auth refresh behavior', () => {
     expect(protectedAttempts).toBe(4);
     expect(first).toMatchObject({
       ok: true,
-      authorization: 'Bearer fresh-token',
       url: '/protected/one',
     });
     expect(second).toMatchObject({
       ok: true,
-      authorization: 'Bearer fresh-token',
       url: '/protected/two',
     });
-    expect(localStorage.getItem('access_token')).toBe('fresh-token');
+    expect(localStorage.getItem('access_token')).toBe('stale-token');
   });
 });

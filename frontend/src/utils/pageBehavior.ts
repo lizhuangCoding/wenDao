@@ -15,19 +15,13 @@ interface ArticlePrimaryActionOptions {
 }
 
 export const shouldFetchCurrentUser = (
-  token: string | null | undefined,
-  hasCheckedCookieAuth = false
-) => Boolean(token) || !hasCheckedCookieAuth;
+  authChecked: boolean | null | undefined
+) => !authChecked;
 
 export const shouldApplyCurrentUserResult = (
-  requestToken: string | null | undefined,
-  currentToken: string | null | undefined
-) => {
-  if (!requestToken) {
-    return !currentToken;
-  }
-  return currentToken === requestToken;
-};
+  requestVersion: number,
+  currentVersion: number
+) => requestVersion === currentVersion;
 
 export const shouldClearAuthAfterCurrentUserFailure = shouldApplyCurrentUserResult;
 

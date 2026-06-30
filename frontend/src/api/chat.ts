@@ -98,12 +98,10 @@ const readCookie = (name: string) => {
 };
 
 const buildStreamHeaders = () => {
-  const token = localStorage.getItem('access_token');
   const csrfToken = readCookie('csrf_token');
 
   return {
     'Content-Type': 'application/json',
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...(csrfToken ? { 'X-CSRF-Token': csrfToken } : {}),
   };
 };
@@ -184,12 +182,8 @@ export const chatApi = {
   },
 
   exportConversation: async (id: number, title: string) => {
-    const token = localStorage.getItem('access_token');
     const response = await fetch(getApiUrl(`/chat/conversations/${id}/export`), {
       credentials: 'include',
-      headers: {
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
     });
     if (!response.ok) {
       throw new Error('导出失败');
