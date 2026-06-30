@@ -5,80 +5,9 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-
-	"github.com/spf13/viper"
 )
 
-func TestLoadConfig_RejectsPlaceholderJWTSecret(t *testing.T) {
-	viper.Reset()
-	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
-	defer viper.Reset()
-
-	tempDir := t.TempDir()
-	configDir := filepath.Join(tempDir, "config")
-	if err := os.MkdirAll(configDir, 0o755); err != nil {
-		t.Fatalf("failed to create config dir: %v", err)
-	}
-
-	configContent := `server:
-  port: "8089"
-  mode: "debug"
-site:
-  slogan: "test"
-  url: "http://localhost:3000"
-jwt:
-  secret: "your-secret-key-change-in-production"
-  access_expire_hours: 1
-  refresh_expire_days: 7
-upload:
-  max_size: 10485760
-  allowed_types:
-    - "image/jpeg"
-  storage_path: "./uploads"
-`
-	if err := os.WriteFile(filepath.Join(configDir, "config.yaml"), []byte(configContent), 0o644); err != nil {
-		t.Fatalf("failed to write config file: %v", err)
-	}
-
-	oldWD, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("failed to get working directory: %v", err)
-	}
-	defer func() {
-		_ = os.Chdir(oldWD)
-	}()
-
-	if err := os.Chdir(tempDir); err != nil {
-		t.Fatalf("failed to change working directory: %v", err)
-	}
-
-	cfg, err := LoadConfig()
-	if err == nil {
-		t.Fatalf("expected placeholder JWT secret to be rejected, got config %+v", cfg)
-	}
-	if !strings.Contains(err.Error(), "placeholder JWT secret") {
-		t.Fatalf("expected placeholder JWT secret error, got %v", err)
-	}
-}
-
-func TestLoadConfig_BindsSiteURLFromEnv(t *testing.T) {
-	viper.Reset()
-	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
-	defer viper.Reset()
-
-	tempDir := t.TempDir()
-	configDir := filepath.Join(tempDir, "config")
-	if err := os.MkdirAll(configDir, 0o755); err != nil {
-		t.Fatalf("failed to create config dir: %v", err)
-	}
-
-	configContent := `server:
-  port: "8089"
-  mode: "debug"
-site:
-  slogan: "test"
-  url: "http://localhost:3000"
-jwt:
+const minimalValidConfig = `jwt:
   secret: "real-test-secret"
   access_expire_hours: 1
   refresh_expire_days: 7
@@ -87,39 +16,66 @@ upload:
   allowed_types:
     - "image/jpeg"
   storage_path: "./uploads"
-oauth:
-  github:
-    client_id: ""
-    client_secret: ""
-    callback_url: ""
 `
-	if err := os.WriteFile(filepath.Join(configDir, "config.yaml"), []byte(configContent), 0o644); err != nil {
+
+func writeTestConfig(t *testing.T, content string) string {
+	t.Helper()
+
+	tempDir := t.TempDir()
+	configDir := filepath.Join(tempDir, "config")
+	if err := os.MkdirAll(configDir, 0o755); err != nil {
+		t.Fatalf("failed to create config dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(configDir, "config.yaml"), []byte(content), 0o644); err != nil {
 		t.Fatalf("failed to write config file: %v", err)
 	}
+	return configDir
+}
 
-	oldWD, err := os.Getwd()
+func loadTestConfig(t *testing.T, content string) (*Config, error) {
+	t.Helper()
+	return LoadConfigFromPaths(writeTestConfig(t, content))
+}
+
+func TestLoadConfig_RejectsPlaceholderJWTSecret(t *testing.T) {
+	cfg, err := loadTestConfig(t, strings.Replace(minimalValidConfig, "real-test-secret", placeholderJWTSecret, 1))
+	if err == nil {
+		t.Fatalf("expected placeholder JWT secret to be rejected, got config %+v", cfg)
+	}
+	if !strings.Contains(err.Error(), "placeholder JWT secret") {
+		t.Fatalf("expected placeholder JWT secret error, got %v", err)
+	}
+}
+
+func TestLoadConfigFromPaths_UsesIndependentViperInstances(t *testing.T) {
+	firstDir := writeTestConfig(t, minimalValidConfig+`site:
+  url: "https://one.example.com"
+`)
+	secondDir := writeTestConfig(t, minimalValidConfig+`site:
+  url: "https://two.example.com"
+`)
+
+	first, err := LoadConfigFromPaths(firstDir)
 	if err != nil {
-		t.Fatalf("failed to get working directory: %v", err)
+		t.Fatalf("expected first config to load, got %v", err)
 	}
-	defer func() {
-		_ = os.Chdir(oldWD)
-	}()
-
-	oldSiteURL, hadSiteURL := os.LookupEnv("SITE_URL")
-	_ = os.Setenv("SITE_URL", "https://frontend.example.com")
-	defer func() {
-		if hadSiteURL {
-			_ = os.Setenv("SITE_URL", oldSiteURL)
-			return
-		}
-		_ = os.Unsetenv("SITE_URL")
-	}()
-
-	if err := os.Chdir(tempDir); err != nil {
-		t.Fatalf("failed to change working directory: %v", err)
+	second, err := LoadConfigFromPaths(secondDir)
+	if err != nil {
+		t.Fatalf("expected second config to load, got %v", err)
 	}
 
-	cfg, err := LoadConfig()
+	if first.Site.URL != "https://one.example.com" {
+		t.Fatalf("expected first site url to stay isolated, got %q", first.Site.URL)
+	}
+	if second.Site.URL != "https://two.example.com" {
+		t.Fatalf("expected second site url to stay isolated, got %q", second.Site.URL)
+	}
+}
+
+func TestLoadConfig_BindsSiteURLFromEnv(t *testing.T) {
+	t.Setenv("SITE_URL", "https://frontend.example.com")
+
+	cfg, err := loadTestConfig(t, minimalValidConfig)
 	if err != nil {
 		t.Fatalf("expected config to load, got %v", err)
 	}
@@ -129,52 +85,6 @@ oauth:
 }
 
 func TestLoadConfig_BindsServerAndLogSettingsFromEnv(t *testing.T) {
-	viper.Reset()
-	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
-	defer viper.Reset()
-
-	tempDir := t.TempDir()
-	configDir := filepath.Join(tempDir, "config")
-	if err := os.MkdirAll(configDir, 0o755); err != nil {
-		t.Fatalf("failed to create config dir: %v", err)
-	}
-
-	configContent := `server:
-  port: "8089"
-  mode: "debug"
-site:
-  slogan: "test"
-  url: "http://localhost:3000"
-jwt:
-  secret: "real-test-secret"
-  access_expire_hours: 1
-  refresh_expire_days: 7
-upload:
-  max_size: 10485760
-  allowed_types:
-    - "image/jpeg"
-  storage_path: "./uploads"
-log:
-  level: "info"
-  format: "console"
-  output: "log/"
-  max_size_mb: 100
-  max_backups: 7
-  max_age_days: 28
-  compress: true
-`
-	if err := os.WriteFile(filepath.Join(configDir, "config.yaml"), []byte(configContent), 0o644); err != nil {
-		t.Fatalf("failed to write config file: %v", err)
-	}
-
-	oldWD, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("failed to get working directory: %v", err)
-	}
-	defer func() {
-		_ = os.Chdir(oldWD)
-	}()
-
 	t.Setenv("SERVER_PORT", "9090")
 	t.Setenv("SERVER_MODE", "release")
 	t.Setenv("LOG_FORMAT", "json")
@@ -184,11 +94,7 @@ log:
 	t.Setenv("LOG_MAX_AGE_DAYS", "14")
 	t.Setenv("LOG_COMPRESS", "false")
 
-	if err := os.Chdir(tempDir); err != nil {
-		t.Fatalf("failed to change working directory: %v", err)
-	}
-
-	cfg, err := LoadConfig()
+	cfg, err := loadTestConfig(t, minimalValidConfig)
 	if err != nil {
 		t.Fatalf("expected config to load, got %v", err)
 	}
@@ -219,52 +125,10 @@ log:
 }
 
 func TestLoadConfig_BindsMigrationSettingsFromEnv(t *testing.T) {
-	viper.Reset()
-	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
-	defer viper.Reset()
-
-	tempDir := t.TempDir()
-	configDir := filepath.Join(tempDir, "config")
-	if err := os.MkdirAll(configDir, 0o755); err != nil {
-		t.Fatalf("failed to create config dir: %v", err)
-	}
-
-	configContent := `server:
-  port: "8089"
-  mode: "debug"
-site:
-  slogan: "test"
-  url: "http://localhost:3000"
-jwt:
-  secret: "real-test-secret"
-  access_expire_hours: 1
-  refresh_expire_days: 7
-upload:
-  max_size: 10485760
-  allowed_types:
-    - "image/jpeg"
-  storage_path: "./uploads"
-`
-	if err := os.WriteFile(filepath.Join(configDir, "config.yaml"), []byte(configContent), 0o644); err != nil {
-		t.Fatalf("failed to write config file: %v", err)
-	}
-
-	oldWD, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("failed to get working directory: %v", err)
-	}
-	defer func() {
-		_ = os.Chdir(oldWD)
-	}()
-
 	t.Setenv("MIGRATION_MODE", "auto")
 	t.Setenv("MIGRATION_PATH", "custom/migrations")
 
-	if err := os.Chdir(tempDir); err != nil {
-		t.Fatalf("failed to change working directory: %v", err)
-	}
-
-	cfg, err := LoadConfig()
+	cfg, err := loadTestConfig(t, minimalValidConfig)
 	if err != nil {
 		t.Fatalf("expected config to load, got %v", err)
 	}
@@ -277,81 +141,22 @@ upload:
 }
 
 func TestLoadConfig_RejectsInvalidMigrationMode(t *testing.T) {
-	viper.Reset()
-	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
-	defer viper.Reset()
-
-	tempDir := t.TempDir()
-	configDir := filepath.Join(tempDir, "config")
-	if err := os.MkdirAll(configDir, 0o755); err != nil {
-		t.Fatalf("failed to create config dir: %v", err)
-	}
-
-	configContent := `server:
-  port: "8089"
-  mode: "debug"
-site:
-  slogan: "test"
-  url: "http://localhost:3000"
-jwt:
-  secret: "real-test-secret"
-  access_expire_hours: 1
-  refresh_expire_days: 7
-upload:
-  max_size: 10485760
-  allowed_types:
-    - "image/jpeg"
-  storage_path: "./uploads"
-migration:
+	cfg, err := loadTestConfig(t, minimalValidConfig+`migration:
   mode: "surprise"
-`
-	if err := os.WriteFile(filepath.Join(configDir, "config.yaml"), []byte(configContent), 0o644); err != nil {
-		t.Fatalf("failed to write config file: %v", err)
-	}
-
-	oldWD, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("failed to get working directory: %v", err)
-	}
-	defer func() {
-		_ = os.Chdir(oldWD)
-	}()
-
-	if err := os.Chdir(tempDir); err != nil {
-		t.Fatalf("failed to change working directory: %v", err)
-	}
-
-	cfg, err := LoadConfig()
+`)
 	if err == nil {
 		t.Fatalf("expected invalid migration mode to be rejected, got config %+v", cfg)
 	}
-	if !strings.Contains(err.Error(), "invalid migration.mode") {
-		t.Fatalf("expected migration mode error, got %v", err)
+	if !strings.Contains(err.Error(), "migration.mode") {
+		t.Fatalf("expected migration mode validation error, got %v", err)
 	}
 }
 
 func TestLoadConfig_BindsResearchSettingsFromEnv(t *testing.T) {
-	viper.Reset()
-	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
-	defer viper.Reset()
+	t.Setenv("RESEARCH_ENDPOINT", "https://search.example.com")
+	t.Setenv("RESEARCH_API_KEY", "research-secret")
 
-	tempDir := t.TempDir()
-	configDir := filepath.Join(tempDir, "config")
-	if err := os.MkdirAll(configDir, 0o755); err != nil {
-		t.Fatalf("failed to create config dir: %v", err)
-	}
-
-	configContent := `server:
-  port: "8089"
-  mode: "debug"
-site:
-  slogan: "test"
-  url: "http://localhost:3000"
-jwt:
-  secret: "real-test-secret"
-  access_expire_hours: 1
-  refresh_expire_days: 7
-ai:
+	cfg, err := loadTestConfig(t, minimalValidConfig+`ai:
   api_key: "x"
   endpoint: "https://ark.example.com"
   embedding_model: "embed-model"
@@ -360,51 +165,7 @@ ai:
   max_tokens: 500
   top_k: 3
   rag_min_score: 0.30
-upload:
-  max_size: 10485760
-  allowed_types:
-    - "image/jpeg"
-  storage_path: "./uploads"
-oauth:
-  github:
-    client_id: ""
-    client_secret: ""
-    callback_url: ""
-`
-	if err := os.WriteFile(filepath.Join(configDir, "config.yaml"), []byte(configContent), 0o644); err != nil {
-		t.Fatalf("failed to write config file: %v", err)
-	}
-
-	oldWD, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("failed to get working directory: %v", err)
-	}
-	defer func() {
-		_ = os.Chdir(oldWD)
-	}()
-
-	oldResearchEndpoint, hadResearchEndpoint := os.LookupEnv("RESEARCH_ENDPOINT")
-	oldResearchAPIKey, hadResearchAPIKey := os.LookupEnv("RESEARCH_API_KEY")
-	_ = os.Setenv("RESEARCH_ENDPOINT", "https://search.example.com")
-	_ = os.Setenv("RESEARCH_API_KEY", "research-secret")
-	defer func() {
-		if hadResearchEndpoint {
-			_ = os.Setenv("RESEARCH_ENDPOINT", oldResearchEndpoint)
-		} else {
-			_ = os.Unsetenv("RESEARCH_ENDPOINT")
-		}
-		if hadResearchAPIKey {
-			_ = os.Setenv("RESEARCH_API_KEY", oldResearchAPIKey)
-		} else {
-			_ = os.Unsetenv("RESEARCH_API_KEY")
-		}
-	}()
-
-	if err := os.Chdir(tempDir); err != nil {
-		t.Fatalf("failed to change working directory: %v", err)
-	}
-
-	cfg, err := LoadConfig()
+`)
 	if err != nil {
 		t.Fatalf("expected config to load, got %v", err)
 	}
@@ -423,44 +184,6 @@ oauth:
 }
 
 func TestLoadConfig_BindsEmailVerificationSettingsFromEnv(t *testing.T) {
-	viper.Reset()
-	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
-	defer viper.Reset()
-
-	tempDir := t.TempDir()
-	configDir := filepath.Join(tempDir, "config")
-	if err := os.MkdirAll(configDir, 0o755); err != nil {
-		t.Fatalf("failed to create config dir: %v", err)
-	}
-
-	configContent := `server:
-  port: "8089"
-  mode: "debug"
-site:
-  slogan: "test"
-  url: "http://localhost:3000"
-jwt:
-  secret: "real-test-secret"
-  access_expire_hours: 1
-  refresh_expire_days: 7
-upload:
-  max_size: 10485760
-  allowed_types:
-    - "image/jpeg"
-  storage_path: "./uploads"
-`
-	if err := os.WriteFile(filepath.Join(configDir, "config.yaml"), []byte(configContent), 0o644); err != nil {
-		t.Fatalf("failed to write config file: %v", err)
-	}
-
-	oldWD, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("failed to get working directory: %v", err)
-	}
-	defer func() {
-		_ = os.Chdir(oldWD)
-	}()
-
 	t.Setenv("EMAIL_SMTP_HOST", "smtp.example.com")
 	t.Setenv("EMAIL_SMTP_PORT", "465")
 	t.Setenv("EMAIL_USERNAME", "mailer")
@@ -471,11 +194,7 @@ upload:
 	t.Setenv("VERIFICATION_RESEND_COOLDOWN_SECONDS", "90")
 	t.Setenv("VERIFICATION_MAX_ATTEMPTS", "4")
 
-	if err := os.Chdir(tempDir); err != nil {
-		t.Fatalf("failed to change working directory: %v", err)
-	}
-
-	cfg, err := LoadConfig()
+	cfg, err := loadTestConfig(t, minimalValidConfig)
 	if err != nil {
 		t.Fatalf("expected config to load, got %v", err)
 	}
@@ -503,53 +222,11 @@ upload:
 }
 
 func TestLoadConfig_BindsUploadCleanupSettingsFromEnvAndDefaults(t *testing.T) {
-	viper.Reset()
-	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
-	defer viper.Reset()
-
-	tempDir := t.TempDir()
-	configDir := filepath.Join(tempDir, "config")
-	if err := os.MkdirAll(configDir, 0o755); err != nil {
-		t.Fatalf("failed to create config dir: %v", err)
-	}
-
-	configContent := `server:
-  port: "8089"
-  mode: "debug"
-site:
-  slogan: "test"
-  url: "http://localhost:3000"
-jwt:
-  secret: "real-test-secret"
-  access_expire_hours: 1
-  refresh_expire_days: 7
-upload:
-  max_size: 10485760
-  allowed_types:
-    - "image/jpeg"
-  storage_path: "./uploads"
-`
-	if err := os.WriteFile(filepath.Join(configDir, "config.yaml"), []byte(configContent), 0o644); err != nil {
-		t.Fatalf("failed to write config file: %v", err)
-	}
-
-	oldWD, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("failed to get working directory: %v", err)
-	}
-	defer func() {
-		_ = os.Chdir(oldWD)
-	}()
-
 	t.Setenv("UPLOAD_CLEANUP_ENABLED", "false")
 	t.Setenv("UPLOAD_CLEANUP_INTERVAL_HOURS", "6")
 	t.Setenv("UPLOAD_CLEANUP_BATCH_SIZE", "50")
 
-	if err := os.Chdir(tempDir); err != nil {
-		t.Fatalf("failed to change working directory: %v", err)
-	}
-
-	cfg, err := LoadConfig()
+	cfg, err := loadTestConfig(t, minimalValidConfig)
 	if err != nil {
 		t.Fatalf("expected config to load, got %v", err)
 	}
@@ -568,27 +245,13 @@ upload:
 }
 
 func TestLoadConfig_BindsAIAndOAuthEndpointsFromEnv(t *testing.T) {
-	viper.Reset()
-	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
-	defer viper.Reset()
+	t.Setenv("AI_PROVIDER", "deepseek")
+	t.Setenv("AI_ENDPOINT", "https://api.deepseek.example.com")
+	t.Setenv("AI_CHAT_MODEL", "chat-model-from-env")
+	t.Setenv("AI_EMBEDDING_MODEL", "embedding-model-from-env")
+	t.Setenv("GITHUB_CALLBACK_URL", "https://backend.example.com/api/auth/github/callback")
 
-	tempDir := t.TempDir()
-	configDir := filepath.Join(tempDir, "config")
-	if err := os.MkdirAll(configDir, 0o755); err != nil {
-		t.Fatalf("failed to create config dir: %v", err)
-	}
-
-	configContent := `server:
-  port: "8089"
-  mode: "debug"
-site:
-  slogan: "test"
-  url: ""
-jwt:
-  secret: "real-test-secret"
-  access_expire_hours: 1
-  refresh_expire_days: 7
-ai:
+	cfg, err := loadTestConfig(t, minimalValidConfig+`ai:
   provider: "doubao"
   api_key: ""
   endpoint: ""
@@ -598,72 +261,12 @@ ai:
   max_tokens: 500
   top_k: 3
   rag_min_score: 0.30
-upload:
-  max_size: 10485760
-  allowed_types:
-    - "image/jpeg"
-  storage_path: "./uploads"
 oauth:
   github:
     client_id: ""
     client_secret: ""
     callback_url: ""
-`
-	if err := os.WriteFile(filepath.Join(configDir, "config.yaml"), []byte(configContent), 0o644); err != nil {
-		t.Fatalf("failed to write config file: %v", err)
-	}
-
-	oldWD, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("failed to get working directory: %v", err)
-	}
-	defer func() {
-		_ = os.Chdir(oldWD)
-	}()
-
-	oldAIProvider, hadAIProvider := os.LookupEnv("AI_PROVIDER")
-	oldAIEndpoint, hadAIEndpoint := os.LookupEnv("AI_ENDPOINT")
-	oldAIChatModel, hadAIChatModel := os.LookupEnv("AI_CHAT_MODEL")
-	oldAIEmbeddingModel, hadAIEmbeddingModel := os.LookupEnv("AI_EMBEDDING_MODEL")
-	oldGitHubCallbackURL, hadGitHubCallbackURL := os.LookupEnv("GITHUB_CALLBACK_URL")
-	_ = os.Setenv("AI_PROVIDER", "deepseek")
-	_ = os.Setenv("AI_ENDPOINT", "https://api.deepseek.example.com")
-	_ = os.Setenv("AI_CHAT_MODEL", "chat-model-from-env")
-	_ = os.Setenv("AI_EMBEDDING_MODEL", "embedding-model-from-env")
-	_ = os.Setenv("GITHUB_CALLBACK_URL", "https://backend.example.com/api/auth/github/callback")
-	defer func() {
-		if hadAIProvider {
-			_ = os.Setenv("AI_PROVIDER", oldAIProvider)
-		} else {
-			_ = os.Unsetenv("AI_PROVIDER")
-		}
-		if hadAIEndpoint {
-			_ = os.Setenv("AI_ENDPOINT", oldAIEndpoint)
-		} else {
-			_ = os.Unsetenv("AI_ENDPOINT")
-		}
-		if hadAIChatModel {
-			_ = os.Setenv("AI_CHAT_MODEL", oldAIChatModel)
-		} else {
-			_ = os.Unsetenv("AI_CHAT_MODEL")
-		}
-		if hadAIEmbeddingModel {
-			_ = os.Setenv("AI_EMBEDDING_MODEL", oldAIEmbeddingModel)
-		} else {
-			_ = os.Unsetenv("AI_EMBEDDING_MODEL")
-		}
-		if hadGitHubCallbackURL {
-			_ = os.Setenv("GITHUB_CALLBACK_URL", oldGitHubCallbackURL)
-		} else {
-			_ = os.Unsetenv("GITHUB_CALLBACK_URL")
-		}
-	}()
-
-	if err := os.Chdir(tempDir); err != nil {
-		t.Fatalf("failed to change working directory: %v", err)
-	}
-
-	cfg, err := LoadConfig()
+`)
 	if err != nil {
 		t.Fatalf("expected config to load, got %v", err)
 	}
@@ -685,27 +288,12 @@ oauth:
 }
 
 func TestLoadConfig_BindsLegacyDoubaoAIEnvFallback(t *testing.T) {
-	viper.Reset()
-	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
-	defer viper.Reset()
+	t.Setenv("DOUBAO_API_KEY", "legacy-api-key")
+	t.Setenv("DOUBAO_ENDPOINT", "https://ark.example.com/api/v3")
+	t.Setenv("DOUBAO_CHAT_MODEL", "legacy-chat-model")
+	t.Setenv("DOUBAO_EMBEDDING_MODEL", "legacy-embedding-model")
 
-	tempDir := t.TempDir()
-	configDir := filepath.Join(tempDir, "config")
-	if err := os.MkdirAll(configDir, 0o755); err != nil {
-		t.Fatalf("failed to create config dir: %v", err)
-	}
-
-	configContent := `server:
-  port: "8089"
-  mode: "debug"
-site:
-  slogan: "test"
-  url: ""
-jwt:
-  secret: "real-test-secret"
-  access_expire_hours: 1
-  refresh_expire_days: 7
-ai:
+	cfg, err := loadTestConfig(t, minimalValidConfig+`ai:
   provider: "doubao"
   api_key: ""
   endpoint: ""
@@ -715,34 +303,7 @@ ai:
   max_tokens: 500
   top_k: 3
   rag_min_score: 0.30
-upload:
-  max_size: 10485760
-  allowed_types:
-    - "image/jpeg"
-  storage_path: "./uploads"
-`
-	if err := os.WriteFile(filepath.Join(configDir, "config.yaml"), []byte(configContent), 0o644); err != nil {
-		t.Fatalf("failed to write config file: %v", err)
-	}
-
-	oldWD, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("failed to get working directory: %v", err)
-	}
-	defer func() {
-		_ = os.Chdir(oldWD)
-	}()
-
-	t.Setenv("DOUBAO_API_KEY", "legacy-api-key")
-	t.Setenv("DOUBAO_ENDPOINT", "https://ark.example.com/api/v3")
-	t.Setenv("DOUBAO_CHAT_MODEL", "legacy-chat-model")
-	t.Setenv("DOUBAO_EMBEDDING_MODEL", "legacy-embedding-model")
-
-	if err := os.Chdir(tempDir); err != nil {
-		t.Fatalf("failed to change working directory: %v", err)
-	}
-
-	cfg, err := LoadConfig()
+`)
 	if err != nil {
 		t.Fatalf("expected config to load, got %v", err)
 	}
@@ -764,42 +325,7 @@ upload:
 }
 
 func TestLoadConfig_UsesCanonicalEmailFromNameDefault(t *testing.T) {
-	viper.Reset()
-	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
-	defer viper.Reset()
-
-	tempDir := t.TempDir()
-	configDir := filepath.Join(tempDir, "config")
-	if err := os.MkdirAll(configDir, 0o755); err != nil {
-		t.Fatalf("failed to create config dir: %v", err)
-	}
-
-	configContent := `jwt:
-  secret: "real-test-secret"
-  access_expire_hours: 1
-  refresh_expire_days: 7
-email:
-  smtp_port: 587
-upload:
-  max_size: 10485760
-  allowed_types:
-    - "image/jpeg"
-  storage_path: "./uploads"
-`
-	if err := os.WriteFile(filepath.Join(configDir, "config.yaml"), []byte(configContent), 0o644); err != nil {
-		t.Fatalf("failed to write config file: %v", err)
-	}
-
-	oldWD, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("failed to get working directory: %v", err)
-	}
-	defer func() { _ = os.Chdir(oldWD) }()
-	if err := os.Chdir(tempDir); err != nil {
-		t.Fatalf("failed to change working directory: %v", err)
-	}
-
-	cfg, err := LoadConfig()
+	cfg, err := loadTestConfig(t, minimalValidConfig)
 	if err != nil {
 		t.Fatalf("expected config to load, got %v", err)
 	}
@@ -816,17 +342,8 @@ func TestLoadConfig_RejectsInvalidCriticalRuntimeSettings(t *testing.T) {
 	}{
 		{
 			name: "empty database host",
-			config: `database:
+			config: minimalValidConfig + `database:
   host: ""
-jwt:
-  secret: "real-test-secret"
-  access_expire_hours: 1
-  refresh_expire_days: 7
-upload:
-  max_size: 10485760
-  allowed_types:
-    - "image/jpeg"
-  storage_path: "./uploads"
 `,
 			wantErr: "database.host",
 		},
@@ -860,16 +377,7 @@ upload:
 		},
 		{
 			name: "non-positive global rate limit",
-			config: `jwt:
-  secret: "real-test-secret"
-  access_expire_hours: 1
-  refresh_expire_days: 7
-upload:
-  max_size: 10485760
-  allowed_types:
-    - "image/jpeg"
-  storage_path: "./uploads"
-ratelimit:
+			config: minimalValidConfig + `ratelimit:
   global: 0
 `,
 			wantErr: "ratelimit.global",
@@ -878,29 +386,7 @@ ratelimit:
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			viper.Reset()
-			viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
-			defer viper.Reset()
-
-			tempDir := t.TempDir()
-			configDir := filepath.Join(tempDir, "config")
-			if err := os.MkdirAll(configDir, 0o755); err != nil {
-				t.Fatalf("failed to create config dir: %v", err)
-			}
-			if err := os.WriteFile(filepath.Join(configDir, "config.yaml"), []byte(tt.config), 0o644); err != nil {
-				t.Fatalf("failed to write config file: %v", err)
-			}
-
-			oldWD, err := os.Getwd()
-			if err != nil {
-				t.Fatalf("failed to get working directory: %v", err)
-			}
-			defer func() { _ = os.Chdir(oldWD) }()
-			if err := os.Chdir(tempDir); err != nil {
-				t.Fatalf("failed to change working directory: %v", err)
-			}
-
-			cfg, err := LoadConfig()
+			cfg, err := loadTestConfig(t, tt.config)
 			if err == nil {
 				t.Fatalf("expected invalid config to fail, got %+v", cfg)
 			}
