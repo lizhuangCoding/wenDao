@@ -1,16 +1,20 @@
 import { Suspense, lazy, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { DateRangePicker } from 'tdesign-react';
 import { statApi } from '@/api';
 import { Button, ErrorState, Loading, PageHeader, Panel, SegmentedControl } from '@/components/common';
 import { useUIStore } from '@/store';
 import { getApiErrorMessage } from '@/utils/apiError';
 import dayjs from 'dayjs';
-import 'tdesign-react/es/style/index.css';
 
 const DashboardChart = lazy(() =>
   import('./DashboardChart').then((module) => ({ default: module.DashboardChart }))
+);
+
+const DashboardDateRangePicker = lazy(() =>
+  import('./DashboardDateRangePicker').then((module) => ({
+    default: module.DashboardDateRangePicker,
+  }))
 );
 
 type QueryType = '7days' | '30days' | 'custom';
@@ -144,35 +148,24 @@ export const Dashboard = () => {
 
             {queryType === 'custom' && (
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                <div className="w-full sm:w-[320px] rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800/60 p-1">
-                  <DateRangePicker
-                    value={startDateInput && endDateInput ? [startDateInput, endDateInput] : []}
-                    valueType="YYYY-MM-DD"
-                    format="YYYY-MM-DD"
-                    placeholder={[t('admin.startDate'), t('admin.endDate')]}
-                    separator={t('common.to') || '至'}
-                    clearable
-                    size="medium"
-                    borderless
-                    presets={{
-                      [t('admin.recent7Days')]: [dayjs().subtract(6, 'day').format('YYYY-MM-DD'), dayjs().format('YYYY-MM-DD')],
-                      [t('admin.recent30Days')]: [dayjs().subtract(29, 'day').format('YYYY-MM-DD'), dayjs().format('YYYY-MM-DD')],
-                      [t('admin.thisMonth')]: [dayjs().startOf('month').format('YYYY-MM-DD'), dayjs().format('YYYY-MM-DD')],
-                    }}
-                    presetsPlacement="bottom"
-                    popupProps={{ overlayClassName: 'wendao-date-range-popup' }}
-                    onChange={(value) => {
-                      const [start, end] = value;
-                      setStartDateInput(start ? String(start) : '');
-                      setEndDateInput(end ? String(end) : '');
+                <Suspense
+                  fallback={
+                    <div className="h-[46px] w-full animate-pulse rounded-xl bg-neutral-100 dark:bg-neutral-800 sm:w-[320px]" />
+                  }
+                >
+                  <DashboardDateRangePicker
+                    endDateInput={endDateInput}
+                    startDateInput={startDateInput}
+                    onChange={(start, end) => {
+                      setStartDateInput(start);
+                      setEndDateInput(end);
                     }}
                     onClear={() => {
                       setStartDateInput('');
                       setEndDateInput('');
                     }}
-                    style={{ width: '100%' }}
                   />
-                </div>
+                </Suspense>
                 <Button onClick={handleSearch} disabled={!startDateInput || !endDateInput}>
                   {t('admin.query')}
                 </Button>

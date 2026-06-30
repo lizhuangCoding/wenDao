@@ -1,4 +1,4 @@
-import { Component, lazy, Suspense, useMemo, useState } from 'react';
+import { Component, lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import type { FormEvent, ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -15,6 +15,30 @@ import { getArticlePlanetGravityRecommendations } from './articlePlanetGravity';
 const ArticlePlanetScene = lazy(() =>
   import('./ArticlePlanetScene').then((module) => ({ default: module.ArticlePlanetScene }))
 );
+
+type IdleSchedulerWindow = Window & typeof globalThis & {
+  requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number;
+  cancelIdleCallback?: (handle: number) => void;
+};
+
+type NetworkInformationLike = {
+  saveData?: boolean;
+  effectiveType?: string;
+};
+
+const SCENE_IDLE_TIMEOUT_MS = 1200;
+const SCENE_FALLBACK_DELAY_MS = 180;
+const SCENE_ROOT_MARGIN = '160px 0px';
+
+const shouldPreferStaticHero = () => {
+  const connection = (navigator as Navigator & { connection?: NetworkInformationLike }).connection;
+
+  if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+    return true;
+  }
+
+  return connection?.saveData === true || connection?.effectiveType === '2g';
+};
 
 interface SceneErrorBoundaryProps {
   children: ReactNode;
@@ -97,8 +121,10 @@ export const ArticlePlanetHero = ({
 }: ArticlePlanetHeroProps) => {
   const navigate = useNavigate();
   const { t } = useTranslation();
+  const heroRef = useRef<HTMLElement>(null);
   const [activeArticleId, setActiveArticleId] = useState<number>();
   const [isActiveArticleCardVisible, setIsActiveArticleCardVisible] = useState(true);
+  const [shouldRenderScene, setShouldRenderScene] = useState(false);
   const planetYears = useMemo(() => getArticlePlanetYears(articles), [articles]);
   const visibleArticles = useMemo(
     () => filterArticlesByPlanetTime(articles, timeMode),
@@ -130,8 +156,58 @@ export const ArticlePlanetHero = ({
     }
   };
 
+  useEffect(() => {
+    if (shouldRenderScene) return;
+    if (typeof window === 'undefined') return;
+    if (shouldPreferStaticHero()) return;
+
+    const heroElement = heroRef.current;
+    if (!heroElement) return;
+
+    const idleWindow = window as IdleSchedulerWindow;
+    let idleHandle: number | undefined;
+    let timeoutHandle: number | undefined;
+
+    const activateScene = () => {
+      if (idleWindow.requestIdleCallback) {
+        idleHandle = idleWindow.requestIdleCallback(
+          () => setShouldRenderScene(true),
+          { timeout: SCENE_IDLE_TIMEOUT_MS }
+        );
+        return;
+      }
+
+      timeoutHandle = window.setTimeout(() => setShouldRenderScene(true), SCENE_FALLBACK_DELAY_MS);
+    };
+
+    if (typeof IntersectionObserver === 'undefined') {
+      activateScene();
+      return () => {
+        if (idleHandle !== undefined) idleWindow.cancelIdleCallback?.(idleHandle);
+        if (timeoutHandle !== undefined) window.clearTimeout(timeoutHandle);
+      };
+    }
+
+    const observer = new IntersectionObserver((entries) => {
+      if (!entries.some((entry) => entry.isIntersecting)) return;
+      observer.disconnect();
+      activateScene();
+    }, { rootMargin: SCENE_ROOT_MARGIN });
+
+    observer.observe(heroElement);
+
+    return () => {
+      observer.disconnect();
+      if (idleHandle !== undefined) idleWindow.cancelIdleCallback?.(idleHandle);
+      if (timeoutHandle !== undefined) window.clearTimeout(timeoutHandle);
+    };
+  }, [shouldRenderScene]);
+
   return (
-    <section className="relative -mt-20 min-h-[100svh] overflow-hidden bg-neutral-950 sm:min-h-[calc(100vh-1rem)]">
+    <section
+      ref={heroRef}
+      className="relative -mt-20 min-h-[100svh] overflow-hidden bg-neutral-950 sm:min-h-[calc(100vh-1rem)]"
+    >
       <div className="absolute inset-0 z-0 bg-[radial-gradient(circle_at_68%_45%,rgba(16,185,129,0.28),transparent_30%),radial-gradient(circle_at_30%_85%,rgba(56,189,248,0.18),transparent_28%),linear-gradient(135deg,#020617_0%,#07111f_46%,#030712_100%)]" />
       {isLoading ? (
         <div className="absolute inset-0 flex items-center justify-center">
@@ -139,6 +215,8 @@ export const ArticlePlanetHero = ({
         </div>
       ) : isError || visibleArticles.length === 0 ? (
         <ArticlePlanetSceneFallback message={isError ? t('articlePlanet.loadFailed') : t('articlePlanet.noArticles')} />
+      ) : !shouldRenderScene ? (
+        <ArticlePlanetSceneFallback />
       ) : (
         <SceneErrorBoundary
           fallbackMessage={t('articlePlanet.renderFailed')}

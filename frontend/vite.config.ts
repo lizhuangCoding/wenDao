@@ -47,6 +47,13 @@ export default defineConfig({
             ) {
               return 'three-vendor'
             }
+            if (
+              id.includes('/recharts/') ||
+              id.includes('/victory-vendor/') ||
+              id.includes('/d3-')
+            ) {
+              return 'chart-vendor'
+            }
             if (id.includes('/react/') || id.includes('/react-dom/') || id.includes('/react-router-dom/')) {
               return 'react-vendor'
             }
@@ -54,17 +61,17 @@ export default defineConfig({
               return 'ui-vendor'
             }
             if (
-              id.includes('/react-markdown/') ||
-              id.includes('/remark-gfm/') ||
               id.includes('/rehype-raw/') ||
-              id.includes('/remark-parse/') ||
-              id.includes('/remark-rehype/') ||
-              id.includes('/micromark/') ||
-              id.includes('/mdast-util-') ||
-              id.includes('/hast-util-') ||
-              id.includes('/unist-util-')
+              id.includes('/hast-util-raw/') ||
+              id.includes('/parse5/')
             ) {
-              return 'markdown-core'
+              return 'markdown-admin-preview'
+            }
+            if (
+              id.includes('/react-markdown/') ||
+              id.includes('/remark-gfm/')
+            ) {
+              return 'markdown-viewer'
             }
             if (
               id.includes('/rehype-highlight/') ||
