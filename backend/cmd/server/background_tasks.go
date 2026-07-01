@@ -12,40 +12,105 @@ import (
 	"wenDao/internal/service"
 )
 
-func startBackgroundTasks(cfg *config.Config, logger *zap.Logger, services *appServices) func() {
-	var runner async.Runner
-	stopLogCleanup := startLogCleanupScheduler(cfg, logger)
-	stopUploadCleanup := func() {}
-	stopStatFlush := func() {}
-	stopArticleScheduler := func() {}
-	stopAsyncJobWorker := func() {}
-	if services != nil {
-		runner = services.taskRunner
-		stopUploadCleanup = startUploadCleanupScheduler(cfg, logger, runner, services.upload)
-		stopStatFlush = startStatFlushScheduler(logger, runner, services.stat)
-		stopArticleScheduler = startArticleScheduler(logger, runner, services.article)
-		stopAsyncJobWorker = startAsyncJobWorker(logger, runner, services.asyncJob)
-	}
+type backgroundTask struct {
+	name    string
+	enabled bool
+	start   func(ctx context.Context, runner async.Runner, logger *zap.Logger) error
+}
 
-	return func() {
-		stopLogCleanup()
-		stopUploadCleanup()
-		stopStatFlush()
-		stopArticleScheduler()
-		stopAsyncJobWorker()
-		if runner != nil {
-			shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-			defer cancel()
-			if err := runner.Shutdown(shutdownCtx); err != nil && !errors.Is(err, async.ErrTaskRunnerClosed) {
-				logger.Warn("Task runner shutdown failed", zap.Error(err))
-			}
+type backgroundTaskSupervisor struct {
+	ctx     context.Context
+	cancel  context.CancelFunc
+	runner  async.Runner
+	logger  *zap.Logger
+	tasks   []backgroundTask
+	stopped bool
+}
+
+func newBackgroundTaskSupervisor(parent context.Context, runner async.Runner, logger *zap.Logger) *backgroundTaskSupervisor {
+	if parent == nil {
+		parent = context.Background()
+	}
+	if logger == nil {
+		logger = zap.NewNop()
+	}
+	ctx, cancel := context.WithCancel(parent)
+	return &backgroundTaskSupervisor{
+		ctx:    ctx,
+		cancel: cancel,
+		runner: runner,
+		logger: logger,
+	}
+}
+
+func (s *backgroundTaskSupervisor) Add(task backgroundTask) {
+	if s == nil {
+		return
+	}
+	s.tasks = append(s.tasks, task)
+}
+
+func (s *backgroundTaskSupervisor) Start() {
+	if s == nil || s.runner == nil {
+		return
+	}
+	for _, task := range s.tasks {
+		if !task.enabled || task.start == nil {
+			continue
+		}
+		if err := task.start(s.ctx, s.runner, s.logger); err != nil {
+			s.logger.Warn("Failed to start background task", zap.String("task", task.name), zap.Error(err))
 		}
 	}
 }
 
-func startUploadCleanupScheduler(cfg *config.Config, logger *zap.Logger, runner async.Runner, uploadService service.UploadService) func() {
-	if cfg == nil || logger == nil || runner == nil || uploadService == nil || !cfg.Upload.CleanupEnabled {
+func (s *backgroundTaskSupervisor) Stop() {
+	if s == nil || s.stopped {
+		return
+	}
+	s.stopped = true
+	if s.cancel != nil {
+		s.cancel()
+	}
+}
+
+func startBackgroundTasks(cfg *config.Config, logger *zap.Logger, services *appServices) func() {
+	if services == nil || services.taskRunner == nil {
 		return func() {}
+	}
+
+	supervisor := newBackgroundTaskSupervisor(context.Background(), services.taskRunner, logger)
+	for _, task := range backgroundTasks(cfg, services) {
+		supervisor.Add(task)
+	}
+	supervisor.Start()
+
+	return func() {
+		supervisor.Stop()
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := services.taskRunner.Shutdown(shutdownCtx); err != nil && !errors.Is(err, async.ErrTaskRunnerClosed) {
+			logger.Warn("Task runner shutdown failed", zap.Error(err))
+		}
+	}
+}
+
+func backgroundTasks(cfg *config.Config, services *appServices) []backgroundTask {
+	if services == nil {
+		return nil
+	}
+	return []backgroundTask{
+		uploadCleanupTask(cfg, services.upload),
+		statFlushTask(services.stat),
+		articleSchedulerTask(services.article),
+		asyncJobWorkerTask(services.asyncJob),
+		logCleanupTask(cfg),
+	}
+}
+
+func uploadCleanupTask(cfg *config.Config, uploadService service.UploadService) backgroundTask {
+	if cfg == nil || uploadService == nil || !cfg.Upload.CleanupEnabled {
+		return backgroundTask{}
 	}
 
 	interval := time.Duration(cfg.Upload.CleanupIntervalHours) * time.Hour
@@ -53,34 +118,33 @@ func startUploadCleanupScheduler(cfg *config.Config, logger *zap.Logger, runner 
 		interval = 24 * time.Hour
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	if err := runner.Submit(ctx, "upload cleanup scheduler", func(ctx context.Context) error {
-		ticker := time.NewTicker(interval)
-		defer ticker.Stop()
+	return backgroundTask{
+		name:    "upload cleanup scheduler",
+		enabled: true,
+		start: func(ctx context.Context, runner async.Runner, logger *zap.Logger) error {
+			return runner.Submit(ctx, "upload cleanup scheduler", func(ctx context.Context) error {
+				ticker := time.NewTicker(interval)
+				defer ticker.Stop()
 
-		logger.Info("Upload cleanup scheduler started",
-			zap.Int("retention_days", cleanupRetentionDays(cfg.Upload)),
-			zap.Duration("interval", interval),
-			zap.Int("batch_size", cleanupBatchSize(cfg.Upload)))
+				logger.Info("Upload cleanup scheduler started",
+					zap.Int("retention_days", cleanupRetentionDays(cfg.Upload)),
+					zap.Duration("interval", interval),
+					zap.Int("batch_size", cleanupBatchSize(cfg.Upload)))
 
-		runUploadCleanup(logger, uploadService)
-
-		for {
-			select {
-			case <-ticker.C:
 				runUploadCleanup(logger, uploadService)
-			case <-ctx.Done():
-				logger.Info("Upload cleanup scheduler stopped")
-				return nil
-			}
-		}
-	}, async.WithTimeout(0)); err != nil {
-		logger.Warn("Failed to start upload cleanup scheduler", zap.Error(err))
-		cancel()
-		return func() {}
-	}
 
-	return cancel
+				for {
+					select {
+					case <-ticker.C:
+						runUploadCleanup(logger, uploadService)
+					case <-ctx.Done():
+						logger.Info("Upload cleanup scheduler stopped")
+						return nil
+					}
+				}
+			}, async.WithTimeout(0))
+		},
+	}
 }
 
 func runUploadCleanup(logger *zap.Logger, uploadService service.UploadService) {
@@ -95,67 +159,71 @@ func runUploadCleanup(logger *zap.Logger, uploadService service.UploadService) {
 		zap.Int("skipped", result.Skipped))
 }
 
-func startStatFlushScheduler(logger *zap.Logger, runner async.Runner, statService *service.StatService) func() {
-	if logger == nil || runner == nil || statService == nil {
-		return func() {}
+func statFlushTask(statService *service.StatService) backgroundTask {
+	if statService == nil {
+		return backgroundTask{}
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	if err := runner.Submit(ctx, "stat flush scheduler", func(ctx context.Context) error {
-		ticker := time.NewTicker(time.Minute)
-		defer ticker.Stop()
+	return backgroundTask{
+		name:    "stat flush scheduler",
+		enabled: true,
+		start: func(ctx context.Context, runner async.Runner, logger *zap.Logger) error {
+			return runner.Submit(ctx, "stat flush scheduler", func(ctx context.Context) error {
+				ticker := time.NewTicker(time.Minute)
+				defer ticker.Stop()
 
-		logger.Info("Stat flush scheduler started", zap.Duration("interval", time.Minute))
-		runStatFlush(logger, statService)
+				logger.Info("Stat flush scheduler started", zap.Duration("interval", time.Minute))
+				runStatFlush(logger, statService)
 
-		for {
-			select {
-			case <-ticker.C:
-				runStatFlush(logger, statService)
-			case <-ctx.Done():
-				runStatFlush(logger, statService)
-				logger.Info("Stat flush scheduler stopped")
-				return nil
-			}
-		}
-	}, async.WithTimeout(0)); err != nil {
-		logger.Warn("Failed to start stat flush scheduler", zap.Error(err))
-		cancel()
-		return func() {}
+				for {
+					select {
+					case <-ticker.C:
+						runStatFlush(logger, statService)
+					case <-ctx.Done():
+						runStatFlush(logger, statService)
+						logger.Info("Stat flush scheduler stopped")
+						return nil
+					}
+				}
+			}, async.WithTimeout(0))
+		},
 	}
-
-	return cancel
 }
 
-func startArticleScheduler(logger *zap.Logger, runner async.Runner, articleService service.ArticleService) func() {
-	if logger == nil || runner == nil || articleService == nil {
-		return func() {}
+func runStatFlush(logger *zap.Logger, statService *service.StatService) {
+	if err := statService.FlushRecentDailyStatCounters(); err != nil {
+		logger.Warn("Stat flush failed", zap.Error(err))
+	}
+}
+
+func articleSchedulerTask(articleService service.ArticleService) backgroundTask {
+	if articleService == nil {
+		return backgroundTask{}
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	if err := runner.Submit(ctx, "article scheduler", func(ctx context.Context) error {
-		ticker := time.NewTicker(30 * time.Second)
-		defer ticker.Stop()
+	return backgroundTask{
+		name:    "article scheduler",
+		enabled: true,
+		start: func(ctx context.Context, runner async.Runner, logger *zap.Logger) error {
+			return runner.Submit(ctx, "article scheduler", func(ctx context.Context) error {
+				ticker := time.NewTicker(30 * time.Second)
+				defer ticker.Stop()
 
-		logger.Info("Article scheduler started", zap.Duration("interval", 30*time.Second))
-		runArticleSchedulerOnce(logger, articleService)
-
-		for {
-			select {
-			case <-ctx.Done():
-				logger.Info("Article scheduler stopped")
-				return nil
-			case <-ticker.C:
+				logger.Info("Article scheduler started", zap.Duration("interval", 30*time.Second))
 				runArticleSchedulerOnce(logger, articleService)
-			}
-		}
-	}, async.WithTimeout(0)); err != nil {
-		logger.Warn("Failed to start article scheduler", zap.Error(err))
-		cancel()
-		return func() {}
-	}
 
-	return cancel
+				for {
+					select {
+					case <-ctx.Done():
+						logger.Info("Article scheduler stopped")
+						return nil
+					case <-ticker.C:
+						runArticleSchedulerOnce(logger, articleService)
+					}
+				}
+			}, async.WithTimeout(0))
+		},
+	}
 }
 
 func runArticleSchedulerOnce(logger *zap.Logger, articleService service.ArticleService) {
@@ -185,41 +253,34 @@ func runArticleSchedulerOnce(logger *zap.Logger, articleService service.ArticleS
 	}
 }
 
-func runStatFlush(logger *zap.Logger, statService *service.StatService) {
-	if err := statService.FlushRecentDailyStatCounters(); err != nil {
-		logger.Warn("Stat flush failed", zap.Error(err))
-	}
-}
-
-func startAsyncJobWorker(logger *zap.Logger, runner async.Runner, asyncJobService service.AsyncJobService) func() {
-	if logger == nil || runner == nil || asyncJobService == nil {
-		return func() {}
+func asyncJobWorkerTask(asyncJobService service.AsyncJobService) backgroundTask {
+	if asyncJobService == nil {
+		return backgroundTask{}
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	if err := runner.Submit(ctx, "async job worker", func(ctx context.Context) error {
-		ticker := time.NewTicker(5 * time.Second)
-		defer ticker.Stop()
+	return backgroundTask{
+		name:    "async job worker",
+		enabled: true,
+		start: func(ctx context.Context, runner async.Runner, logger *zap.Logger) error {
+			return runner.Submit(ctx, "async job worker", func(ctx context.Context) error {
+				ticker := time.NewTicker(5 * time.Second)
+				defer ticker.Stop()
 
-		logger.Info("Async job worker started", zap.Duration("interval", 5*time.Second))
-		runAsyncJobsOnce(ctx, logger, asyncJobService)
-
-		for {
-			select {
-			case <-ctx.Done():
-				logger.Info("Async job worker stopped")
-				return nil
-			case <-ticker.C:
+				logger.Info("Async job worker started", zap.Duration("interval", 5*time.Second))
 				runAsyncJobsOnce(ctx, logger, asyncJobService)
-			}
-		}
-	}, async.WithTimeout(0)); err != nil {
-		logger.Warn("Failed to start async job worker", zap.Error(err))
-		cancel()
-		return func() {}
-	}
 
-	return cancel
+				for {
+					select {
+					case <-ctx.Done():
+						logger.Info("Async job worker stopped")
+						return nil
+					case <-ticker.C:
+						runAsyncJobsOnce(ctx, logger, asyncJobService)
+					}
+				}
+			}, async.WithTimeout(0))
+		},
+	}
 }
 
 func runAsyncJobsOnce(ctx context.Context, logger *zap.Logger, asyncJobService service.AsyncJobService) {
@@ -228,43 +289,35 @@ func runAsyncJobsOnce(ctx context.Context, logger *zap.Logger, asyncJobService s
 	}
 }
 
-// startLogCleanupScheduler 每隔 24 小时清理超过 MaxAgeDays 的过期日志文件。
-// 与启动时 initLogger 中执行的 pruneExpiredLogFiles 互补，确保长时间运行不重启时日志也能被清理。
-func startLogCleanupScheduler(cfg *config.Config, logger *zap.Logger) func() {
-	if cfg == nil || logger == nil || cfg.Log.MaxAgeDays <= 0 {
-		return func() {}
+func logCleanupTask(cfg *config.Config) backgroundTask {
+	if cfg == nil || cfg.Log.MaxAgeDays <= 0 {
+		return backgroundTask{}
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	runner := async.NewTaskRunner(context.Background(), logger, async.WithDefaultTimeout(0))
-	if err := runner.Submit(ctx, "log cleanup scheduler", func(ctx context.Context) error {
-		const cleanupInterval = 24 * time.Hour
-		ticker := time.NewTicker(cleanupInterval)
-		defer ticker.Stop()
+	return backgroundTask{
+		name:    "log cleanup scheduler",
+		enabled: true,
+		start: func(ctx context.Context, runner async.Runner, logger *zap.Logger) error {
+			return runner.Submit(ctx, "log cleanup scheduler", func(ctx context.Context) error {
+				const cleanupInterval = 24 * time.Hour
+				ticker := time.NewTicker(cleanupInterval)
+				defer ticker.Stop()
 
-		logger.Info("Log cleanup scheduler started",
-			zap.Int("max_age_days", cfg.Log.MaxAgeDays),
-			zap.Duration("interval", cleanupInterval))
+				logger.Info("Log cleanup scheduler started",
+					zap.Int("max_age_days", cfg.Log.MaxAgeDays),
+					zap.Duration("interval", cleanupInterval))
 
-		for {
-			select {
-			case <-ticker.C:
-				runLogCleanup(logger, cfg.Log)
-			case <-ctx.Done():
-				logger.Info("Log cleanup scheduler stopped")
-				return nil
-			}
-		}
-	}, async.WithTimeout(0)); err != nil {
-		cancel()
-		return func() {}
-	}
-
-	return func() {
-		cancel()
-		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer shutdownCancel()
-		_ = runner.Shutdown(shutdownCtx)
+				for {
+					select {
+					case <-ticker.C:
+						runLogCleanup(logger, cfg.Log)
+					case <-ctx.Done():
+						logger.Info("Log cleanup scheduler stopped")
+						return nil
+					}
+				}
+			}, async.WithTimeout(0))
+		},
 	}
 }
 

@@ -42,13 +42,23 @@ func (s *immediateCleanupUploadService) CleanupUnreferenced(now time.Time) (serv
 func TestStartUploadCleanupScheduler_RunsCleanupImmediately(t *testing.T) {
 	uploadService := &immediateCleanupUploadService{called: make(chan time.Time, 1)}
 	runner := async.NewTaskRunner(context.Background(), zap.NewNop())
-	stop := startUploadCleanupScheduler(&config.Config{
+	task := uploadCleanupTask(&config.Config{
 		Upload: config.UploadConfig{
 			CleanupEnabled:       true,
 			CleanupIntervalHours: 24,
 		},
-	}, zap.NewNop(), runner, uploadService)
-	defer stop()
+	}, uploadService)
+	if !task.enabled {
+		t.Fatal("expected upload cleanup task to be enabled")
+	}
+	if err := task.start(context.Background(), runner, zap.NewNop()); err != nil {
+		t.Fatalf("expected upload cleanup task to start, got %v", err)
+	}
+	defer func() {
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+		_ = runner.Shutdown(shutdownCtx)
+	}()
 
 	select {
 	case <-uploadService.called:
@@ -135,8 +145,18 @@ func (s *immediateArticleSchedulerService) SetScheduledPublishAt(articleID int64
 func TestStartArticleScheduler_RunsImmediately(t *testing.T) {
 	articleService := &immediateArticleSchedulerService{published: make(chan int64, 1)}
 	runner := async.NewTaskRunner(context.Background(), zap.NewNop())
-	stop := startArticleScheduler(zap.NewNop(), runner, articleService)
-	defer stop()
+	task := articleSchedulerTask(articleService)
+	if !task.enabled {
+		t.Fatal("expected article scheduler task to be enabled")
+	}
+	if err := task.start(context.Background(), runner, zap.NewNop()); err != nil {
+		t.Fatalf("expected article scheduler task to start, got %v", err)
+	}
+	defer func() {
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+		_ = runner.Shutdown(shutdownCtx)
+	}()
 
 	select {
 	case articleID := <-articleService.published:
@@ -160,4 +180,89 @@ func TestStartBackgroundTasks_ShutsDownTaskRunner(t *testing.T) {
 	if err := runner.Shutdown(shutdownCtx); err == nil {
 		t.Fatal("expected second shutdown to fail after startBackgroundTasks stop")
 	}
+}
+
+func TestStartBackgroundTasks_StartsImmediateSchedulersThroughSharedSupervisor(t *testing.T) {
+	runner := async.NewTaskRunner(context.Background(), zap.NewNop())
+	uploadService := &immediateCleanupUploadService{called: make(chan time.Time, 1)}
+	articleService := &immediateArticleSchedulerService{published: make(chan int64, 1)}
+	services := &appServices{
+		taskRunner: runner,
+		upload:     uploadService,
+		article:    articleService,
+	}
+	cfg := &config.Config{
+		Upload: config.UploadConfig{
+			CleanupEnabled:       true,
+			CleanupIntervalHours: 24,
+		},
+	}
+
+	stop := startBackgroundTasks(cfg, zap.NewNop(), services)
+	defer stop()
+
+	select {
+	case <-uploadService.called:
+	case <-time.After(250 * time.Millisecond):
+		t.Fatal("expected upload cleanup to run immediately")
+	}
+
+	select {
+	case articleID := <-articleService.published:
+		if articleID != 77 {
+			t.Fatalf("expected article 77 to publish, got %d", articleID)
+		}
+	case <-time.After(250 * time.Millisecond):
+		t.Fatal("expected article scheduler to run immediately")
+	}
+}
+
+func TestNewBackgroundTaskSupervisor_StartsEnabledTasksOnly(t *testing.T) {
+	runner := async.NewTaskRunner(context.Background(), zap.NewNop())
+	supervisor := newBackgroundTaskSupervisor(context.Background(), runner, zap.NewNop())
+
+	started := make(chan string, 2)
+	supervisor.Add(backgroundTask{
+		name:    "enabled",
+		enabled: true,
+		start: func(ctx context.Context, runner async.Runner, logger *zap.Logger) error {
+			started <- "enabled"
+			return nil
+		},
+	})
+	supervisor.Add(backgroundTask{
+		name:    "disabled",
+		enabled: false,
+		start: func(ctx context.Context, runner async.Runner, logger *zap.Logger) error {
+			started <- "disabled"
+			return nil
+		},
+	})
+
+	supervisor.Start()
+	defer supervisor.Stop()
+
+	select {
+	case name := <-started:
+		if name != "enabled" {
+			t.Fatalf("expected enabled task to start, got %q", name)
+		}
+	case <-time.After(250 * time.Millisecond):
+		t.Fatal("expected enabled task to start")
+	}
+
+	select {
+	case name := <-started:
+		t.Fatalf("expected disabled task not to start, got %q", name)
+	case <-time.After(100 * time.Millisecond):
+	}
+}
+
+func TestStartBackgroundTasks_StopIsSafeWithoutPerTaskStopFunctions(t *testing.T) {
+	runner := async.NewTaskRunner(context.Background(), zap.NewNop())
+	services := &appServices{taskRunner: runner}
+
+	stop := startBackgroundTasks(&config.Config{Log: config.LogConfig{MaxAgeDays: 7}}, zap.NewNop(), services)
+	stop()
+	stop()
 }
