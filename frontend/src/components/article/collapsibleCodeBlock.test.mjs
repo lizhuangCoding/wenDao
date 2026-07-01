@@ -57,7 +57,7 @@ test('collapsible code blocks render visible line numbers', async () => {
 
 test('collapsible code blocks expose a standard copy-to-clipboard control', async () => {
   const source = await loadSourceFile('article/CollapsibleCodeBlock.tsx');
-  const translations = await loadSourceFile('../i18n.ts');
+  const translations = await loadSourceFile('../i18n/resources/article.ts');
 
   assert.match(source, /navigator\.clipboard\.writeText\(codeText\)/);
   assert.match(source, /codeBlock\.copy/);
@@ -67,8 +67,8 @@ test('collapsible code blocks expose a standard copy-to-clipboard control', asyn
   assert.match(source, /Check/);
   assert.match(source, /top-2 right-2/);
   assert.doesNotMatch(source, /!pr-\d+/);
-  assert.match(translations, /copy: 'Copy code'/);
-  assert.match(translations, /copied: 'Copied'/);
-  assert.match(translations, /copy: '复制代码'/);
-  assert.match(translations, /copied: '已复制'/);
+  assert.match(translations, /"copy": "Copy code"/);
+  assert.match(translations, /"copied": "Copied"/);
+  assert.match(translations, /"copy": "复制代码"/);
+  assert.match(translations, /"copied": "已复制"/);
 });

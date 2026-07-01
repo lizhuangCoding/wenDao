@@ -7,14 +7,45 @@ import vm from 'node:vm';
 
 const srcRoot = fileURLToPath(new URL('./', import.meta.url));
 
-const loadResources = async () => {
-  const source = await readFile(new URL('./i18n.ts', import.meta.url), 'utf8');
-  const match = source.match(/const resources = ([\s\S]*?);\n\ni18n/);
-  assert.ok(match, 'i18n resources object should be parseable');
+const loadResourceModule = async (relativePath, exportName) => {
+  const source = await readFile(new URL(relativePath, import.meta.url), 'utf8');
+  const match = source.match(new RegExp(`export const ${exportName} = ([\\s\\S]*?) as const;`));
+  assert.ok(match, `${exportName} should be parseable`);
 
   const context = {};
-  vm.runInNewContext(`resources = ${match[1]}`, context);
-  return context.resources;
+  vm.runInNewContext(`${exportName} = ${match[1]}`, context);
+  return context[exportName];
+};
+
+const loadResources = async () => {
+  const [common, article, auth, chat, admin] = await Promise.all([
+    loadResourceModule('./i18n/resources/common.ts', 'commonResources'),
+    loadResourceModule('./i18n/resources/article.ts', 'articleResources'),
+    loadResourceModule('./i18n/resources/auth.ts', 'authResources'),
+    loadResourceModule('./i18n/resources/chat.ts', 'chatResources'),
+    loadResourceModule('./i18n/resources/admin.ts', 'adminResources'),
+  ]);
+
+  return {
+    en: {
+      translation: {
+        ...common.en,
+        ...article.en,
+        ...auth.en,
+        ...chat.en,
+        ...admin.en,
+      },
+    },
+    zh: {
+      translation: {
+        ...common.zh,
+        ...article.zh,
+        ...auth.zh,
+        ...chat.zh,
+        ...admin.zh,
+      },
+    },
+  };
 };
 
 const flattenKeys = (value, prefix = '', keys = new Set()) => {
