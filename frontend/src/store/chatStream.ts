@@ -2,7 +2,6 @@ import { chatApi } from '@/api';
 import type {
   ChatActiveRun,
   ChatConversationDetailResponse,
-  ChatConversationMutationResponse,
   ChatMessage,
   ChatRequest,
   ChatStage,
@@ -15,9 +14,16 @@ import {
   upsertStep,
   type Conversation,
 } from './chatNormalizers';
+import { createConversationRecord } from './chatConversationState';
 import { persistActiveChatId, type SelectedChatModel } from './chatPersistence';
-
-type ChatRunStatus = 'idle' | 'running' | 'waiting_user' | 'completed' | 'failed';
+import {
+  createCompletedChatRunState,
+  createFailedChatRunState,
+  createIdleChatRunState,
+  createRecoveringChatRunState,
+  createWaitingUserChatRunState,
+  type ChatRunStatus,
+} from './chatRunState';
 
 interface ChatStreamState {
   conversations: Record<number, Conversation>;
@@ -64,17 +70,6 @@ interface StreamConversationMessageParams {
 const buildConversationTitle = (content: string) =>
   content.slice(0, 30) + (content.length > 30 ? '...' : '');
 
-const createConversationRecord = (response: ChatConversationMutationResponse): Conversation => ({
-  id: response.id,
-  title: response.title,
-  messages: [],
-  steps: [],
-  activeRun: null,
-  createdAt: new Date(response.created_at).getTime(),
-  updatedAt: new Date(response.updated_at).getTime(),
-  isLoaded: true,
-});
-
 export const applyConversationDetailToState = (
   get: () => ChatStreamState,
   set: ChatStreamSet,
@@ -87,17 +82,18 @@ export const applyConversationDetailToState = (
       ...get().conversations,
       [id]: mapped,
     },
-    isTyping: false,
-    isStreaming: false,
-    streamingConversationId: null,
-    currentStage: mapped.activeRun?.current_stage ?? null,
-    currentStageLabel: mapped.activeRun?.status === 'waiting_user' ? '需要你补充一点信息' : null,
-    requiresUserInput: mapped.activeRun?.status === 'waiting_user',
-    pendingQuestion: mapped.activeRun?.pending_question ?? null,
-    runStatus: mapped.activeRun?.status ?? 'idle',
-    isRecovering: false,
-    reconnectAttempts: 0,
-    lastHeartbeatAt: mapped.activeRun?.heartbeat_at ? new Date(mapped.activeRun.heartbeat_at).getTime() : null,
+    ...(mapped.activeRun?.status === 'waiting_user'
+      ? {
+          ...createWaitingUserChatRunState(mapped.activeRun.pending_question ?? ''),
+          currentStage: mapped.activeRun.current_stage ?? 'clarifying',
+          lastHeartbeatAt: mapped.activeRun.heartbeat_at ? new Date(mapped.activeRun.heartbeat_at).getTime() : Date.now(),
+        }
+      : {
+          ...createIdleChatRunState(),
+          currentStage: mapped.activeRun?.current_stage ?? null,
+          runStatus: mapped.activeRun?.status ?? 'idle',
+          lastHeartbeatAt: mapped.activeRun?.heartbeat_at ? new Date(mapped.activeRun.heartbeat_at).getTime() : null,
+        }),
   }));
   return mapped;
 };
@@ -113,17 +109,13 @@ export const resumeConversationStream = async ({
   if (get().streamingConversationId === conversationId && get().isStreaming) return;
 
   set((state) => ({
-    isTyping: run.status === 'running',
-    isStreaming: run.status === 'running',
-    isRecovering: true,
-    streamingConversationId: run.status === 'running' ? conversationId : null,
-    currentStage: run.current_stage ?? null,
-    currentStageLabel: run.status === 'waiting_user' ? '需要你补充一点信息' : '正在恢复回答',
-    requiresUserInput: run.status === 'waiting_user',
-    pendingQuestion: run.pending_question ?? null,
-    runStatus: run.status,
-    reconnectAttempts: state.reconnectAttempts + 1,
-    lastHeartbeatAt: Date.now(),
+    ...createRecoveringChatRunState({
+      conversationId,
+      currentStage: run.current_stage ?? null,
+      status: run.status,
+      reconnectAttempts: state.reconnectAttempts + 1,
+      pendingQuestion: run.pending_question ?? null,
+    }),
     conversations: {
       ...state.conversations,
       [conversationId]: {
@@ -209,15 +201,7 @@ export const resumeConversationStream = async ({
       onQuestion: ({ message }) => {
         terminalEventReceived = true;
         set((state) => ({
-          isTyping: false,
-          isStreaming: false,
-          isRecovering: false,
-          streamingConversationId: null,
-          currentStage: 'clarifying',
-          currentStageLabel: '需要你补充一点信息',
-          requiresUserInput: true,
-          pendingQuestion: message,
-          runStatus: 'waiting_user',
+          ...createWaitingUserChatRunState(message),
           conversations: {
             ...state.conversations,
             [conversationId]: {
@@ -301,16 +285,7 @@ export const resumeConversationStream = async ({
           applyConversationDetail(conversationId, detail);
         } finally {
           set({
-            isTyping: false,
-            isStreaming: false,
-            isRecovering: false,
-            streamingConversationId: null,
-            currentStage: 'completed',
-            currentStageLabel: '回答已生成',
-            requiresUserInput: false,
-            pendingQuestion: null,
-            runStatus: 'completed',
-            reconnectAttempts: 0,
+            ...createCompletedChatRunState(),
           });
         }
       },
@@ -318,15 +293,9 @@ export const resumeConversationStream = async ({
         terminalEventReceived = true;
         const finalMessage = error || message || '恢复连接失败，请稍后再试。';
         set((state) => ({
-          isTyping: false,
-          isStreaming: false,
-          isRecovering: false,
-          streamingConversationId: null,
+          ...createFailedChatRunState(),
           currentStage: 'failed',
           currentStageLabel: '恢复失败',
-          requiresUserInput: false,
-          pendingQuestion: null,
-          runStatus: 'failed',
           conversations: {
             ...state.conversations,
             [conversationId]: {
@@ -351,15 +320,9 @@ export const resumeConversationStream = async ({
 
     if (!terminalEventReceived && get().streamingConversationId === conversationId && get().isRecovering) {
       set((state) => ({
-        isTyping: false,
-        isStreaming: false,
-        isRecovering: false,
-        streamingConversationId: null,
+        ...createFailedChatRunState(),
         currentStage: 'failed',
         currentStageLabel: '恢复连接已断开',
-        requiresUserInput: false,
-        pendingQuestion: null,
-        runStatus: 'failed',
         conversations: {
           ...state.conversations,
           [conversationId]: {
@@ -385,13 +348,9 @@ export const resumeConversationStream = async ({
     }
 
     set({
-      isTyping: false,
-      isStreaming: false,
-      isRecovering: false,
-      streamingConversationId: null,
+      ...createFailedChatRunState(),
       currentStage: 'failed',
       currentStageLabel: '连接已断开，可重新进入会话恢复',
-      runStatus: 'failed',
     });
   }
 };
@@ -415,6 +374,7 @@ export const streamConversationMessage = async ({
       set((state) => ({
         conversations: { ...state.conversations, [currentId!]: newChat },
         activeId: currentId,
+        ...createIdleChatRunState(),
       }));
     } catch (error) {
       console.error('Failed to create conversation:', error);
@@ -454,17 +414,14 @@ export const streamConversationMessage = async ({
         isLoaded: true,
       },
     },
-    isTyping: true,
-    isStreaming: true,
+    ...createRecoveringChatRunState({
+      conversationId: currentId,
+      currentStage: 'analyzing',
+      status: 'running',
+      reconnectAttempts: 0,
+    }),
     isRecovering: false,
-    reconnectAttempts: 0,
-    streamingConversationId: currentId,
-    currentStage: 'analyzing',
     currentStageLabel: '正在理解你的问题',
-    requiresUserInput: false,
-    pendingQuestion: null,
-    runStatus: 'running',
-    lastHeartbeatAt: Date.now(),
   }));
 
   try {
@@ -529,14 +486,7 @@ export const streamConversationMessage = async ({
       },
       onQuestion: ({ run_id, message }) => {
         set((state) => ({
-          currentStage: 'clarifying',
-          currentStageLabel: '需要你补充一点信息',
-          requiresUserInput: true,
-          pendingQuestion: message,
-          runStatus: 'waiting_user',
-          isTyping: false,
-          isStreaming: false,
-          streamingConversationId: null,
+          ...createWaitingUserChatRunState(message),
           conversations: {
             ...state.conversations,
             [currentId]: {
@@ -608,15 +558,7 @@ export const streamConversationMessage = async ({
           applyConversationDetail(currentId, detail);
         } finally {
           set({
-            isTyping: false,
-            isStreaming: false,
-            streamingConversationId: null,
-            currentStage: 'completed',
-            currentStageLabel: '回答已生成',
-            requiresUserInput: false,
-            pendingQuestion: null,
-            runStatus: 'completed',
-            reconnectAttempts: 0,
+            ...createCompletedChatRunState(),
           });
         }
       },
@@ -638,14 +580,9 @@ export const streamConversationMessage = async ({
               isLoaded: true,
             },
           },
-          isTyping: false,
-          isStreaming: false,
-          streamingConversationId: null,
+          ...createFailedChatRunState(),
           currentStage: 'failed',
           currentStageLabel: '本次执行失败',
-          requiresUserInput: false,
-          pendingQuestion: null,
-          runStatus: 'failed',
         }));
       },
     });
@@ -669,14 +606,9 @@ export const streamConversationMessage = async ({
           isLoaded: true,
         },
       },
-      isTyping: false,
-      isStreaming: false,
-      streamingConversationId: null,
+      ...createFailedChatRunState(),
       currentStage: 'failed',
       currentStageLabel: '本次执行失败',
-      requiresUserInput: false,
-      pendingQuestion: null,
-      runStatus: 'failed',
     }));
   }
 };

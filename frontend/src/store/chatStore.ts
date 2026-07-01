@@ -3,12 +3,19 @@ import type { ChatConversationDetailResponse, ChatStage } from '@/types';
 import { chatApi } from '@/api';
 import type { Conversation } from './chatNormalizers';
 import {
+  createConversationMap,
+  createConversationRecord,
+  removeConversationRecord,
+  updateConversationShareRecord,
+} from './chatConversationState';
+import {
   persistActiveChatId,
   persistSelectedModel,
   readStoredActiveId,
   readStoredModel,
   type SelectedChatModel,
 } from './chatPersistence';
+import { createIdleChatRunState, type ChatRunStatus } from './chatRunState';
 import {
   applyConversationDetailToState,
   resumeConversationStream,
@@ -25,7 +32,7 @@ interface ChatState {
   currentStageLabel: string | null;
   requiresUserInput: boolean;
   pendingQuestion: string | null;
-  runStatus: 'idle' | 'running' | 'waiting_user' | 'completed' | 'failed';
+  runStatus: ChatRunStatus;
   isRecovering: boolean;
   reconnectAttempts: number;
   lastHeartbeatAt: number | null;
@@ -50,17 +57,7 @@ export const useChatStore = create<ChatState>()((set, get) => {
   return {
     conversations: {},
     activeId: readStoredActiveId(),
-    isTyping: false,
-    isStreaming: false,
-    streamingConversationId: null,
-    currentStage: null,
-    currentStageLabel: null,
-    requiresUserInput: false,
-    pendingQuestion: null,
-    runStatus: 'idle',
-    isRecovering: false,
-    reconnectAttempts: 0,
-    lastHeartbeatAt: null,
+    ...createIdleChatRunState(),
     selectedModel: readStoredModel(),
 
     setSelectedModel: (model) => {
@@ -71,22 +68,7 @@ export const useChatStore = create<ChatState>()((set, get) => {
     loadConversations: async () => {
       try {
         const convs = await chatApi.getConversations();
-        const conversations: Record<number, Conversation> = {};
-
-        for (const conv of convs) {
-          conversations[conv.id] = {
-            id: conv.id,
-            title: conv.title,
-            messages: [],
-            steps: [],
-            activeRun: null,
-            createdAt: new Date(conv.created_at).getTime(),
-            updatedAt: new Date(conv.updated_at).getTime(),
-            isLoaded: false,
-            isShared: conv.is_shared,
-            shareToken: conv.share_token,
-          };
-        }
+        const conversations = createConversationMap(convs);
 
         const currentActiveId = get().activeId ?? readStoredActiveId();
         let nextActiveId = currentActiveId;
@@ -120,32 +102,13 @@ export const useChatStore = create<ChatState>()((set, get) => {
     createNewChat: async () => {
       try {
         const response = await chatApi.createConversation('New Conversation');
-        const newChat: Conversation = {
-          id: response.id,
-          title: response.title,
-          messages: [],
-          steps: [],
-          activeRun: null,
-          createdAt: new Date(response.created_at).getTime(),
-          updatedAt: new Date(response.updated_at).getTime(),
-          isLoaded: true,
-        };
+        const newChat = createConversationRecord(response);
 
         persistActiveChatId(response.id);
         set((state) => ({
           conversations: { ...state.conversations, [response.id]: newChat },
           activeId: response.id,
-          isTyping: false,
-          isStreaming: false,
-          streamingConversationId: null,
-          currentStage: null,
-          currentStageLabel: null,
-          requiresUserInput: false,
-          pendingQuestion: null,
-          runStatus: 'idle',
-          isRecovering: false,
-          reconnectAttempts: 0,
-          lastHeartbeatAt: null,
+          ...createIdleChatRunState(),
         }));
       } catch (error) {
         console.error('Failed to create conversation:', error);
@@ -156,17 +119,7 @@ export const useChatStore = create<ChatState>()((set, get) => {
       persistActiveChatId(id);
       set({
         activeId: id,
-        isTyping: false,
-        isStreaming: false,
-        streamingConversationId: null,
-        currentStage: null,
-        currentStageLabel: null,
-        requiresUserInput: false,
-        pendingQuestion: null,
-        runStatus: 'idle',
-        isRecovering: false,
-        reconnectAttempts: 0,
-        lastHeartbeatAt: null,
+        ...createIdleChatRunState(),
       });
 
       try {
@@ -190,8 +143,7 @@ export const useChatStore = create<ChatState>()((set, get) => {
       try {
         await chatApi.deleteConversation(id);
         set((state) => {
-          const nextConversations = { ...state.conversations };
-          delete nextConversations[id];
+          const nextConversations = removeConversationRecord(state.conversations, id);
           const nextActiveId = state.activeId === id ? null : state.activeId;
           persistActiveChatId(nextActiveId);
 
@@ -232,11 +184,7 @@ export const useChatStore = create<ChatState>()((set, get) => {
         return {
           conversations: {
             ...state.conversations,
-            [id]: {
-              ...conversation,
-              isShared,
-              shareToken,
-            },
+            [id]: updateConversationShareRecord(conversation, isShared, shareToken),
           },
         };
       });
@@ -265,11 +213,7 @@ export const useChatStore = create<ChatState>()((set, get) => {
             activeRun: null,
           },
         },
-        currentStage: null,
-        currentStageLabel: null,
-        requiresUserInput: false,
-        pendingQuestion: null,
-        runStatus: 'idle',
+        ...createIdleChatRunState(),
       }));
     },
   };

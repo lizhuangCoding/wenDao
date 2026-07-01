@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { Layout, ConfirmModal } from '@/components/common';
 import { AIProcessingHalo } from '@/components/chat/AgentMoodIndicator';
 import { AIChatHeader } from '@/components/chat/AIChatHeader';
@@ -9,18 +9,14 @@ import { ChatMessageList } from '@/components/chat/ChatMessageList';
 import { ChatQuestionNavigator } from '@/components/chat/ChatQuestionNavigator';
 import { ChatStageBanner } from '@/components/chat/ChatStageBanner';
 import { StarterPrompts } from '@/components/chat/StarterPrompts';
-import { useChatStore, useUIStore } from '@/store';
+import { useUIStore } from '@/store';
 import { useAuth } from '@/hooks';
 import { useProcessingTimer } from '@/hooks/useProcessingTimer';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowDown } from 'lucide-react';
-import { buildChatQuestionNavItems } from '@/utils/chatQuestionNavigator';
-import { selectFeaturedAgentStep } from '@/utils/agentMood';
-import type { ChatMessage } from '@/types';
 import { useAIChatPageState } from './useAIChatPageState';
-
-const EMPTY_CHAT_MESSAGES: ChatMessage[] = [];
+import { useAIChatRuntime } from './useAIChatRuntime';
 
 export const AIChat = () => {
   const { t } = useTranslation();
@@ -35,6 +31,10 @@ export const AIChat = () => {
   const {
     conversations,
     activeId,
+    activeChat,
+    activeChatTitle,
+    activeChatMessages,
+    messages,
     currentStage,
     isTyping,
     isStreaming,
@@ -43,6 +43,9 @@ export const AIChat = () => {
     pendingQuestion,
     runStatus,
     selectedModel,
+    questionNavItems,
+    questionAnchorByMessageId,
+    featuredAgentStep,
     loadConversations,
     sendMessage,
     createNewChat,
@@ -51,37 +54,14 @@ export const AIChat = () => {
     renameChat,
     updateConversationShare,
     setSelectedModel,
-  } = useChatStore();
+  } = useAIChatRuntime();
 
   useEffect(() => {
     loadConversations();
   }, [loadConversations]);
 
-  const activeChat = activeId ? conversations[activeId] : null;
-  const activeChatTitle = activeChat?.title ?? '';
-  const activeChatMessages = activeChat?.messages;
-  const messages = activeChatMessages ?? EMPTY_CHAT_MESSAGES;
   const isAssistantProcessing = runStatus === 'running';
   const { elapsedLabel: processingDurationLabel } = useProcessingTimer(isAssistantProcessing);
-  const questionNavItems = useMemo(() => buildChatQuestionNavItems(messages), [messages]);
-  const questionAnchorByMessageId = useMemo(
-    () => new Map(questionNavItems.map((item) => [item.messageId, item.anchorId])),
-    [questionNavItems]
-  );
-  const latestProcessSteps = useMemo(() => {
-    for (let index = messages.length - 1; index >= 0; index -= 1) {
-      const steps = messages[index].processSteps || [];
-      if (steps.length > 0) {
-        return steps;
-      }
-    }
-
-    return [];
-  }, [messages]);
-
-  const featuredAgentStep = useMemo(() => {
-    return selectFeaturedAgentStep(latestProcessSteps);
-  }, [latestProcessSteps]);
 
   const {
     activeMenuId,
